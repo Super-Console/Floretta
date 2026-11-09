@@ -2,6 +2,7 @@ import CoreGraphics
 import CoreText
 import Darwin
 import Foundation
+import ImageIO
 import FlorettaCore
 #if os(macOS)
 import AppKit
@@ -253,6 +254,44 @@ private final class POSIXFileReader: RandomAccessReader {
             _ = Darwin.close(fd)
             fd = -1
         }
+    }
+}
+
+/// Apple thumbnail adapter. Reads the spill file URL and downsamples with ImageIO.
+/// The source attachment is not passed in as `Data`.
+public struct ImageIOThumbnailDecoder: ThumbnailDecodingPort {
+    public init() {}
+
+    public func downsample(spill: URL, longestEdge: Int) throws -> Data {
+        let edge = longestEdge > 0 ? longestEdge : StreamingBudget.thumbnailLongestEdge
+        guard let source = CGImageSourceCreateWithURL(spill as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        let options: [CFString: Any] = [
+            kCGImageSourceThumbnailMaxPixelSize: edge,
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCache: false,
+        ]
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        let data = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(data, "public.png" as CFString, 1, nil) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        CGImageDestinationAddImage(destination, image, nil)
+        guard CGImageDestinationFinalize(destination) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        return data as Data
+    }
+
+    public static func image(from data: Data) -> CGImage? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary) else {
+            return nil
+        }
+        return CGImageSourceCreateImageAtIndex(source, 0, nil)
     }
 }
 

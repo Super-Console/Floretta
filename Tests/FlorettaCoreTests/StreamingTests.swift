@@ -113,7 +113,9 @@ final class StreamingTests: XCTestCase {
             appending: (source, hashed)
         )
         let after = residentBytes()
+        XCTAssertGreaterThan(files.maxRead, 0)
         XCTAssertLessThanOrEqual(files.maxRead, StreamingBudget.chunkBytes)
+        XCTAssertLessThan(files.maxRead * 4, StreamingBudget.writePeakBytes)
         XCTAssertGreaterThan(bytes, Int64(StreamingBudget.writePeakBytes))
         if before > 0, after > 0 {
             XCTAssertLessThan(after - before, Int64(StreamingBudget.writePeakBytes))
@@ -141,8 +143,13 @@ final class StreamingTests: XCTestCase {
         XCTAssertEqual(opened.package.document.title, "大包")
         XCTAssertEqual(opened.package.directory.attachments.count, 1)
         XCTAssertEqual(opened.package.directory.attachments[0].byteCount, payload)
+        let reference = try XCTUnwrap(opened.package.document.roots.first?.attachments.first)
+        XCTAssertEqual(reference.sha256, String(repeating: "ab", count: 32))
+        XCTAssertEqual(reference.byteCount, Int64(payload))
         XCTAssertFalse(opened.touchedPayload)
+        XCTAssertGreaterThan(opened.bytesRead, 0)
         XCTAssertLessThan(opened.bytesRead, 1_000_000)
+        XCTAssertLessThanOrEqual(opened.maxRead, StreamingBudget.chunkBytes)
         XCTAssertGreaterThan(range.count, 1_000_000)
         if before > 0, after > 0 {
             XCTAssertLessThan(after - before, Int64(StreamingBudget.openRamDeltaBytes))
@@ -185,6 +192,52 @@ final class StreamingTests: XCTestCase {
         XCTAssertFalse(cache.contains(older))
         XCTAssertTrue(cache.contains(newer))
         XCTAssertLessThanOrEqual(try cache.totalBytes(), 30)
+    }
+
+    func testSpillDecodeStoresThumbnailAndUnloadDropsMemory() throws {
+        let directory = try makeDirectory()
+        let source = directory.appendingPathComponent("photo.png")
+        let payload = Data("floretta-image-spill-bytes-are-longer-than-a-32-byte-digest".utf8)
+        try payload.write(to: source)
+        let files = POSIXStreamingFiles()
+        let hashed = try hash(source, files: files)
+        var document = sampleDocument(title: "缩略图")
+        document.roots[0].attachments = [try hashed.nodeAttachment()]
+        let archive = directory.appendingPathComponent("map.floretta")
+        let written = try FlorettaStreamingDocument.save(
+            document: document,
+            to: archive,
+            files: files,
+            appending: (source, hashed)
+        )
+        let entry = try XCTUnwrap(written.attachments.first)
+        let spill = directory.appendingPathComponent("spill", isDirectory: true)
+        let thumbs = directory.appendingPathComponent("thumbnails", isDirectory: true)
+        try FileManager.default.createDirectory(at: spill, withIntermediateDirectories: true)
+        let cache = ThumbnailFileCache(directory: thumbs, maxBytes: StreamingBudget.thumbnailCacheBytes)
+        let thumb = try ThumbnailPipeline.materialize(
+            entry: entry,
+            archiveURL: archive,
+            spillDirectory: spill,
+            cache: cache,
+            decoder: SpillFileDecoder(),
+            files: files
+        )
+        XCTAssertFalse(FileManager.default.fileExists(atPath: spill.appendingPathComponent(entry.sha256 ?? "").path))
+        XCTAssertEqual(try Data(contentsOf: cache.fileURL(for: entry.sha256 ?? "")), thumb)
+        XCTAssertEqual(thumb, try SpillFileDecoder().downsample(spill: source, longestEdge: StreamingBudget.thumbnailLongestEdge))
+        XCTAssertLessThan(thumb.count, payload.count)
+        XCTAssertLessThanOrEqual(files.maxRead, StreamingBudget.chunkBytes)
+
+        var memory = ThumbnailMemory()
+        let hash = try XCTUnwrap(entry.sha256)
+        memory.apply(visible: [hash, "other"]) { key in
+            key == hash ? thumb : Data("other-thumb".utf8)
+        }
+        XCTAssertEqual(Set(memory.images.keys), [hash, "other"])
+        memory.apply(visible: [hash]) { _ in nil }
+        XCTAssertEqual(Set(memory.images.keys), [hash])
+        XCTAssertNil(memory.images["other"])
     }
 
     func testThumbnailsUnloadOutsideTheViewport() {
@@ -284,7 +337,7 @@ final class StreamingTests: XCTestCase {
         return hashed
     }
 
-    private func openTracking(_ url: URL, files: POSIXStreamingFiles) throws -> (package: OpenedFloretta, touchedPayload: Bool, bytesRead: Int) {
+    private func openTracking(_ url: URL, files: POSIXStreamingFiles) throws -> (package: OpenedFloretta, touchedPayload: Bool, bytesRead: Int, maxRead: Int) {
         let reader = try files.openReader(at: url)
         guard let tracking = reader as? TrackingReader else {
             XCTFail("expected tracking reader")
@@ -299,8 +352,9 @@ final class StreamingTests: XCTestCase {
             payload.contains { range.overlaps($0) }
         }
         let total = tracking.total
+        let maxRead = tracking.maxRead
         try reader.close()
-        return (opened, touched, total)
+        return (opened, touched, total, maxRead)
     }
 
     private func sampleDocument(title: String) -> MindMapDocument {
@@ -351,7 +405,15 @@ final class StreamingTests: XCTestCase {
             title: "大包",
             createdAt: stamped,
             modifiedAt: stamped,
-            roots: [MindMapNode(text: "根")]
+            roots: [MindMapNode(
+                text: "根",
+                attachments: [NodeAttachment(
+                    sha256: String(repeating: "ab", count: 32),
+                    fileExtension: "bin",
+                    byteCount: Int64(payload),
+                    filename: "huge.bin"
+                )]
+            )]
         )
         let documentData = try FlorettaCodec.encode(document)
         let encoder = JSONEncoder()
@@ -457,6 +519,30 @@ final class StreamingTests: XCTestCase {
             offset += Int64(readA)
         }
         return true
+    }
+}
+
+private struct SpillFileDecoder: ThumbnailDecodingPort {
+    func downsample(spill: URL, longestEdge: Int) throws -> Data {
+        let reader = try POSIXReader(url: spill)
+        defer { try? reader.close() }
+        var sha = SHA256Streaming()
+        let pointer = UnsafeMutableRawPointer.allocate(byteCount: StreamingBudget.chunkBytes, alignment: 64)
+        defer { pointer.deallocate() }
+        var offset: Int64 = 0
+        while offset < reader.count {
+            let buffer = UnsafeMutableRawBufferPointer(start: pointer, count: StreamingBudget.chunkBytes)
+            let count = try reader.read(at: offset, into: buffer)
+            if count <= 0 { break }
+            sha.update(UnsafeRawBufferPointer(start: pointer, count: count))
+            offset += Int64(count)
+        }
+        var output = Data()
+        let edge = UInt16(longestEdge)
+        output.append(UInt8(edge & 0xFF))
+        output.append(UInt8((edge >> 8) & 0xFF))
+        output.append(contentsOf: sha.finalize())
+        return output
     }
 }
 

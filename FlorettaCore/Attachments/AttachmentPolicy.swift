@@ -12,6 +12,8 @@ public enum StreamingBudget {
     public static let thumbnailCacheBytes: Int64 = 200 * 1024 * 1024
     /// One reusable I/O block. Four of these still sit under the write peak.
     public static let chunkBytes = 1 * 1024 * 1024
+    /// Longest edge of a generated thumbnail. ImageIO and the test decoder both use this.
+    public static let thumbnailLongestEdge = 256
     /// Central directory plus the two JSON entries materialized while opening.
     public static let maxMaterializedOpenBytes = 40 * 1024 * 1024
 }
@@ -317,7 +319,79 @@ public enum AttachmentDirectory {
 }
 
 /// Disk cache of thumbnail files. Bytes on disk stay ≤ `maxBytes` by dropping the least recently used.
-public struct ThumbnailFileCache {
+/// Reads a spill file that was streamed to disk and returns thumbnail bytes.
+/// The Apple adapter is `ImageIOThumbnailDecoder` (CGImageSource, longest edge 256).
+public protocol ThumbnailDecodingPort: Sendable {
+    func downsample(spill: URL, longestEdge: Int) throws -> Data
+}
+
+/// In-memory thumbnails. `apply` drops every hash that left the viewport.
+public struct ThumbnailMemory: Equatable, Sendable {
+    public private(set) var images: [String: Data]
+
+    public init() {
+        images = [:]
+    }
+
+    public mutating func apply(visible: Set<String>, resolve: (String) -> Data?) {
+        let keep = ThumbnailResidence.retained(loaded: Set(images.keys), visible: visible)
+        images = images.filter { keep.contains($0.key) }
+        for hash in visible where images[hash] == nil {
+            if let data = resolve(hash), !data.isEmpty {
+                images[hash] = data
+            }
+        }
+    }
+
+    public mutating func remember(_ data: Data, for hash: String, visible: Set<String>) {
+        guard visible.contains(hash), !data.isEmpty else { return }
+        images[hash] = data
+    }
+}
+
+public enum ThumbnailPipeline {
+    /// Stream `entry` to `spillDirectory/<sha256>`, downsample from that file, store in `cache`, delete the spill.
+    @discardableResult
+    public static func materialize(
+        entry: ZipStoredEntry,
+        archiveURL: URL,
+        spillDirectory: URL,
+        cache: ThumbnailFileCache,
+        decoder: any ThumbnailDecodingPort,
+        files: any StreamingFilePort
+    ) throws -> Data {
+        guard entry.method == 0 else {
+            throw DocumentContainerError.corrupt("Attachment \(entry.name) is compressed.")
+        }
+        guard let hash = entry.sha256 else {
+            throw DocumentContainerError.corrupt("Attachment \(entry.name) is not assets/<sha256>.<ext>.")
+        }
+        let spill = spillDirectory.appendingPathComponent(hash, isDirectory: false)
+        let reader = try files.openReader(at: archiveURL)
+        let writer = try files.openWriter(at: spill)
+        do {
+            try FlorettaStreamingDocument.exportAttachment(entry, from: reader, to: writer)
+            try writer.close()
+            try reader.close()
+        } catch {
+            try? writer.close()
+            try? reader.close()
+            try? files.remove(at: spill)
+            throw error
+        }
+        do {
+            let thumbnail = try decoder.downsample(spill: spill, longestEdge: StreamingBudget.thumbnailLongestEdge)
+            try cache.store(thumbnail, for: hash)
+            try? files.remove(at: spill)
+            return thumbnail
+        } catch {
+            try? files.remove(at: spill)
+            throw error
+        }
+    }
+}
+
+public struct ThumbnailFileCache: Sendable {
     public let directory: URL
     public var maxBytes: Int64
 

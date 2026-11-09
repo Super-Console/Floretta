@@ -71,13 +71,19 @@
 
 ## 缩略图
 
-磁盘目录：`Application Support/Floretta/Attachments/thumbnails/`。单张来自 ImageIO 的降采样（最长边 256），不是原图。
+磁盘目录：`Application Support/Floretta/Attachments/thumbnails/`。最长边 `StreamingBudget.thumbnailLongestEdge`（256）。这是降采样后的小图，不是原图。
 
-生命周期：
+流水线是 `ThumbnailPipeline.materialize`：
 
-1. 节点矩形与视口不相交：不解码。内存里已有的图卸掉（`ThumbnailResidence.retained` 只留可见 hash）。
-2. 进入视口：先查磁盘。命中则把小图读进内存，并更新 LRU 时间。
-3. 未命中且扩展名是图片：把 ZIP 条目按块写到 `Attachments/spill/<sha256>`（不把正文留在 RAM），再用文件 URL 做缩略图，写入磁盘缓存，删掉 spill。滚出视口之后这次结果只留在磁盘。
+1. `FlorettaStreamingDocument.exportAttachment` 把 ZIP 条目按块写到 `Attachments/spill/<sha256>`。附件正文不进一个 `Data`。
+2. `ThumbnailDecodingPort.downsample(spill:longestEdge:)` 只打开这个 spill 文件。Apple 适配器是 `ImageIOThumbnailDecoder`：`CGImageSourceCreateWithURL` + `kCGImageSourceThumbnailMaxPixelSize`，再写成 PNG。
+3. PNG 写入 `ThumbnailFileCache`（LRU）。然后删掉 spill。
+
+视口是 `AttachmentThumbnailMemory`，内部用 `ThumbnailMemory`：
+
+1. 节点矩形与视口不相交：不解码。已在内存里的 `CGImage` 卸掉。磁盘上的缩略图还在。
+2. 进入视口：磁盘命中则把小 PNG 读成 `CGImage` 并画在节点上。
+3. 未命中且扩展名是图片：走上面的 spill → ImageIO → 磁盘缓存。生成过程中若节点已经滚出视口，结果只留在磁盘，不放进内存。
 4. 非图片：不生成缩略图。节点上仍显示大小。
 
 LRU：`ThumbnailDiskBudget.victims` 按 `lastUsed` 从旧到新丢弃，直到 `≤ thumbnailCacheBytes`（200MB）。新的一张若本身大于上限，拒绝写入缓存，不把缓存撑破。

@@ -49,7 +49,7 @@ sha256 只用来去重和校验完整性（容器路径 `assets/<sha256>.<ext>`�
 
 打开文档只读 ZIP 中央目录和 `document.json` / `metadata.json`，不读附件正文。
 
-缩略图懒加载，磁盘缓存 ≤ 200MB（LRU），滚出视口就卸掉内存中的图。生成缩略图时正文只按块落到被排除备份的 spill 文件，不留在 RAM。
+缩略图懒加载。进入视口才把附件按块写到 spill，由 `ImageIOThumbnailDecoder`（ImageIO，最长边 256）做成小图，放进磁盘缓存（≤ 200MB，LRU），并画在节点上。滚出视口就卸掉内存里的图，磁盘缓存留着。spill 用完即删。正文不留在 RAM。
 
 `Application Support/Floretta/Attachments` 排除 iCloud / 设备备份，避免备份被缩略图和 spill 撑大。用户自己的 `.floretta` 不在这个排除范围内。
 

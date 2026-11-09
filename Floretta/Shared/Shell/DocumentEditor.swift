@@ -202,7 +202,12 @@ struct DocumentEditor: View {
                 onEscape: { session.handleEscape() },
                 onConsumeBlankDoubleTap: { session.consumeBlankDoubleTap() },
                 thumbnails: thumbnails,
-                thumbnailCache: thumbnailCache
+                thumbnailCache: thumbnailCache,
+                attachmentArchive: session.url,
+                spillDirectory: thumbnailCache?.directory
+                    .deletingLastPathComponent()
+                    .appendingPathComponent("spill", isDirectory: true),
+                attachmentEntries: session.attachmentCatalog.attachments
             )
             .ignoresSafeArea()
             if showOutline, session.zen.chrome.showsSidebar {

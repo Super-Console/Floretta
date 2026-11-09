@@ -182,4 +182,77 @@ final class CanvasTests: XCTestCase {
         XCTAssertTrue(zoomedOut.coversView(wide))
         XCTAssertEqual(zoomedOut.step, 16, accuracy: 0.001)
     }
+
+    func testDetailDropsTextWhenZoomedOutAndKeepsFullStyleAtFourHundredPercent() {
+        XCTAssertEqual(CanvasDetail.level(scale: 0.5, onScreenHeight: 6), .far)
+        XCTAssertEqual(CanvasDetail.level(scale: 0.5, onScreenHeight: 20), .mid)
+        XCTAssertFalse(CanvasDetail.far.drawsText)
+        XCTAssertFalse(CanvasDetail.far.drawsShadow)
+        XCTAssertFalse(CanvasDetail.far.drawsSelectionHandles)
+        XCTAssertTrue(CanvasDetail.mid.drawsText)
+        XCTAssertFalse(CanvasDetail.mid.drawsShadow)
+        XCTAssertFalse(CanvasDetail.mid.drawsFineBorder)
+        XCTAssertEqual(CanvasDetail.level(scale: 1, onScreenHeight: 24), .near)
+        XCTAssertEqual(CanvasDetail.level(scale: 4, onScreenHeight: 40), .near)
+        XCTAssertTrue(CanvasDetail.near.drawsText)
+        XCTAssertTrue(CanvasDetail.near.drawsShadow)
+        XCTAssertTrue(CanvasDetail.near.drawsFineBorder)
+        XCTAssertTrue(CanvasDetail.near.drawsSelectionHandles)
+    }
+
+    func testViewportCullingUsesSwiftFlowIntersectionAndDropsOffscreenNodes() {
+        var viewport = CanvasViewport()
+        viewport.flow = Viewport(x: 0, y: 0, zoom: 4)
+        let visible = viewport.canvasRect(in: CGSize(width: 800, height: 600))
+        XCTAssertEqual(visible.width, 200, accuracy: 0.001)
+        XCTAssertEqual(visible.height, 150, accuracy: 0.001)
+
+        let onScreen = sampleFrame(id: UUID(), origin: CGPoint(x: 20, y: 20))
+        let offScreen = sampleFrame(id: UUID(), origin: CGPoint(x: 5_000, y: 5_000))
+        var many: [NodeFrame] = [onScreen, offScreen]
+        for index in 0..<998 {
+            many.append(sampleFrame(id: UUID(), origin: CGPoint(x: 10_000 + CGFloat(index), y: 10_000)))
+        }
+        XCTAssertEqual(many.count, 1000)
+        let drawn = CanvasPlacement.frames(many, intersectingCanvas: visible.insetBy(dx: -48, dy: -48))
+        XCTAssertEqual(drawn.map(\.id), [onScreen.id])
+        XCTAssertLessThan(drawn.count, 50)
+
+        let long = LinkCurve(
+            start: CGPoint(x: 0, y: 0),
+            control1: CGPoint(x: 400, y: 0),
+            control2: CGPoint(x: 800, y: 0),
+            end: CGPoint(x: 900, y: 0),
+            lineWidth: 1.5,
+            color: .black
+        )
+        XCTAssertTrue(CanvasDrawPolicy.useStraightLink(nodeCount: 10, link: long))
+        let short = LinkCurve(
+            start: .zero,
+            control1: CGPoint(x: 40, y: 10),
+            control2: CGPoint(x: 80, y: 10),
+            end: CGPoint(x: 120, y: 0),
+            lineWidth: 1.5,
+            color: .black
+        )
+        XCTAssertFalse(CanvasDrawPolicy.useStraightLink(nodeCount: 12, link: short))
+        XCTAssertTrue(CanvasDrawPolicy.useStraightLink(nodeCount: 1000, link: short))
+    }
+
+    private func sampleFrame(id: UUID, origin: CGPoint) -> NodeFrame {
+        NodeFrame(
+            id: id,
+            text: "n",
+            origin: origin,
+            size: CGSize(width: 36, height: 22),
+            depth: 0,
+            fontSize: 16,
+            isRoot: true,
+            parentID: nil,
+            fill: .white,
+            border: .black,
+            textColor: .black,
+            cornerRadius: 8
+        )
+    }
 }

@@ -19,6 +19,7 @@ struct InfiniteCanvas: View {
     var onConsumeBlankDoubleTap: () -> Bool = { false }
     @State private var compositionWidth: CGFloat = 0
     @State private var dotTiles = DotTileCache()
+    @State private var laidOut = LaidOutFrames()
     @Environment(\.colorScheme) private var colorScheme
     @FocusState private var canvasFocused: Bool
 
@@ -171,7 +172,7 @@ struct InfiniteCanvas: View {
     }
 
     private func placedFrames() -> [NodeFrame] {
-        CanvasPlacement.nodes(in: layoutSource())
+        laidOut.frames(for: layoutSource())
     }
 
     @discardableResult
@@ -256,40 +257,70 @@ struct InfiniteCanvas: View {
     private func draw(in context: GraphicsContext, size: CGSize) {
         drawGrid(in: context, size: size)
         let placed = placedFrames()
-        for node in placed {
+        let viewport = camera.viewport.canvasRect(in: size).insetBy(dx: -48, dy: -48)
+        let visible = CanvasPlacement.frames(placed, intersectingCanvas: viewport)
+        let linkIDs = CanvasPlacement.nodeIDsWithVisibleLinks(placed, viewport: viewport)
+        let scale = camera.viewport.scale
+        for node in placed where linkIDs.contains(node.id) {
             guard let link = node.link else { continue }
-            var curve = Path()
-            curve.move(to: camera.viewport.viewPoint(fromCanvas: link.start))
-            curve.addCurve(
-                to: camera.viewport.viewPoint(fromCanvas: link.end),
+            stroke(
+                link,
+                straight: CanvasDrawPolicy.useStraightLink(nodeCount: placed.count, link: link),
+                in: context
+            )
+        }
+        for node in visible {
+            let onScreen = min(node.size.width, node.size.height) * scale
+            draw(node, detail: CanvasDetail.level(scale: scale, onScreenHeight: onScreen), in: context)
+        }
+    }
+
+    private func stroke(_ link: LinkCurve, straight: Bool, in context: GraphicsContext) {
+        var path = Path()
+        let start = camera.viewport.viewPoint(fromCanvas: link.start)
+        let end = camera.viewport.viewPoint(fromCanvas: link.end)
+        path.move(to: start)
+        if straight {
+            path.addLine(to: end)
+        } else {
+            path.addCurve(
+                to: end,
                 control1: camera.viewport.viewPoint(fromCanvas: link.control1),
                 control2: camera.viewport.viewPoint(fromCanvas: link.control2)
             )
-            context.stroke(
-                curve,
-                with: .color(color(link.color)),
-                lineWidth: link.lineWidth
-            )
         }
-        for node in placed {
-            let rect = camera.viewport.viewRect(fromCanvas: node.frame)
-            let path = Path(roundedRect: rect, cornerRadius: node.cornerRadius)
-            if !node.hidesFill {
+        context.stroke(path, with: .color(color(link.color)), lineWidth: link.lineWidth)
+    }
+
+    private func draw(_ node: NodeFrame, detail: CanvasDetail, in context: GraphicsContext) {
+        let rect = camera.viewport.viewRect(fromCanvas: node.frame)
+        let path = Path(roundedRect: rect, cornerRadius: detail == .far ? min(node.cornerRadius, 4) : node.cornerRadius)
+        let selected = interaction.selectedNodeID == node.id
+        if !node.hidesFill {
+            if detail.drawsShadow {
+                var shadowed = context
+                shadowed.addFilter(.shadow(color: .black.opacity(0.22), radius: 3, x: 0, y: 1.5))
+                shadowed.fill(path, with: .color(color(node.fill)))
+            } else {
                 context.fill(path, with: .color(color(node.fill)))
             }
-            let selected = interaction.selectedNodeID == node.id
-            let border = selected ? interaction.selectionBorder : node.border
-            let width = selected ? interaction.selectionBorderWidth : node.borderWidth
-            if width > 0 {
-                context.stroke(path, with: .color(color(border)), lineWidth: width)
-            }
-            if selected && interaction.showsSelectionChrome {
-                drawHandles(around: rect, in: context)
-            }
-            context.draw(
-                styledText(node),
-                in: rect.insetBy(dx: 10, dy: 6)
+        }
+        if detail != .far, selected {
+            context.stroke(
+                path,
+                with: .color(color(interaction.selectionBorder)),
+                lineWidth: interaction.selectionBorderWidth
             )
+        } else if detail.drawsFineBorder || (detail == .mid && node.borderWidth >= 2.5) {
+            if node.borderWidth > 0 {
+                context.stroke(path, with: .color(color(node.border)), lineWidth: node.borderWidth)
+            }
+        }
+        if selected, detail.drawsSelectionHandles {
+            drawHandles(around: rect, in: context)
+        }
+        if detail.drawsText {
+            context.draw(styledText(node), in: rect.insetBy(dx: 10, dy: 6))
         }
     }
 
@@ -331,7 +362,7 @@ struct InfiniteCanvas: View {
         Color(red: value.red, green: value.green, blue: value.blue)
     }
 
-    /// One tiled fill. Spacing is world-locked (`32` canvas units); cost does not grow with zoom.
+    /// One pattern fill of a step×step dot tile. No per-dot loop and no count cap.
     private func drawGrid(in context: GraphicsContext, size: CGSize) {
         guard let layout = DotLatticeLayout.make(
             offset: camera.viewport.offset,
@@ -339,11 +370,9 @@ struct InfiniteCanvas: View {
             viewSize: size
         ) else { return }
         let tile = dotTiles.image(step: layout.step, scheme: colorScheme)
-        var tiled = context
-        tiled.translateBy(x: layout.tileOrigin.x, y: layout.tileOrigin.y)
-        tiled.fill(
-            Path(layout.fillRectInTileSpace),
-            with: .style(ImagePaint(image: tile, scale: 1))
+        context.fill(
+            Path(CGRect(origin: .zero, size: size)),
+            with: .tiledImage(tile, origin: layout.tileOrigin, scale: 1)
         )
     }
 
@@ -491,6 +520,20 @@ private enum DotTileImage {
         let inset = (CGFloat(pixels) - dot) / 2
         context.fillEllipse(in: CGRect(x: inset, y: inset, width: dot, height: dot))
         return context.makeImage()
+    }
+}
+
+/// Keeps the last layout so pan and zoom do not measure every node again.
+@MainActor
+final class LaidOutFrames {
+    private var source: MindMapDocument?
+    private var cached: [NodeFrame] = []
+
+    func frames(for document: MindMapDocument) -> [NodeFrame] {
+        if let source, source == document { return cached }
+        cached = CanvasPlacement.nodes(in: document)
+        source = document
+        return cached
     }
 }
 

@@ -556,8 +556,12 @@ final class CanvasCamera {
     }
 
     func resetZoom() {
+        zoom(to: .oneHundred)
+    }
+
+    func zoom(to stop: ZoomStop) {
         var updated = viewport
-        updated.zoom(to: ZoomStop.oneHundred.scale, around: center)
+        updated.zoom(to: stop.scale, around: center)
         viewport = updated
         chrome.syncZoomPercent(toScale: viewport.scale)
     }

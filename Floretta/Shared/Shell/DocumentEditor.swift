@@ -9,9 +9,10 @@ import UIKit
 
 struct DocumentEditor: View {
     @Bindable var session: EditorSession
-    var settings: AppSettings
+    @Bindable var settings: AppSettings
     var onClose: () -> Void
     var onEdit: (MindMapDocument) -> Void
+    var onImport: () -> Void
 
     @State private var showExport = false
     @State private var exportFile = ExportFile(data: Data())
@@ -26,23 +27,12 @@ struct DocumentEditor: View {
     @State private var showFind = false
     @State private var findQuery = ""
     @State private var inspectorTab = 0
+    @State private var showEditorSettings = false
+    @State private var showAbout = false
     @State private var camera = CanvasCamera()
 
     var body: some View {
         canvasStack
-            .overlay(alignment: .top) {
-                if session.zen.chrome.showsToolbar {
-                    #if os(iOS)
-                    centerCapsule
-                        .padding(.top, 8)
-                    #endif
-                }
-            }
-            .overlay(alignment: .bottomLeading) {
-                if session.zen.chrome.showsToolbar {
-                    outlineToggle
-                }
-            }
             .overlay(alignment: .topTrailing) {
                 if session.zen.isActive {
                     immersiveExit
@@ -67,24 +57,26 @@ struct DocumentEditor: View {
                             Button(action: onClose) {
                                 Image(systemName: "chevron.backward")
                             }
-                            .accessibilityLabel("返回")
-                            fileMenu
+                            .explained("返回导图列表")
+                            Button(action: beginRename) {
+                                Text(documentTitle)
+                                    .lineLimit(1)
+                            }
+                            .explained("为这份导图重新命名")
                         }
                     }
-                    #if os(macOS)
                     ToolbarItemGroup(placement: .principal) {
-                        canvasCommands
+                        Button("撤销") { session.undo() }
+                            .explained("撤销上一步编辑")
+                        Button("重做") { session.redo() }
+                            .explained("恢复刚刚撤销的编辑")
                     }
-                    #endif
                     ToolbarItemGroup(placement: .primaryAction) {
+                        insertMenu
                         shareMenu
-                        Button {
-                            showInspector.toggle()
-                        } label: {
-                            Image(systemName: "paintbrush")
-                        }
-                        .accessibilityLabel("样式")
                         zoomMenu
+                        Button(CanvasMenus.immersive) { session.enterZen() }
+                            .explained("进入全屏沉浸模式，暂时只留下导图")
                         moreMenu
                     }
                 }
@@ -112,6 +104,7 @@ struct DocumentEditor: View {
             .contextMenu {
                 ForEach(CanvasMenus.text, id: \.self) { item in
                     Button(item) { runTextCommand(item) }
+                        .explained(textHelp(item))
                         .disabled(CanvasMenus.textDisabled.contains(item))
                 }
             }
@@ -133,6 +126,12 @@ struct DocumentEditor: View {
                     if !title.isEmpty { session.document.title = title }
                 }
                 Button("取消", role: .cancel) {}
+            }
+            .sheet(isPresented: $showEditorSettings) {
+                SettingsView(settings: settings)
+            }
+            .sheet(isPresented: $showAbout) {
+                AboutSheet()
             }
             .alert("查找", isPresented: $showFind) {
                 TextField("文字", text: $findQuery)
@@ -178,42 +177,26 @@ struct DocumentEditor: View {
                 } label: {
                     Image(systemName: "arrow.up.left.and.arrow.down.right")
                 }
+                .explained("让大纲占满或恢复原来的宽度")
                 Button {
                     showOutline = false
                 } label: {
                     Image(systemName: "xmark")
                 }
+                .explained("关闭大纲")
             }
             .padding(12)
             OutlineView(document: $session.document, keyboard: $session.keyboard)
         }
     }
 
-    private var canvasCommands: some View {
-        HStack(spacing: 4) {
-            Button { session.undo() } label: { Image(systemName: "arrow.uturn.backward") }
-                .accessibilityLabel("撤销")
-            Button { showOutline.toggle() } label: { Image(systemName: "list.bullet") }
-                .accessibilityLabel("大纲")
-            Button { pasteFromClipboard() } label: { Image(systemName: "doc.on.clipboard") }
-                .accessibilityLabel("粘贴")
-            Button { session.addChildFromToolbar() } label: { Image(systemName: "plus") }
-                .accessibilityLabel("新建")
-        }
-        .buttonStyle(.borderless)
+    private var documentTitle: String {
+        session.document.title.isEmpty ? "未命名" : session.document.title
     }
 
-    private var outlineToggle: some View {
-        Button {
-            showOutline.toggle()
-        } label: {
-            Image(systemName: "list.bullet")
-        }
-        .buttonStyle(.plain)
-        .padding(10)
-        .background { Circle().fill(.ultraThinMaterial) }
-        .accessibilityLabel("大纲")
-        .padding(16)
+    private func beginRename() {
+        renameText = session.document.title
+        showRename = true
     }
 
     private var immersiveExit: some View {
@@ -225,87 +208,93 @@ struct DocumentEditor: View {
         .buttonStyle(.plain)
         .padding(10)
         .background { Circle().fill(.ultraThinMaterial) }
-        .accessibilityLabel("退出沉浸模式")
+        .explained("退出沉浸模式，恢复工具栏")
+    }
+
+    private var insertMenu: some View {
+        Menu {
+            Button("子节点") { session.addChildFromToolbar() }
+                .explained("在选中的节点下新建一个子节点")
+            Button("同级") { session.addSiblingFromToolbar() }
+                .explained("在选中的节点旁新建一个同级节点")
+            Button("从文件导入") { onImport() }
+                .explained("从文件打开另一份导图")
+        } label: {
+            Text("插入")
+        }
+        .explained("插入子节点、同级节点，或从文件导入")
     }
 
     private var zoomMenu: some View {
         Menu {
-            Button("缩小") { camera.stepZoom(-1) }
-            Button("放大") { camera.stepZoom(1) }
-            Button("100%") { camera.resetZoom() }
+            ForEach(ZoomStop.allCases, id: \.self) { stop in
+                Button("\(stop.percent)%") { camera.zoom(to: stop) }
+                    .explained("把画布缩放到 \(stop.percent)%")
+            }
+            Button("适应窗口") { camera.fitToContent() }
+                .explained("让整张导图缩进窗口里")
+                .keyboardShortcut("0", modifiers: .command)
         } label: {
             Text("\(camera.chrome.zoomPercent)%")
                 .monospacedDigit()
         }
-        .accessibilityLabel("缩放")
-    }
-
-    private var centerCapsule: some View {
-        canvasCommands
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background { Capsule().fill(.ultraThinMaterial) }
-    }
-
-    private var fileMenu: some View {
-        Menu {
-            Section {
-                Button("重新命名") {
-                    renameText = session.document.title
-                    showRename = true
-                }
-                Menu("导出") {
-                    ForEach(CanvasMenus.export, id: \.self) { kind in
-                        Button(exportTitle(kind)) { export(kind) }
-                    }
-                }
-                Button("保存至") { export("floretta") }
-                #if os(macOS)
-                Button("打印") { printMap() }
-                #endif
-            } header: {
-                Text(fileHeader)
-            }
-        } label: {
-            HStack(spacing: 4) {
-                Text(session.document.title.isEmpty ? "未命名" : session.document.title)
-                Image(systemName: "chevron.down")
-            }
-        }
+        .explained("选择缩放比例，或让导图适应窗口")
     }
 
     private var shareMenu: some View {
         Menu {
-            Menu("导出") {
-                ForEach(CanvasMenus.export, id: \.self) { kind in
-                    Button(exportTitle(kind)) { export(kind) }
-                }
-            }
-            Button("保存至") { export("floretta") }
+            Button("PDF") { export("pdf") }
+                .explained("把这份导图导出为 PDF")
+            Button("PNG") { export("png") }
+                .explained("把这份导图导出为 PNG 图片")
+            Button("Markdown") { export("md") }
+                .explained("把这份导图导出为 Markdown")
+            Button("保存为 Floretta") { export("floretta") }
+                .explained("把这份导图保存为 Floretta 文件")
+            Button(".mm") { export("mm") }
+                .explained("把这份导图导出为 FreeMind .mm")
+            Button("OPML") { export("opml") }
+                .explained("把这份导图导出为 OPML")
+            #if os(macOS)
+            Button("打印") { printMap() }
+                .explained("打印这份导图")
+            #endif
         } label: {
-            Image(systemName: "square.and.arrow.up")
+            Text("分享")
         }
-        .accessibilityLabel("分享")
+        .explained("把导图导出为 PDF、PNG、Markdown，或保存为已支持的文件")
     }
 
     private var moreMenu: some View {
         Menu {
+            Button("大纲") { showOutline.toggle() }
+                .explained("打开或关闭左侧大纲")
+            Button("样式") { showInspector.toggle() }
+                .explained("打开样式检查器，修改选中节点的外观")
             Menu("查看模式") {
                 Button("地图模式") { session.viewMode = .map }
+                    .explained("用整张地图查看导图")
                 Button("聚焦模式") { session.viewMode = .focus }
+                    .explained("只看当前选中的这一支")
             }
+            .explained("在地图模式和聚焦模式之间切换")
             Button("新建画布") { session.addCanvas() }
-            Button("沉浸模式") { session.enterZen() }
+                .explained("在这份导图里再加一个中心主题")
             Button("查找") {
                 findQuery = ""
                 showFind = true
             }
-            Button("适合窗口") { camera.fitToContent() }
-                .keyboardShortcut("0", modifiers: .command)
+            .explained("按文字查找节点")
+            Button("粘贴") { pasteFromClipboard() }
+                .explained("把剪贴板里的文字粘成子节点")
+            Button("更多设置") { showEditorSettings = true }
+                .explained("打开语言、外观和导出设置")
+            Button("关于") { showAbout = true }
+                .explained("查看版本号和开源致谢")
         } label: {
-            Image(systemName: "ellipsis")
+            Text("更多")
         }
-        .accessibilityLabel("更多")
+        .explained("大纲、样式、设置和关于")
     }
 
     private var inspectorPresented: Binding<Bool> {
@@ -342,26 +331,6 @@ struct DocumentEditor: View {
             get: { exportError != nil },
             set: { if !$0 { exportError = nil } }
         )
-    }
-
-    private var fileHeader: String {
-        let title = session.document.title.isEmpty ? "未命名" : session.document.title
-        let bytes = session.url.flatMap { try? Data(contentsOf: $0).count } ?? 0
-        let kilobytes = max(bytes, 1) / 1024
-        let size = bytes < 1024 ? "\(max(bytes, 1)) B" : "\(max(kilobytes, 1)) KB"
-        return "\(title) · Floretta 文件 · \(size)"
-    }
-
-    private func exportTitle(_ kind: String) -> String {
-        switch kind {
-        case "floretta": return ".floretta"
-        case "png": return "PNG"
-        case "pdf": return "PDF"
-        case "md": return "Markdown"
-        case "opml": return "OPML"
-        case "mm": return ".mm"
-        default: return kind
-        }
     }
 
     private func export(_ kind: String) {
@@ -418,6 +387,17 @@ struct DocumentEditor: View {
         let text = UIPasteboard.general.string ?? ""
         #endif
         session.pasteClipboard(text)
+    }
+
+    private func textHelp(_ item: String) -> String {
+        switch item {
+        case "剪切": return "剪下选中节点的文字"
+        case "拷贝": return "复制选中节点的文字"
+        case "粘贴": return "把剪贴板里的文字粘成子节点"
+        case "全选": return "选中当前节点里的全部文字"
+        case "拷贝样式": return "复制选中节点的填充颜色"
+        default: return item
+        }
     }
 
     private func runTextCommand(_ item: String) {
@@ -723,6 +703,30 @@ struct ExportFile: FileDocument {
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
         FileWrapper(regularFileWithContents: data)
+    }
+}
+
+private struct AboutSheet: View {
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("版本 \(AppInfo.version)")
+                        .font(.headline)
+                    Text(AppInfo.notice)
+                        .textSelection(.enabled)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+            }
+            .navigationTitle("关于")
+        }
+    }
+}
+
+private extension View {
+    func explained(_ sentence: String) -> some View {
+        help(sentence).accessibilityLabel(sentence)
     }
 }
 

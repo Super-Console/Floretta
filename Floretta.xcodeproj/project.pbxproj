@@ -13,16 +13,7 @@
 		C10000000000000000000004 /* FlorettaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000001 /* FlorettaApp.swift */; };
 		C10000000000000000000005 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000002 /* ContentView.swift */; };
 		C10000000000000000000006 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000005 /* Assets.xcassets */; };
-		C91000000000000000000001 /* FlorettaMMCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = F91000000000000000000001 /* FlorettaMMCodec.swift */; };
-		C91000000000000000000002 /* FlorettaMMCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = F91000000000000000000001 /* FlorettaMMCodec.swift */; };
-		C91000000000000000000003 /* FlorettaMMCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = F91000000000000000000001 /* FlorettaMMCodec.swift */; };
 		C91000000000000000000004 /* MMTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F91000000000000000000002 /* MMTests.swift */; };
-		C92000000000000000000001 /* FlorettaOPMLCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = F92000000000000000000001 /* FlorettaOPMLCodec.swift */; };
-		C92000000000000000000002 /* FlorettaMarkdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = F92000000000000000000002 /* FlorettaMarkdown.swift */; };
-		C92000000000000000000003 /* FlorettaOPMLCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = F92000000000000000000001 /* FlorettaOPMLCodec.swift */; };
-		C92000000000000000000004 /* FlorettaMarkdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = F92000000000000000000002 /* FlorettaMarkdown.swift */; };
-		C92000000000000000000005 /* FlorettaOPMLCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = F92000000000000000000001 /* FlorettaOPMLCodec.swift */; };
-		C92000000000000000000006 /* FlorettaMarkdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = F92000000000000000000002 /* FlorettaMarkdown.swift */; };
 		C92000000000000000000007 /* OPMLMarkdownTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F92000000000000000000003 /* OPMLMarkdownTests.swift */; };
 		C20000000000000000000001 /* MindMapDocumentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000C /* MindMapDocumentTests.swift */; };
 		C30000000000000000000001 /* AutosaveStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* AutosaveStore.swift */; };
@@ -126,11 +117,8 @@
 		F10000000000000000000006 /* Floretta-macOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Floretta-macOS.entitlements"; sourceTree = "<group>"; };
 		F10000000000000000000007 /* Floretta-macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Floretta-macOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		F10000000000000000000008 /* Floretta-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Floretta-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		F91000000000000000000001 /* FlorettaMMCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlorettaMMCodec.swift; sourceTree = "<group>"; };
-		F91000000000000000000002 /* MMTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMTests.swift; sourceTree = "<group>"; };
-		F92000000000000000000001 /* FlorettaOPMLCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlorettaOPMLCodec.swift; sourceTree = "<group>"; };
-		F92000000000000000000002 /* FlorettaMarkdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlorettaMarkdown.swift; sourceTree = "<group>"; };
-		F92000000000000000000003 /* OPMLMarkdownTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OPMLMarkdownTests.swift; sourceTree = "<group>"; };
+		F91000000000000000000002 /* MMTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MMTests.swift; path = Tests/FlorettaCoreTests/MMTests.swift; sourceTree = SOURCE_ROOT; };
+		F92000000000000000000003 /* OPMLMarkdownTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OPMLMarkdownTests.swift; path = Tests/FlorettaCoreTests/OPMLMarkdownTests.swift; sourceTree = SOURCE_ROOT; };
 		F1000000000000000000000C /* MindMapDocumentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MindMapDocumentTests.swift; path = Tests/FlorettaCoreTests/MindMapDocumentTests.swift; sourceTree = SOURCE_ROOT; };
 		F1000000000000000000000D /* FlorettaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FlorettaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F20000000000000000000001 /* AutosaveStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutosaveStore.swift; sourceTree = "<group>"; };
@@ -209,6 +197,8 @@
 				A10000000000000000000003 /* Floretta */,
 				F1000000000000000000000C /* MindMapDocumentTests.swift */,
 			F50000000000000000000004 /* ContainerTests.swift */,
+			F91000000000000000000002 /* MMTests.swift */,
+			F92000000000000000000003 /* OPMLMarkdownTests.swift */,
 				A10000000000000000000008 /* FlorettaTests */,
 				A10000000000000000000002 /* Products */,
 			);
@@ -245,19 +235,8 @@
 				A90000000000000000000001 /* Outline */,
 				AB1000000000000000000001 /* Ports */,
 				AA1000000000000000000001 /* Shell */,
-				A10000000000000000000007 /* Model */,
 			);
 			path = Shared;
-			sourceTree = "<group>";
-		};
-		A10000000000000000000007 /* Model */ = {
-			isa = PBXGroup;
-			children = (
-				F91000000000000000000001 /* FlorettaMMCodec.swift */,
-				F92000000000000000000002 /* FlorettaMarkdown.swift */,
-				F92000000000000000000001 /* FlorettaOPMLCodec.swift */,
-			);
-			path = Model;
 			sourceTree = "<group>";
 		};
 		A20000000000000000000001 /* Autosave */ = {
@@ -327,8 +306,6 @@
 				F70000000000000000000005 /* KeyboardTests.swift */,
 				F90000000000000000000003 /* OutlineTests.swift */,
 				F60000000000000000000003 /* LayoutTests.swift */,
-				F91000000000000000000002 /* MMTests.swift */,
-				F92000000000000000000003 /* OPMLMarkdownTests.swift */,
 				F93000000000000000000002 /* MapExportTests.swift */,
 				FA7100000000000000000001 /* ShellTests.swift */,
 			);
@@ -506,9 +483,6 @@
 				CB1000000000000000000001 /* ApplePlatformPorts.swift in Sources */,
 				C10000000000000000000001 /* FlorettaApp.swift in Sources */,
 				C10000000000000000000002 /* ContentView.swift in Sources */,
-				C91000000000000000000001 /* FlorettaMMCodec.swift in Sources */,
-				C92000000000000000000001 /* FlorettaOPMLCodec.swift in Sources */,
-				C92000000000000000000002 /* FlorettaMarkdown.swift in Sources */,
 				C30000000000000000000001 /* AutosaveStore.swift in Sources */,
 				C30000000000000000000002 /* AutosaveSession.swift in Sources */,
 				C30000000000000000000003 /* RecoveryPresenter.swift in Sources */,
@@ -543,9 +517,6 @@
 				CB1000000000000000000002 /* ApplePlatformPorts.swift in Sources */,
 				C10000000000000000000004 /* FlorettaApp.swift in Sources */,
 				C10000000000000000000005 /* ContentView.swift in Sources */,
-				C91000000000000000000002 /* FlorettaMMCodec.swift in Sources */,
-				C92000000000000000000003 /* FlorettaOPMLCodec.swift in Sources */,
-				C92000000000000000000004 /* FlorettaMarkdown.swift in Sources */,
 				C30000000000000000000004 /* AutosaveStore.swift in Sources */,
 				C30000000000000000000005 /* AutosaveSession.swift in Sources */,
 				C30000000000000000000006 /* RecoveryPresenter.swift in Sources */,
@@ -577,10 +548,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C91000000000000000000003 /* FlorettaMMCodec.swift in Sources */,
 				C91000000000000000000004 /* MMTests.swift in Sources */,
-				C92000000000000000000005 /* FlorettaOPMLCodec.swift in Sources */,
-				C92000000000000000000006 /* FlorettaMarkdown.swift in Sources */,
 				C92000000000000000000007 /* OPMLMarkdownTests.swift in Sources */,
 				CB1000000000000000000003 /* ApplePlatformPorts.swift in Sources */,
 				C20000000000000000000001 /* MindMapDocumentTests.swift in Sources */,

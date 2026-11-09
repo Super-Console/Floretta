@@ -1,10 +1,14 @@
-import FlorettaCore
 import Foundation
+// swift-corelibs-foundation moved XMLParser into FoundationXML. Apple Foundation
+// still exports it. This is module availability, not an operating-system branch.
+#if canImport(FoundationXML)
+import FoundationXML
+#endif
 
 /// FreeMind / Freeplane `.mm` XML, written from the public element shape
 /// (`map`, `node`, `TEXT`, `richcontent`, `LINK`, `FOLDED`, `POSITION`).
 /// No Freeplane source is used.
-enum FlorettaMMError: Equatable, Sendable, Error {
+public enum FlorettaMMError: Equatable, Sendable, Error {
     case notXML
     case missingMap
     case missingRoot
@@ -14,16 +18,16 @@ enum FlorettaMMError: Equatable, Sendable, Error {
     case tooManyNodes
 }
 
-enum FlorettaMMCodec {
-    static let maxDepth = 512
-    static let maxNodes = 100_000
+public enum FlorettaMMCodec {
+    public static let maxDepth = 512
+    public static let maxNodes = 100_000
 
-    static func importMap(_ data: Data) throws -> MindMapDocument {
+    public static func importMap(_ data: Data) throws -> MindMapDocument {
         let parser = MMXMLParser()
         return try parser.parse(data)
     }
 
-    static func export(_ document: MindMapDocument) throws -> Data {
+    public static func export(_ document: MindMapDocument) throws -> Data {
         var xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<map version=\"1.0.1\">\n"
         let roots = document.roots
         if roots.count == 1 {

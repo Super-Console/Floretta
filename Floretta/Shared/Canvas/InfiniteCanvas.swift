@@ -23,7 +23,9 @@ struct InfiniteCanvas: View {
     var attachmentArchive: URL? = nil
     var spillDirectory: URL? = nil
     var attachmentEntries: [ZipStoredEntry] = []
+    var onPreviewFile: (UUID, FileBadge) -> Void = { _, _ in }
     @State private var compositionWidth: CGFloat = 0
+    @State private var fileIcons = FileIconCache()
     @State private var dotTiles = DotTileCache()
     @State private var laidOut = LaidOutFrames()
     @Environment(\.colorScheme) private var colorScheme
@@ -119,6 +121,7 @@ struct InfiniteCanvas: View {
                     isComposing: keyboard.isComposing
                 ) { return }
                 let point = camera.viewport.canvasPoint(fromView: value.location)
+                if previewFile(at: point) { return }
                 let hit = CanvasPlacement.nodeID(at: point, in: layoutSource())
                 if zenActive, hit == nil { return }
                 applyNodeTap(hit)
@@ -130,6 +133,7 @@ struct InfiniteCanvas: View {
                     isComposing: keyboard.isComposing
                 ) { return }
                 let point = camera.viewport.canvasPoint(fromView: value.location)
+                if previewFile(at: point) { return }
                 if let hit = CanvasPlacement.nodeID(at: point, in: layoutSource()) {
                     beginEditing(hit)
                     return
@@ -150,6 +154,22 @@ struct InfiniteCanvas: View {
             })
         }
         .focusEffectDisabled(true)
+    }
+
+    /// A tap on a file badge previews that file and does not open the text editor.
+    private func previewFile(at point: CGPoint) -> Bool {
+        guard let hit = CanvasPlacement.nodeID(at: point, in: layoutSource()),
+              let frame = placedFrames().first(where: { $0.id == hit }),
+              let badge = FileBadgeHit.badge(canvasX: Double(point.x), canvasY: Double(point.y), in: frame) else {
+            return false
+        }
+        if keyboard.mode == .edit {
+            keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+        }
+        keyboard.selectedNodeID = hit
+        interaction.selectedNodeID = hit
+        onPreviewFile(hit, badge)
+        return true
     }
 
     private func applyNodeTap(_ hit: UUID?) {
@@ -399,6 +419,13 @@ struct InfiniteCanvas: View {
                 height: max(0, rect.maxY - imageRect.maxY - 6)
             )
         }
+        if detail.drawsText, let first = node.fileBadges.first {
+            let badgeTop = camera.viewport.viewPoint(fromCanvas: CGPoint(
+                x: node.origin.x,
+                y: node.origin.y + CGFloat(first.row.y)
+            )).y
+            textRect.size.height = max(0, min(textRect.maxY, badgeTop - 2) - textRect.minY)
+        }
         let pointSize = CanvasTextScale.onScreenPointSize(fontSize: node.fontSize, scale: scale)
         if CanvasTextLOD.level(onScreenPointSize: pointSize).drawsTitle, textRect.height > 1, textRect.width > 1 {
             let text = styledText(node, pointSize: pointSize)
@@ -406,6 +433,47 @@ struct InfiniteCanvas: View {
             layer.clip(to: Path(textRect))
             layer.draw(text, at: CGPoint(x: textRect.midX, y: textRect.midY), anchor: .center)
         }
+        if detail.drawsText {
+            drawFileBadges(node, scale: scale, pointSize: pointSize, in: context)
+        }
+    }
+
+    private func drawFileBadges(_ node: NodeFrame, scale: CGFloat, pointSize: CGFloat, in context: GraphicsContext) {
+        guard !node.fileBadges.isEmpty else { return }
+        let badgePoint = max(9, min(13, pointSize * 0.72))
+        for badge in node.fileBadges {
+            let row = viewLocal(badge.row, node: node)
+            let icon = viewLocal(badge.icon, node: node)
+            context.draw(fileIcons.image(for: badge), in: icon)
+            let sizeWidth = min(row.width * 0.46, max(28, CGFloat(badge.sizeLabel.count) * badgePoint * 0.62))
+            let sizeRect = CGRect(x: row.maxX - sizeWidth, y: row.minY, width: sizeWidth, height: row.height)
+            let nameX = icon.maxX + 4 * max(scale, 0.5)
+            let nameRect = CGRect(x: nameX, y: row.minY, width: max(0, sizeRect.minX - nameX - 4), height: row.height)
+            let name = Text(badge.filename)
+                .font(.system(size: badgePoint))
+                .foregroundStyle(color(node.textColor))
+            let size = Text(badge.sizeLabel)
+                .font(.system(size: badgePoint))
+                .foregroundStyle(color(node.textColor).opacity(0.72))
+            var nameLayer = context
+            nameLayer.clip(to: Path(nameRect))
+            nameLayer.draw(name, at: CGPoint(x: nameRect.minX, y: nameRect.midY), anchor: .leading)
+            var sizeLayer = context
+            sizeLayer.clip(to: Path(sizeRect))
+            sizeLayer.draw(size, at: CGPoint(x: sizeRect.maxX, y: sizeRect.midY), anchor: .trailing)
+        }
+    }
+
+    private func viewLocal(_ local: ImageSlotRect, node: NodeFrame) -> CGRect {
+        let origin = camera.viewport.viewPoint(fromCanvas: CGPoint(
+            x: node.origin.x + CGFloat(local.x),
+            y: node.origin.y + CGFloat(local.y)
+        ))
+        let far = camera.viewport.viewPoint(fromCanvas: CGPoint(
+            x: node.origin.x + CGFloat(local.x + local.width),
+            y: node.origin.y + CGFloat(local.y + local.height)
+        ))
+        return CGRect(x: origin.x, y: origin.y, width: max(0, far.x - origin.x), height: max(0, far.y - origin.y))
     }
 
     private func drawHandles(around rect: CGRect, in context: GraphicsContext) {
@@ -452,7 +520,11 @@ struct InfiniteCanvas: View {
     }
 
     private func styledText(_ node: NodeFrame, pointSize: CGFloat) -> Text {
-        let shown = node.caption.isEmpty ? node.text : node.text + "\n" + node.caption
+        let shown = NodeAttachmentDrawing.canvasText(
+            title: node.text,
+            caption: node.caption,
+            fileBadges: node.fileBadges
+        )
         var text = Text(shown)
             .font(.system(size: pointSize, design: fontDesign(node.fontDesign)))
             .foregroundStyle(color(node.textColor))

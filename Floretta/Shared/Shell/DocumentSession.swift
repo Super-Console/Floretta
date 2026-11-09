@@ -49,10 +49,14 @@ enum AttachmentInserter {
         nodeID: UUID,
         document: MindMapDocument,
         archive: URL,
-        files: any StreamingFilePort = FoundationStreamingFiles()
+        files: any StreamingFilePort = FoundationStreamingFiles(),
+        storedFilename: String? = nil
     ) throws -> (document: MindMapDocument, catalog: ZipDirectory, archiveByteCount: Int64) {
         let reader = try files.openReader(at: source)
-        let hashed = try FlorettaStreamingDocument.hashSource(reader, filename: source.lastPathComponent)
+        let hashed = try FlorettaStreamingDocument.hashSource(
+            reader,
+            filename: storedFilename ?? source.lastPathComponent
+        )
         try reader.close()
         var attachment = try hashed.nodeAttachment()
         if files.fileExists(at: archive), try files.isZip(at: archive) {

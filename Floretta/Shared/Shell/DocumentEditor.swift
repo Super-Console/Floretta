@@ -40,6 +40,9 @@ struct DocumentEditor: View {
     @State private var insertSource: URL?
     @State private var insertSourceIsCopy = false
     @State private var insertAccepted = false
+    @State private var insertStoredName: String?
+    @State private var previewPhase = FilePreviewPhase.idle
+    @State private var previewToken = 0
     @State private var thumbnails = AttachmentThumbnailMemory()
 
     var body: some View {
@@ -172,7 +175,7 @@ struct DocumentEditor: View {
             }
             .fileImporter(
                 isPresented: $showAttachmentImporter,
-                allowedContentTypes: [.data, .image, .movie, .audio, .pdf],
+                allowedContentTypes: AppleFileTypes.importableContentTypes,
                 allowsMultipleSelection: false
             ) { result in
                 importAttachment(result)
@@ -188,6 +191,36 @@ struct DocumentEditor: View {
             } message: {
                 Text(insertProposal?.confirmationMessage ?? "")
             }
+            .alert("无法预览", isPresented: previewAlertPresented) {
+                Button("好", role: .cancel) {}
+            } message: {
+                Text(previewPhase.alertMessage ?? "")
+            }
+            .background {
+                #if os(macOS)
+                MacQuickLookBridge(
+                    url: previewURL,
+                    title: previewPhase.ticket?.filename ?? "",
+                    onMissing: { previewPhase = FilePreviewSession.fileDisappeared(previewPhase) },
+                    onClose: { previewPhase = FilePreviewSession.userClosed(previewPhase) },
+                    onUnavailable: { previewPhase = FilePreviewSession.unavailable() }
+                )
+                .frame(width: 0, height: 0)
+                .allowsHitTesting(false)
+                #endif
+            }
+            #if os(iOS)
+            .sheet(isPresented: previewSheetPresented) {
+                if let previewURL {
+                    IOSQuickLook(
+                        url: previewURL,
+                        title: previewPhase.ticket?.filename ?? "",
+                        onMissing: { previewPhase = FilePreviewSession.fileDisappeared(previewPhase) },
+                        onClose: { previewPhase = FilePreviewSession.userClosed(previewPhase) }
+                    )
+                }
+            }
+            #endif
             .alert("查找", isPresented: $showFind) {
                 TextField("文字", text: $findQuery)
                 Button("查找") {
@@ -217,7 +250,10 @@ struct DocumentEditor: View {
                 spillDirectory: thumbnailCache?.directory
                     .deletingLastPathComponent()
                     .appendingPathComponent("spill", isDirectory: true),
-                attachmentEntries: session.attachmentCatalog.attachments
+                attachmentEntries: session.attachmentCatalog.attachments,
+                onPreviewFile: { nodeID, badge in
+                    previewFile(nodeID: nodeID, badge: badge)
+                }
             )
             .ignoresSafeArea()
             if showOutline, session.zen.chrome.showsSidebar {
@@ -299,7 +335,7 @@ struct DocumentEditor: View {
             Image(systemName: "plus")
         }
         .accessibilityLabel("插入")
-        .help("插入子节点、同级、图片，或从文件导入")
+        .help("插入子节点、同级、图片、附件，或从文件导入")
     }
 
     private var zoomMenu: some View {
@@ -447,17 +483,32 @@ struct DocumentEditor: View {
         let started = url.startAccessingSecurityScopedResource()
         defer { if started { url.stopAccessingSecurityScopedResource() } }
         do {
-            let values = try url.resourceValues(forKeys: [.fileSizeKey])
+            let values = try url.resourceValues(forKeys: [.fileSizeKey, .contentTypeKey, .isDirectoryKey])
+            let directory = values.isDirectory == true
+            guard FileAttachmentRoute.accepts(filename: url.lastPathComponent, isDirectory: directory) else {
+                if ownsCopy { try? FileManager.default.removeItem(at: url) }
+                exportError = directory ? "不能放入文件夹。" : "没有可以放入的文件。"
+                return
+            }
+            let fact = AppleFileTypes.recognize(
+                filename: url.lastPathComponent,
+                declaredTypeIdentifier: values.contentType?.identifier
+            )
             let fileSize = Int64(values.fileSize ?? 0)
             let current = session.archiveByteCount
+            guard let proposal = FileAttachmentRoute.proposal(
+                filename: url.lastPathComponent,
+                byteCount: fileSize,
+                currentDocumentByteCount: current
+            ) else { return }
             insertAccepted = false
             insertSource = url
             insertSourceIsCopy = ownsCopy
-            insertProposal = AttachmentInsertProposal(
-                filename: url.lastPathComponent,
-                fileByteCount: fileSize,
-                currentDocumentByteCount: current
+            insertStoredName = FileAttachmentName.storedFilename(
+                original: url.lastPathComponent,
+                recognizedExtension: fact.fileExtension
             )
+            insertProposal = proposal
             if started { _ = url.startAccessingSecurityScopedResource() }
         } catch {
             if ownsCopy { try? FileManager.default.removeItem(at: url) }
@@ -465,10 +516,104 @@ struct DocumentEditor: View {
         }
     }
 
+    private var previewURL: URL? {
+        previewPhase.previewPath.map { URL(fileURLWithPath: $0) }
+    }
+
+    private var previewAlertPresented: Binding<Bool> {
+        Binding(
+            get: { previewPhase.alertMessage != nil },
+            set: { presented in
+                if !presented { previewPhase = FilePreviewSession.dismissAlert(previewPhase) }
+            }
+        )
+    }
+
+    #if os(iOS)
+    private var previewSheetPresented: Binding<Bool> {
+        Binding(
+            get: { previewPhase.previewPath != nil },
+            set: { presented in
+                if !presented { previewPhase = FilePreviewSession.userClosed(previewPhase) }
+            }
+        )
+    }
+    #endif
+
+    private func previewFile(nodeID: UUID, badge: FileBadge) {
+        guard let archive = session.url else {
+            exportError = "先把导图存成文件。"
+            return
+        }
+        guard let entry = session.attachmentCatalog.attachments.first(where: { $0.sha256 == badge.sha256 }) else {
+            let ticket = FilePreviewTicket(
+                nodeID: nodeID,
+                sha256: badge.sha256,
+                filename: badge.filename,
+                previewPath: badge.filename
+            )
+            previewPhase = FilePreviewSession.begin(ticket, fileExists: false)
+            return
+        }
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("FlorettaPreview", isDirectory: true)
+        let destination = folder.appendingPathComponent("\(UUID().uuidString).\(badge.fileExtension)")
+        let filename = badge.filename
+        let sha = badge.sha256
+        previewToken += 1
+        let token = previewToken
+        Task {
+            let outcome = await Task.detached {
+                Result {
+                    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                    try FilePreviewSpill.write(
+                        entry: entry,
+                        archiveURL: archive,
+                        to: destination,
+                        files: FoundationStreamingFiles()
+                    )
+                    return destination
+                }
+            }.value
+            guard token == previewToken else {
+                if case .success(let url) = outcome {
+                    try? FileManager.default.removeItem(at: url)
+                }
+                return
+            }
+            switch outcome {
+            case .success(let url):
+                let ticket = FilePreviewTicket(
+                    nodeID: nodeID,
+                    sha256: sha,
+                    filename: filename,
+                    previewPath: url.path
+                )
+                let phase = FilePreviewSession.begin(
+                    ticket,
+                    fileExists: FileManager.default.fileExists(atPath: url.path)
+                )
+                if case .alert = phase {
+                    try? FileManager.default.removeItem(at: url)
+                }
+                previewPhase = phase
+            case .failure:
+                let ticket = FilePreviewTicket(
+                    nodeID: nodeID,
+                    sha256: sha,
+                    filename: filename,
+                    previewPath: destination.path
+                )
+                try? FileManager.default.removeItem(at: destination)
+                previewPhase = FilePreviewSession.begin(ticket, fileExists: false)
+            }
+        }
+    }
+
     private func cancelInsert() {
         releaseInsertSource()
         insertProposal = nil
         insertAccepted = false
+        insertStoredName = nil
     }
 
     private func releaseInsertSource() {
@@ -486,9 +631,11 @@ struct DocumentEditor: View {
         insertAccepted = true
         let source = insertSource
         let ownsCopy = insertSourceIsCopy
+        let storedName = insertStoredName
         insertProposal = nil
         insertSource = nil
         insertSourceIsCopy = false
+        insertStoredName = nil
         guard let source else { return }
         guard let archive = session.url else {
             source.stopAccessingSecurityScopedResource()
@@ -511,7 +658,8 @@ struct DocumentEditor: View {
                         source: source,
                         nodeID: nodeID,
                         document: document,
-                        archive: archive
+                        archive: archive,
+                        storedFilename: storedName
                     )
                 }
             }.value

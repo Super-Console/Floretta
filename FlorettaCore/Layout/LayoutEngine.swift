@@ -146,10 +146,12 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
     public var underline: Bool = false
     public var fontDesign: String = "default"
     public var link: LinkCurve?
-    /// Attachment sizes drawn under the title. Empty when the node has no attachments.
+    /// Attachment sizes, one `filename size` line each. The canvas draws non-image lines as `fileBadges`.
     public var caption: String = ""
     /// Image attachment hashes that may have a thumbnail. Used for viewport unload.
     public var thumbnailHashes: [String] = []
+    /// Non-image attachments. Each row is a type icon, the filename, and the size.
+    public var fileBadges: [FileBadge] = []
 
     public init(
         id: UUID,
@@ -173,7 +175,8 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
         fontDesign: String = "default",
         link: LinkCurve? = nil,
         caption: String = "",
-        thumbnailHashes: [String] = []
+        thumbnailHashes: [String] = [],
+        fileBadges: [FileBadge] = []
     ) {
         self.id = id
         self.text = text
@@ -197,6 +200,7 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
         self.link = link
         self.caption = caption
         self.thumbnailHashes = thumbnailHashes
+        self.fileBadges = fileBadges
     }
 
     public var rect: CGRect { CGRect(origin: origin, size: size) }
@@ -410,8 +414,7 @@ public struct LayoutEngine: Sendable {
     }
 
     private func layoutText(_ node: MindMapNode) -> String {
-        guard let label = node.attachmentSizeLabel, !label.isEmpty else { return node.text }
-        return node.text + "\n" + label
+        NodeAttachmentDrawing.measuredText(node)
     }
 
     private func collectHeights(_ node: MindMapNode, depth: Int, into heights: inout [Int: CGFloat]) {
@@ -424,11 +427,20 @@ public struct LayoutEngine: Sendable {
     }
 
     private func nodeSize(_ node: MindMapNode, depth: Int, heights: [Int: CGFloat]) -> CGSize {
-        let raw = cache.size(text: layoutText(node), fontSize: resolvedFontSize(node, depth: depth), maxWidth: metrics.maxTextWidth)
+        let font = resolvedFontSize(node, depth: depth)
+        let raw = cache.size(text: layoutText(node), fontSize: font, maxWidth: metrics.maxTextWidth)
         let band = thumbnailBand(node)
+        let files = FileBadgeLayout.fileAttachments(in: node)
+        let fileBand = CGFloat(FileBadgeMetrics.bandHeight(count: files.count))
         let imageWidth = band > 0 ? CGFloat(ImageSlot.maxWidth + ImageSlot.horizontalInset * 2) : 0
-        let width = max(raw.width, CGFloat(node.style?.topicWidth ?? 0), imageWidth)
-        return CGSize(width: width, height: (heights[depth] ?? raw.height) + band)
+        var fileWidth: CGFloat = 0
+        if !files.isEmpty {
+            let label = files.map { "\($0.filename) \(AttachmentByteFormat.label($0.byteCount))" }.joined(separator: "\n")
+            let measured = cache.size(text: label, fontSize: font, maxWidth: metrics.maxTextWidth)
+            fileWidth = measured.width + CGFloat(FileBadgeMetrics.iconSide + FileBadgeMetrics.gap + FileBadgeMetrics.horizontalInset * 2)
+        }
+        let width = max(raw.width, CGFloat(node.style?.topicWidth ?? 0), imageWidth, fileWidth)
+        return CGSize(width: width, height: (heights[depth] ?? raw.height) + band + fileBand)
     }
 
     private func thumbnailBand(_ node: MindMapNode) -> CGFloat {
@@ -614,7 +626,12 @@ public struct LayoutEngine: Sendable {
             caption: node.attachmentSizeLabel ?? "",
             thumbnailHashes: node.attachments.compactMap { attachment in
                 AttachmentKind.isImageExtension(attachment.fileExtension) ? attachment.sha256 : nil
-            }
+            },
+            fileBadges: FileBadgeLayout.badges(
+                attachments: node.attachments,
+                nodeWidth: Double(size.width),
+                nodeHeight: Double(size.height)
+            )
         )
     }
 

@@ -55,6 +55,14 @@ sha256 只用来去重和校验完整性（容器路径 `assets/<sha256>.<ext>`�
 
 `Application Support/Floretta/Attachments` 排除 iCloud / 设备备份，避免备份被缩略图和 spill 撑大。用户自己的 `.floretta` 不在这个排除范围内。
 
+## 7. 任意文件
+
+PSD、PDF、DMG，以及文件选择器里的其他类型，走同一条插入：先 `stat` 出大小，确认文案写明这个文件有多大和放入后文档大约有多大，确认之后才按 1.2 的流式写入和 sha256 去重落盘。不压缩，不转码。
+
+类型用 UTType 认。系统有类型图标就画那个图标；没有（例如未登记的扩展名，或 PSD 在这台机器上没有图标）就画通用文件图标。节点上每个非图片附件一行：图标、文件名、大小。图片仍走 1.3 的缩略图，不改成这一行。
+
+点这一行用 QuickLook 预览：macOS 是 `QLPreviewPanel`，iOS 是 `QLPreviewController`。预览读的是流式 spill 出去的副本，不是整份读进内存。预览过程中这份文件没了，关掉预览并提示「这个文件已经不在，预览已关闭。」，不崩溃。
+
 ## AI 侧
 
 `docs/FORMAT-FOR-AI.md` 还不在仓库里。`docs/ADR-021-platform-layering.md` 点过这个名字。那份文档写出来时，附件对模型也是不透明字节：可以给大小和 sha256，不许转码、抽帧或压码率。

@@ -200,4 +200,4 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 | 2026-11-09 | P3 | 已提交，云端未测试 | 满幅纸面图标。无 sips、无 xcodebuild。深色变体不另做 |
 | 2026-11-10 | 1.1 基础链路 | Censor通过 + Pro 115/0 | 合并 `99b5156` / PR #31。 |
 | 2026-11-10 | 1.2 附件数据模型 | Censor通过 + Pro 127/0 | 合并 `8f64c32` / PR #30。流式读写、引用计数、孤儿回收；缩略图 spill→ImageIO→视口。 |
-| 2026-11-10 | 1.3 图片插入 | 待 Censor | PR #34。文件选择 / 拖放 / 粘贴；等比不裁切；异步解码走 1.2 spill + 磁盘 LRU；PDF/PNG 按页面分辨率导出。打开 RSS：Darwin `task_info`/`phys_footprint`（不跳过），Linux VmRSS。本机 Linux：1GiB 增量 24576 B，10GiB 增量 4096 B（同进程另一次 10GiB 为 1175552 B），都远小于包体。 |
+| 2026-11-10 | 1.3 图片插入 | 已合并 | PR #34 → main `c80d138`（tip `57af77a`）。Censor 通过；Pro macOS 138/0、iOS EXIT=0。文件选择 / 拖放 / 粘贴；等比不裁切；异步解码走 1.2 spill + 磁盘 LRU；PDF/PNG 按页面分辨率导出。打开 RSS 可重跑（Darwin phys_footprint / Linux VmRSS + `scripts/measure-open-rss.sh`）。未开 1.4。 |

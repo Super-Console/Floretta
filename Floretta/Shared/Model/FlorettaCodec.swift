@@ -105,6 +105,13 @@ enum FlorettaCodec {
             }
             try expect(styleObject, key: "colorHex", at: "\(path).style.colorHex") { isJSONString($0) }
         }
+        if let position = object["position"], !(position is NSNull) {
+            guard let point = position as? [String: Any] else {
+                throw FlorettaCodecError.wrongJSONType(at: "\(path).position")
+            }
+            try expect(point, key: "x", at: "\(path).position.x") { isJSONNumber($0) }
+            try expect(point, key: "y", at: "\(path).position.y") { isJSONNumber($0) }
+        }
         if let children = object["children"] {
             guard let array = children as? [Any] else {
                 throw FlorettaCodecError.wrongJSONType(at: "\(path).children")
@@ -133,6 +140,11 @@ enum FlorettaCodec {
     private static func isJSONBool(_ value: Any) -> Bool {
         guard let number = value as? NSNumber else { return false }
         return CFGetTypeID(number) == CFBooleanGetTypeID()
+    }
+
+    private static func isJSONNumber(_ value: Any) -> Bool {
+        guard let number = value as? NSNumber else { return false }
+        return CFGetTypeID(number) != CFBooleanGetTypeID()
     }
 
     private static func isJSONInteger(_ value: Any) -> Bool {

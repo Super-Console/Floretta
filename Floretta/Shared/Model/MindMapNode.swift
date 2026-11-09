@@ -5,6 +5,12 @@ struct MindMapNodeStyle: Equatable, Sendable, Codable {
     var colorHex: String
 }
 
+/// Canvas coordinates remembered after a drag. Absent means "not placed by hand".
+struct MindMapPoint: Equatable, Sendable, Codable {
+    var x: Double
+    var y: Double
+}
+
 /// One topic in the map. Children are an ordered tree.
 /// A value tree cannot point at itself, so a cycle is not representable in memory.
 struct MindMapNode: Equatable, Sendable, Identifiable {
@@ -13,6 +19,7 @@ struct MindMapNode: Equatable, Sendable, Identifiable {
     var note: String
     var isCollapsed: Bool
     var style: MindMapNodeStyle?
+    var position: MindMapPoint?
     var children: [MindMapNode]
 
     init(
@@ -21,6 +28,7 @@ struct MindMapNode: Equatable, Sendable, Identifiable {
         note: String = "",
         isCollapsed: Bool = false,
         style: MindMapNodeStyle? = nil,
+        position: MindMapPoint? = nil,
         children: [MindMapNode] = []
     ) {
         self.id = id
@@ -28,6 +36,7 @@ struct MindMapNode: Equatable, Sendable, Identifiable {
         self.note = note
         self.isCollapsed = isCollapsed
         self.style = style
+        self.position = position
         self.children = children
     }
 }
@@ -39,6 +48,7 @@ extension MindMapNode: Codable {
         case note
         case collapsed
         case style
+        case position
         case children
     }
 
@@ -53,6 +63,7 @@ extension MindMapNode: Codable {
         note = try container.decode(String.self, forKey: .note)
         isCollapsed = try container.decode(Bool.self, forKey: .collapsed)
         style = try container.decodeIfPresent(MindMapNodeStyle.self, forKey: .style)
+        position = try container.decodeIfPresent(MindMapPoint.self, forKey: .position)
         children = try container.decode([MindMapNode].self, forKey: .children)
     }
 
@@ -63,6 +74,7 @@ extension MindMapNode: Codable {
         try container.encode(note, forKey: .note)
         try container.encode(isCollapsed, forKey: .collapsed)
         try container.encodeIfPresent(style, forKey: .style)
+        try container.encodeIfPresent(position, forKey: .position)
         try container.encode(children, forKey: .children)
     }
 }

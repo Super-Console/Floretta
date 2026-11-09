@@ -309,14 +309,16 @@ final class ShellTests: XCTestCase {
     }
 
     func testMenusAndTemplatesOmitDeadActions() {
-        XCTAssertEqual(CanvasMenus.more, ["查看模式", "新建画布", "演说", "ZEN", "查找", "反馈"])
-        XCTAssertEqual(CanvasMenus.moreDisabled, ["演说", "反馈"])
-        XCTAssertEqual(CanvasMenus.file, ["重新命名", "设置密码", "风格化分享", "导出", "保存至", "打印"])
-        XCTAssertEqual(CanvasMenus.fileDisabled, ["设置密码", "风格化分享"])
+        XCTAssertEqual(CanvasMenus.more, ["查看模式", "新建画布", "沉浸模式", "查找", "适合窗口"])
+        XCTAssertEqual(CanvasMenus.moreDisabled, [])
+        XCTAssertFalse(CanvasMenus.more.contains("ZEN"))
+        XCTAssertFalse(CanvasMenus.more.contains("Zen"))
+        XCTAssertEqual(CanvasMenus.file, ["重新命名", "导出", "保存至", "打印"])
+        XCTAssertEqual(CanvasMenus.fileDisabled, [])
         XCTAssertEqual(CanvasMenus.export, ["floretta", "mm", "opml", "md", "png", "pdf"])
         XCTAssertEqual(CanvasMenus.share, ["导出", "保存至"])
-        XCTAssertEqual(CanvasMenus.text, ["剪切", "拷贝", "粘贴", "全选", "拷贝样式", "生成想法", "AI 工作分解"])
-        XCTAssertEqual(CanvasMenus.textDisabled, ["生成想法", "AI 工作分解"])
+        XCTAssertEqual(CanvasMenus.text, ["剪切", "拷贝", "粘贴", "全选", "拷贝样式"])
+        XCTAssertEqual(CanvasMenus.textDisabled, [])
         let visible = CanvasMenus.more + CanvasMenus.file + CanvasMenus.share + CanvasMenus.text + CanvasMenus.export
         for name in CanvasMenus.omitted {
             XCTAssertFalse(visible.contains(name))

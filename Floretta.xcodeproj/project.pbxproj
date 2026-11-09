@@ -115,6 +115,8 @@
 		CA4200000000000000000001 /* LocalDeviceLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4200000000000000000001 /* LocalDeviceLabel.swift */; };
 		CA4200000000000000000002 /* LocalDeviceLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4200000000000000000001 /* LocalDeviceLabel.swift */; };
 		CA4200000000000000000003 /* LocalDeviceLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4200000000000000000001 /* LocalDeviceLabel.swift */; };
+		CA4300000000000000000001 /* TemplateThumbnail.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4300000000000000000001 /* TemplateThumbnail.swift */; };
+		CA4300000000000000000002 /* TemplateThumbnail.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4300000000000000000001 /* TemplateThumbnail.swift */; };
 		CA5100000000000000000001 /* DocumentEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5100000000000000000001 /* DocumentEditor.swift */; };
 		CA5100000000000000000002 /* DocumentEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5100000000000000000001 /* DocumentEditor.swift */; };
 		CA6100000000000000000001 /* ZoomStop.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA6100000000000000000001 /* ZoomStop.swift */; };
@@ -175,6 +177,7 @@
 		FA3100000000000000000001 /* DocumentSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentSession.swift; sourceTree = "<group>"; };
 		FA4100000000000000000001 /* LibraryHome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryHome.swift; sourceTree = "<group>"; };
 		FA4200000000000000000001 /* LocalDeviceLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDeviceLabel.swift; sourceTree = "<group>"; };
+		FA4300000000000000000001 /* TemplateThumbnail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateThumbnail.swift; sourceTree = "<group>"; };
 		FA5100000000000000000001 /* DocumentEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentEditor.swift; sourceTree = "<group>"; };
 		FA6100000000000000000001 /* ZoomStop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomStop.swift; sourceTree = "<group>"; };
 		FA7100000000000000000001 /* ShellTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellTests.swift; sourceTree = "<group>"; };
@@ -322,6 +325,7 @@
 				FA4100000000000000000001 /* LibraryHome.swift */,
 				FA4200000000000000000001 /* LocalDeviceLabel.swift */,
 				FA2100000000000000000001 /* RecentMapsStore.swift */,
+				FA4300000000000000000001 /* TemplateThumbnail.swift */,
 			);
 			path = Shell;
 			sourceTree = "<group>";
@@ -540,6 +544,7 @@
 				CA3100000000000000000001 /* DocumentSession.swift in Sources */,
 				CA4100000000000000000001 /* LibraryHome.swift in Sources */,
 				CA4200000000000000000001 /* LocalDeviceLabel.swift in Sources */,
+				CA4300000000000000000001 /* TemplateThumbnail.swift in Sources */,
 				CA5100000000000000000001 /* DocumentEditor.swift in Sources */,
 				CA6100000000000000000001 /* ZoomStop.swift in Sources */,
 			);
@@ -581,6 +586,7 @@
 				CA3100000000000000000002 /* DocumentSession.swift in Sources */,
 				CA4100000000000000000002 /* LibraryHome.swift in Sources */,
 				CA4200000000000000000002 /* LocalDeviceLabel.swift in Sources */,
+				CA4300000000000000000002 /* TemplateThumbnail.swift in Sources */,
 				CA5100000000000000000002 /* DocumentEditor.swift in Sources */,
 				CA6100000000000000000002 /* ZoomStop.swift in Sources */,
 			);

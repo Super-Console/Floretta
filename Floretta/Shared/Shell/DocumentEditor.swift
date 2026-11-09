@@ -26,19 +26,43 @@ struct DocumentEditor: View {
     @State private var showFind = false
     @State private var findQuery = ""
     @State private var inspectorTab = 0
-    @State private var showRelationNotice = false
+    @State private var camera = CanvasCamera()
 
     var body: some View {
         canvasStack
-            .navigationTitle(session.document.title.isEmpty ? "未命名" : session.document.title)
-            .zenChrome(session.zen.chrome)
+            .overlay(alignment: .top) {
+                if session.zen.chrome.showsToolbar {
+                    #if os(iOS)
+                    centerCapsule
+                        .padding(.top, 8)
+                    #endif
+                }
+            }
+            .overlay(alignment: .bottomLeading) {
+                if session.zen.chrome.showsToolbar {
+                    outlineToggle
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                if session.zen.isActive {
+                    immersiveExit
+                        .padding(16)
+                }
+            }
+        .scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
+        .navigationTitle("")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+        .modifier(MacEditorWindowTitle())
+        .zenChrome(session.zen.chrome)
             .inspector(isPresented: inspectorPresented) {
                 inspectorBody
                     .inspectorColumnWidth(min: 280, ideal: 320, max: 440)
             }
             .toolbar {
                 if session.zen.chrome.showsToolbar {
-                    ToolbarItem(placement: .cancellationAction) {
+                    ToolbarItem(placement: .navigation) {
                         HStack(spacing: 8) {
                             Button(action: onClose) {
                                 Image(systemName: "chevron.backward")
@@ -54,43 +78,22 @@ struct DocumentEditor: View {
                     #endif
                     ToolbarItemGroup(placement: .primaryAction) {
                         shareMenu
-                        Button {} label: {
-                            Image(systemName: "tv")
-                        }
-                        .disabled(true)
-                        .accessibilityLabel("投屏")
                         Button {
-                            showInspector = true
+                            showInspector.toggle()
                         } label: {
                             Image(systemName: "paintbrush")
                         }
-                        .accessibilityLabel("样式刷")
+                        .accessibilityLabel("样式")
+                        zoomMenu
                         moreMenu
                     }
                 }
             }
-            #if os(iOS)
-            .safeAreaInset(edge: .top, spacing: 0) {
-                if session.zen.chrome.showsToolbar {
-                    centerCapsule
-                        .padding(.top, 8)
-                }
-            }
+            #if os(macOS)
+            .toolbarBackground(.hidden, for: .windowToolbar)
+            #else
+            .toolbarBackground(.hidden, for: .navigationBar)
             #endif
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                if session.zen.chrome.showsToolbar {
-                    HStack {
-                        Button {
-                            showOutline.toggle()
-                        } label: {
-                            Image(systemName: "list.bullet")
-                        }
-                        .buttonStyle(.bordered)
-                        .padding(12)
-                        Spacer()
-                    }
-                }
-            }
             .onChange(of: session.viewMode) { _, mode in
                 guard mode == .focus else { return }
                 if session.focusNodeID == nil {
@@ -131,11 +134,6 @@ struct DocumentEditor: View {
                 }
                 Button("取消", role: .cancel) {}
             }
-            .alert("关系线", isPresented: $showRelationNotice) {
-                Button("好", role: .cancel) {}
-            } message: {
-                Text("关系线尚未接入。")
-            }
             .alert("查找", isPresented: $showFind) {
                 TextField("文字", text: $findQuery)
                 Button("查找") {
@@ -154,11 +152,13 @@ struct DocumentEditor: View {
             InfiniteCanvas(
                 document: $session.document,
                 keyboard: $session.keyboard,
+                camera: camera,
                 focusNodeID: session.viewMode == .focus ? session.focusNodeID : nil,
                 zenActive: session.zen.isActive,
                 onEscape: { session.handleEscape() },
                 onConsumeBlankDoubleTap: { session.consumeBlankDoubleTap() }
             )
+            .ignoresSafeArea()
             if showOutline, session.zen.chrome.showsSidebar {
                 outlinePanel
                     .frame(width: outlineWide ? nil : 300)
@@ -195,14 +195,49 @@ struct DocumentEditor: View {
                 .accessibilityLabel("撤销")
             Button { showOutline.toggle() } label: { Image(systemName: "list.bullet") }
                 .accessibilityLabel("大纲")
-            Button { showRelationNotice = true } label: { Image(systemName: "arrow.triangle.branch") }
-                .accessibilityLabel("关系线")
             Button { pasteFromClipboard() } label: { Image(systemName: "doc.on.clipboard") }
                 .accessibilityLabel("粘贴")
             Button { session.addChildFromToolbar() } label: { Image(systemName: "plus") }
                 .accessibilityLabel("新建")
         }
         .buttonStyle(.borderless)
+    }
+
+    private var outlineToggle: some View {
+        Button {
+            showOutline.toggle()
+        } label: {
+            Image(systemName: "list.bullet")
+        }
+        .buttonStyle(.plain)
+        .padding(10)
+        .background { Circle().fill(.ultraThinMaterial) }
+        .accessibilityLabel("大纲")
+        .padding(16)
+    }
+
+    private var immersiveExit: some View {
+        Button {
+            session.exitZen()
+        } label: {
+            Image(systemName: "xmark")
+        }
+        .buttonStyle(.plain)
+        .padding(10)
+        .background { Circle().fill(.ultraThinMaterial) }
+        .accessibilityLabel("退出沉浸模式")
+    }
+
+    private var zoomMenu: some View {
+        Menu {
+            Button("缩小") { camera.stepZoom(-1) }
+            Button("放大") { camera.stepZoom(1) }
+            Button("100%") { camera.resetZoom() }
+        } label: {
+            Text("\(camera.chrome.zoomPercent)%")
+                .monospacedDigit()
+        }
+        .accessibilityLabel("缩放")
     }
 
     private var centerCapsule: some View {
@@ -219,10 +254,6 @@ struct DocumentEditor: View {
                     renameText = session.document.title
                     showRename = true
                 }
-                Button("设置密码") {}
-                    .disabled(true)
-                Button("风格化分享") {}
-                    .disabled(true)
                 Menu("导出") {
                     ForEach(CanvasMenus.export, id: \.self) { kind in
                         Button(exportTitle(kind)) { export(kind) }
@@ -264,15 +295,13 @@ struct DocumentEditor: View {
                 Button("聚焦模式") { session.viewMode = .focus }
             }
             Button("新建画布") { session.addCanvas() }
-            Button("演说") {}
-                .disabled(true)
-            Button("ZEN") { session.enterZen() }
+            Button("沉浸模式") { session.enterZen() }
             Button("查找") {
                 findQuery = ""
                 showFind = true
             }
-            Button("反馈") {}
-                .disabled(true)
+            Button("适合窗口") { camera.fitToContent() }
+                .keyboardShortcut("0", modifiers: .command)
         } label: {
             Image(systemName: "ellipsis")
         }
@@ -696,6 +725,53 @@ struct ExportFile: FileDocument {
         FileWrapper(regularFileWithContents: data)
     }
 }
+
+private struct MacEditorWindowTitle: ViewModifier {
+    func body(content: Content) -> some View {
+        #if os(macOS)
+        content.background(MacWindowTitleHider())
+        #else
+        content
+        #endif
+    }
+}
+
+#if os(macOS)
+private struct MacWindowTitleHider: NSViewRepresentable {
+    func makeNSView(context: Context) -> MacWindowTitleView {
+        MacWindowTitleView()
+    }
+
+    func updateNSView(_ nsView: MacWindowTitleView, context: Context) {
+        nsView.hideDocumentTitle()
+    }
+
+    static func dismantleNSView(_ nsView: MacWindowTitleView, coordinator: ()) {
+        MainActor.assumeIsolated {
+            nsView.window?.titleVisibility = .visible
+        }
+    }
+}
+
+private final class MacWindowTitleView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        hideDocumentTitle()
+    }
+
+    override func layout() {
+        super.layout()
+        hideDocumentTitle()
+    }
+
+    func hideDocumentTitle() {
+        guard let window, window.titleVisibility != .hidden else { return }
+        window.titleVisibility = .hidden
+    }
+}
+#endif
 
 private extension View {
     @ViewBuilder

@@ -140,4 +140,119 @@ final class CanvasTests: XCTestCase {
         XCTAssertEqual(CanvasPlacement.nodeID(at: shared, in: document), over)
         XCTAssertEqual(CanvasPlacement.rootID(at: shared, in: document), over)
     }
+
+    func testDotLatticeCoversEveryCornerAtZoomStopsAndStaysPhaseLocked() throws {
+        let view = CGSize(width: 1400, height: 900)
+        let stops: [CGFloat] = [0.5, 1, 2, 4]
+        for scale in stops {
+            let offset = CGPoint(x: 37.5, y: -18)
+            let layout = DotLatticeLayout.make(offset: offset, scale: scale, viewSize: view)
+            let lattice = try XCTUnwrap(layout)
+            XCTAssertEqual(lattice.step, DotLatticeLayout.worldStep * scale, accuracy: 0.001)
+            XCTAssertGreaterThanOrEqual(lattice.phase.x, 0)
+            XCTAssertLessThan(lattice.phase.x, lattice.step)
+            XCTAssertGreaterThanOrEqual(lattice.phase.y, 0)
+            XCTAssertLessThan(lattice.phase.y, lattice.step)
+            XCTAssertTrue(lattice.coversView(view), "scale \(scale) left a corner uncovered")
+            let widthRemainder = lattice.fillRectInTileSpace.width.truncatingRemainder(dividingBy: lattice.step)
+            XCTAssertTrue(
+                abs(widthRemainder) < 0.01 || abs(widthRemainder - lattice.step) < 0.01,
+                "tile fill width \(lattice.fillRectInTileSpace.width) is not a multiple of \(lattice.step)"
+            )
+
+            let shifted = try XCTUnwrap(DotLatticeLayout.make(
+                offset: CGPoint(x: offset.x + lattice.step, y: offset.y + lattice.step * 3),
+                scale: scale,
+                viewSize: view
+            ))
+            XCTAssertEqual(shifted.phase.x, lattice.phase.x, accuracy: 0.001)
+            XCTAssertEqual(shifted.phase.y, lattice.phase.y, accuracy: 0.001)
+
+            let half = try XCTUnwrap(DotLatticeLayout.make(
+                offset: CGPoint(x: offset.x + lattice.step / 2, y: offset.y),
+                scale: scale,
+                viewSize: view
+            ))
+            XCTAssertEqual(half.phase.x, positiveRemainder(lattice.phase.x + lattice.step / 2, modulo: lattice.step), accuracy: 0.001)
+            XCTAssertNotEqual(half.phase.x, lattice.phase.x)
+        }
+
+        let wide = CGSize(width: 3200, height: 1800)
+        let zoomedOut = try XCTUnwrap(DotLatticeLayout.make(offset: CGPoint(x: -5, y: 800), scale: 0.5, viewSize: wide))
+        XCTAssertTrue(zoomedOut.coversView(wide))
+        XCTAssertEqual(zoomedOut.step, 16, accuracy: 0.001)
+    }
+
+    func testDetailDropsTextWhenZoomedOutAndKeepsFullStyleAtFourHundredPercent() {
+        XCTAssertEqual(CanvasDetail.level(scale: 0.5, onScreenHeight: 6), .far)
+        XCTAssertEqual(CanvasDetail.level(scale: 0.5, onScreenHeight: 20), .mid)
+        XCTAssertFalse(CanvasDetail.far.drawsText)
+        XCTAssertFalse(CanvasDetail.far.drawsShadow)
+        XCTAssertFalse(CanvasDetail.far.drawsSelectionHandles)
+        XCTAssertTrue(CanvasDetail.mid.drawsText)
+        XCTAssertFalse(CanvasDetail.mid.drawsShadow)
+        XCTAssertFalse(CanvasDetail.mid.drawsFineBorder)
+        XCTAssertEqual(CanvasDetail.level(scale: 1, onScreenHeight: 24), .near)
+        XCTAssertEqual(CanvasDetail.level(scale: 4, onScreenHeight: 40), .near)
+        XCTAssertTrue(CanvasDetail.near.drawsText)
+        XCTAssertTrue(CanvasDetail.near.drawsShadow)
+        XCTAssertTrue(CanvasDetail.near.drawsFineBorder)
+        XCTAssertTrue(CanvasDetail.near.drawsSelectionHandles)
+    }
+
+    func testViewportCullingUsesSwiftFlowIntersectionAndDropsOffscreenNodes() {
+        var viewport = CanvasViewport()
+        viewport.flow = Viewport(x: 0, y: 0, zoom: 4)
+        let visible = viewport.canvasRect(in: CGSize(width: 800, height: 600))
+        XCTAssertEqual(visible.width, 200, accuracy: 0.001)
+        XCTAssertEqual(visible.height, 150, accuracy: 0.001)
+
+        let onScreen = sampleFrame(id: UUID(), origin: CGPoint(x: 20, y: 20))
+        let offScreen = sampleFrame(id: UUID(), origin: CGPoint(x: 5_000, y: 5_000))
+        var many: [NodeFrame] = [onScreen, offScreen]
+        for index in 0..<998 {
+            many.append(sampleFrame(id: UUID(), origin: CGPoint(x: 10_000 + CGFloat(index), y: 10_000)))
+        }
+        XCTAssertEqual(many.count, 1000)
+        let drawn = CanvasPlacement.frames(many, intersectingCanvas: visible.insetBy(dx: -48, dy: -48))
+        XCTAssertEqual(drawn.map(\.id), [onScreen.id])
+        XCTAssertLessThan(drawn.count, 50)
+
+        let long = LinkCurve(
+            start: CGPoint(x: 0, y: 0),
+            control1: CGPoint(x: 400, y: 0),
+            control2: CGPoint(x: 800, y: 0),
+            end: CGPoint(x: 900, y: 0),
+            lineWidth: 1.5,
+            color: .black
+        )
+        XCTAssertTrue(CanvasDrawPolicy.useStraightLink(nodeCount: 10, link: long))
+        let short = LinkCurve(
+            start: .zero,
+            control1: CGPoint(x: 40, y: 10),
+            control2: CGPoint(x: 80, y: 10),
+            end: CGPoint(x: 120, y: 0),
+            lineWidth: 1.5,
+            color: .black
+        )
+        XCTAssertFalse(CanvasDrawPolicy.useStraightLink(nodeCount: 12, link: short))
+        XCTAssertTrue(CanvasDrawPolicy.useStraightLink(nodeCount: 1000, link: short))
+    }
+
+    private func sampleFrame(id: UUID, origin: CGPoint) -> NodeFrame {
+        NodeFrame(
+            id: id,
+            text: "n",
+            origin: origin,
+            size: CGSize(width: 36, height: 22),
+            depth: 0,
+            fontSize: 16,
+            isRoot: true,
+            parentID: nil,
+            fill: .white,
+            border: .black,
+            textColor: .black,
+            cornerRadius: 8
+        )
+    }
 }

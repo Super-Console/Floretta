@@ -56,6 +56,57 @@ enum CanvasPlacement {
             .data.id
     }
 
+    /// Nodes whose frames overlap `viewport` in canvas coordinates.
+    /// Uses SwiftFlow `getIntersectingNodes`.
+    static func frames(_ frames: [NodeFrame], intersectingCanvas viewport: CGRect) -> [NodeFrame] {
+        let ids = intersectingIDs(frames.map { ($0.id, $0.frame) }, viewport: viewport)
+        return frames.filter { ids.contains($0.id) }
+    }
+
+    /// Nodes whose link curves overlap `viewport`, including curves that cross the view
+    /// while the node itself sits outside it.
+    static func nodeIDsWithVisibleLinks(_ frames: [NodeFrame], viewport: CGRect) -> Set<UUID> {
+        let boxes = frames.compactMap { frame -> (UUID, CGRect)? in
+            guard let link = frame.link else { return nil }
+            return (frame.id, curveBounds(link))
+        }
+        return intersectingIDs(boxes, viewport: viewport)
+    }
+
+    static func curveBounds(_ link: LinkCurve) -> CGRect {
+        let xs = [link.start.x, link.control1.x, link.control2.x, link.end.x]
+        let ys = [link.start.y, link.control1.y, link.control2.y, link.end.y]
+        let minX = xs.min() ?? 0
+        let minY = ys.min() ?? 0
+        let maxX = xs.max() ?? minX
+        let maxY = ys.max() ?? minY
+        return CGRect(x: minX, y: minY, width: max(maxX - minX, 0.01), height: max(maxY - minY, 0.01))
+    }
+
+    private static func intersectingIDs(_ boxes: [(UUID, CGRect)], viewport: CGRect) -> Set<UUID> {
+        guard viewport.width > 0, viewport.height > 0,
+              viewport.minX.isFinite, viewport.minY.isFinite else { return [] }
+        let nodes = boxes.enumerated().map { index, box in
+            Node(
+                id: box.0.uuidString,
+                position: XYPosition(x: box.1.minX, y: box.1.minY),
+                data: FlowHit(id: box.0, isRoot: false),
+                width: max(box.1.width, 0.01),
+                height: max(box.1.height, 0.01),
+                zIndex: index
+            )
+        }
+        let probe = Node(
+            id: "viewport",
+            position: XYPosition(x: viewport.minX, y: viewport.minY),
+            data: FlowHit(id: UUID(), isRoot: false),
+            width: max(viewport.width, 0.01),
+            height: max(viewport.height, 0.01),
+            zIndex: -1
+        )
+        return Set(getIntersectingNodes(node: probe, nodes: nodes).map(\.data.id))
+    }
+
     static func movingRoot(
         _ id: UUID,
         to origin: CGPoint,
@@ -69,6 +120,42 @@ enum CanvasPlacement {
             return updated
         }
         return copy
+    }
+}
+
+/// How much of a node's style to paint. Driven by zoom and the node's on-screen size.
+enum CanvasDetail: Equatable, Sendable {
+    /// Color blocks and links only.
+    case far
+    /// Text on. Shadows and hairline borders stay off.
+    case mid
+    /// Full style: text, strokes, shadows, and selection handles.
+    case near
+
+    var drawsText: Bool { self != .far }
+    var drawsShadow: Bool { self == .near }
+    var drawsFineBorder: Bool { self == .near }
+    var drawsSelectionHandles: Bool { self == .near }
+
+    static func level(scale: CGFloat, onScreenHeight: CGFloat) -> CanvasDetail {
+        guard scale.isFinite, onScreenHeight.isFinite else { return .far }
+        if onScreenHeight < 8 { return .far }
+        if scale >= 1, onScreenHeight >= 12 { return .near }
+        if onScreenHeight >= 28 { return .near }
+        if onScreenHeight >= 10 || scale >= 0.75 { return .mid }
+        return .far
+    }
+}
+
+enum CanvasDrawPolicy {
+    /// Documents this large draw every link as a straight segment.
+    static let straightLinkNodeThreshold = 400
+    /// Canvas-space length past which one link is drawn straight.
+    static let longLinkLength: CGFloat = 720
+
+    static func useStraightLink(nodeCount: Int, link: LinkCurve) -> Bool {
+        if nodeCount >= straightLinkNodeThreshold { return true }
+        return hypot(link.end.x - link.start.x, link.end.y - link.start.y) >= longLinkLength
     }
 }
 

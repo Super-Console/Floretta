@@ -431,15 +431,19 @@ enum HomePage: String, Hashable, Sendable {
 
 /// Menu rows that are allowed to appear. Disabled rows are listed separately.
 enum CanvasMenus {
-    static let more = ["查看模式", "新建画布", "演说", "ZEN", "查找", "反馈"]
-    static let moreDisabled = ["演说", "反馈"]
-    static let file = ["重新命名", "设置密码", "风格化分享", "导出", "保存至", "打印"]
-    static let fileDisabled = ["设置密码", "风格化分享"]
+    static let more = ["查看模式", "新建画布", "沉浸模式", "查找", "适合窗口"]
+    static let moreDisabled: [String] = []
+    static let file = ["重新命名", "导出", "保存至", "打印"]
+    static let fileDisabled: [String] = []
     static let export = ["floretta", "mm", "opml", "md", "png", "pdf"]
     static let share = ["导出", "保存至"]
-    static let text = ["剪切", "拷贝", "粘贴", "全选", "拷贝样式", "生成想法", "AI 工作分解"]
-    static let textDisabled = ["生成想法", "AI 工作分解"]
-    static let omitted = ["立即升级", "投屏至图库", "方程帮助", "Word", "Excel", "Calendar"]
+    static let text = ["剪切", "拷贝", "粘贴", "全选", "拷贝样式"]
+    static let textDisabled: [String] = []
+    static let omitted = [
+        "立即升级", "投屏至图库", "方程帮助", "Word", "Excel", "Calendar",
+        "ZEN", "Zen", "演说", "反馈", "投屏", "设置密码", "风格化分享",
+        "生成想法", "AI 工作分解", "关系线", "Add Page", "Canvas",
+    ]
 }
 
 enum CanvasEditCommands {

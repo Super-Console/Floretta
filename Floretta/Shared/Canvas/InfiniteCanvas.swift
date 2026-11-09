@@ -1,20 +1,26 @@
+import Observation
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 struct InfiniteCanvas: View {
     @Binding var document: MindMapDocument
 
-    @State private var viewport = CanvasViewport()
     @State private var drag: RootDrag?
     @State private var panAnchor: CGPoint?
     @State private var pinchStartScale: CGFloat?
     @State private var interaction = CanvasInteraction.standard
-    @State private var chrome = CanvasChrome.standard
     @Binding var keyboard: MindMapKeyboardSession
+    var camera: CanvasCamera
     var focusNodeID: UUID? = nil
     var zenActive: Bool = false
     var onEscape: () -> Bool = { false }
     var onConsumeBlankDoubleTap: () -> Bool = { false }
     @State private var compositionWidth: CGFloat = 0
+    @State private var dotTiles = DotTileCache()
+    @State private var laidOut = LaidOutFrames()
+    @Environment(\.colorScheme) private var colorScheme
     @FocusState private var canvasFocused: Bool
 
     var body: some View {
@@ -32,8 +38,8 @@ struct InfiniteCanvas: View {
             .simultaneousGesture(pinchGesture(in: geo.size))
             .overlay {
                 CanvasScrollCatcher { delta, location, command in
-                    viewport.applyScroll(delta: delta, around: location, command: command)
-                    chrome.syncZoomPercent(toScale: viewport.scale)
+                    camera.viewport.applyScroll(delta: delta, around: location, command: command)
+                    camera.chrome.syncZoomPercent(toScale: camera.viewport.scale)
                 }
             }
             .overlay { if !zenActive { hoverAddButtons } }
@@ -43,11 +49,12 @@ struct InfiniteCanvas: View {
                     interaction.hoveredNodeID = nil
                     return
                 }
-                let point = viewport.canvasPoint(fromView: location)
+                let point = camera.viewport.canvasPoint(fromView: location)
                 interaction.hoveredNodeID = CanvasPlacement.nodeID(at: point, in: layoutSource())
             }
             .focusable()
-            .focusEffectDisabled()
+            .focusEffectDisabled(true)
+            .background { CanvasFocusRingSuppressor() }
             .focused($canvasFocused)
             .onKeyPress { press in
                 if press.key == .escape, !keyboard.isComposing, onEscape() {
@@ -64,11 +71,22 @@ struct InfiniteCanvas: View {
                     keyboard.selectedNodeID = document.roots.first?.id
                     interaction.selectedNodeID = keyboard.selectedNodeID
                 }
-                chrome.syncZoomPercent(toScale: viewport.scale)
+                camera.viewSize = geo.size
+                publishBounds()
+                camera.chrome.syncZoomPercent(toScale: camera.viewport.scale)
                 canvasFocused = true
             }
-            .onChange(of: zoomPercent) { _, percent in
-                chrome.zoomPercent = percent
+            .onChange(of: geo.size) { _, size in
+                camera.viewSize = size
+            }
+            .onChange(of: document) { _, _ in
+                publishBounds()
+            }
+            .onChange(of: focusNodeID) { _, _ in
+                publishBounds()
+            }
+            .onChange(of: camera.viewport.scale) { _, scale in
+                camera.chrome.syncZoomPercent(toScale: scale)
             }
             .onChange(of: keyboard.mode) { _, mode in
                 if mode == .command {
@@ -80,7 +98,7 @@ struct InfiniteCanvas: View {
                 interaction.selectedNodeID = id
             }
             .simultaneousGesture(SpatialTapGesture().onEnded { value in
-                let point = viewport.canvasPoint(fromView: value.location)
+                let point = camera.viewport.canvasPoint(fromView: value.location)
                 guard !keyboard.isComposing else { return }
                 let hit = CanvasPlacement.nodeID(at: point, in: layoutSource())
                 if zenActive, hit == nil { return }
@@ -91,7 +109,7 @@ struct InfiniteCanvas: View {
                 interaction.selectedNodeID = hit
             })
             .simultaneousGesture(SpatialTapGesture(count: 2).onEnded { value in
-                let point = viewport.canvasPoint(fromView: value.location)
+                let point = camera.viewport.canvasPoint(fromView: value.location)
                 guard !keyboard.isComposing else { return }
                 guard CanvasPlacement.nodeID(at: point, in: layoutSource()) == nil else { return }
                 if onConsumeBlankDoubleTap() { return }
@@ -108,78 +126,23 @@ struct InfiniteCanvas: View {
                     interaction.selectedNodeID = id
                 }
             })
-            .toolbar {
-                if !zenActive {
-                    ToolbarItemGroup(placement: .primaryAction) {
-                        Button {
-                            stepZoom(-1, around: center(of: geo.size))
-                        } label: {
-                            Label("Zoom Out", systemImage: "minus.magnifyingglass")
-                        }
-                        Button("\(zoomPercent)%") {
-                            let anchor = center(of: geo.size)
-                            viewport.zoom(to: ZoomStop.oneHundred.scale, around: anchor)
-                            chrome.syncZoomPercent(toScale: viewport.scale)
-                        }
-                        .disabled(!chrome.zoomIsClickable)
-                        Button {
-                            stepZoom(1, around: center(of: geo.size))
-                        } label: {
-                            Label("Zoom In", systemImage: "plus.magnifyingglass")
-                        }
-                        if chrome.fitControlVisible {
-                            Button {
-                                fit(in: geo.size)
-                            } label: {
-                                Label("Fit", systemImage: "arrow.up.left.and.arrow.down.right")
-                            }
-                            .keyboardShortcut("0", modifiers: .command)
-                        }
-                    }
-                }
-            }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                if !zenActive { sheetBar }
-            }
         }
-    }
-
-    private var zoomPercent: Int {
-        ZoomStop.displayPercent(forScale: viewport.scale)
-    }
-
-    private func stepZoom(_ direction: Int, around anchor: CGPoint) {
-        let next = ZoomStop.nearest(to: viewport.scale).stepped(direction)
-        viewport.zoom(to: next.scale, around: anchor)
-        chrome.syncZoomPercent(toScale: viewport.scale)
+        .focusEffectDisabled(true)
     }
 
     private func layoutSource() -> MindMapDocument {
         FocusLayout.focusedDocument(document, focus: focusNodeID)
     }
 
-    private var sheetBar: some View {
-        HStack(spacing: 8) {
-            ForEach(Array(chrome.sheets.enumerated()), id: \.element.id) { index, sheet in
-                Button(sheet.title) {
-                    chrome.selectSheet(index)
-                }
-                .buttonStyle(.bordered)
-            }
-            Button("Add Page") {
-                chrome.addSheet(title: "Page \(chrome.sheets.count + 1)")
-            }
-            .buttonStyle(.bordered)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+    private func publishBounds() {
+        camera.contentBounds = CanvasPlacement.contentBounds(in: layoutSource())
     }
 
     @ViewBuilder
     private var hoverAddButtons: some View {
         if let id = interaction.hoveredNodeID,
            let frame = placedFrames().first(where: { $0.id == id }) {
-            let rect = viewport.viewRect(fromCanvas: frame.frame)
+            let rect = camera.viewport.viewRect(fromCanvas: frame.frame)
             addButton(.up, at: CGPoint(x: rect.midX, y: rect.minY - 18), parent: id)
             addButton(.down, at: CGPoint(x: rect.midX, y: rect.maxY + 18), parent: id)
             addButton(.left, at: CGPoint(x: rect.minX - 18, y: rect.midY), parent: id)
@@ -192,7 +155,7 @@ struct InfiniteCanvas: View {
         if keyboard.mode == .edit,
            let id = keyboard.selectedNodeID,
            let frame = placedFrames().first(where: { $0.id == id }) {
-            let rect = viewport.viewRect(fromCanvas: frame.frame)
+            let rect = camera.viewport.viewRect(fromCanvas: frame.frame)
             NodeTextEditor(
                 text: Binding(
                     get: { keyboard.editingText },
@@ -200,7 +163,7 @@ struct InfiniteCanvas: View {
                 ),
                 isComposing: $keyboard.isComposing,
                 minimumWidth: $compositionWidth,
-                fontSize: frame.fontSize * max(viewport.scale, 1),
+                fontSize: frame.fontSize * max(camera.viewport.scale, 1),
                 onEvent: { handleKey($0) }
             )
             .frame(width: max(rect.width, compositionWidth, 88), height: max(rect.height, 36))
@@ -209,7 +172,7 @@ struct InfiniteCanvas: View {
     }
 
     private func placedFrames() -> [NodeFrame] {
-        CanvasPlacement.nodes(in: layoutSource())
+        laidOut.frames(for: layoutSource())
     }
 
     @discardableResult
@@ -240,7 +203,7 @@ struct InfiniteCanvas: View {
         DragGesture(minimumDistance: 2)
             .onChanged { value in
                 if drag == nil && panAnchor == nil {
-                    let start = viewport.canvasPoint(fromView: value.startLocation)
+                    let start = camera.viewport.canvasPoint(fromView: value.startLocation)
                     if let id = CanvasPlacement.rootID(at: start, in: layoutSource()),
                        document.parentID(of: id) == nil,
                        let frame = placedFrames().first(where: { $0.id == id })?.frame {
@@ -250,15 +213,15 @@ struct InfiniteCanvas: View {
                             grabY: start.y - frame.minY
                         )
                     } else {
-                        panAnchor = viewport.offset
+                        panAnchor = camera.viewport.offset
                     }
                 }
                 if let drag {
-                    let point = viewport.canvasPoint(fromView: value.location)
+                    let point = camera.viewport.canvasPoint(fromView: value.location)
                     let origin = CGPoint(x: point.x - drag.grabX, y: point.y - drag.grabY)
                     document = CanvasPlacement.movingRoot(drag.id, to: origin, in: document)
                 } else if let panAnchor {
-                    viewport.offset = CGPoint(
+                    camera.viewport.offset = CGPoint(
                         x: panAnchor.x + value.translation.width,
                         y: panAnchor.y + value.translation.height
                     )
@@ -274,24 +237,17 @@ struct InfiniteCanvas: View {
         MagnifyGesture()
             .onChanged { value in
                 if pinchStartScale == nil {
-                    pinchStartScale = viewport.scale
+                    pinchStartScale = camera.viewport.scale
                 }
-                let start = pinchStartScale ?? viewport.scale
-                viewport.zoom(to: start * value.magnification, around: center(of: size))
-                chrome.syncZoomPercent(toScale: viewport.scale)
+                let start = pinchStartScale ?? camera.viewport.scale
+                camera.viewport.zoom(to: start * value.magnification, around: center(of: size))
+                camera.chrome.syncZoomPercent(toScale: camera.viewport.scale)
             }
             .onEnded { _ in
                 pinchStartScale = nil
-                viewport.snapToStop(around: center(of: size))
-                chrome.syncZoomPercent(toScale: viewport.scale)
+                camera.viewport.snapToStop(around: center(of: size))
+                camera.chrome.syncZoomPercent(toScale: camera.viewport.scale)
             }
-    }
-
-    private func fit(in size: CGSize) {
-        guard let bounds = CanvasPlacement.contentBounds(in: layoutSource()) else { return }
-        viewport.fit(content: bounds, in: size)
-        viewport.snapToStop(around: center(of: size))
-        chrome.syncZoomPercent(toScale: viewport.scale)
     }
 
     private func center(of size: CGSize) -> CGPoint {
@@ -301,40 +257,70 @@ struct InfiniteCanvas: View {
     private func draw(in context: GraphicsContext, size: CGSize) {
         drawGrid(in: context, size: size)
         let placed = placedFrames()
-        for node in placed {
+        let viewport = camera.viewport.canvasRect(in: size).insetBy(dx: -48, dy: -48)
+        let visible = CanvasPlacement.frames(placed, intersectingCanvas: viewport)
+        let linkIDs = CanvasPlacement.nodeIDsWithVisibleLinks(placed, viewport: viewport)
+        let scale = camera.viewport.scale
+        for node in placed where linkIDs.contains(node.id) {
             guard let link = node.link else { continue }
-            var curve = Path()
-            curve.move(to: viewport.viewPoint(fromCanvas: link.start))
-            curve.addCurve(
-                to: viewport.viewPoint(fromCanvas: link.end),
-                control1: viewport.viewPoint(fromCanvas: link.control1),
-                control2: viewport.viewPoint(fromCanvas: link.control2)
-            )
-            context.stroke(
-                curve,
-                with: .color(color(link.color)),
-                lineWidth: link.lineWidth
+            stroke(
+                link,
+                straight: CanvasDrawPolicy.useStraightLink(nodeCount: placed.count, link: link),
+                in: context
             )
         }
-        for node in placed {
-            let rect = viewport.viewRect(fromCanvas: node.frame)
-            let path = Path(roundedRect: rect, cornerRadius: node.cornerRadius)
-            if !node.hidesFill {
+        for node in visible {
+            let onScreen = min(node.size.width, node.size.height) * scale
+            draw(node, detail: CanvasDetail.level(scale: scale, onScreenHeight: onScreen), in: context)
+        }
+    }
+
+    private func stroke(_ link: LinkCurve, straight: Bool, in context: GraphicsContext) {
+        var path = Path()
+        let start = camera.viewport.viewPoint(fromCanvas: link.start)
+        let end = camera.viewport.viewPoint(fromCanvas: link.end)
+        path.move(to: start)
+        if straight {
+            path.addLine(to: end)
+        } else {
+            path.addCurve(
+                to: end,
+                control1: camera.viewport.viewPoint(fromCanvas: link.control1),
+                control2: camera.viewport.viewPoint(fromCanvas: link.control2)
+            )
+        }
+        context.stroke(path, with: .color(color(link.color)), lineWidth: link.lineWidth)
+    }
+
+    private func draw(_ node: NodeFrame, detail: CanvasDetail, in context: GraphicsContext) {
+        let rect = camera.viewport.viewRect(fromCanvas: node.frame)
+        let path = Path(roundedRect: rect, cornerRadius: detail == .far ? min(node.cornerRadius, 4) : node.cornerRadius)
+        let selected = interaction.selectedNodeID == node.id
+        if !node.hidesFill {
+            if detail.drawsShadow {
+                var shadowed = context
+                shadowed.addFilter(.shadow(color: .black.opacity(0.22), radius: 3, x: 0, y: 1.5))
+                shadowed.fill(path, with: .color(color(node.fill)))
+            } else {
                 context.fill(path, with: .color(color(node.fill)))
             }
-            let selected = interaction.selectedNodeID == node.id
-            let border = selected ? interaction.selectionBorder : node.border
-            let width = selected ? interaction.selectionBorderWidth : node.borderWidth
-            if width > 0 {
-                context.stroke(path, with: .color(color(border)), lineWidth: width)
-            }
-            if selected && interaction.showsSelectionChrome {
-                drawHandles(around: rect, in: context)
-            }
-            context.draw(
-                styledText(node),
-                in: rect.insetBy(dx: 10, dy: 6)
+        }
+        if detail != .far, selected {
+            context.stroke(
+                path,
+                with: .color(color(interaction.selectionBorder)),
+                lineWidth: interaction.selectionBorderWidth
             )
+        } else if detail.drawsFineBorder || (detail == .mid && node.borderWidth >= 2.5) {
+            if node.borderWidth > 0 {
+                context.stroke(path, with: .color(color(node.border)), lineWidth: node.borderWidth)
+            }
+        }
+        if selected, detail.drawsSelectionHandles {
+            drawHandles(around: rect, in: context)
+        }
+        if detail.drawsText {
+            context.draw(styledText(node), in: rect.insetBy(dx: 10, dy: 6))
         }
     }
 
@@ -376,23 +362,18 @@ struct InfiniteCanvas: View {
         Color(red: value.red, green: value.green, blue: value.blue)
     }
 
+    /// One pattern fill of a step×step dot tile. No per-dot loop and no count cap.
     private func drawGrid(in context: GraphicsContext, size: CGSize) {
-        let step = max(18, 32 * viewport.scale)
-        guard step.isFinite, size.width > 0, size.height > 0 else { return }
-        var x = viewport.offset.x.truncatingRemainder(dividingBy: step)
-        if x < 0 { x += step }
-        var drawn = 0
-        while x < size.width && drawn < 800 {
-            var y = viewport.offset.y.truncatingRemainder(dividingBy: step)
-            if y < 0 { y += step }
-            while y < size.height && drawn < 800 {
-                let dot = Path(ellipseIn: CGRect(x: x - 1, y: y - 1, width: 2, height: 2))
-                context.fill(dot, with: .color(.secondary.opacity(0.35)))
-                y += step
-                drawn += 1
-            }
-            x += step
-        }
+        guard let layout = DotLatticeLayout.make(
+            offset: camera.viewport.offset,
+            scale: camera.viewport.scale,
+            viewSize: size
+        ) else { return }
+        let tile = dotTiles.image(step: layout.step, scheme: colorScheme)
+        context.fill(
+            Path(CGRect(origin: .zero, size: size)),
+            with: .tiledImage(tile, origin: layout.tileOrigin, scale: 1)
+        )
     }
 
 }
@@ -420,3 +401,239 @@ private extension View {
         #endif
     }
 }
+
+/// World-locked dot lattice. One tile covers the viewport; spacing is `worldStep` canvas units.
+struct DotLatticeLayout: Equatable {
+    static let worldStep: CGFloat = 32
+
+    var step: CGFloat
+    /// Lattice point in view space, in `[0, step)`.
+    var phase: CGPoint
+    /// View-space top-left of the tile centered on `phase`.
+    var tileOrigin: CGPoint
+    /// Fill rect in the space whose origin is `tileOrigin`. Edges sit on tile boundaries.
+    var fillRectInTileSpace: CGRect
+
+    var fillRectInView: CGRect {
+        fillRectInTileSpace.offsetBy(dx: tileOrigin.x, dy: tileOrigin.y)
+    }
+
+    static func make(offset: CGPoint, scale: CGFloat, viewSize: CGSize) -> DotLatticeLayout? {
+        guard scale.isFinite, scale > 0,
+              viewSize.width > 0, viewSize.height > 0,
+              viewSize.width.isFinite, viewSize.height.isFinite else { return nil }
+        let step = worldStep * scale
+        guard step.isFinite, step >= 1 else { return nil }
+        let phase = CGPoint(
+            x: positiveRemainder(offset.x, modulo: step),
+            y: positiveRemainder(offset.y, modulo: step)
+        )
+        let tileOrigin = CGPoint(x: phase.x - step / 2, y: phase.y - step / 2)
+        let minX = -tileOrigin.x
+        let minY = -tileOrigin.y
+        let maxX = minX + viewSize.width
+        let maxY = minY + viewSize.height
+        let snappedMinX = floor((minX - step) / step) * step
+        let snappedMinY = floor((minY - step) / step) * step
+        let snappedMaxX = ceil((maxX + step) / step) * step
+        let snappedMaxY = ceil((maxY + step) / step) * step
+        return DotLatticeLayout(
+            step: step,
+            phase: phase,
+            tileOrigin: tileOrigin,
+            fillRectInTileSpace: CGRect(
+                x: snappedMinX,
+                y: snappedMinY,
+                width: snappedMaxX - snappedMinX,
+                height: snappedMaxY - snappedMinY
+            )
+        )
+    }
+
+    func coversView(_ viewSize: CGSize) -> Bool {
+        let fill = fillRectInView
+        return fill.minX <= 0 && fill.minY <= 0 && fill.maxX >= viewSize.width && fill.maxY >= viewSize.height
+    }
+}
+
+func positiveRemainder(_ value: CGFloat, modulo step: CGFloat) -> CGFloat {
+    guard step > 0, value.isFinite else { return 0 }
+    let remainder = value.truncatingRemainder(dividingBy: step)
+    if remainder < 0 { return remainder + step }
+    if remainder == step { return 0 }
+    return remainder
+}
+
+/// One dot cell. Rebuilt only when spacing or appearance changes, then painted with `ImagePaint`.
+@MainActor
+final class DotTileCache {
+    private var step: CGFloat = .nan
+    private var dark = false
+    private var cached: Image?
+
+    func image(step: CGFloat, scheme: ColorScheme) -> Image {
+        let dark = scheme == .dark
+        if let cached, self.step == step, self.dark == dark {
+            return cached
+        }
+        let image = DotTileImage.make(step: step, dark: dark)
+        self.step = step
+        self.dark = dark
+        cached = image
+        return image
+    }
+}
+
+private enum DotTileImage {
+    static func make(step: CGFloat, dark: Bool) -> Image {
+        let raster: CGFloat = 2
+        let pixels = max(1, Int((step * raster).rounded()))
+        let dotPixels = max(1, min(pixels, Int((2 * raster).rounded())))
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let context = CGContext(
+            data: nil,
+            width: pixels,
+            height: pixels,
+            bitsPerComponent: 8,
+            bytesPerRow: pixels * 4,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )
+        let fallback = Image(systemName: "circle.fill")
+        guard let context, let cgImage = paint(context, pixels: pixels, dotPixels: dotPixels, dark: dark) else {
+            return fallback
+        }
+        let imageScale = CGFloat(pixels) / step
+        return Image(decorative: cgImage, scale: imageScale)
+    }
+
+    private static func paint(
+        _ context: CGContext,
+        pixels: Int,
+        dotPixels: Int,
+        dark: Bool
+    ) -> CGImage? {
+        let alpha: CGFloat = dark ? 0.28 : 0.22
+        let channel: CGFloat = dark ? 1 : 0
+        context.setFillColor(red: channel, green: channel, blue: channel, alpha: alpha)
+        let dot = CGFloat(dotPixels)
+        let inset = (CGFloat(pixels) - dot) / 2
+        context.fillEllipse(in: CGRect(x: inset, y: inset, width: dot, height: dot))
+        return context.makeImage()
+    }
+}
+
+/// Keeps the last layout so pan and zoom do not measure every node again.
+@MainActor
+final class LaidOutFrames {
+    private var source: MindMapDocument?
+    private var cached: [NodeFrame] = []
+
+    func frames(for document: MindMapDocument) -> [NodeFrame] {
+        if let source, source == document { return cached }
+        cached = CanvasPlacement.nodes(in: document)
+        source = document
+        return cached
+    }
+}
+
+/// Shared zoom state so the editor toolbar and the canvas stay on one camera.
+@MainActor
+@Observable
+final class CanvasCamera {
+    var viewport = CanvasViewport()
+    var chrome = CanvasChrome.standard
+    var viewSize: CGSize = .zero
+    var contentBounds: CGRect?
+
+    func stepZoom(_ direction: Int) {
+        let anchor = center
+        let next = ZoomStop.nearest(to: viewport.scale).stepped(direction)
+        var updated = viewport
+        updated.zoom(to: next.scale, around: anchor)
+        viewport = updated
+        chrome.syncZoomPercent(toScale: viewport.scale)
+    }
+
+    func resetZoom() {
+        var updated = viewport
+        updated.zoom(to: ZoomStop.oneHundred.scale, around: center)
+        viewport = updated
+        chrome.syncZoomPercent(toScale: viewport.scale)
+    }
+
+    func fitToContent() {
+        guard let contentBounds else { return }
+        var updated = viewport
+        updated.fit(content: contentBounds, in: viewSize)
+        updated.snapToStop(around: center)
+        viewport = updated
+        chrome.syncZoomPercent(toScale: viewport.scale)
+    }
+
+    private var center: CGPoint {
+        CGPoint(x: viewSize.width / 2, y: viewSize.height / 2)
+    }
+}
+
+/// Hides the system focus ring without dropping keyboard focus.
+struct CanvasFocusRingSuppressor: View {
+    var body: some View {
+        #if os(macOS)
+        MacFocusRingSuppressor()
+        #else
+        Color.clear
+        #endif
+    }
+}
+
+#if os(macOS)
+private struct MacFocusRingSuppressor: NSViewRepresentable {
+    func makeNSView(context: Context) -> FocusRingFreeView {
+        FocusRingFreeView()
+    }
+
+    func updateNSView(_ nsView: FocusRingFreeView, context: Context) {
+        nsView.suppressFocusRing()
+    }
+}
+
+private final class FocusRingFreeView: NSView {
+    override var focusRingType: NSFocusRingType {
+        get { .none }
+        set { }
+    }
+
+    override func drawFocusRingMask() {}
+
+    override var focusRingMaskBounds: NSRect { .zero }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        suppressFocusRing()
+    }
+
+    override func viewDidMoveToSuperview() {
+        super.viewDidMoveToSuperview()
+        suppressFocusRing()
+    }
+
+    override func layout() {
+        super.layout()
+        suppressFocusRing()
+    }
+
+    func suppressFocusRing() {
+        guard let window else { return }
+        var view: NSView? = self
+        var steps = 0
+        while let current = view, steps < 6, current !== window.contentView {
+            current.focusRingType = .none
+            view = current.superview
+            steps += 1
+        }
+    }
+}
+#endif

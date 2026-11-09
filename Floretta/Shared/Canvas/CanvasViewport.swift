@@ -27,6 +27,22 @@ struct CanvasViewport: Equatable, Sendable {
 
     var scale: CGFloat { flow.zoom }
 
+    /// Visible canvas rectangle for a view of `viewSize`.
+    /// Inverse of SwiftFlow's `screen = flow * zoom + offset`.
+    func canvasRect(in viewSize: CGSize) -> CGRect {
+        let zoom = max(scale, Viewport.minZoom)
+        let minX = (0 - offset.x) / zoom
+        let minY = (0 - offset.y) / zoom
+        let maxX = (viewSize.width - offset.x) / zoom
+        let maxY = (viewSize.height - offset.y) / zoom
+        return CGRect(
+            x: min(minX, maxX),
+            y: min(minY, maxY),
+            width: abs(maxX - minX),
+            height: abs(maxY - minY)
+        )
+    }
+
     @MainActor
     func canvasPoint(fromView point: CGPoint) -> CGPoint {
         bridge.screenToFlowPosition(point)

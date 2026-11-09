@@ -6,9 +6,8 @@ struct ContentView: View {
     @Bindable var library: LibraryModel
 
     @State private var page: HomePage = .recent
-    @State private var columnVisibility: NavigationSplitViewVisibility = .detailOnly
+    @State private var columnVisibility = ShellTab.preferredColumnVisibility
     @State private var searchText = ""
-    @State private var showSettings = false
     @State private var showImporter = false
     @State private var browseRoot: URL?
     @State private var browseTitle = LocalDeviceLabel.current.title
@@ -57,60 +56,114 @@ struct ContentView: View {
                     library.openError = error.localizedDescription
                 }
             }
-            .sheet(isPresented: $showSettings) {
-                SettingsView(settings: settings)
-            }
     }
 
     @ViewBuilder
     private var root: some View {
         if let editor = library.editor {
-            DocumentEditor(
-                session: editor,
-                settings: settings,
-                onClose: dismissEditor,
-                onEdit: { recovery.noteEdit($0) },
-                onImport: { showImporter = true }
-            )
-        } else {
-            NavigationSplitView(columnVisibility: $columnVisibility) {
-                HomeSidebar(
-                    library: library,
-                    page: $page,
-                    openFiles: { showImporter = true },
-                    openICloud: openICloud,
-                    browsePad: browsePad
+            NavigationStack {
+                DocumentEditor(
+                    session: editor,
+                    settings: settings,
+                    onClose: dismissEditor,
+                    onEdit: { recovery.noteEdit($0) },
+                    onImport: { showImporter = true }
                 )
-            } detail: {
-                NavigationStack {
-                    switch page {
-                    case .recent:
-                        RecentPage(
-                            library: library,
-                            page: $page,
-                            columnVisibility: $columnVisibility,
-                            searchText: $searchText,
-                            showSettings: { showSettings = true }
-                        )
-                    case .newMap:
-                        NewMapPage(
-                            onClose: { page = .recent },
-                            onCreateMindMap: { library.makeNew() }
-                        )
-                    case .browse:
-                        if let browseRoot {
-                            LocalBrowser(
-                                title: browseTitle,
-                                directory: browseRoot,
-                                files: { library.files(in: $0) },
-                                openFile: { library.openFile($0) }
-                            )
-                        }
-                    }
+            }
+        } else {
+            shell
+        }
+    }
+
+    @ViewBuilder
+    private var shell: some View {
+        #if os(iOS)
+        TabView(selection: $library.tab) {
+            iosLibrary
+                .tabItem {
+                    Label(ShellTab.home.title, systemImage: ShellTab.home.systemImage)
+                }
+                .tag(ShellTab.home)
+            SettingsView(settings: settings)
+                .tabItem {
+                    Label(ShellTab.settings.title, systemImage: ShellTab.settings.systemImage)
+                }
+                .tag(ShellTab.settings)
+        }
+        .tabViewStyle(.tabBarOnly)
+        #else
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            List(selection: macSelection) {
+                ForEach(ShellTab.destinations, id: \.self) { destination in
+                    Label(destination.title, systemImage: destination.systemImage)
+                        .tag(destination)
                 }
             }
-            .id(page)
+            .navigationTitle("Floretta")
+            .listStyle(.sidebar)
+        } detail: {
+            switch library.tab {
+            case .home:
+                homeStack
+            case .settings:
+                SettingsView(settings: settings)
+            }
         }
+        #endif
+    }
+
+    #if os(iOS)
+    private var iosLibrary: some View {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            HomeSidebar(
+                library: library,
+                page: $page,
+                openFiles: { showImporter = true },
+                openICloud: openICloud,
+                browsePad: browsePad
+            )
+        } detail: {
+            homeStack
+        }
+    }
+    #endif
+
+    private var macSelection: Binding<ShellTab?> {
+        Binding(
+            get: { library.tab },
+            set: { if let tab = $0 { library.tab = tab } }
+        )
+    }
+
+    private var homeStack: some View {
+        NavigationStack {
+            switch page {
+            case .recent:
+                RecentPage(
+                    library: library,
+                    page: $page,
+                    searchText: $searchText,
+                    openFiles: { showImporter = true },
+                    openICloud: openICloud,
+                    browseLocal: browsePad
+                )
+            case .newMap:
+                NewMapPage(
+                    onClose: { page = .recent },
+                    onCreate: { library.makeTemplate($0) }
+                )
+            case .browse:
+                if let browseRoot {
+                    LocalBrowser(
+                        title: browseTitle,
+                        directory: browseRoot,
+                        files: { library.files(in: $0) },
+                        openFile: { library.openFile($0) }
+                    )
+                }
+            }
+        }
+        .id(page)
     }
 
     private var openErrorPresented: Binding<Bool> {
@@ -131,6 +184,7 @@ struct ContentView: View {
         if library.closeEditor() {
             recovery.quitNormally()
         }
+        library.tab = .home
         page = .recent
     }
 

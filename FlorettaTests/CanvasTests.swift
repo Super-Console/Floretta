@@ -240,6 +240,27 @@ final class CanvasTests: XCTestCase {
         XCTAssertTrue(CanvasDrawPolicy.useStraightLink(nodeCount: 1000, link: short))
     }
 
+    func testOnScreenFontSizeMatchesTheEditFieldAndStaysInsideTheStops() {
+        XCTAssertEqual(CanvasViewport.minimumScale, ZoomStop.fifty.scale)
+        XCTAssertEqual(CanvasViewport.maximumScale, ZoomStop.fourHundred.scale)
+        XCTAssertEqual(CanvasViewport.clampScale(0.1), 0.5)
+        XCTAssertEqual(CanvasViewport.clampScale(0.5), 0.5)
+        XCTAssertEqual(CanvasViewport.clampScale(4), 4)
+        XCTAssertEqual(CanvasViewport.clampScale(9), 4)
+        XCTAssertEqual(CanvasViewport.clampScale(.nan), 1)
+
+        let atFifty = CanvasTextScale.onScreenPointSize(fontSize: 30, scale: 0.5)
+        let atFourHundred = CanvasTextScale.onScreenPointSize(fontSize: 16, scale: 4)
+        XCTAssertEqual(atFifty, 15)
+        XCTAssertEqual(atFourHundred, 64)
+        XCTAssertEqual(CanvasTextScale.onScreenPointSize(fontSize: 20, scale: 0.2), 10)
+        XCTAssertEqual(CanvasTextLOD.level(onScreenPointSize: atFifty), .full)
+        XCTAssertEqual(CanvasTextLOD.level(onScreenPointSize: atFourHundred), .full)
+        XCTAssertEqual(CanvasTextLOD.level(onScreenPointSize: 8), .blocks)
+        XCTAssertFalse(CanvasTextLOD.blocks.drawsTitle)
+        XCTAssertTrue(CanvasTextLOD.title.drawsTitle)
+    }
+
     private func sampleFrame(id: UUID, origin: CGPoint) -> NodeFrame {
         NodeFrame(
             id: id,

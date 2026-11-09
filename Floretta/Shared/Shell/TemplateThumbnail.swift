@@ -1,220 +1,262 @@
 import SwiftUI
 
-/// Style preview for a new-map card. Drawn with system shapes, not an empty frame.
+/// One drawing per template. Colors come from the system palette so dark mode stays readable.
 struct TemplateThumbnail: View {
     static let width: CGFloat = 220
     static let height: CGFloat = 132
 
-    var name: String
+    var kind: TemplateKind
 
     var body: some View {
         ZStack {
-            background
+            Color.primary.opacity(0.04)
             content
         }
         .frame(width: Self.width, height: Self.height)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(Color.black.opacity(0.08), lineWidth: 1)
+                .strokeBorder(Color.primary.opacity(0.15), lineWidth: 1)
         }
-    }
-
-    private var background: Color {
-        switch name {
-        case "组织结构图":
-            return Color(red: 0.85, green: 0.95, blue: 0.90)
-        case "树形图":
-            return Color(red: 0.08, green: 0.36, blue: 0.38)
-        default:
-            if basic.contains(name) { return .white }
-            return stableIndex(name, modulo: 2) == 0
-                ? .white
-                : Color(red: 0.93, green: 0.95, blue: 0.98)
-        }
+        .accessibilityLabel(kind.name)
     }
 
     @ViewBuilder
     private var content: some View {
-        switch name {
-        case "思维导图":
+        switch kind {
+        case .mindMap:
             mindMap
-        case "逻辑图":
-            logicMap
-        case "括号图":
-            braceMap
-        case "组织结构图":
-            orgChart(ink: Color(red: 0.12, green: 0.35, blue: 0.32), node: .white)
-        case "树形图":
-            orgChart(ink: .white, node: Color(red: 0.55, green: 0.82, blue: 0.78))
-        case "时间轴":
+        case .logic:
+            logic
+        case .brace:
+            brace
+        case .org:
+            org
+        case .timeline:
             timeline
-        default:
-            mindMapColored(title: shortened(name), palette: palette(for: name))
+        case .fishbone:
+            fishbone
+        case .swot:
+            swot
+        case .compare:
+            compare
+        case .okr:
+            okr
+        case .sevenQuestions:
+            seven
+        case .meeting:
+            meeting
+        case .reading:
+            reading
         }
-    }
-
-    private var basic: Set<String> {
-        ["思维导图", "逻辑图", "括号图", "组织结构图", "树形图", "时间轴"]
     }
 
     private var mindMap: some View {
-        mindMapColored(
-            title: "中心主题",
-            palette: [
-                Color(red: 0.45, green: 0.75, blue: 0.55),
-                Color(red: 0.35, green: 0.62, blue: 0.86),
-                Color(red: 0.86, green: 0.42, blue: 0.38),
-                Color(red: 0.90, green: 0.58, blue: 0.32),
-            ]
-        )
-    }
-
-    private func mindMapColored(title: String, palette: [Color]) -> some View {
-        let left = Array(palette.prefix(2))
-        let right = Array(palette.dropFirst(min(2, palette.count)))
-        return ZStack {
-            link(from: CGPoint(x: 110, y: 66), to: CGPoint(x: 48, y: 36), color: left.first ?? .gray)
-            link(from: CGPoint(x: 110, y: 66), to: CGPoint(x: 48, y: 96), color: left.dropFirst().first ?? .gray)
-            link(from: CGPoint(x: 110, y: 66), to: CGPoint(x: 172, y: 36), color: right.first ?? .gray)
-            link(from: CGPoint(x: 110, y: 66), to: CGPoint(x: 172, y: 96), color: right.dropFirst().first ?? .gray)
-            pill("分支", fill: left.first ?? .gray).position(x: 48, y: 36)
-            pill("分支", fill: left.dropFirst().first ?? .gray).position(x: 48, y: 96)
-            pill("分支", fill: right.first ?? .gray).position(x: 172, y: 36)
-            pill("分支", fill: right.dropFirst().first ?? .gray).position(x: 172, y: 96)
-            pill(title, fill: .white, ink: Color(red: 0.15, green: 0.35, blue: 0.7), border: Color(red: 0.25, green: 0.5, blue: 0.9))
-                .position(x: 110, y: 66)
+        ZStack {
+            curve(CGPoint(x: 110, y: 66), CGPoint(x: 46, y: 36))
+            curve(CGPoint(x: 110, y: 66), CGPoint(x: 46, y: 96))
+            curve(CGPoint(x: 110, y: 66), CGPoint(x: 174, y: 36))
+            curve(CGPoint(x: 110, y: 66), CGPoint(x: 174, y: 96))
+            chip("去程").position(x: 46, y: 36)
+            chip("预算").position(x: 46, y: 96)
+            chip("行程").position(x: 174, y: 36)
+            chip("行装").position(x: 174, y: 96)
+            chip("出行", emphasized: true).position(x: 110, y: 66)
         }
     }
 
-    private var logicMap: some View {
-        let colors = [
-            Color(red: 0.45, green: 0.42, blue: 0.78),
-            Color(red: 0.30, green: 0.58, blue: 0.82),
-            Color(red: 0.35, green: 0.70, blue: 0.48),
-            Color(red: 0.90, green: 0.55, blue: 0.28),
-        ]
-        return ZStack {
+    private var logic: some View {
+        ZStack {
             ForEach(0..<4, id: \.self) { index in
                 let y = CGFloat(28 + index * 26)
-                link(from: CGPoint(x: 58, y: 66), to: CGPoint(x: 150, y: y), color: colors[index])
-                pill("分支", fill: colors[index]).position(x: 168, y: y)
+                curve(CGPoint(x: 52, y: 66), CGPoint(x: 150, y: y))
+                chip(["读者", "论点", "结论", "删空话"][index]).position(x: 168, y: y)
             }
-            pill("中心主题", fill: .white, ink: .black, border: Color(red: 0.25, green: 0.45, blue: 0.85))
-                .position(x: 58, y: 66)
+            chip("写清楚", emphasized: true).position(x: 52, y: 66)
         }
     }
 
-    private var braceMap: some View {
+    private var brace: some View {
         ZStack {
             BraceShape()
-                .stroke(Color.black.opacity(0.35), lineWidth: 1.5)
-                .frame(width: 18, height: 88)
-                .position(x: 110, y: 66)
-            pill("主题", fill: Color(red: 0.93, green: 0.94, blue: 0.96), ink: .black).position(x: 48, y: 40)
-            pill("主题", fill: Color(red: 0.93, green: 0.94, blue: 0.96), ink: .black).position(x: 48, y: 92)
-            pill("分组", fill: Color(red: 0.86, green: 0.91, blue: 0.98), ink: .black).position(x: 168, y: 40)
-            pill("分组", fill: Color(red: 0.86, green: 0.91, blue: 0.98), ink: .black).position(x: 168, y: 92)
+                .stroke(Color.primary.opacity(0.45), lineWidth: 1.5)
+                .frame(width: 18, height: 90)
+                .position(x: 108, y: 66)
+            chip("叶菜").position(x: 48, y: 36)
+            chip("根茎").position(x: 48, y: 96)
+            chip("菠菜").position(x: 168, y: 28)
+            chip("生菜").position(x: 168, y: 52)
+            chip("萝卜").position(x: 168, y: 84)
+            chip("土豆").position(x: 168, y: 108)
         }
     }
 
-    private func orgChart(ink: Color, node: Color) -> some View {
+    private var org: some View {
         ZStack {
             Path { path in
-                path.move(to: CGPoint(x: 110, y: 42))
-                path.addLine(to: CGPoint(x: 110, y: 68))
-                path.addLine(to: CGPoint(x: 40, y: 68))
-                path.addLine(to: CGPoint(x: 180, y: 68))
-                path.move(to: CGPoint(x: 40, y: 68))
-                path.addLine(to: CGPoint(x: 40, y: 84))
-                path.move(to: CGPoint(x: 110, y: 68))
-                path.addLine(to: CGPoint(x: 110, y: 84))
-                path.move(to: CGPoint(x: 180, y: 68))
-                path.addLine(to: CGPoint(x: 180, y: 84))
+                path.move(to: CGPoint(x: 110, y: 40))
+                path.addLine(to: CGPoint(x: 110, y: 62))
+                path.addLine(to: CGPoint(x: 40, y: 62))
+                path.addLine(to: CGPoint(x: 180, y: 62))
+                path.move(to: CGPoint(x: 40, y: 62))
+                path.addLine(to: CGPoint(x: 40, y: 86))
+                path.move(to: CGPoint(x: 110, y: 62))
+                path.addLine(to: CGPoint(x: 110, y: 86))
+                path.move(to: CGPoint(x: 180, y: 62))
+                path.addLine(to: CGPoint(x: 180, y: 86))
             }
-            .stroke(ink.opacity(0.45), lineWidth: 1)
-            pill("中心", fill: node, ink: ink).position(x: 110, y: 32)
-            pill("分支", fill: node, ink: ink).position(x: 40, y: 98)
-            pill("分支", fill: node, ink: ink).position(x: 110, y: 98)
-            pill("分支", fill: node, ink: ink).position(x: 180, y: 98)
+            .stroke(Color.primary.opacity(0.4), lineWidth: 1)
+            chip("食堂", emphasized: true).position(x: 110, y: 28)
+            chip("前厅").position(x: 40, y: 100)
+            chip("厨房").position(x: 110, y: 100)
+            chip("采购").position(x: 180, y: 100)
         }
     }
 
     private var timeline: some View {
         ZStack {
             Path { path in
-                path.move(to: CGPoint(x: 16, y: 66))
-                path.addLine(to: CGPoint(x: 204, y: 66))
+                path.move(to: CGPoint(x: 20, y: 78))
+                path.addLine(to: CGPoint(x: 200, y: 78))
             }
-            .stroke(Color.black.opacity(0.25), lineWidth: 1.5)
-            Circle().fill(Color(red: 0.25, green: 0.5, blue: 0.9)).frame(width: 10, height: 10).position(x: 50, y: 66)
-            Circle().fill(Color(red: 0.90, green: 0.45, blue: 0.35)).frame(width: 10, height: 10).position(x: 170, y: 66)
-            pill("中心主题", fill: .white, ink: .black, border: Color(red: 0.25, green: 0.5, blue: 0.9))
-                .position(x: 110, y: 66)
-            pill("事件", fill: Color(red: 0.93, green: 0.95, blue: 0.98), ink: .black).position(x: 50, y: 40)
-            pill("事件", fill: Color(red: 0.98, green: 0.93, blue: 0.90), ink: .black).position(x: 170, y: 92)
+            .stroke(Color.primary.opacity(0.4), lineWidth: 1.5)
+            ForEach(Array(["立项", "设计", "开发", "上架"].enumerated()), id: \.offset) { index, title in
+                let x = CGFloat(36 + index * 48)
+                Circle()
+                    .fill(Color.accentColor)
+                    .frame(width: 8, height: 8)
+                    .position(x: x, y: 78)
+                chip(title).position(x: x, y: index.isMultiple(of: 2) ? 48 : 104)
+            }
         }
     }
 
-    private func pill(_ text: String, fill: Color, ink: Color = .white, border: Color? = nil) -> some View {
+    private var fishbone: some View {
+        ZStack {
+            Path { path in
+                path.move(to: CGPoint(x: 24, y: 66))
+                path.addLine(to: CGPoint(x: 196, y: 66))
+                path.move(to: CGPoint(x: 60, y: 66))
+                path.addLine(to: CGPoint(x: 36, y: 36))
+                path.move(to: CGPoint(x: 100, y: 66))
+                path.addLine(to: CGPoint(x: 76, y: 96))
+                path.move(to: CGPoint(x: 140, y: 66))
+                path.addLine(to: CGPoint(x: 164, y: 36))
+                path.move(to: CGPoint(x: 170, y: 66))
+                path.addLine(to: CGPoint(x: 194, y: 96))
+            }
+            .stroke(Color.primary.opacity(0.4), lineWidth: 1.25)
+            chip("延误", emphasized: true).position(x: 110, y: 66)
+            chip("人员").position(x: 36, y: 28)
+            chip("设备").position(x: 70, y: 108)
+            chip("材料").position(x: 164, y: 28)
+            chip("环境").position(x: 188, y: 108)
+        }
+    }
+
+    private var swot: some View {
+        let titles = ["优势", "劣势", "机会", "威胁"]
+        return VStack(spacing: 8) {
+            ForEach(0..<2, id: \.self) { row in
+                HStack(spacing: 8) {
+                    ForEach(0..<2, id: \.self) { column in
+                        Text(titles[row * 2 + column])
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(Color.primary)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(Color.accentColor.opacity(0.18), in: RoundedRectangle(cornerRadius: 8))
+                    }
+                }
+            }
+        }
+        .padding(16)
+    }
+
+    private var compare: some View {
+        HStack(spacing: 16) {
+            column("旧楼", rows: ["月租", "通勤", "装修"])
+            column("园区", rows: ["月租", "通勤", "装修"])
+        }
+        .padding(.horizontal, 28)
+    }
+
+    private var okr: some View {
+        VStack(spacing: 8) {
+            chip("复购三成", emphasized: true)
+            HStack(spacing: 8) {
+                chip("回头客")
+                chip("客诉")
+                chip("新品")
+            }
+        }
+    }
+
+    private var seven: some View {
+        let titles = ["人", "事", "时", "地", "因", "何", "价"]
+        return HStack(spacing: 4) {
+            ForEach(titles, id: \.self) { title in
+                Text(title)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Color.primary)
+                    .frame(width: 22, height: 22)
+                    .background(Color.accentColor.opacity(0.2), in: Circle())
+            }
+        }
+    }
+
+    private var meeting: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            chip("店务会", emphasized: true)
+            chip("议题")
+            chip("决定")
+            chip("待办")
+            chip("未决")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.leading, 28)
+    }
+
+    private var reading: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            chip("书名", emphasized: true)
+            chip("人物").padding(.leading, 16)
+            chip("情节").padding(.leading, 16)
+            chip("摘句").padding(.leading, 28)
+            chip("看法").padding(.leading, 16)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.leading, 24)
+    }
+
+    private func column(_ title: String, rows: [String]) -> some View {
+        VStack(spacing: 6) {
+            chip(title, emphasized: true)
+            ForEach(rows, id: \.self) { row in
+                chip(row)
+            }
+        }
+    }
+
+    private func chip(_ text: String, emphasized: Bool = false) -> some View {
         Text(text)
-            .font(.system(size: 8, weight: .medium))
-            .foregroundStyle(ink)
+            .font(.system(size: 9, weight: .medium))
+            .foregroundStyle(Color.primary)
             .lineLimit(1)
             .padding(.horizontal, 6)
             .padding(.vertical, 3)
-            .background(fill, in: Capsule())
-            .overlay {
-                if let border {
-                    Capsule().strokeBorder(border, lineWidth: 1)
-                }
-            }
+            .background(
+                emphasized ? Color.accentColor.opacity(0.22) : Color.primary.opacity(0.08),
+                in: Capsule()
+            )
     }
 
-    private func link(from start: CGPoint, to end: CGPoint, color: Color) -> some View {
+    private func curve(_ start: CGPoint, _ end: CGPoint) -> some View {
         Path { path in
             path.move(to: start)
             let mid = (start.x + end.x) / 2
             path.addCurve(to: end, control1: CGPoint(x: mid, y: start.y), control2: CGPoint(x: mid, y: end.y))
         }
-        .stroke(color.opacity(0.85), lineWidth: 1.25)
-    }
-
-    private func shortened(_ name: String) -> String {
-        if name.count <= 4 { return name }
-        return String(name.prefix(4))
-    }
-
-    private func palette(for name: String) -> [Color] {
-        let palettes: [[Color]] = [
-            [
-                Color(red: 0.86, green: 0.42, blue: 0.38),
-                Color(red: 0.45, green: 0.75, blue: 0.55),
-                Color(red: 0.35, green: 0.62, blue: 0.86),
-                Color(red: 0.90, green: 0.58, blue: 0.32),
-            ],
-            [
-                Color(red: 0.40, green: 0.45, blue: 0.75),
-                Color(red: 0.30, green: 0.65, blue: 0.70),
-                Color(red: 0.75, green: 0.45, blue: 0.55),
-                Color(red: 0.55, green: 0.70, blue: 0.40),
-            ],
-            [
-                Color(red: 0.20, green: 0.45, blue: 0.55),
-                Color(red: 0.85, green: 0.55, blue: 0.25),
-                Color(red: 0.45, green: 0.55, blue: 0.75),
-                Color(red: 0.55, green: 0.72, blue: 0.62),
-            ],
-        ]
-        return palettes[stableIndex(name, modulo: palettes.count)]
-    }
-
-    private func stableIndex(_ name: String, modulo: Int) -> Int {
-        var sum = 0
-        for scalar in name.unicodeScalars {
-            sum = (sum * 33 + Int(scalar.value)) % 10007
-        }
-        return sum % modulo
+        .stroke(Color.accentColor.opacity(0.8), lineWidth: 1.25)
     }
 }
 

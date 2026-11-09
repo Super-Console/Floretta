@@ -102,7 +102,7 @@ final class ShellTests: XCTestCase {
         XCTAssertFalse(session.zen.isActive)
         XCTAssertEqual(session.zen.chrome, .editing)
         XCTAssertTrue(session.zen.chrome.showsToolbar)
-        XCTAssertTrue(session.zen.chrome.showsTabBar)
+        XCTAssertFalse(session.zen.chrome.showsTabBar)
         XCTAssertTrue(session.zen.chrome.showsStatusBar)
         XCTAssertTrue(session.zen.chrome.showsSidebar)
         XCTAssertTrue(session.zen.chrome.showsInspector)
@@ -255,6 +255,18 @@ final class ShellTests: XCTestCase {
         XCTAssertThrowsError(try DocumentOpener.open(data: Data("nope".utf8), filename: "map.txt"))
     }
 
+    func testMapFilesAreNotImportedAsMarkdown() throws {
+        let map = MindMapDocument(title: "图", roots: [MindMapNode(text: "根", children: [MindMapNode(text: "子")])])
+        let mm = try DocumentOpener.open(data: try FlorettaMMCodec.export(map), filename: "notes.md")
+        XCTAssertEqual(mm.roots.first?.text, "根")
+        XCTAssertEqual(mm.roots.first?.children.first?.text, "子")
+        let opml = try DocumentOpener.open(data: try FlorettaOPMLCodec.export(map), filename: "notes.md")
+        XCTAssertEqual(opml.title, "图")
+        XCTAssertEqual(opml.roots.first?.text, "根")
+        let floretta = try DocumentOpener.open(data: try FlorettaCodec.encode(map), filename: "notes.md")
+        XCTAssertEqual(floretta.roots.first?.text, "根")
+    }
+
     func testFocusModeHidesTheRestOfTheTree() {
         let parent = UUID()
         let child = UUID()
@@ -317,7 +329,7 @@ final class ShellTests: XCTestCase {
             ["50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%", "适应窗口"]
         )
         XCTAssertEqual(ZoomStop.allCases.map { "\($0.percent)%" }, Array(CanvasMenus.zoom.dropLast()))
-        XCTAssertEqual(CanvasMenus.more, ["大纲", "样式", "查看模式", "新建画布", "查找", "粘贴", "更多设置", "关于"])
+        XCTAssertEqual(CanvasMenus.more, ["大纲", "样式", "查看模式", "新建画布", "查找", "粘贴", "关于"])
         XCTAssertEqual(CanvasMenus.moreDisabled, [])
         XCTAssertFalse(CanvasMenus.more.contains("ZEN"))
         XCTAssertFalse(CanvasMenus.more.contains("Zen"))
@@ -331,16 +343,65 @@ final class ShellTests: XCTestCase {
         for name in CanvasMenus.omitted {
             XCTAssertFalse(visible.contains(name))
         }
+        XCTAssertEqual(TemplateCatalog.sections.map(\.title), ["结构", "分析", "记录"])
+        let cards = TemplateCatalog.sections.flatMap(\.cards)
+        XCTAssertEqual(cards.count, 12)
+        XCTAssertTrue(cards.allSatisfy(\.createsDocument))
+        XCTAssertEqual(Set(cards.map(\.name)).count, cards.count)
+        let shapes = cards.map { TemplateKind.shape($0.kind.document()) }
+        XCTAssertEqual(Set(shapes).count, shapes.count)
+        XCTAssertFalse(cards.map(\.name).contains("即将推出"))
+        XCTAssertTrue(ShellTab.homeOverflowTitles.isEmpty)
+    }
+
+    func testSecondTapOnTheSelectedNodeStartsEditing() {
+        let id = UUID()
+        let other = UUID()
         XCTAssertEqual(
-            TemplateCatalog.sections.map(\.title),
-            ["基本", "知识管理", "会议和计划", "学习和教育"]
+            NodeEditTap.action(hit: id, selected: nil, mode: .command, isComposing: false),
+            .select(id)
         )
-        let creators = TemplateCatalog.sections.flatMap(\.cards).filter(\.createsDocument)
-        XCTAssertEqual(creators.map(\.name), ["思维导图"])
-        let basic = TemplateCatalog.sections[0].cards.filter { $0.tap == .laterLayout }
-        XCTAssertEqual(basic.map(\.name), ["逻辑图", "括号图", "组织结构图", "树形图", "时间轴"])
-        XCTAssertEqual(TemplateCatalog.laterLayoutNotice, "该布局将在后续版本提供")
-        XCTAssertEqual(TemplateCatalog.seeAllNotice, "敬请期待")
+        XCTAssertEqual(
+            NodeEditTap.action(hit: id, selected: id, mode: .command, isComposing: false),
+            .beginEdit(id)
+        )
+        XCTAssertEqual(
+            NodeEditTap.action(hit: id, selected: id, mode: .edit, isComposing: false),
+            .ignore
+        )
+        XCTAssertEqual(
+            NodeEditTap.action(hit: other, selected: id, mode: .edit, isComposing: false),
+            .commitAndSelect(other)
+        )
+        XCTAssertEqual(
+            NodeEditTap.action(hit: id, selected: id, mode: .edit, isComposing: true),
+            .ignore
+        )
+    }
+
+    func testUndoAndDeleteWorkWhileTheNewNodeIsStillBeingEdited() {
+        let root = UUID()
+        let session = EditorSession(
+            document: MindMapDocument(title: "编辑", roots: [MindMapNode(id: root, text: "根")]),
+            url: nil,
+            sourceExtension: "floretta",
+            viewMode: .map
+        )
+        session.addChildFromToolbar()
+        XCTAssertEqual(session.document.node(root)?.children.count, 1)
+        XCTAssertEqual(session.keyboard.mode, .edit)
+        session.undo()
+        XCTAssertEqual(session.document.node(root)?.children.count, 0)
+
+        session.addChildFromToolbar()
+        session.addSiblingFromToolbar()
+        XCTAssertEqual(session.document.node(root)?.children.count, 2)
+        session.deleteSelection()
+        XCTAssertEqual(session.document.node(root)?.children.count, 1)
+        session.undo()
+        XCTAssertEqual(session.document.node(root)?.children.count, 2)
+        session.redo()
+        XCTAssertEqual(session.document.node(root)?.children.count, 1)
     }
 
     func testLocalBrowseListsOnlySupportedFilesInThatDirectory() throws {

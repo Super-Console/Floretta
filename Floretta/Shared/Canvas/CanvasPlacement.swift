@@ -124,6 +124,31 @@ enum CanvasPlacement {
     }
 }
 
+/// Screen point size for both the canvas glyphs and the editing text view.
+/// `styledText` and `editField` must call this, not a second formula.
+enum CanvasTextScale {
+    static func onScreenPointSize(fontSize: CGFloat, scale: CGFloat) -> CGFloat {
+        let safeFont = fontSize.isFinite ? max(fontSize, 1) : 1
+        return safeFont * CanvasViewport.clampScale(scale)
+    }
+}
+
+/// Text level from the on-screen point size. Below 9pt the node is a color block.
+enum CanvasTextLOD: Equatable, Sendable {
+    case blocks
+    case title
+    case full
+
+    var drawsTitle: Bool { self != .blocks }
+
+    static func level(onScreenPointSize: CGFloat) -> CanvasTextLOD {
+        guard onScreenPointSize.isFinite else { return .blocks }
+        if onScreenPointSize < 9 { return .blocks }
+        if onScreenPointSize < 14 { return .title }
+        return .full
+    }
+}
+
 /// How much of a node's style to paint. Driven by zoom and the node's on-screen size.
 enum CanvasDetail: Equatable, Sendable {
     /// Color blocks and links only.

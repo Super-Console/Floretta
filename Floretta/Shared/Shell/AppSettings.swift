@@ -61,6 +61,36 @@ enum PNGBackgroundPreference: String, CaseIterable, Equatable, Sendable {
 enum ShellTab: Hashable, Equatable, Sendable {
     case home
     case settings
+
+    var title: String {
+        switch self {
+        case .home: "首页"
+        case .settings: "设置"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .home: "house"
+        case .settings: "gearshape"
+        }
+    }
+
+    /// iPhone, iPad, and Mac share these two destinations. iOS draws them in the
+    /// system tab bar. Mac lists them in the sidebar.
+    static let destinations: [ShellTab] = [.home, .settings]
+
+    /// Visible settings entry is the sidebar row (wide) or the Settings tab (narrow).
+    /// The home toolbar must not add a second gear. ⌘, is a shortcut, not another row.
+    static let homeOverflowTitles: [String] = []
+
+    static var preferredColumnVisibility: NavigationSplitViewVisibility {
+        #if os(macOS)
+        .all
+        #else
+        .detailOnly
+        #endif
+    }
 }
 
 /// File types the library importer is allowed to offer. Nothing else.
@@ -79,13 +109,31 @@ enum FlorettaFileTypes {
 
     static let allowedExtensions = ["floretta", "mm", "opml", "md"]
 
+    /// Types the open panel may offer. Extension-backed types come first so the
+    /// panel does not collapse every text file into Markdown. `.mm` is also
+    /// Objective-C++ source on macOS; that system type is included so those
+    /// files can be chosen, and `DocumentOpener` still reads the bytes.
     static var allowedContentTypes: [UTType] {
-        [
-            UTType(exportedAs: florettaIdentifier, conformingTo: .data),
-            UTType(importedAs: mmIdentifier, conformingTo: .xml),
-            UTType(importedAs: opmlIdentifier, conformingTo: .xml),
-            UTType(importedAs: markdownIdentifier, conformingTo: .plainText),
-        ]
+        var types: [UTType] = []
+        func append(_ type: UTType?) {
+            guard let type, !types.contains(type) else { return }
+            types.append(type)
+        }
+        append(UTType(florettaIdentifier))
+        append(UTType(filenameExtension: "floretta"))
+        append(UTType(mmIdentifier))
+        append(UTType(filenameExtension: "mm"))
+        append(UTType(opmlIdentifier))
+        append(UTType(filenameExtension: "opml"))
+        append(UTType(markdownIdentifier))
+        append(UTType(filenameExtension: "md"))
+        append(UTType(filenameExtension: "markdown"))
+        if types.isEmpty {
+            append(.xml)
+            append(.json)
+            append(.plainText)
+        }
+        return types
     }
 }
 

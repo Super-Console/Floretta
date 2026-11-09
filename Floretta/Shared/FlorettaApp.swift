@@ -31,15 +31,16 @@ struct FlorettaApp: App {
                 }
                 .keyboardShortcut("n", modifiers: .command)
             }
+            #if os(macOS)
+            CommandGroup(replacing: .appSettings) {
+                Button(ShellTab.settings.title) {
+                    library.tab = .settings
+                }
+                .keyboardShortcut(",", modifiers: .command)
+                .disabled(library.editor != nil)
+            }
+            #endif
         }
-        #if os(macOS)
-        Settings {
-            SettingsView(settings: settings)
-                .preferredColorScheme(settings.appearance.colorScheme)
-                .environment(\.locale, settings.resolvedLocale)
-                .frame(minWidth: 480, minHeight: 420)
-        }
-        #endif
     }
 }
 

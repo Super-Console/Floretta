@@ -17,19 +17,22 @@ enum DocumentOpenError: Error, Equatable, LocalizedError {
 }
 
 enum DocumentOpener {
+    /// Bytes win over the filename. The open panel can label a FreeMind or OPML
+    /// file as Markdown because `.mm` is also plain text on macOS.
     static func open(data: Data, filename: String) throws -> MindMapDocument {
         let ext = (filename as NSString).pathExtension.lowercased()
+        let format = sniffedFormat(data) ?? format(forExtension: ext)
         do {
-            switch ext {
-            case "floretta":
+            switch format {
+            case .floretta:
                 return try FlorettaDocumentFile.read(data: data).package.document
-            case "mm":
+            case .mm:
                 return try FlorettaMMCodec.importMap(data)
-            case "opml":
+            case .opml:
                 return try FlorettaOPMLCodec.importOutline(data)
-            case "md", "markdown":
+            case .markdown:
                 return try FlorettaMarkdown.importOutline(data)
-            default:
+            case nil:
                 throw DocumentOpenError.unsupported(ext.isEmpty ? filename : ext)
             }
         } catch let error as DocumentOpenError {
@@ -39,10 +42,51 @@ enum DocumentOpener {
             throw DocumentOpenError.message(text)
         }
     }
+
+    private enum Format {
+        case floretta
+        case mm
+        case opml
+        case markdown
+    }
+
+    private static func format(forExtension ext: String) -> Format? {
+        switch ext {
+        case "floretta": .floretta
+        case "mm": .mm
+        case "opml": .opml
+        case "md", "markdown": .markdown
+        default: nil
+        }
+    }
+
+    /// Nil when the bytes are not a map we know. Callers then trust the extension.
+    private static func sniffedFormat(_ data: Data) -> Format? {
+        if isZip(data) { return .floretta }
+        if isFlorettaJSON(data) { return .floretta }
+        guard let prefix = String(data: data.prefix(4096), encoding: .utf8)?.lowercased() else {
+            return nil
+        }
+        if prefix.contains("<opml") { return .opml }
+        if prefix.contains("<map") { return .mm }
+        return nil
+    }
+
+    private static func isZip(_ data: Data) -> Bool {
+        data.count >= 2 && data[data.startIndex] == 0x50 && data[data.index(after: data.startIndex)] == 0x4b
+    }
+
+    private static func isFlorettaJSON(_ data: Data) -> Bool {
+        guard let text = String(data: data.prefix(1024), encoding: .utf8) else { return false }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.hasPrefix("{") && text.contains("\"formatVersion\"") && text.contains("\"roots\"")
+    }
 }
 
 struct ZenChrome: Equatable, Sendable {
     var showsToolbar: Bool
+    /// The shell owns the tab bar. The document editor keeps it hidden, Zen or not,
+    /// so the editor toolbar and the home tab bar are never on screen together.
     var showsTabBar: Bool
     var showsStatusBar: Bool
     var showsSidebar: Bool
@@ -50,7 +94,7 @@ struct ZenChrome: Equatable, Sendable {
 
     static let editing = ZenChrome(
         showsToolbar: true,
-        showsTabBar: true,
+        showsTabBar: false,
         showsStatusBar: true,
         showsSidebar: true,
         showsInspector: true
@@ -161,27 +205,45 @@ final class EditorSession {
     }
 
     func undo() {
+        finishEditingIfNeeded()
+        guard keyboard.mode == .command, !keyboard.isComposing else { return }
         let event = KeyEvent(key: .character("z"), modifiers: .command, mode: .command, isComposing: false)
-        guard keyboard.mode == .command else { return }
         _ = keyboard.handle(event, document: &document, frames: [])
     }
 
     func redo() {
+        finishEditingIfNeeded()
+        guard keyboard.mode == .command, !keyboard.isComposing else { return }
         let event = KeyEvent(key: .character("Z"), modifiers: [.command, .shift], mode: .command, isComposing: false)
-        guard keyboard.mode == .command else { return }
         _ = keyboard.handle(event, document: &document, frames: [])
     }
 
     func addChildFromToolbar() {
-        keyboard.mode = .command
+        finishEditingIfNeeded()
+        guard keyboard.mode == .command, !keyboard.isComposing else { return }
         let event = KeyEvent(key: .tab, modifiers: [], mode: .command, isComposing: false)
         _ = keyboard.handle(event, document: &document, frames: [])
     }
 
     func addSiblingFromToolbar() {
-        keyboard.mode = .command
+        finishEditingIfNeeded()
+        guard keyboard.mode == .command, !keyboard.isComposing else { return }
         let event = KeyEvent(key: .enter, modifiers: [], mode: .command, isComposing: false)
         _ = keyboard.handle(event, document: &document, frames: [])
+    }
+
+    func deleteSelection() {
+        finishEditingIfNeeded()
+        guard keyboard.mode == .command, !keyboard.isComposing else { return }
+        let event = KeyEvent(key: .backspace, modifiers: [], mode: .command, isComposing: false)
+        _ = keyboard.handle(event, document: &document, frames: [])
+    }
+
+    /// Toolbar actions arrive while a new node is still in the text view.
+    /// Commit that edit first so create / delete / undo see command mode.
+    private func finishEditingIfNeeded() {
+        guard !keyboard.isComposing, keyboard.mode == .edit else { return }
+        keyboard.apply(.commitEdit, document: &document, frames: [])
     }
 
     func pasteClipboard(_ text: String) {
@@ -269,6 +331,10 @@ final class LibraryModel {
     func makeNew() {
         let document = MindMapDocument(title: "未命名", roots: [MindMapNode(text: "中心")])
         openDocument(document, preferredURL: nil, sourceExtension: "floretta")
+    }
+
+    func makeTemplate(_ kind: TemplateKind) {
+        openDocument(kind.document(), preferredURL: nil, sourceExtension: "floretta")
     }
 
     func openRecovered(_ document: MindMapDocument) {
@@ -396,10 +462,170 @@ final class LibraryModel {
     }
 }
 
-enum TemplateTap: Equatable, Sendable {
-    case createMindMap
-    case laterLayout
-    case comingSoon
+enum TemplateKind: String, Equatable, Sendable, CaseIterable {
+    case mindMap
+    case logic
+    case brace
+    case org
+    case timeline
+    case fishbone
+    case swot
+    case compare
+    case okr
+    case sevenQuestions
+    case meeting
+    case reading
+
+    var name: String {
+        switch self {
+        case .mindMap: "左右思维导图"
+        case .logic: "逻辑分解"
+        case .brace: "括号图"
+        case .org: "组织架构"
+        case .timeline: "里程碑"
+        case .fishbone: "鱼骨图"
+        case .swot: "优劣势四象限"
+        case .compare: "方案对照"
+        case .okr: "目标树"
+        case .sevenQuestions: "七何分析"
+        case .meeting: "会议记录"
+        case .reading: "读书笔记"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .mindMap: "map"
+        case .logic: "arrow.triangle.branch"
+        case .brace: "curlybraces"
+        case .org: "rectangle.3.group"
+        case .timeline: "calendar"
+        case .fishbone: "fish"
+        case .swot: "square.grid.2x2"
+        case .compare: "rectangle.split.2x1"
+        case .okr: "target"
+        case .sevenQuestions: "questionmark"
+        case .meeting: "person.2"
+        case .reading: "book"
+        }
+    }
+
+    var section: String {
+        switch self {
+        case .mindMap, .logic, .brace, .org, .timeline, .fishbone:
+            "结构"
+        case .swot, .compare, .okr, .sevenQuestions:
+            "分析"
+        case .meeting, .reading:
+            "记录"
+        }
+    }
+
+    func document() -> MindMapDocument {
+        MindMapDocument(title: name, roots: [root])
+    }
+
+    /// Child-count signature. Two templates that only recolor the same tree share a signature.
+    static func shape(_ document: MindMapDocument) -> String {
+        func walk(_ nodes: [MindMapNode], depth: Int) -> String {
+            nodes.map { node in
+                "\(depth):\(node.children.count)[\(walk(node.children, depth: depth + 1))]"
+            }.joined(separator: ",")
+        }
+        return walk(document.roots, depth: 0)
+    }
+
+    private var root: MindMapNode {
+        switch self {
+        case .mindMap:
+            return topic("周末出行", [
+                topic("去程", [topic("高铁"), topic("市内")]),
+                topic("预算", [topic("住宿"), topic("餐饮")]),
+                topic("行程", [topic("古城"), topic("海边")]),
+                topic("行装", [topic("证件"), topic("常备药")]),
+            ])
+        case .logic:
+            return topic("把文章写清楚", [
+                topic("先定读者", [topic("给谁看")]),
+                topic("一句论点", [topic("证据"), topic("反例")]),
+                topic("先写结论"),
+                topic("删掉空话"),
+            ])
+        case .brace:
+            return topic("菜市场", [
+                topic("叶菜", [topic("菠菜"), topic("生菜"), topic("油麦菜")]),
+                topic("根茎", [topic("萝卜"), topic("土豆"), topic("莲藕")]),
+            ])
+        case .org:
+            return topic("邻里食堂", [
+                topic("前厅", [topic("领位"), topic("收银")]),
+                topic("厨房", [topic("热菜"), topic("面点")]),
+                topic("采购", [topic("供应商"), topic("库存")]),
+            ])
+        case .timeline:
+            return topic("产品发布", [
+                topic("立项", [topic("范围说明")]),
+                topic("设计", [topic("线框确认")]),
+                topic("开发", [topic("内测包")]),
+                topic("上架", [topic("发布说明")]),
+            ])
+        case .fishbone:
+            return topic("交货延误", [
+                topic("人员", [topic("交接没做完"), topic("请假撞车")]),
+                topic("设备", [topic("烤箱故障"), topic("车不够")]),
+                topic("材料", [topic("面粉晚到"), topic("包装缺货")]),
+                topic("方法", [topic("排产写错"), topic("质检来回")]),
+                topic("环境", [topic("暴雨封路"), topic("午后停电")]),
+            ])
+        case .swot:
+            return topic("社区书店", [
+                topic("优势", [topic("走路就到"), topic("店员认得熟客")]),
+                topic("劣势", [topic("租金高")]),
+                topic("机会", [topic("对面是学校"), topic("有人要夜读")]),
+                topic("威胁", [topic("商场里的大店")]),
+            ])
+        case .compare:
+            return topic("选办公地点", [
+                topic("旧楼", [topic("月租"), topic("通勤"), topic("装修")]),
+                topic("园区", [topic("月租"), topic("通勤")]),
+                topic("待定", [topic("是否合租")]),
+            ])
+        case .okr:
+            return topic("复购做到三成", [
+                topic("月回头客一百人", [topic("会员日"), topic("到期提醒")]),
+                topic("客诉七天内回完", [topic("值班表")]),
+                topic("新品两周一上", [topic("试吃记录")]),
+            ])
+        case .sevenQuestions:
+            return topic("办一场读书会", [
+                topic("何人：常客和店员"),
+                topic("何事：共读一章"),
+                topic("何时：周四晚七点"),
+                topic("何地：二楼靠窗"),
+                topic("何因：让人愿意再来"),
+                topic("如何：一人朗读"),
+                topic("何价：茶水自备"),
+            ])
+        case .meeting:
+            return topic("周三店务会", [
+                topic("议题", [topic("周末人流怎么接")]),
+                topic("决定", [topic("多开一台咖啡机")]),
+                topic("待办", [topic("周五前排班"), topic("阿宁负责")]),
+                topic("未决", [topic("要不要延到九点")]),
+            ])
+        case .reading:
+            return topic("动物园长的故事", [
+                topic("人物", [topic("管理员老周")]),
+                topic("情节", [topic("幼虎拒食"), topic("改了喂食时间")]),
+                topic("摘句", [topic("动物不是展品")]),
+                topic("我的看法", [topic("先看它自己的节奏")]),
+            ])
+        }
+    }
+
+    private func topic(_ text: String, _ children: [MindMapNode] = []) -> MindMapNode {
+        MindMapNode(text: text, children: children)
+    }
 }
 
 struct TemplateSection: Identifiable, Equatable, Sendable {
@@ -409,42 +635,25 @@ struct TemplateSection: Identifiable, Equatable, Sendable {
 }
 
 struct TemplateCard: Identifiable, Equatable, Sendable {
-    var name: String
-    var symbol: String
-    var tap: TemplateTap
-    var id: String { name }
-
-    var createsDocument: Bool { tap == .createMindMap }
+    var kind: TemplateKind
+    var name: String { kind.name }
+    var symbol: String { kind.symbol }
+    var id: String { kind.rawValue }
+    var createsDocument: Bool { true }
 }
 
 enum TemplateCatalog {
-    static let laterLayoutNotice = "该布局将在后续版本提供"
-    static let comingSoonNotice = "即将推出"
-    static let seeAllNotice = "敬请期待"
-
     static let sections: [TemplateSection] = [
-        TemplateSection(title: "基本", cards: [
-            TemplateCard(name: "思维导图", symbol: "map", tap: .createMindMap),
-            TemplateCard(name: "逻辑图", symbol: "arrow.triangle.branch", tap: .laterLayout),
-            TemplateCard(name: "括号图", symbol: "curlybraces", tap: .laterLayout),
-            TemplateCard(name: "组织结构图", symbol: "rectangle.3.group", tap: .laterLayout),
-            TemplateCard(name: "树形图", symbol: "tree", tap: .laterLayout),
-            TemplateCard(name: "时间轴", symbol: "calendar", tap: .laterLayout),
-        ]),
-        TemplateSection(title: "知识管理", cards: names([
-            "解决问题的步骤", "GRAP 框架基础", "航天器", "建筑图示", "品牌探索", "气候变化",
-        ])),
-        TemplateSection(title: "会议和计划", cards: names([
-            "商业计划", "协调即将发布的1.0版本", "工作坊", "论文计划", "活动公司夏季野餐会", "求职",
-        ])),
-        TemplateSection(title: "学习和教育", cards: names([
-            "学校课程表", "如何高效做笔记", "英语口语能力", "AR 应用程序", "气候变化解决方案", "博士学位论文",
-        ])),
+        TemplateSection(title: "结构", cards: [
+            .mindMap, .logic, .brace, .org, .timeline, .fishbone,
+        ].map { TemplateCard(kind: $0) }),
+        TemplateSection(title: "分析", cards: [
+            .swot, .compare, .okr, .sevenQuestions,
+        ].map { TemplateCard(kind: $0) }),
+        TemplateSection(title: "记录", cards: [
+            .meeting, .reading,
+        ].map { TemplateCard(kind: $0) }),
     ]
-
-    private static func names(_ values: [String]) -> [TemplateCard] {
-        values.map { TemplateCard(name: $0, symbol: "doc", tap: .comingSoon) }
-    }
 }
 
 enum HomePage: String, Hashable, Sendable {
@@ -459,7 +668,7 @@ enum CanvasMenus {
     static let insert = ["子节点", "同级", "从文件导入"]
     static let share = ["PDF", "PNG", "Markdown", "保存为 Floretta", ".mm", "OPML", "打印"]
     static let zoom = ["50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%", "适应窗口"]
-    static let more = ["大纲", "样式", "查看模式", "新建画布", "查找", "粘贴", "更多设置", "关于"]
+    static let more = ["大纲", "样式", "查看模式", "新建画布", "查找", "粘贴", "关于"]
     static let moreDisabled: [String] = []
     static let file = ["重新命名"]
     static let fileDisabled: [String] = []

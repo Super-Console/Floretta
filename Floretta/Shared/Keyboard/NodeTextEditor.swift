@@ -138,12 +138,19 @@ private struct MacNodeTextEditor: NSViewRepresentable {
             if nsView.font?.pointSize != font.pointSize {
                 nsView.font = font
             }
-            if nsView.string != text {
+            let ownsKeys = nsView.window?.firstResponder === nsView
+            if nsView.string != text, !ownsKeys {
                 nsView.string = text
             }
         }
-        if nsView.window?.firstResponder !== nsView {
-            nsView.window?.makeFirstResponder(nsView)
+        if !context.coordinator.didFocus {
+            DispatchQueue.main.async { [weak nsView] in
+                guard let nsView, let window = nsView.window else { return }
+                if window.firstResponder !== nsView {
+                    window.makeFirstResponder(nsView)
+                }
+                context.coordinator.didFocus = window.firstResponder === nsView
+            }
         }
     }
 
@@ -154,6 +161,7 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         var minimumWidth: Binding<CGFloat>
         var fontSize: CGFloat
         var onEvent: (KeyEvent) -> Bool
+        var didFocus = false
 
         init(
             text: Binding<String>,
@@ -313,12 +321,18 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
             if uiView.font?.pointSize != font.pointSize {
                 uiView.font = font
             }
-            if uiView.text != text {
+            if uiView.text != text, !uiView.isFirstResponder {
                 uiView.text = text
             }
         }
-        if !uiView.isFirstResponder {
-            uiView.becomeFirstResponder()
+        if !context.coordinator.didFocus {
+            DispatchQueue.main.async { [weak uiView] in
+                guard let uiView else { return }
+                if !uiView.isFirstResponder {
+                    uiView.becomeFirstResponder()
+                }
+                context.coordinator.didFocus = uiView.isFirstResponder
+            }
         }
     }
 
@@ -329,6 +343,7 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
         var minimumWidth: Binding<CGFloat>
         var fontSize: CGFloat
         var onEvent: (KeyEvent) -> Bool
+        var didFocus = false
 
         init(
             text: Binding<String>,

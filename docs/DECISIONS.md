@@ -122,3 +122,16 @@
 
 - **决策**：图标只按 `docs/design/app-icon-reference.png` 制作，不重绘；App Store 展示名不能只用 `Floretta`（已有同名 Games 应用），需副标题/后缀。
 - **状态**：已定（P3 执行）。
+## D-18 复用优先，不自造轮子
+
+- **决策**：新模块先查现成实现（`docs/REUSE.md`），能用就用；自研必须先写"为什么不能用"。
+- **边界**：MIT/Apache 可 vendor 并写 `NOTICE`；GPL/AGPL 只读思路、不复制代码。
+- **落地**：新增 P1-r 复用评审批次，把 SwiftFlow 引入替换自研 viewport。
+- **状态**：已定（2026-11-09，Timmy 明确）。
+
+## D-19 交付：GitHub + TestFlight
+
+- **决策**：代码走 GitHub（P4 前由私有转公开，附 LICENSE/NOTICE）；可运行版本走 TestFlight 内部测试，
+  邀请 `timmysh34@icloud.com`；真实体验验收由 Timmy 本人在 iPhone/iPad/Mac 上做。
+- **公开前置**：清理内部路径、主机名、私钥、个人邮箱与未授权素材。
+- **状态**：已定。

@@ -298,7 +298,7 @@ public enum CanvasCommands {
     }
 }
 
-public struct LayoutEngine {
+public struct LayoutEngine: Sendable {
     public var kind: LayoutKind
     public var cache: TextMeasurementCache
     public var metrics: LayoutMetrics

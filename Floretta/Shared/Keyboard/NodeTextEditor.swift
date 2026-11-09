@@ -1,3 +1,4 @@
+import FlorettaCore
 import SwiftUI
 
 #if os(macOS)

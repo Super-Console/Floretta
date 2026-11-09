@@ -1,3 +1,4 @@
+import FlorettaCore
 import Foundation
 import Observation
 
@@ -212,6 +213,7 @@ final class LibraryModel {
     @ObservationIgnored private var store: RecentMapsStore
     @ObservationIgnored private let documentsDirectory: URL
     @ObservationIgnored private var saveDirectory: URL
+    @ObservationIgnored private let ports: ApplePlatformPorts
 
     var documentsRoot: URL { documentsDirectory }
 
@@ -221,11 +223,17 @@ final class LibraryModel {
     var openError: String?
     var tab: ShellTab = .home
 
-    init(settings: AppSettings, store: RecentMapsStore, documentsDirectory: URL) {
+    init(
+        settings: AppSettings,
+        store: RecentMapsStore,
+        documentsDirectory: URL,
+        ports: ApplePlatformPorts = .current()
+    ) {
         self.settings = settings
         self.store = store
         self.documentsDirectory = documentsDirectory
         self.saveDirectory = documentsDirectory
+        self.ports = ports
         reload()
     }
 
@@ -309,7 +317,11 @@ final class LibraryModel {
         var saved = false
         if current.sourceExtension == "floretta", let url = current.url {
             do {
-                try FlorettaDocumentFile.save(FlorettaPackage(document: current.document), to: url)
+                try FlorettaDocumentFile.save(
+                    FlorettaPackage(document: current.document),
+                    to: url,
+                    fileAccess: ports.files
+                )
                 saved = true
             } catch {
                 openError = error.localizedDescription
@@ -346,7 +358,7 @@ final class LibraryModel {
     }
 
     private func write(_ document: MindMapDocument, to url: URL) throws -> URL {
-        try FlorettaDocumentFile.save(FlorettaPackage(document: document), to: url)
+        try FlorettaDocumentFile.save(FlorettaPackage(document: document), to: url, fileAccess: ports.files)
         return url
     }
 

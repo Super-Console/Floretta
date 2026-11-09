@@ -2,22 +2,56 @@ import Foundation
 
 /// Topic style stored in the document. `colorHex` is the original branch color.
 /// Fill, border, and font size are optional overrides and are omitted from JSON when unset.
-struct MindMapNodeStyle: Equatable, Sendable {
-    var colorHex: String
-    var fillHex: String? = nil
-    var borderHex: String? = nil
-    var textHex: String? = nil
-    var fontSize: Double? = nil
-    var borderWidth: Double? = nil
-    var topicWidth: Double? = nil
-    var cornerRadius: Double? = nil
-    var fontDesign: String? = nil
-    var bold: Bool? = nil
-    var italic: Bool? = nil
-    var strikethrough: Bool? = nil
-    var underline: Bool? = nil
-    var fillStyle: String? = nil
-    var borderStyle: String? = nil
+public struct MindMapNodeStyle: Equatable, Sendable {
+    public var colorHex: String
+    public var fillHex: String? = nil
+    public var borderHex: String? = nil
+    public var textHex: String? = nil
+    public var fontSize: Double? = nil
+    public var borderWidth: Double? = nil
+    public var topicWidth: Double? = nil
+    public var cornerRadius: Double? = nil
+    public var fontDesign: String? = nil
+    public var bold: Bool? = nil
+    public var italic: Bool? = nil
+    public var strikethrough: Bool? = nil
+    public var underline: Bool? = nil
+    public var fillStyle: String? = nil
+    public var borderStyle: String? = nil
+
+    public init(
+        colorHex: String,
+        fillHex: String? = nil,
+        borderHex: String? = nil,
+        textHex: String? = nil,
+        fontSize: Double? = nil,
+        borderWidth: Double? = nil,
+        topicWidth: Double? = nil,
+        cornerRadius: Double? = nil,
+        fontDesign: String? = nil,
+        bold: Bool? = nil,
+        italic: Bool? = nil,
+        strikethrough: Bool? = nil,
+        underline: Bool? = nil,
+        fillStyle: String? = nil,
+        borderStyle: String? = nil
+    ) {
+        self.colorHex = colorHex
+        self.fillHex = fillHex
+        self.borderHex = borderHex
+        self.textHex = textHex
+        self.fontSize = fontSize
+        self.borderWidth = borderWidth
+        self.topicWidth = topicWidth
+        self.cornerRadius = cornerRadius
+        self.fontDesign = fontDesign
+        self.bold = bold
+        self.italic = italic
+        self.strikethrough = strikethrough
+        self.underline = underline
+        self.fillStyle = fillStyle
+        self.borderStyle = borderStyle
+    }
 }
 
 extension MindMapNodeStyle: Codable {
@@ -26,7 +60,7 @@ extension MindMapNodeStyle: Codable {
         case cornerRadius, fontDesign, bold, italic, strikethrough, underline, fillStyle, borderStyle
     }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         colorHex = try container.decode(String.self, forKey: .colorHex)
         fillHex = try container.decodeIfPresent(String.self, forKey: .fillHex)
@@ -45,7 +79,7 @@ extension MindMapNodeStyle: Codable {
         borderStyle = try container.decodeIfPresent(String.self, forKey: .borderStyle)
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(colorHex, forKey: .colorHex)
         try container.encodeIfPresent(fillHex, forKey: .fillHex)
@@ -66,33 +100,38 @@ extension MindMapNodeStyle: Codable {
 }
 
 /// Canvas coordinates remembered after a drag. Absent means "not placed by hand".
-struct MindMapPoint: Equatable, Sendable, Codable {
-    var x: Double
-    var y: Double
+public struct MindMapPoint: Equatable, Sendable, Codable {
+    public var x: Double
+    public var y: Double
+
+    public init(x: Double, y: Double) {
+        self.x = x
+        self.y = y
+    }
 }
 
 /// FreeMind/Freeplane `POSITION` on a node. This is a side, not a canvas point.
-enum MindMapSide: String, Equatable, Sendable, Codable {
+public enum MindMapSide: String, Equatable, Sendable, Codable {
     case left
     case right
 }
 
 /// One topic in the map. Children are an ordered tree.
 /// A value tree cannot point at itself, so a cycle is not representable in memory.
-struct MindMapNode: Equatable, Sendable, Identifiable {
-    var id: UUID
-    var text: String
-    var note: String
-    var isCollapsed: Bool
-    var style: MindMapNodeStyle?
-    var position: MindMapPoint?
+public struct MindMapNode: Equatable, Sendable, Identifiable {
+    public var id: UUID
+    public var text: String
+    public var note: String
+    public var isCollapsed: Bool
+    public var style: MindMapNodeStyle?
+    public var position: MindMapPoint?
     /// FreeMind `LINK`. Absent when the topic has no link.
-    var link: String?
+    public var link: String?
     /// FreeMind `POSITION` (`left` / `right`). Absent when the file did not say.
-    var side: MindMapSide?
-    var children: [MindMapNode]
+    public var side: MindMapSide?
+    public var children: [MindMapNode]
 
-    init(
+    public init(
         id: UUID = UUID(),
         text: String,
         note: String = "",
@@ -128,7 +167,7 @@ extension MindMapNode: Codable {
         case children
     }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         // Each nested child adds path entries. Stop before a hostile file can blow the stack.
         if decoder.codingPath.count > 512 {
             throw FlorettaCodecError.corrupt("Document is nested too deeply.")
@@ -145,7 +184,7 @@ extension MindMapNode: Codable {
         children = try container.decode([MindMapNode].self, forKey: .children)
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encode(text, forKey: .text)

@@ -1,3 +1,4 @@
+import FlorettaCore
 import XCTest
 
 final class ContainerTests: XCTestCase {
@@ -11,7 +12,7 @@ final class ContainerTests: XCTestCase {
         try legacy.write(to: original)
         let before = try Data(contentsOf: original)
 
-        let loaded = try FlorettaDocumentFile.read(from: original)
+        let loaded = try FlorettaDocumentFile.read(from: original, fileAccess: FoundationFileAccess())
         XCTAssertEqual(loaded.kind, .legacyJSON)
         XCTAssertEqual(loaded.package.document, document)
         XCTAssertTrue(loaded.package.assets.isEmpty)
@@ -20,16 +21,16 @@ final class ContainerTests: XCTestCase {
         XCTAssertThrowsError(try LegacyJSONContainer().write(loaded.package)) { error in
             XCTAssertEqual(error as? DocumentContainerError, .readOnlyLegacy)
         }
-        XCTAssertThrowsError(try FlorettaDocumentFile.save(loaded.package, to: original)) { error in
+        XCTAssertThrowsError(try FlorettaDocumentFile.save(loaded.package, to: original, fileAccess: FoundationFileAccess())) { error in
             XCTAssertEqual(error as? DocumentContainerError, .refusesToOverwriteLegacy)
         }
         XCTAssertEqual(try Data(contentsOf: original), before)
 
         let saved = directory.appendingPathComponent("copy.floretta")
-        try FlorettaDocumentFile.save(loaded.package, to: saved)
+        try FlorettaDocumentFile.save(loaded.package, to: saved, fileAccess: FoundationFileAccess())
         let written = try Data(contentsOf: saved)
         XCTAssertTrue(FlorettaDocumentFile.isZip(written))
-        let again = try FlorettaDocumentFile.read(from: saved)
+        let again = try FlorettaDocumentFile.read(from: saved, fileAccess: FoundationFileAccess())
         XCTAssertEqual(again.kind, .zip)
         XCTAssertEqual(again.package.document, document)
         XCTAssertEqual(try Data(contentsOf: original), before)
@@ -137,6 +138,17 @@ final class ContainerTests: XCTestCase {
 
     func testCRC32KnownVector() {
         XCTAssertEqual(zipCRC32(Data("123456789".utf8)), 0xCBF4_3926)
+    }
+
+    func testSHA256MatchesTheStandardVectors() {
+        XCTAssertEqual(
+            sha256Hex(Data("abc".utf8)),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        )
+        XCTAssertEqual(
+            sha256Hex(Data()),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        )
     }
 
     private func sampleDocument(title: String) -> MindMapDocument {

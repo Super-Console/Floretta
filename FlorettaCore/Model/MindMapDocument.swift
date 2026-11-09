@@ -1,16 +1,16 @@
 import Foundation
 
 /// A mind map. `roots` is ordered and may contain more than one center (floating topics).
-struct MindMapDocument: Equatable, Sendable {
-    static let currentFormatVersion = 1
+public struct MindMapDocument: Equatable, Sendable {
+    public static let currentFormatVersion = 1
 
-    var formatVersion: Int
-    var title: String
-    var createdAt: Date
-    var modifiedAt: Date
-    var roots: [MindMapNode]
+    public var formatVersion: Int
+    public var title: String
+    public var createdAt: Date
+    public var modifiedAt: Date
+    public var roots: [MindMapNode]
 
-    init(
+    public init(
         title: String,
         createdAt: Date = Date(),
         modifiedAt: Date = Date(),
@@ -34,7 +34,7 @@ extension MindMapDocument: Codable {
         case roots
     }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let version = try container.decode(Int.self, forKey: .formatVersion)
         guard version == Self.currentFormatVersion else {
@@ -59,7 +59,7 @@ extension MindMapDocument: Codable {
         self.roots = roots
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         guard formatVersion == Self.currentFormatVersion else {
             throw FlorettaCodecError.unsupportedVersion(
                 found: formatVersion,
@@ -107,13 +107,13 @@ enum FlorettaTree {
     }
 }
 
-enum FlorettaTimestamp {
-    static func string(from date: Date) -> String {
+public enum FlorettaTimestamp {
+    public static func string(from date: Date) -> String {
         let whole = Date(timeIntervalSince1970: date.timeIntervalSince1970.rounded())
         return formatter(fractional: false).string(from: whole)
     }
 
-    static func date(from string: String) throws -> Date {
+    public static func date(from string: String) throws -> Date {
         if let date = formatter(fractional: true).date(from: string) {
             return date
         }

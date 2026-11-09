@@ -1,3 +1,4 @@
+import FlorettaCore
 import SwiftFlow
 import XCTest
 

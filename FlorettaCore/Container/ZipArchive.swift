@@ -1,17 +1,24 @@
 import Foundation
 
-enum ZipArchiveError: Error, Equatable, Sendable {
+public enum ZipArchiveError: Error, Equatable, Sendable {
     case corrupt(String)
     case overLimit(String)
 }
 
-struct ZipLimits: Equatable, Sendable {
-    var maxEntries: Int
-    var maxDecompressedBytes: Int
-    var maxNodes: Int
-    var maxAssetBytes: Int
+public struct ZipLimits: Equatable, Sendable {
+    public var maxEntries: Int
+    public var maxDecompressedBytes: Int
+    public var maxNodes: Int
+    public var maxAssetBytes: Int
 
-    static let standard = ZipLimits(
+    public init(maxEntries: Int, maxDecompressedBytes: Int, maxNodes: Int, maxAssetBytes: Int) {
+        self.maxEntries = maxEntries
+        self.maxDecompressedBytes = maxDecompressedBytes
+        self.maxNodes = maxNodes
+        self.maxAssetBytes = maxAssetBytes
+    }
+
+    public static let standard = ZipLimits(
         maxEntries: 512,
         maxDecompressedBytes: 32 * 1024 * 1024,
         maxNodes: 100_000,
@@ -19,13 +26,18 @@ struct ZipLimits: Equatable, Sendable {
     )
 }
 
-struct ZipEntry: Equatable, Sendable {
-    var name: String
-    var data: Data
+public struct ZipEntry: Equatable, Sendable {
+    public var name: String
+    public var data: Data
+
+    public init(name: String, data: Data) {
+        self.name = name
+        self.data = data
+    }
 }
 
-enum ZipArchive {
-    static func write(_ entries: [ZipEntry]) -> Data {
+public enum ZipArchive {
+    public static func write(_ entries: [ZipEntry]) -> Data {
         let sorted = entries.sorted { $0.name < $1.name }
         var local = Data()
         var central = Data()
@@ -86,7 +98,7 @@ enum ZipArchive {
         return local + central + end
     }
 
-    static func read(_ data: Data, limits: ZipLimits) throws -> [ZipEntry] {
+    public static func read(_ data: Data, limits: ZipLimits) throws -> [ZipEntry] {
         guard data.count >= 22 else {
             throw ZipArchiveError.corrupt("Zip is too small.")
         }
@@ -229,13 +241,13 @@ enum ZipArchive {
     }
 }
 
-enum InflateError: Error {
+public enum InflateError: Error {
     case corrupt
     case tooBig
 }
 
-enum RawInflate {
-    static func inflate(_ input: Data, maxOutput: Int) throws -> Data {
+public enum RawInflate {
+    public static func inflate(_ input: Data, maxOutput: Int) throws -> Data {
         var reader = BitReader(input)
         var output: [UInt8] = []
         output.reserveCapacity(min(maxOutput, 65_536))
@@ -486,7 +498,7 @@ private struct Huffman {
     }
 }
 
-func zipCRC32(_ data: Data) -> UInt32 {
+public func zipCRC32(_ data: Data) -> UInt32 {
     var crc: UInt32 = 0xFFFF_FFFF
     for byte in data {
         var mixed = (crc ^ UInt32(byte)) & 0xFF

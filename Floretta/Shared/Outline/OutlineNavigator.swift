@@ -1,3 +1,4 @@
+import FlorettaCore
 import Foundation
 
 /// Visible outline order for the shared document tree.

@@ -13,3 +13,7 @@ xcuserdata/
 # 本地临时
 .scratch/
 *.log
+
+# Swift Package
+.build/
+.swiftpm/

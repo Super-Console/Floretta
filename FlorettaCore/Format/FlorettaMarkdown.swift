@@ -3,12 +3,12 @@ import Foundation
 /// Markdown headings follow outline depth.
 /// Notes are blockquotes. Links use `[text](url)`.
 /// Import reads this same heading shape. Any other non-empty line is an error.
-enum FlorettaMarkdownError: Error, Equatable, LocalizedError {
+public enum FlorettaMarkdownError: Error, Equatable, LocalizedError {
     case notUTF8
     case empty
     case unsupportedLine(String)
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .notUTF8:
             return "Markdown 不是 UTF-8。"
@@ -20,8 +20,8 @@ enum FlorettaMarkdownError: Error, Equatable, LocalizedError {
     }
 }
 
-enum FlorettaMarkdown {
-    static func export(_ document: MindMapDocument) -> String {
+public enum FlorettaMarkdown {
+    public static func export(_ document: MindMapDocument) -> String {
         var lines: [String] = []
         func walk(_ nodes: [MindMapNode], depth: Int) {
             for node in nodes {
@@ -53,14 +53,14 @@ enum FlorettaMarkdown {
         return "[\(label)](\(url))"
     }
 
-    static func importOutline(_ data: Data) throws -> MindMapDocument {
+    public static func importOutline(_ data: Data) throws -> MindMapDocument {
         guard let text = String(data: data, encoding: .utf8) else {
             throw FlorettaMarkdownError.notUTF8
         }
         return try importOutline(text)
     }
 
-    static func importOutline(_ text: String) throws -> MindMapDocument {
+    public static func importOutline(_ text: String) throws -> MindMapDocument {
         let normalized = text
             .replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")

@@ -1,9 +1,13 @@
 import Foundation
 
-struct ZipContainer: DocumentContainer {
-    var limits: ZipLimits = .standard
+public struct ZipContainer: DocumentContainer {
+    public var limits: ZipLimits
 
-    func read(data: Data) throws -> FlorettaPackage {
+    public init(limits: ZipLimits = .standard) {
+        self.limits = limits
+    }
+
+    public func read(data: Data) throws -> FlorettaPackage {
         let entries: [ZipEntry]
         do {
             entries = try ZipArchive.read(data, limits: limits)
@@ -59,7 +63,7 @@ struct ZipContainer: DocumentContainer {
         return FlorettaPackage(document: document, metadata: metadata, assets: assets)
     }
 
-    func write(_ package: FlorettaPackage) throws -> Data {
+    public func write(_ package: FlorettaPackage) throws -> Data {
         let nodes = nodeCount(package.document.roots)
         if nodes > limits.maxNodes {
             throw DocumentContainerError.overLimit("Document has \(nodes) nodes; limit is \(limits.maxNodes).")

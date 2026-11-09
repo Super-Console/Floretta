@@ -1,3 +1,4 @@
+import FlorettaCore
 import Foundation
 
 enum AutosaveLoadFailure: Error, Equatable, Sendable {

@@ -1,3 +1,4 @@
+import FlorettaCore
 import Foundation
 import SwiftUI
 import UniformTypeIdentifiers

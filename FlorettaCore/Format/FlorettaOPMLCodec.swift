@@ -1,8 +1,13 @@
 import Foundation
+// swift-corelibs-foundation moved XMLParser into FoundationXML. Apple Foundation
+// still exports it. This is module availability, not an operating-system branch.
+#if canImport(FoundationXML)
+import FoundationXML
+#endif
 
 /// OPML 2.0 outlines. Public shape: `opml` / `head` / `title` / `body` / `outline`,
 /// with `text` and the common `_note` attribute. Foundation `XMLParser` only.
-enum FlorettaOPMLError: Equatable, Sendable, Error {
+public enum FlorettaOPMLError: Equatable, Sendable, Error {
     case notXML
     case missingOPML
     case missingRoot
@@ -11,15 +16,15 @@ enum FlorettaOPMLError: Equatable, Sendable, Error {
     case tooManyNodes
 }
 
-enum FlorettaOPMLCodec {
-    static let maxDepth = 512
-    static let maxNodes = 100_000
+public enum FlorettaOPMLCodec {
+    public static let maxDepth = 512
+    public static let maxNodes = 100_000
 
-    static func importOutline(_ data: Data) throws -> MindMapDocument {
+    public static func importOutline(_ data: Data) throws -> MindMapDocument {
         try OPMLXMLParser().parse(data)
     }
 
-    static func export(_ document: MindMapDocument) throws -> Data {
+    public static func export(_ document: MindMapDocument) throws -> Data {
         var xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<opml version=\"2.0\">\n<head>\n"
         xml += "<title>\(escape(document.title))</title>\n</head>\n<body>\n"
         for root in document.roots {

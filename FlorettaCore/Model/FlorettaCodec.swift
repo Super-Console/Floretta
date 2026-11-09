@@ -1,18 +1,19 @@
+import CoreFoundation
 import Foundation
 
-enum FlorettaCodecError: Error, Equatable, Sendable {
+public enum FlorettaCodecError: Error, Equatable, Sendable {
     case corrupt(String)
     case unsupportedVersion(found: Int, supported: Int)
     case duplicateID(UUID)
     case cyclicID(UUID)
 
-    static func wrongJSONType(at place: String) -> FlorettaCodecError {
+    public static func wrongJSONType(at place: String) -> FlorettaCodecError {
         .corrupt("Wrong JSON type at \(place).")
     }
 }
 
 extension FlorettaCodecError: LocalizedError {
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .corrupt(let message):
             return message
@@ -28,10 +29,10 @@ extension FlorettaCodecError: LocalizedError {
 
 /// Pretty-printed UTF-8 JSON for a single `.floretta` file.
 /// Key order is `JSONEncoder.OutputFormatting.sortedKeys` (alphabetical, stable).
-enum FlorettaCodec {
-    static let fileExtension = "floretta"
+public enum FlorettaCodec {
+    public static let fileExtension = "floretta"
 
-    static func encode(_ document: MindMapDocument) throws -> Data {
+    public static func encode(_ document: MindMapDocument) throws -> Data {
         guard document.formatVersion == MindMapDocument.currentFormatVersion else {
             throw FlorettaCodecError.unsupportedVersion(
                 found: document.formatVersion,
@@ -48,7 +49,7 @@ enum FlorettaCodec {
         }
     }
 
-    static func decode(_ data: Data) throws -> MindMapDocument {
+    public static func decode(_ data: Data) throws -> MindMapDocument {
         if data.isEmpty {
             throw FlorettaCodecError.corrupt("File is empty.")
         }

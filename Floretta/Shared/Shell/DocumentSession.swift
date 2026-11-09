@@ -2,6 +2,46 @@ import FlorettaCore
 import Foundation
 import Observation
 
+/// Holds a security-scoped URL until the editor closes. `openFile` used to
+/// stop access as soon as the bytes were read, so writing the same URL on
+/// the way out failed and the edits never landed.
+final class SecurityScopedURL {
+    let url: URL
+    private var started: Bool
+
+    init(url: URL) {
+        self.url = url
+        started = url.startAccessingSecurityScopedResource()
+    }
+
+    func end() {
+        guard started else { return }
+        url.stopAccessingSecurityScopedResource()
+        started = false
+    }
+
+    deinit {
+        end()
+    }
+}
+
+enum SharePayload {
+    static func bytes(for kind: String, document: MindMapDocument) throws -> Data {
+        switch kind {
+        case "floretta":
+            return try ZipContainer().write(FlorettaPackage(document: document))
+        case "md":
+            return Data(FlorettaMarkdown.export(document).utf8)
+        case "opml":
+            return try FlorettaOPMLCodec.export(document)
+        case "mm":
+            return try FlorettaMMCodec.export(document)
+        default:
+            throw DocumentOpenError.unsupported(kind)
+        }
+    }
+}
+
 enum DocumentOpenError: Error, Equatable, LocalizedError {
     case unsupported(String)
     case message(String)
@@ -246,6 +286,22 @@ final class EditorSession {
         keyboard.apply(.commitEdit, document: &document, frames: [])
     }
 
+    /// Flush a finished edit into the document before it is written. Marked
+    /// Chinese text is already on the node and stays there until the system
+    /// text view confirms the candidate.
+    func prepareToSave() {
+        finishEditingIfNeeded()
+    }
+
+    /// Replace the selected node's text and commit it as one undo step.
+    func commitText(_ text: String) {
+        if keyboard.mode != .edit {
+            keyboard.apply(.beginEdit, document: &document, frames: [])
+        }
+        keyboard.replaceEditingText(text, document: &document)
+        keyboard.apply(.commitEdit, document: &document, frames: [])
+    }
+
     func pasteClipboard(_ text: String) {
         CanvasEditCommands.paste(text: text, document: &document, keyboard: &keyboard)
     }
@@ -282,8 +338,10 @@ final class LibraryModel {
     var recents: [RecentMapEntry] = []
     var editor: EditorSession?
     var showImporter = false
+    var alertTitle = "无法打开"
     var openError: String?
     var tab: ShellTab = .home
+    @ObservationIgnored private var scope: SecurityScopedURL?
 
     init(
         settings: AppSettings,
@@ -344,15 +402,15 @@ final class LibraryModel {
     }
 
     func openFile(_ url: URL) {
-        let accessed = url.startAccessingSecurityScopedResource()
-        defer {
-            if accessed { url.stopAccessingSecurityScopedResource() }
-        }
+        guard finishCurrentEditor() else { return }
+        let access = SecurityScopedURL(url: url)
         do {
             let data = try Data(contentsOf: url)
             let document = try DocumentOpener.open(data: data, filename: url.lastPathComponent)
             try store.remember(url)
             reload()
+            scope = access
+            openError = nil
             editor = EditorSession(
                 document: document,
                 url: url,
@@ -360,6 +418,8 @@ final class LibraryModel {
                 viewMode: settings.defaultView
             )
         } catch {
+            access.end()
+            alertTitle = "无法打开"
             openError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
@@ -368,6 +428,7 @@ final class LibraryModel {
         guard let url = store.resolve(entry) else {
             store.remove(id: entry.id)
             reload()
+            alertTitle = "无法打开"
             openError = "无法打开最近文件。"
             return
         }
@@ -376,36 +437,99 @@ final class LibraryModel {
 
     /// Closes the canvas and returns to the library.
     /// True when a `.floretta` file was written, so the caller can drop the crash copy.
+    /// A failed write leaves the editor open so the in-memory map is not discarded.
+    /// A plain-JSON `.floretta` is not overwritten; the ZIP goes to a new file in the documents folder.
     @discardableResult
     func closeEditor() -> Bool {
         guard let current = editor else { return false }
-        editor = nil
-        var saved = false
-        if current.sourceExtension == "floretta", let url = current.url {
+        let shouldWrite = current.sourceExtension == "floretta" || current.url == nil
+        if shouldWrite {
+            current.prepareToSave()
             do {
-                try FlorettaDocumentFile.save(
-                    FlorettaPackage(document: current.document),
-                    to: url,
-                    fileAccess: ports.files
-                )
-                saved = true
+                try persistFloretta(current)
             } catch {
-                openError = error.localizedDescription
+                alertTitle = "无法保存"
+                openError = saveFailureMessage(error)
+                return false
             }
         }
+        editor = nil
+        scope?.end()
+        scope = nil
         if let url = current.url {
             try? store.remember(url)
         }
         reload()
-        return saved
+        openError = nil
+        return shouldWrite
+    }
+
+    /// Share sheet "保存为 Floretta" already wrote `url`. Remember it, and if this
+    /// session is not already a `.floretta` file, keep editing that copy.
+    func noteExportedCopy(_ url: URL) {
+        let access = SecurityScopedURL(url: url)
+        do {
+            try store.remember(url)
+        } catch {
+            access.end()
+            alertTitle = "无法保存"
+            openError = saveFailureMessage(error)
+            return
+        }
+        reload()
+        guard let editor else {
+            access.end()
+            return
+        }
+        let adopt = editor.url == nil || editor.sourceExtension != "floretta"
+        if adopt {
+            scope?.end()
+            scope = access
+            editor.url = url
+            editor.sourceExtension = "floretta"
+        } else {
+            access.end()
+        }
+        openError = nil
+    }
+
+    /// False when the open `.floretta` could not be written. The editor stays.
+    private func finishCurrentEditor() -> Bool {
+        guard editor != nil else { return true }
+        closeEditor()
+        return editor == nil
+    }
+
+    private func persistFloretta(_ session: EditorSession) throws {
+        if let url = session.url {
+            do {
+                try write(session.document, to: url)
+                return
+            } catch DocumentContainerError.refusesToOverwriteLegacy {
+                // The original JSON bytes stay put. The edited map goes to a new ZIP.
+            }
+        }
+        let created = freshURL()
+        try write(session.document, to: created)
+        session.url = created
+        session.sourceExtension = "floretta"
+    }
+
+    private func saveFailureMessage(_ error: Error) -> String {
+        if let container = error as? DocumentContainerError, container == .refusesToOverwriteLegacy {
+            return "这份还是旧的 JSON 文件，不能直接覆盖。请用「保存为 Floretta」另存。"
+        }
+        return (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
     }
 
     private func openDocument(_ document: MindMapDocument, preferredURL: URL?, sourceExtension: String) {
+        guard finishCurrentEditor() else { return }
         let mode = settings.defaultView
         do {
             let url = try write(document, to: preferredURL ?? freshURL())
             try store.remember(url)
             reload()
+            openError = nil
             editor = EditorSession(
                 document: document,
                 url: url,
@@ -413,7 +537,8 @@ final class LibraryModel {
                 viewMode: mode
             )
         } catch {
-            openError = error.localizedDescription
+            alertTitle = "无法保存"
+            openError = saveFailureMessage(error)
             editor = EditorSession(
                 document: document,
                 url: nil,

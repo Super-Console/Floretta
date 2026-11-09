@@ -71,6 +71,31 @@ final class KeyboardTests: XCTestCase {
         }
     }
 
+    func testMarkedChineseTextDoesNotCreateOrDeleteNodes() {
+        let rootID = UUID()
+        var document = MindMapDocument(title: "中文", roots: [MindMapNode(id: rootID, text: "中心")])
+        var session = MindMapKeyboardSession()
+        session.selectedNodeID = rootID
+        XCTAssertEqual(press(.space, session: &session, document: &document), .beginEdit)
+        session.isComposing = true
+        session.replaceEditingText("zhongwen", document: &document)
+        XCTAssertNil(press(.tab, session: &session, document: &document, composing: true))
+        XCTAssertNil(press(.enter, session: &session, document: &document, composing: true))
+        XCTAssertNil(press(.backspace, session: &session, document: &document, composing: true))
+        XCTAssertNil(press(.delete, session: &session, document: &document, composing: true))
+        XCTAssertNil(press(.character("z"), .command, session: &session, document: &document, composing: true))
+        XCTAssertEqual(document.roots.count, 1)
+        XCTAssertEqual(document.roots[0].children.count, 0)
+        XCTAssertEqual(document.roots[0].text, "zhongwen")
+        XCTAssertEqual(session.mode, .edit)
+        session.isComposing = false
+        session.replaceEditingText("中文", document: &document)
+        XCTAssertEqual(press(.enter, session: &session, document: &document), .commitEdit)
+        XCTAssertEqual(document.roots[0].text, "中文")
+        XCTAssertEqual(press(.character("z"), .command, session: &session, document: &document), .undo)
+        XCTAssertEqual(document.roots[0].text, "中心")
+    }
+
     func testNearestChildWinsAndCrossingBranchesUsesVerticalDistance() {
         let parent = UUID()
         let close = UUID()

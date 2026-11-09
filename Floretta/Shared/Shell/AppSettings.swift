@@ -93,7 +93,8 @@ enum ShellTab: Hashable, Equatable, Sendable {
     }
 }
 
-/// File types the library importer is allowed to offer. Nothing else.
+/// File types the open panel may offer: the four map formats, plus XML and
+/// plain text so a file the panel labels as text can still be chosen.
 enum FlorettaFileTypes {
     static let florettaIdentifier = "net.timhuang.floretta.document"
     static let mmIdentifier = "org.freemind.mm"
@@ -109,10 +110,14 @@ enum FlorettaFileTypes {
 
     static let allowedExtensions = ["floretta", "mm", "opml", "md"]
 
+    static let exportKinds = ["png", "pdf", "md", "opml", "mm", "floretta"]
+
     /// Types the open panel may offer. Extension-backed types come first so the
     /// panel does not collapse every text file into Markdown. `.mm` is also
     /// Objective-C++ source on macOS; that system type is included so those
-    /// files can be chosen, and `DocumentOpener` still reads the bytes.
+    /// files can be chosen. XML and plain text stay in the list because the
+    /// panel often labels a FreeMind or OPML file as text. `DocumentOpener`
+    /// still decides from the bytes.
     static var allowedContentTypes: [UTType] {
         var types: [UTType] = []
         func append(_ type: UTType?) {
@@ -128,10 +133,51 @@ enum FlorettaFileTypes {
         append(UTType(markdownIdentifier))
         append(UTType(filenameExtension: "md"))
         append(UTType(filenameExtension: "markdown"))
-        if types.isEmpty {
-            append(.xml)
-            append(.json)
-            append(.plainText)
+        append(.xml)
+        append(.plainText)
+        return types
+    }
+
+    /// Stable type for one share-menu export. Never an index into
+    /// `allowedContentTypes`: that array also contains extension aliases, so
+    /// index 2 is not OPML once `.mm` resolves to two types.
+    static func contentType(forExport kind: String) -> UTType {
+        switch kind {
+        case "png":
+            return .png
+        case "pdf":
+            return .pdf
+        case "md":
+            return UTType(markdownIdentifier)
+                ?? UTType(filenameExtension: "md")
+                ?? UTType(filenameExtension: "markdown")
+                ?? .plainText
+        case "opml":
+            return UTType(opmlIdentifier)
+                ?? UTType(filenameExtension: "opml")
+                ?? .xml
+        case "mm":
+            return UTType(mmIdentifier)
+                ?? UTType(filenameExtension: "mm")
+                ?? .xml
+        case "floretta":
+            return UTType(florettaIdentifier)
+                ?? UTType(filenameExtension: "floretta")
+                ?? .data
+        default:
+            return .data
+        }
+    }
+
+    /// Every type `contentType(forExport:)` can return. `fileExporter` refuses
+    /// a content type that is missing from the document's readable list.
+    static var exportableContentTypes: [UTType] {
+        var types: [UTType] = [.data]
+        for kind in exportKinds {
+            let type = contentType(forExport: kind)
+            if !types.contains(type) {
+                types.append(type)
+            }
         }
         return types
     }

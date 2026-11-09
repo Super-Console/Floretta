@@ -134,7 +134,7 @@ private struct MacNodeTextEditor: NSViewRepresentable {
             guard let nsView else { return }
             context.coordinator.compositionChanged(nsView)
         }
-        if !nsView.hasMarkedText() {
+        if !nsView.hasMarkedText(), !context.coordinator.isComposing.wrappedValue {
             let font = NSFont.systemFont(ofSize: max(fontSize, 1))
             if nsView.font?.pointSize != font.pointSize {
                 nsView.font = font
@@ -317,7 +317,7 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
             guard let uiView else { return }
             context.coordinator.compositionChanged(uiView)
         }
-        if uiView.markedTextRange == nil {
+        if uiView.markedTextRange == nil, !context.coordinator.isComposing.wrappedValue {
             let font = UIFont.systemFont(ofSize: max(fontSize, 1))
             if uiView.font?.pointSize != font.pointSize {
                 uiView.font = font

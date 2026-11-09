@@ -24,7 +24,9 @@ P2-1 `.mm` 已由总指挥验收（macOS 74/0，iOS EXIT=0，合并 `b51b8c5`）
 
 P2-2 OPML 与 Markdown 已由总指挥验收（macOS 80/0，含 6 个 OPMLMarkdownTests；iOS EXIT=0，合并 `4c51de7`）。
 
-P2-3 PNG / PDF 已落盘：系统 `ImageRenderer`，只画当前可见的节点和连线。2x/3x，白底或透明。超出像素上限会裁切并给出说明。这台云机器没有 Xcode，没有跑 `xcodebuild`。
+P2-3 PNG / PDF 已由总指挥验收（macOS 85/0，iOS EXIT=0，合并 `1b277ce`）。
+
+P3 App 图标已落盘：参考图的纸面和水彩原样保留，白边、投影和旧圆角边用内侧纸纹补成满幅正方形。sRGB，无 alpha。深色变体没有另做（见 `docs/app-icon.md`）。这台云机器没有 `sips`，也没有 Xcode，没有跑 `xcodebuild`。
 
 Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be pasted back for fixes.
 
@@ -34,9 +36,12 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 
 ```bash
 xcodebuild test -project Floretta.xcodeproj -scheme Floretta-macOS -destination 'platform=macOS'
+echo EXIT_MACOS_TEST=$?
+xcodebuild build -project Floretta.xcodeproj -scheme Floretta-iOS -destination 'platform=iOS Simulator,name=iPhone 16'
+echo EXIT_IOS_BUILD=$?
 ```
 
-构建或测试错误贴回再改。通过后再放行下一批。第一次构建会拉取 SwiftFlow 0.3.1。
+构建或测试错误贴回再改。通过后再放行下一批。图标还要用 `sips -g pixelWidth -g pixelHeight -g hasAlpha -g space` 对每个尺寸复核，并看四角不是纯白。
 
 ## P1-r 申报
 
@@ -191,4 +196,5 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 | 2026-11-09 | P1-d | 总指挥验收通过 | 67 个 macOS 测试全绿；iOS Simulator BUILD SUCCEEDED |
 | 2026-11-09 | P2-1 | 总指挥验收通过 | macOS 74/0，iOS EXIT=0。合并 `b51b8c5` |
 | 2026-11-09 | P2 OPML+MD | 总指挥验收通过 | macOS 80/0，含 6 个 OPMLMarkdownTests。iOS EXIT=0。合并 `4c51de7` |
-| 2026-11-09 | P2-3 | 已提交，云端未测试 | PNG/PDF 用 ImageRenderer。折叠子树不画。超限裁切并提示。云端不能跑 xcodebuild |
+| 2026-11-09 | P2-3 | 总指挥验收通过 | macOS 85/0，iOS EXIT=0。合并 `1b277ce` |
+| 2026-11-09 | P3 | 已提交，云端未测试 | 满幅纸面图标。无 sips、无 xcodebuild。深色变体不另做 |

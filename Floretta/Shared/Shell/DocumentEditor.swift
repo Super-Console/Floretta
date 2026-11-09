@@ -680,7 +680,6 @@ private extension View {
         #else
         self
             .toolbar(chrome.showsToolbar ? .visible : .hidden, for: .windowToolbar)
-            .toolbar(chrome.showsToolbar ? .visible : .hidden, for: .navigationBar)
         #endif
     }
 }

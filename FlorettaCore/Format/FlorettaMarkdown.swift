@@ -1,8 +1,11 @@
 import Foundation
 
-/// Markdown headings follow outline depth.
+/// Optional 「导出为…」preset. Heading depth (`#`, `##`, `###`) follows outline depth.
 /// Notes are blockquotes. Links use `[text](url)`.
 /// Import reads this same heading shape. Any other non-empty line is an error.
+///
+/// This is not open/save for `.md` documents. That projection is
+/// `FlorettaMarkdownDocumentCodec` (nested `- ` lists, H1 sections only).
 public enum FlorettaMarkdownError: Error, Equatable, LocalizedError {
     case notUTF8
     case empty

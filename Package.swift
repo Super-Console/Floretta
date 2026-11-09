@@ -30,7 +30,9 @@ let package = Package(
         .testTarget(
             name: "FlorettaCoreTests",
             dependencies: ["FlorettaCore"],
-            path: "Tests/FlorettaCoreTests"
+            path: "Tests/FlorettaCoreTests",
+            // Markdown fixtures are loaded from the source tree with #filePath.
+            exclude: ["Fixtures"]
         ),
     ]
 )

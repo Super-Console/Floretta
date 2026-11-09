@@ -36,6 +36,8 @@ enum SharePayload {
             return try FlorettaOPMLCodec.export(document)
         case "mm":
             return try FlorettaMMCodec.export(document)
+        case "xmind":
+            return try FlorettaXMindCodec.export(document)
         default:
             throw DocumentOpenError.unsupported(kind)
         }
@@ -120,6 +122,8 @@ enum DocumentOpener {
                 return try FlorettaOPMLCodec.importOutline(data)
             case .markdown:
                 return try FlorettaMarkdown.importOutline(data)
+            case .xmind:
+                return try FlorettaXMindCodec.importMap(data)
             case nil:
                 throw DocumentOpenError.unsupported(ext.isEmpty ? filename : ext)
             }
@@ -136,6 +140,7 @@ enum DocumentOpener {
         case mm
         case opml
         case markdown
+        case xmind
     }
 
     private static func format(forExtension ext: String) -> Format? {
@@ -144,13 +149,20 @@ enum DocumentOpener {
         case "mm": .mm
         case "opml": .opml
         case "md", "markdown": .markdown
+        case "xmind": .xmind
         default: nil
         }
     }
 
     /// Nil when the bytes are not a map we know. Callers then trust the extension.
     private static func sniffedFormat(_ data: Data) -> Format? {
-        if isZip(data) { return .floretta }
+        if isZip(data) {
+            if let names = try? ZipArchive.entryNames(data) {
+                if names.contains("document.json") { return .floretta }
+                if names.contains("content.json") { return .xmind }
+            }
+            return .floretta
+        }
         if isFlorettaJSON(data) { return .floretta }
         guard let prefix = String(data: data.prefix(4096), encoding: .utf8)?.lowercased() else {
             return nil
@@ -221,7 +233,13 @@ enum FocusLayout {
     static func focusedDocument(_ document: MindMapDocument, focus: UUID?) -> MindMapDocument {
         guard let focus, let node = document.node(focus) else { return document }
         var copy = document
+        if document.isInFreeNodeTree(focus) {
+            copy.roots = []
+            copy.freeNodes = [node]
+            return copy
+        }
         copy.roots = [node]
+        copy.freeNodes = []
         return copy
     }
 
@@ -329,6 +347,20 @@ final class EditorSession {
         guard keyboard.mode == .command, !keyboard.isComposing else { return }
         let event = KeyEvent(key: .enter, modifiers: [], mode: .command, isComposing: false)
         _ = keyboard.handle(event, document: &document, frames: [])
+    }
+
+    func addFreeNodeFromToolbar() {
+        finishEditingIfNeeded()
+        guard keyboard.mode == .command, !keyboard.isComposing else { return }
+        let index = document.freeNodes.count
+        let point = MindMapPoint(x: 200 + Double(index) * 32, y: -160 - Double(index) * 28)
+        _ = keyboard.addFreeNode(at: point, document: &document)
+    }
+
+    func linkSelectedFreeNode(to targetID: UUID) {
+        finishEditingIfNeeded()
+        guard keyboard.mode == .command, !keyboard.isComposing else { return }
+        _ = keyboard.linkFreeNode(to: targetID, document: &document)
     }
 
     func deleteSelection() {
@@ -892,19 +924,19 @@ enum HomePage: String, Hashable, Sendable {
 /// Menu rows that are allowed to appear. Disabled rows are listed separately.
 enum CanvasMenus {
     static let immersive = "全屏沉浸"
-    static let insert = ["子节点", "同级", "图片", "附件", "从文件导入"]
-    static let share = ["PDF", "PNG", "Markdown", "保存为 Floretta", ".mm", "OPML", "打印"]
+    static let insert = ["子节点", "同级", "自由节点", "连到", "图片", "附件", "从文件导入"]
+    static let share = ["PDF", "PNG", "Markdown", "保存为 Floretta", ".mm", "OPML", ".xmind", "打印"]
     static let zoom = ["50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%", "适应窗口"]
     static let more = ["大纲", "样式", "查看模式", "新建画布", "查找", "粘贴", "关于"]
     static let moreDisabled: [String] = []
     static let file = ["重新命名"]
     static let fileDisabled: [String] = []
-    static let export = ["floretta", "mm", "opml", "md", "png", "pdf"]
+    static let export = ["floretta", "mm", "opml", "md", "png", "pdf", "xmind"]
     static let text = ["剪切", "拷贝", "粘贴", "全选", "拷贝样式"]
     static let textDisabled: [String] = []
     static let omitted = [
         "立即升级", "投屏至图库", "方程帮助", "Word", "Excel", "Calendar",
-        "ZEN", "Zen", ".xmind", "XMind", "演说", "反馈", "投屏", "设置密码", "风格化分享",
+        "ZEN", "Zen", "演说", "反馈", "投屏", "设置密码", "风格化分享",
         "生成想法", "AI 工作分解", "关系线", "Add Page", "Canvas",
     ]
 }
@@ -945,16 +977,7 @@ enum CanvasEditCommands {
     }
 
     static func find(in document: MindMapDocument, query: String) -> UUID? {
-        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !needle.isEmpty else { return nil }
-        func walk(_ nodes: [MindMapNode]) -> UUID? {
-            for node in nodes {
-                if node.text.localizedCaseInsensitiveContains(needle) { return node.id }
-                if let found = walk(node.children) { return found }
-            }
-            return nil
-        }
-        return walk(document.roots)
+        document.topics(matching: query).first
     }
 
     static func addCanvas(to document: inout MindMapDocument) -> UUID {

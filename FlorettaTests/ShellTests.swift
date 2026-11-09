@@ -291,6 +291,19 @@ final class ShellTests: XCTestCase {
         XCTAssertEqual(FocusLayout.chain(document, to: child).map(\.id), [parent, child])
     }
 
+    func testFindAndReopenKeepAFreeNode() throws {
+        var document = MindMapDocument(title: "图", roots: [MindMapNode(text: "根")])
+        let id = document.addFreeNode(text: "海边", at: MindMapPoint(x: 12, y: -4))
+        XCTAssertEqual(CanvasEditCommands.find(in: document, query: "海"), id)
+        XCTAssertEqual(document.topicCount, 2)
+        let data = try SharePayload.bytes(for: "xmind", document: document)
+        let opened = try DocumentOpener.open(data: data, filename: "图.xmind")
+        XCTAssertEqual(opened.freeNodes.map(\.id), [id])
+        XCTAssertEqual(opened.freeNodes[0].text, "海边")
+        XCTAssertEqual(opened.freeNodes[0].position, MindMapPoint(x: 12, y: -4))
+        XCTAssertFalse(opened.roots.contains { $0.id == id })
+    }
+
     func testFillColorSurvivesEncodeDecodeAndLayout() throws {
         let id = UUID()
         var document = MindMapDocument(title: "style", roots: [MindMapNode(id: id, text: "根")])
@@ -325,7 +338,7 @@ final class ShellTests: XCTestCase {
 
     func testMenusAndTemplatesOmitDeadActions() {
         XCTAssertEqual(CanvasMenus.immersive, "全屏沉浸")
-        XCTAssertEqual(CanvasMenus.insert, ["子节点", "同级", "图片", "附件", "从文件导入"])
+        XCTAssertEqual(CanvasMenus.insert, ["子节点", "同级", "自由节点", "连到", "图片", "附件", "从文件导入"])
         XCTAssertEqual(
             CanvasMenus.zoom,
             ["50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%", "适应窗口"]
@@ -337,8 +350,8 @@ final class ShellTests: XCTestCase {
         XCTAssertFalse(CanvasMenus.more.contains("Zen"))
         XCTAssertEqual(CanvasMenus.file, ["重新命名"])
         XCTAssertEqual(CanvasMenus.fileDisabled, [])
-        XCTAssertEqual(CanvasMenus.export, ["floretta", "mm", "opml", "md", "png", "pdf"])
-        XCTAssertEqual(CanvasMenus.share, ["PDF", "PNG", "Markdown", "保存为 Floretta", ".mm", "OPML", "打印"])
+        XCTAssertEqual(CanvasMenus.export, ["floretta", "mm", "opml", "md", "png", "pdf", "xmind"])
+        XCTAssertEqual(CanvasMenus.share, ["PDF", "PNG", "Markdown", "保存为 Floretta", ".mm", "OPML", ".xmind", "打印"])
         XCTAssertEqual(CanvasMenus.text, ["剪切", "拷贝", "粘贴", "全选", "拷贝样式"])
         XCTAssertEqual(CanvasMenus.textDisabled, [])
         let visible = CanvasMenus.more + CanvasMenus.file + CanvasMenus.share + CanvasMenus.text + CanvasMenus.export
@@ -639,6 +652,7 @@ final class ShellTests: XCTestCase {
         case "opml": return UTType(FlorettaFileTypes.opmlIdentifier)
         case "mm": return UTType(FlorettaFileTypes.mmIdentifier)
         case "floretta": return UTType(FlorettaFileTypes.florettaIdentifier)
+        case "xmind": return UTType(filenameExtension: "xmind")
         default: return nil
         }
     }

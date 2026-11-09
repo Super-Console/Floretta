@@ -319,6 +319,27 @@ struct DocumentEditor: View {
                 Label("同级", systemImage: "square.on.square")
             }
             .help("在选中的节点旁新建一个同级节点")
+            Button { session.addFreeNodeFromToolbar() } label: {
+                Label("自由节点", systemImage: "arrow.up.left.and.arrow.down.right")
+            }
+            .help("在画布上放一个不进层级的节点，位置会保存")
+            Menu {
+                let source = session.keyboard.selectedNodeID
+                let targets = session.document.linkTargets(excluding: source)
+                if targets.isEmpty {
+                    Button("没有其他节点") {}
+                        .disabled(true)
+                }
+                ForEach(targets) { target in
+                    Button(target.text.isEmpty ? "未命名" : target.text) {
+                        session.linkSelectedFreeNode(to: target.id)
+                    }
+                }
+            } label: {
+                Label("连到", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+            }
+            .disabled(session.keyboard.selectedNodeID.map { session.document.isFreeNode($0) } != true)
+            .help("把选中的自由节点连到另一个节点。只记下关系，不画线。")
             Button { showImageImporter = true } label: {
                 Label("图片", systemImage: "photo")
             }
@@ -335,7 +356,7 @@ struct DocumentEditor: View {
             Image(systemName: "plus")
         }
         .accessibilityLabel("插入")
-        .help("插入子节点、同级、图片、附件，或从文件导入")
+        .help("插入子节点、同级、自由节点、图片、附件，或从文件导入")
     }
 
     private var zoomMenu: some View {
@@ -368,6 +389,8 @@ struct DocumentEditor: View {
                 .explained("把这份导图导出为 FreeMind .mm")
             Button("OPML") { export("opml") }
                 .explained("把这份导图导出为 OPML")
+            Button(".xmind") { export("xmind") }
+                .explained("导出为 XMind，自由节点写成浮动主题")
             #if os(macOS)
             Button("打印") { printMap() }
                 .explained("打印这份导图")
@@ -454,6 +477,12 @@ struct DocumentEditor: View {
             }
             LabeledContent("引用") {
                 Text("\(references.reduce(0) { $0 + $1.count })").monospacedDigit()
+            }
+            LabeledContent("节点") {
+                Text("\(session.document.topicCount)").monospacedDigit()
+            }
+            LabeledContent("关系") {
+                Text("\(session.document.relationships.count)").monospacedDigit()
             }
         }
         .formStyle(.grouped)
@@ -738,7 +767,7 @@ struct DocumentEditor: View {
                     return
                 }
                 data = try SharePayload.bytes(for: kind, document: session.document)
-            case "md", "opml", "mm":
+            case "md", "opml", "mm", "xmind":
                 data = try SharePayload.bytes(for: kind, document: session.document)
             default:
                 return
@@ -761,6 +790,7 @@ struct DocumentEditor: View {
         case "md": ext = "md"
         case "opml": ext = "opml"
         case "mm": ext = "mm"
+        case "xmind": ext = "xmind"
         case "floretta": ext = "floretta"
         default: ext = "dat"
         }
@@ -942,6 +972,20 @@ private struct StyleInspector: View {
                             .monospacedDigit()
                     }
                     ColorPicker("颜色", selection: textColor, supportsOpacity: false)
+                }
+                if document.isFreeNode(nodeID) {
+                    Section("连到") {
+                        let links = document.relationships.filter {
+                            $0.sourceID == nodeID || $0.targetID == nodeID
+                        }
+                        if links.isEmpty {
+                            Text("还没有连到其他节点。只保存关系，不画线。")
+                        } else {
+                            ForEach(links) { link in
+                                Text(document.relationshipSummary(link, seenFrom: nodeID))
+                            }
+                        }
+                    }
                 }
             }
             .formStyle(.grouped)

@@ -172,6 +172,48 @@ public enum ZipArchive {
         return entries
     }
 
+    /// Central-directory names only. Does not inflate entry bytes.
+    public static func entryNames(_ data: Data) throws -> [String] {
+        guard data.count >= 22 else {
+            throw ZipArchiveError.corrupt("Zip is too small.")
+        }
+        guard let eocd = findEOCD(data) else {
+            throw ZipArchiveError.corrupt("Zip directory is missing.")
+        }
+        let entryCount = Int(readU16(data, eocd + 10))
+        let centralSize = Int(readU32(data, eocd + 12))
+        let centralOffset = Int(readU32(data, eocd + 16))
+        guard centralOffset >= 0, centralSize >= 0,
+              centralOffset <= data.count, centralOffset + centralSize <= data.count else {
+            throw ZipArchiveError.corrupt("Zip directory is out of range.")
+        }
+        var cursor = centralOffset
+        let centralEnd = centralOffset + centralSize
+        var names: [String] = []
+        for _ in 0..<entryCount {
+            guard cursor + 46 <= centralEnd else {
+                throw ZipArchiveError.corrupt("Zip directory entry is truncated.")
+            }
+            guard readU32(data, cursor) == 0x02014b50 else {
+                throw ZipArchiveError.corrupt("Zip directory entry is invalid.")
+            }
+            let nameLength = Int(readU16(data, cursor + 28))
+            let extraLength = Int(readU16(data, cursor + 30))
+            let commentLength = Int(readU16(data, cursor + 32))
+            let nameStart = cursor + 46
+            guard nameStart + nameLength + extraLength + commentLength <= centralEnd else {
+                throw ZipArchiveError.corrupt("Zip directory name is truncated.")
+            }
+            let nameData = data.subdata(in: nameStart..<(nameStart + nameLength))
+            guard let name = String(data: nameData, encoding: .utf8) else {
+                throw ZipArchiveError.corrupt("Zip entry name is not UTF-8.")
+            }
+            names.append(name)
+            cursor = nameStart + nameLength + extraLength + commentLength
+        }
+        return names
+    }
+
     private static func extract(
         data: Data,
         localOffset: Int,

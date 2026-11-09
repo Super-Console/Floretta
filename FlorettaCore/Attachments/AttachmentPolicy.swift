@@ -158,26 +158,22 @@ public enum AttachmentReferences {
     public static func counts(in document: MindMapDocument) -> [AttachmentReferenceCount] {
         var order: [String] = []
         var tally: [String: AttachmentReferenceCount] = [:]
-        func walk(_ nodes: [MindMapNode]) {
-            for node in nodes {
-                for attachment in node.attachments {
-                    if var existing = tally[attachment.sha256] {
-                        existing.count += 1
-                        tally[attachment.sha256] = existing
-                    } else {
-                        order.append(attachment.sha256)
-                        tally[attachment.sha256] = AttachmentReferenceCount(
-                            sha256: attachment.sha256,
-                            fileExtension: attachment.fileExtension,
-                            byteCount: attachment.byteCount,
-                            count: 1
-                        )
-                    }
+        document.walkTopics { node in
+            for attachment in node.attachments {
+                if var existing = tally[attachment.sha256] {
+                    existing.count += 1
+                    tally[attachment.sha256] = existing
+                } else {
+                    order.append(attachment.sha256)
+                    tally[attachment.sha256] = AttachmentReferenceCount(
+                        sha256: attachment.sha256,
+                        fileExtension: attachment.fileExtension,
+                        byteCount: attachment.byteCount,
+                        count: 1
+                    )
                 }
-                walk(node.children)
             }
         }
-        walk(document.roots)
         return order.compactMap { tally[$0] }.sorted { $0.sha256 < $1.sha256 }
     }
 
@@ -198,15 +194,11 @@ public enum AttachmentReferences {
 public enum AttachmentTotals {
     public static func uniqueReferencedBytes(_ document: MindMapDocument) -> Int64 {
         var seen: [String: Int64] = [:]
-        func walk(_ nodes: [MindMapNode]) {
-            for node in nodes {
-                for attachment in node.attachments where seen[attachment.sha256] == nil {
-                    seen[attachment.sha256] = max(0, attachment.byteCount)
-                }
-                walk(node.children)
+        document.walkTopics { node in
+            for attachment in node.attachments where seen[attachment.sha256] == nil {
+                seen[attachment.sha256] = max(0, attachment.byteCount)
             }
         }
-        walk(document.roots)
         return seen.values.reduce(0, +)
     }
 }

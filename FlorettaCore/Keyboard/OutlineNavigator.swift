@@ -15,6 +15,9 @@ public enum OutlineNavigator {
             }
         }
         walk(document.roots)
+        for node in document.freeNodes {
+            ids.append(node.id)
+        }
         return ids
     }
 
@@ -30,6 +33,7 @@ public enum OutlineNavigator {
         case .left:
             return document.parentID(of: id)
         case .right:
+            if document.isInFreeNodeTree(id) { return nil }
             guard let node = document.node(id), !node.isCollapsed, let first = node.children.first else {
                 return nil
             }
@@ -63,7 +67,9 @@ public extension MindMapDocument {
 
     public func canReparent(_ id: UUID, to parentID: UUID?) -> Bool {
         guard node(id) != nil else { return false }
+        if isInFreeNodeTree(id) { return false }
         guard let parentID else { return true }
+        if isInFreeNodeTree(parentID) { return false }
         if parentID == id { return false }
         if isDescendant(parentID, of: id) { return false }
         return node(parentID) != nil
@@ -85,6 +91,7 @@ public extension MindMapDocument {
             children.insert(contentsOf: moving, at: insertAt)
         }
         if let parentID {
+            if isInFreeNodeTree(parentID) { return }
             _ = mutateNode(parentID) { reorder(&$0.children) }
         } else {
             reorder(&roots)

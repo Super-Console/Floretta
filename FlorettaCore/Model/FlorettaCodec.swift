@@ -39,7 +39,7 @@ public enum FlorettaCodec {
                 supported: MindMapDocument.currentFormatVersion
             )
         }
-        try FlorettaTree.validate(document.roots)
+        try FlorettaTree.validate(document)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         do {
@@ -91,6 +91,31 @@ public enum FlorettaCodec {
             }
             for (index, root) in array.enumerated() {
                 try preflightNode(root, at: "roots[\(index)]")
+            }
+        }
+        if let freeNodes = object["freeNodes"], !(freeNodes is NSNull) {
+            guard let array = freeNodes as? [Any] else {
+                throw FlorettaCodecError.wrongJSONType(at: "freeNodes")
+            }
+            for (index, node) in array.enumerated() {
+                try preflightNode(node, at: "freeNodes[\(index)]")
+            }
+        }
+        if let relationships = object["relationships"], !(relationships is NSNull) {
+            guard let array = relationships as? [Any] else {
+                throw FlorettaCodecError.wrongJSONType(at: "relationships")
+            }
+            for (index, item) in array.enumerated() {
+                guard let relationship = item as? [String: Any] else {
+                    throw FlorettaCodecError.wrongJSONType(at: "relationships[\(index)]")
+                }
+                let place = "relationships[\(index)]"
+                try expect(relationship, key: "id", at: "\(place).id") { isJSONString($0) }
+                try expect(relationship, key: "sourceID", at: "\(place).sourceID") { isJSONString($0) }
+                try expect(relationship, key: "targetID", at: "\(place).targetID") { isJSONString($0) }
+                if let title = relationship["title"], !(title is NSNull) {
+                    try expect(relationship, key: "title", at: "\(place).title") { isJSONString($0) }
+                }
             }
         }
     }

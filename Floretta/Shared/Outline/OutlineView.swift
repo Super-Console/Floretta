@@ -43,6 +43,14 @@ struct OutlineView: View {
     private var outlineList: some View {
         let list = List(selection: selection) {
             OutlineLevel(document: $document, keyboard: $keyboard, parentID: nil)
+            if !document.freeNodes.isEmpty {
+                Section("自由节点") {
+                    ForEach(document.freeNodes.map(\.id), id: \.self) { id in
+                        OutlineRow(document: $document, keyboard: $keyboard, id: id)
+                            .tag(id)
+                    }
+                }
+            }
         }
         .listStyle(.sidebar)
         #if os(iOS)

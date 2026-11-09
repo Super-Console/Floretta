@@ -74,6 +74,7 @@ HTML 标签去掉，只留文字。`p` / `br` 变成换行。`richcontent` 必�
 - `icon`、`font`、`edge`、`cloud`、`arrowlink`、`attribute`、`hook`、`encrypted_content`
 - 节点上的 `ID`、`CREATED`、`MODIFIED`、颜色和样式属性（导入时新生成 UUID，导出时写新的 `ID_`）
 - 自由坐标（`.mm` 没有 x/y）
+- 自由节点（`freeNodes`）。写进 `.mm` 会变成树里的子主题，所以这一版不写。坐标和连线关系一起留在 `.floretta` / `.xmind`
 - 未知的 `POSITION` 值：导入直接报错，不猜
 
 `.opml` 与 Markdown 见下一节。PNG / PDF 见再下一节。
@@ -126,10 +127,24 @@ HTML 标签去掉，只留文字。`p` / `br` 变成换行。`richcontent` 必�
 
 - 主层级：嵌套列表（写出只 `- ` + 2 空格缩进）；标题仅可选 **一级**（`# `）分区；列表外 `##`+ 打开失败。
 - 可选：备注（`>`）、YAML front-matter 原样保留、整项恰好一个行内链接。
-- **不保真**：不写附件、颜色、关系线、位置、折叠、节点 UUID；禁止 sidecar / HTML 注释藏数据。
+- **不保真**：不写附件、颜色、关系线、位置、折叠、节点 UUID、自由节点；禁止 sidecar / HTML 注释藏数据。自由节点不是列表子项。
 - 旧「纯标题树」导出仅作为「导出为…」可选预设，与打开/保存 `.md` 路径分离。
 
 AI 路径定位见 **[FORMAT-FOR-AI.md](./FORMAT-FOR-AI.md)**。
+
+## `.xmind` 自由节点（1.5）
+
+只覆盖自由节点这一条，不是完整的 `.xmind` 互通（那是 D1）。文件是 ZIP，内有 `content.json`、`metadata.json`、`manifest.json`。一张画布。
+
+自由节点写在根主题的 `children.detached` 上，并带 `position`。这是 XMind 的 floating topic。它们不写进 `attached`，所以不会变成中心主题的子节点。`position` 的数字就是 Floretta 画布坐标；再导入时原样读回。XMind 自己打开时，会按它的浮动主题规则解释这个坐标。
+
+关系写在画布的 `relationships`（`end1Id` = source，`end2Id` = target）。画布上先不画线。
+
+多个根时，导出用文档标题包一层再把原来的根放进 `attached`，自由节点仍在这层的 `detached`。没有根时同样包一层，避免自由节点被塞进树。
+
+本批往返保留：自由节点的 id、文字、坐标、备注、超链接、附件引用（`org.floretta.attachments`）、它自己的子主题，以及关系。不写入 XMind 样式表，所以填充色仍只在 `.floretta`。折叠不写。附件字节仍在 `.floretta` 的 `assets/`，不进这个 zip。
+
+多于一张画布、或主题 id 不是 UUID，导入直接报错，不丢节点后继续。
 
 ## PNG / PDF 本批
 
@@ -151,6 +166,6 @@ PNG 可选 2x 或 3x，底可以是白的或透明的。
 | `.opml` | 导入 + 导出 | 测试里的 OPML 与文档往返 | 层级、顺序、text、_note/note、url、文档标题 | 折叠、左右侧、画布坐标、head 元数据、未列出的属性 | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-09 |
 | Markdown | 一等文档读写 | 见 MD-AS-DOCUMENT fixture | 层级、顺序、text、note、单一 link、front-matter | 附件、颜色、关系线、位置、折叠、UUID；`##`+ 拒开 | 规格已通过（Censor）；实现见 S1+ | 2026-11-10 |
 | PNG / PDF | 仅导出 | 单测把 PNG 读回并抽样像素；PDF 看页数和 mediaBox | 当前可见节点和连线；2x/3x；白底或透明 | 工具栏、侧栏、选中框、点阵；折叠起来的子树；超出像素上限的部分 | 代码与单测已落盘；本机未打开文件 | 2026-11-09 |
-| `.xmind` | 导入 | 待填 | | | | |
+| `.xmind` | 导出 + 再导入本批写出的文件 | 单测里的 `MindMapDocument` | 自由节点 id / 文字 / 坐标 / 备注 / 链接 / 附件引用 / 子主题，以及 relationships；单根时根 id 不变 | 样式、折叠、附件字节、多画布；`.mm` / Markdown 不写自由节点 | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-10 |
 
 > 空白 = 未验证。不要预填"通过"。

@@ -12,7 +12,9 @@ P1-1 已由总指挥验收（24 个测试全绿）。触控板手势留到 P1-c 
 
 P0.5 已由总指挥验收（32 个测试全绿）。DocumentGroup、实验 A/B 没做。
 
-P1-b 双边布局已落盘，等本机 `xcodebuild test`。只有 bilateral，没有其它布局。
+P1-b 已由总指挥验收（46 个测试全绿，含 S 曲线曲率断言）。触控板手势这批仍不验。
+
+P1-c 键盘模型已落盘，等本机 `xcodebuild test`。没有开始大纲、DocumentGroup、`.xmind` 导入。
 
 Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be pasted back for fixes.
 
@@ -25,6 +27,19 @@ xcodebuild test -project Floretta.xcodeproj -scheme Floretta-macOS -destination 
 ```
 
 构建或测试错误贴回再改。通过后再放行下一批。
+
+## P1-c 申报
+
+键盘映射是纯函数 `KeyboardCommandMapper.map`。输入是按键、修饰键、模式（command / edit）、`isComposing`。画布和系统文本框都先调它，再改文档。
+
+- **命令模式**：Tab 新建子节点并进入编辑；Enter 在当前节点后面新建同级并进入编辑；Space 进入编辑；方向键移动选中；Backspace、正向 Delete、⌘Backspace 删除选中节点。Mac 大键印的是 delete，全尺寸键盘另有正向 Delete，两种都删节点。
+- **编辑模式**：Tab / Space / 方向键 / Delete / ⌘Z 不建节点、不删节点。Enter 提交文字并回到命令模式（不新建同级；再按一次 Enter 才新建）。Shift+Enter 在文字里插入换行。Esc 取消编辑并还原进入编辑时的文字。编辑中的 Tab 由文本框吃掉，避免系统把焦点移走。
+- **组字**：`isComposing == true` 时映射一律返回空，Esc、Enter、方向键、Delete、撤销都不触发。组字结束后恢复。
+- **方向键**：上下只在同一父节点的兄弟间走。左右优先走本节点该侧的子节点，多个时按垂直距离取最近，再比水平距离。该侧没有子节点、父节点又在这一侧时回到父节点。否则跨分支，仍取该侧最近的节点。
+- **撤销**：自管栈，不用系统 UndoManager。覆盖新建、删除、提交后的文字修改、折叠/展开。一次编辑会话算一步；Esc 还原文字但不入栈。⌘Z / ⇧⌘Z 只在命令模式生效，iOS 外接键盘用同一组修饰键。拖拽撤销不在这批。
+- 编辑框是系统 `NSTextView` / `UITextView`，不是自绘控件。组字期间不把标记文本写回覆盖。
+
+`Floretta-macOS`、`Floretta-iOS`、`FlorettaTests` 都编译这些文件。`KeyboardTests` 直接测映射、最近节点和撤销，不靠界面事件。云上没有 Xcode，没有跑过 `xcodebuild`。
 
 ## P1-b 申报
 
@@ -135,3 +150,5 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 | 2026-11-09 | P1-1 | Pro 编译失败 | `CanvasScrollInput.swift` deinit 访问 `monitor: Any?`，Swift 6 报 nonisolated deinit |
 | 2026-11-09 | P1-1 修复 | 总指挥验收通过 | 24 个测试全绿。触控板手势留到 P1-c 再人工验 |
 | 2026-11-09 | P0.5 | 已提交，云端未测试 | DocumentContainer + 只读旧 JSON + ZipContainer（原子写、稳定顺序、哈希去重、zip bomb 上限）。不覆盖旧 JSON 原文件。云端不能跑 xcodebuild |
+| 2026-11-09 | P1-b | 总指挥验收通过 | 46 个测试全绿，含 Δy ≠ 0 时 S 曲线曲率断言 |
+| 2026-11-09 | P1-c | 已提交，云端未测试 | 键盘命令/编辑分模式、组字期间不触发快捷键、纯函数映射、撤销覆盖新建/删除/文字/折叠。云端不能跑 xcodebuild |

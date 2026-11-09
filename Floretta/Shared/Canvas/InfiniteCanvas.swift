@@ -9,6 +9,8 @@ struct InfiniteCanvas: View {
     @State private var pinchStartScale: CGFloat?
     @State private var interaction = CanvasInteraction.standard
     @State private var chrome = CanvasChrome.standard
+    @State private var keyboard = MindMapKeyboardSession()
+    @FocusState private var canvasFocused: Bool
 
     var body: some View {
         GeometryReader { geo in
@@ -29,6 +31,7 @@ struct InfiniteCanvas: View {
                 }
             }
             .overlay { hoverAddButtons }
+            .overlay { editField }
             .canvasHover { location in
                 guard let location else {
                     interaction.hoveredNodeID = nil
@@ -37,18 +40,52 @@ struct InfiniteCanvas: View {
                 let point = viewport.canvasPoint(fromView: location)
                 interaction.hoveredNodeID = CanvasPlacement.nodeID(at: point, in: document)
             }
+            .focusable()
+            .focused($canvasFocused)
+            .onKeyPress { press in
+                guard keyboard.mode == .command else { return .ignored }
+                guard let event = KeyEvent(press: press, mode: .command, isComposing: keyboard.isComposing) else {
+                    return .ignored
+                }
+                return handleKey(event) ? .handled : .ignored
+            }
+            .onAppear {
+                if keyboard.selectedNodeID == nil {
+                    keyboard.selectedNodeID = document.roots.first?.id
+                    interaction.selectedNodeID = keyboard.selectedNodeID
+                }
+                canvasFocused = true
+            }
+            .onChange(of: keyboard.mode) { _, mode in
+                if mode == .command {
+                    canvasFocused = true
+                }
+            }
             .simultaneousGesture(SpatialTapGesture().onEnded { value in
                 let point = viewport.canvasPoint(fromView: value.location)
-                interaction.selectedNodeID = CanvasPlacement.nodeID(at: point, in: document)
+                guard !keyboard.isComposing else { return }
+                if keyboard.mode == .edit {
+                    keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+                }
+                let hit = CanvasPlacement.nodeID(at: point, in: document)
+                keyboard.selectedNodeID = hit
+                interaction.selectedNodeID = hit
             })
             .simultaneousGesture(SpatialTapGesture(count: 2).onEnded { value in
                 let point = viewport.canvasPoint(fromView: value.location)
+                guard !keyboard.isComposing else { return }
                 guard CanvasPlacement.nodeID(at: point, in: document) == nil else { return }
-                _ = CanvasCommands.apply(
+                if keyboard.mode == .edit {
+                    keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+                }
+                if let id = CanvasCommands.apply(
                     .addFloatingTopic(at: point),
                     document: &document,
                     interaction: &interaction
-                )
+                ) {
+                    keyboard.selectedNodeID = id
+                    interaction.selectedNodeID = id
+                }
             })
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
@@ -114,6 +151,36 @@ struct InfiniteCanvas: View {
             addButton(.left, at: CGPoint(x: rect.minX - 18, y: rect.midY), parent: id)
             addButton(.right, at: CGPoint(x: rect.maxX + 18, y: rect.midY), parent: id)
         }
+    }
+
+    @ViewBuilder
+    private var editField: some View {
+        if keyboard.mode == .edit,
+           let id = keyboard.selectedNodeID,
+           let frame = placedFrames().first(where: { $0.id == id }) {
+            let rect = viewport.viewRect(fromCanvas: frame.frame)
+            NodeTextEditor(
+                text: Binding(
+                    get: { keyboard.editingText },
+                    set: { keyboard.replaceEditingText($0, document: &document) }
+                ),
+                isComposing: $keyboard.isComposing,
+                onEvent: { handleKey($0) }
+            )
+            .frame(width: max(rect.width, 88), height: max(rect.height, 36))
+            .position(x: rect.midX, y: rect.midY)
+        }
+    }
+
+    private func placedFrames() -> [NodeFrame] {
+        CanvasPlacement.nodes(in: document)
+    }
+
+    @discardableResult
+    private func handleKey(_ event: KeyEvent) -> Bool {
+        let command = keyboard.handle(event, document: &document, frames: placedFrames())
+        interaction.selectedNodeID = keyboard.selectedNodeID
+        return command != nil
     }
 
     private func addButton(_ direction: CanvasDirection, at point: CGPoint, parent: UUID) -> some View {

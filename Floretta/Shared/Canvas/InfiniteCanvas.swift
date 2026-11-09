@@ -764,7 +764,8 @@ final class AttachmentThumbnailMemory {
         )
     }
 
-    private func finish(hash: String, box: DecodedThumb) {
+    /// File-visible so `ThumbnailPublish` can hop the decoded image back onto this actor.
+    fileprivate func finish(hash: String, box: DecodedThumb) {
         inFlight.remove(hash)
         guard let data = box.data, let image = box.image else {
             failed.insert(hash)

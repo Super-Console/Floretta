@@ -349,6 +349,31 @@ final class ShellTests: XCTestCase {
         try? FileManager.default.removeItem(at: outside)
     }
 
+    func testLocalDeviceLabelIsDeviceAware() {
+        XCTAssertEqual(
+            LocalDeviceLabel.make(for: .iPhone),
+            LocalDeviceLabel(title: "我的 iPhone", systemImage: "iphone")
+        )
+        XCTAssertEqual(
+            LocalDeviceLabel.make(for: .iPad),
+            LocalDeviceLabel(title: "我的 iPad", systemImage: "ipad")
+        )
+        XCTAssertEqual(
+            LocalDeviceLabel.make(for: .mac),
+            LocalDeviceLabel(title: "我的 Mac", systemImage: "macbook")
+        )
+        let titles = [
+            LocalDeviceLabel.make(for: .iPhone).title,
+            LocalDeviceLabel.make(for: .iPad).title,
+            LocalDeviceLabel.make(for: .mac).title,
+        ]
+        XCTAssertEqual(Set(titles).count, titles.count)
+        #if os(macOS)
+        XCTAssertEqual(LocalDeviceLabel.currentKind, .mac)
+        XCTAssertEqual(LocalDeviceLabel.current, LocalDeviceLabel.make(for: .mac))
+        #endif
+    }
+
     func testVersionTextAndNoticeFallback() {
         XCTAssertEqual(AppInfo.versionText(short: "1.2", build: "9"), "1.2 (9)")
         XCTAssertEqual(AppInfo.versionText(short: nil, build: nil), "1.0")

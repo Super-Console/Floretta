@@ -112,6 +112,9 @@
 		CA3100000000000000000003 /* DocumentSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA3100000000000000000001 /* DocumentSession.swift */; };
 		CA4100000000000000000001 /* LibraryHome.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4100000000000000000001 /* LibraryHome.swift */; };
 		CA4100000000000000000002 /* LibraryHome.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4100000000000000000001 /* LibraryHome.swift */; };
+		CA4200000000000000000001 /* LocalDeviceLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4200000000000000000001 /* LocalDeviceLabel.swift */; };
+		CA4200000000000000000002 /* LocalDeviceLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4200000000000000000001 /* LocalDeviceLabel.swift */; };
+		CA4200000000000000000003 /* LocalDeviceLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4200000000000000000001 /* LocalDeviceLabel.swift */; };
 		CA5100000000000000000001 /* DocumentEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5100000000000000000001 /* DocumentEditor.swift */; };
 		CA5100000000000000000002 /* DocumentEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5100000000000000000001 /* DocumentEditor.swift */; };
 		CA6100000000000000000001 /* ZoomStop.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA6100000000000000000001 /* ZoomStop.swift */; };
@@ -171,6 +174,7 @@
 		FA2100000000000000000001 /* RecentMapsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentMapsStore.swift; sourceTree = "<group>"; };
 		FA3100000000000000000001 /* DocumentSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentSession.swift; sourceTree = "<group>"; };
 		FA4100000000000000000001 /* LibraryHome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryHome.swift; sourceTree = "<group>"; };
+		FA4200000000000000000001 /* LocalDeviceLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDeviceLabel.swift; sourceTree = "<group>"; };
 		FA5100000000000000000001 /* DocumentEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentEditor.swift; sourceTree = "<group>"; };
 		FA6100000000000000000001 /* ZoomStop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomStop.swift; sourceTree = "<group>"; };
 		FA7100000000000000000001 /* ShellTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellTests.swift; sourceTree = "<group>"; };
@@ -316,6 +320,7 @@
 				FA5100000000000000000001 /* DocumentEditor.swift */,
 				FA3100000000000000000001 /* DocumentSession.swift */,
 				FA4100000000000000000001 /* LibraryHome.swift */,
+				FA4200000000000000000001 /* LocalDeviceLabel.swift */,
 				FA2100000000000000000001 /* RecentMapsStore.swift */,
 			);
 			path = Shell;
@@ -534,6 +539,7 @@
 				CA2100000000000000000001 /* RecentMapsStore.swift in Sources */,
 				CA3100000000000000000001 /* DocumentSession.swift in Sources */,
 				CA4100000000000000000001 /* LibraryHome.swift in Sources */,
+				CA4200000000000000000001 /* LocalDeviceLabel.swift in Sources */,
 				CA5100000000000000000001 /* DocumentEditor.swift in Sources */,
 				CA6100000000000000000001 /* ZoomStop.swift in Sources */,
 			);
@@ -574,6 +580,7 @@
 				CA2100000000000000000002 /* RecentMapsStore.swift in Sources */,
 				CA3100000000000000000002 /* DocumentSession.swift in Sources */,
 				CA4100000000000000000002 /* LibraryHome.swift in Sources */,
+				CA4200000000000000000002 /* LocalDeviceLabel.swift in Sources */,
 				CA5100000000000000000002 /* DocumentEditor.swift in Sources */,
 				CA6100000000000000000002 /* ZoomStop.swift in Sources */,
 			);
@@ -619,6 +626,7 @@
 				C90000000000000000000006 /* OutlineView.swift in Sources */,
 				C90000000000000000000007 /* OutlineTests.swift in Sources */,
 				CA1100000000000000000003 /* AppSettings.swift in Sources */,
+				CA4200000000000000000003 /* LocalDeviceLabel.swift in Sources */,
 				CA2100000000000000000003 /* RecentMapsStore.swift in Sources */,
 				CA3100000000000000000003 /* DocumentSession.swift in Sources */,
 				CA6100000000000000000003 /* ZoomStop.swift in Sources */,
@@ -761,7 +769,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = JY5U4D6JD3;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -794,7 +802,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = JY5U4D6JD3;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -828,7 +836,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				"CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]" = NO;
 				"CODE_SIGNING_REQUIRED[sdk=iphonesimulator*]" = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = JY5U4D6JD3;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = NO;
 				ENABLE_PREVIEWS = YES;
@@ -864,7 +872,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				"CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]" = NO;
 				"CODE_SIGNING_REQUIRED[sdk=iphonesimulator*]" = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = JY5U4D6JD3;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = NO;
 				ENABLE_PREVIEWS = YES;
@@ -896,7 +904,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -919,7 +927,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

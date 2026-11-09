@@ -135,19 +135,11 @@ struct HomeSidebar: View {
                     Label("从iCloud云盘打开", systemImage: "cloud")
                 }
                 Button(action: browsePad) {
-                    Label("我的iPad", systemImage: "ipad")
+                    Label(LocalDeviceLabel.current.title, systemImage: LocalDeviceLabel.current.systemImage)
                 }
             }
         }
         .listStyle(.sidebar)
-        .safeAreaInset(edge: .bottom) {
-            Button {} label: {
-                Label("登录", systemImage: "person.crop.circle")
-            }
-            .disabled(true)
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
     }
 }
 
@@ -180,7 +172,7 @@ struct NewMapPage: View {
                 .accessibilityLabel("关闭")
             }
             ToolbarItem(placement: .primaryAction) {
-                Label("我的 iPad", systemImage: "ipad")
+                Label(LocalDeviceLabel.current.title, systemImage: LocalDeviceLabel.current.systemImage)
                     .foregroundStyle(.secondary)
             }
         }

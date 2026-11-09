@@ -47,6 +47,7 @@ struct InfiniteCanvas: View {
                 interaction.hoveredNodeID = CanvasPlacement.nodeID(at: point, in: layoutSource())
             }
             .focusable()
+            .focusEffectDisabled()
             .focused($canvasFocused)
             .onKeyPress { press in
                 if press.key == .escape, !keyboard.isComposing, onEscape() {

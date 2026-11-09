@@ -11,7 +11,7 @@ struct ContentView: View {
     @State private var showSettings = false
     @State private var showImporter = false
     @State private var browseRoot: URL?
-    @State private var browseTitle = "我的iPad"
+    @State private var browseTitle = LocalDeviceLabel.current.title
     @State private var notice: String?
 
     var body: some View {
@@ -134,7 +134,7 @@ struct ContentView: View {
 
     private func browsePad() {
         browseRoot = library.documentsRoot
-        browseTitle = "我的iPad"
+        browseTitle = LocalDeviceLabel.current.title
         page = .browse
     }
 

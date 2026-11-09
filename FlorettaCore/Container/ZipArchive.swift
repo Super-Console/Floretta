@@ -498,20 +498,36 @@ private struct Huffman {
     }
 }
 
-public func zipCRC32(_ data: Data) -> UInt32 {
-    var crc: UInt32 = 0xFFFF_FFFF
-    for byte in data {
-        var mixed = (crc ^ UInt32(byte)) & 0xFF
-        for _ in 0..<8 {
-            if mixed & 1 == 1 {
-                mixed = 0xEDB8_8320 ^ (mixed >> 1)
-            } else {
-                mixed >>= 1
+public struct CRC32Streaming: Sendable {
+    private var crc: UInt32 = 0xFFFF_FFFF
+
+    public init() {}
+
+    public mutating func update(_ buffer: UnsafeRawBufferPointer) {
+        guard let base = buffer.baseAddress else { return }
+        let bytes = base.assumingMemoryBound(to: UInt8.self)
+        for index in 0..<buffer.count {
+            var mixed = (crc ^ UInt32(bytes[index])) & 0xFF
+            for _ in 0..<8 {
+                if mixed & 1 == 1 {
+                    mixed = 0xEDB8_8320 ^ (mixed >> 1)
+                } else {
+                    mixed >>= 1
+                }
             }
+            crc = (crc >> 8) ^ mixed
         }
-        crc = (crc >> 8) ^ mixed
     }
-    return crc ^ 0xFFFF_FFFF
+
+    public func finish() -> UInt32 {
+        crc ^ 0xFFFF_FFFF
+    }
+}
+
+public func zipCRC32(_ data: Data) -> UInt32 {
+    var crc = CRC32Streaming()
+    data.withUnsafeBytes { crc.update($0) }
+    return crc.finish()
 }
 
 private func appendLE(_ value: UInt16, to data: inout Data) {

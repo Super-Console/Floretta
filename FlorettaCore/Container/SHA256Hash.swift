@@ -1,71 +1,60 @@
 import Foundation
 
 /// SHA-256 for asset names. Foundation has no digest API that is present on every
-/// toolchain, and Core does not import CryptoKit.
-enum SHA256Hash {
-    static func digest(_ message: Data) -> [UInt8] {
-        var hash: [UInt32] = [
-            0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
-            0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
-        ]
-        let bitLength = UInt64(message.count) &* 8
-        var bytes = [UInt8](message)
-        bytes.append(0x80)
-        while bytes.count % 64 != 56 {
-            bytes.append(0)
+/// toolchain, and Core does not import CryptoKit. `SHA256Streaming` updates a
+/// fixed-size block so a multi-gigabyte file never sits in one buffer.
+public struct SHA256Streaming: Sendable {
+    private var hash: [UInt32] = [
+        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+        0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
+    ]
+    private var block = [UInt8](repeating: 0, count: 64)
+    private var blockCount = 0
+    private var totalBytes: UInt64 = 0
+
+    public init() {}
+
+    public mutating func update(_ buffer: UnsafeRawBufferPointer) {
+        guard let base = buffer.baseAddress, buffer.count > 0 else { return }
+        let bytes = base.assumingMemoryBound(to: UInt8.self)
+        var index = 0
+        while index < buffer.count {
+            let space = 64 - blockCount
+            let take = min(space, buffer.count - index)
+            for offset in 0..<take {
+                block[blockCount + offset] = bytes[index + offset]
+            }
+            blockCount += take
+            index += take
+            totalBytes &+= UInt64(take)
+            if blockCount == 64 {
+                SHA256Hash.compress(&block, into: &hash)
+                blockCount = 0
+            }
+        }
+    }
+
+    public mutating func finalize() -> [UInt8] {
+        let bitLength = totalBytes &* 8
+        block[blockCount] = 0x80
+        blockCount += 1
+        if blockCount > 56 {
+            while blockCount < 64 {
+                block[blockCount] = 0
+                blockCount += 1
+            }
+            SHA256Hash.compress(&block, into: &hash)
+            blockCount = 0
+        }
+        while blockCount < 56 {
+            block[blockCount] = 0
+            blockCount += 1
         }
         for shift in stride(from: 56, through: 0, by: -8) {
-            bytes.append(UInt8((bitLength >> UInt64(shift)) & 0xff))
+            block[blockCount] = UInt8((bitLength >> UInt64(shift)) & 0xff)
+            blockCount += 1
         }
-        var words = [UInt32](repeating: 0, count: 64)
-        var offset = 0
-        while offset < bytes.count {
-            for index in 0..<16 {
-                let start = offset + index * 4
-                words[index] = (UInt32(bytes[start]) << 24)
-                    | (UInt32(bytes[start + 1]) << 16)
-                    | (UInt32(bytes[start + 2]) << 8)
-                    | UInt32(bytes[start + 3])
-            }
-            for index in 16..<64 {
-                let s0 = rotate(words[index - 15], 7) ^ rotate(words[index - 15], 18) ^ (words[index - 15] >> 3)
-                let s1 = rotate(words[index - 2], 17) ^ rotate(words[index - 2], 19) ^ (words[index - 2] >> 10)
-                words[index] = words[index - 16] &+ s0 &+ words[index - 7] &+ s1
-            }
-            var a = hash[0]
-            var b = hash[1]
-            var c = hash[2]
-            var d = hash[3]
-            var e = hash[4]
-            var f = hash[5]
-            var g = hash[6]
-            var h = hash[7]
-            for index in 0..<64 {
-                let s1 = rotate(e, 6) ^ rotate(e, 11) ^ rotate(e, 25)
-                let choice = (e & f) ^ (~e & g)
-                let temp1 = h &+ s1 &+ choice &+ k[index] &+ words[index]
-                let s0 = rotate(a, 2) ^ rotate(a, 13) ^ rotate(a, 22)
-                let majority = (a & b) ^ (a & c) ^ (b & c)
-                let temp2 = s0 &+ majority
-                h = g
-                g = f
-                f = e
-                e = d &+ temp1
-                d = c
-                c = b
-                b = a
-                a = temp1 &+ temp2
-            }
-            hash[0] = hash[0] &+ a
-            hash[1] = hash[1] &+ b
-            hash[2] = hash[2] &+ c
-            hash[3] = hash[3] &+ d
-            hash[4] = hash[4] &+ e
-            hash[5] = hash[5] &+ f
-            hash[6] = hash[6] &+ g
-            hash[7] = hash[7] &+ h
-            offset += 64
-        }
+        SHA256Hash.compress(&block, into: &hash)
         var out = [UInt8]()
         out.reserveCapacity(32)
         for value in hash {
@@ -75,6 +64,62 @@ enum SHA256Hash {
             out.append(UInt8(value & 0xff))
         }
         return out
+    }
+}
+
+enum SHA256Hash {
+    static func digest(_ message: Data) -> [UInt8] {
+        var streaming = SHA256Streaming()
+        message.withUnsafeBytes { streaming.update($0) }
+        return streaming.finalize()
+    }
+
+    fileprivate static func compress(_ block: inout [UInt8], into hash: inout [UInt32]) {
+        var words = [UInt32](repeating: 0, count: 64)
+        for index in 0..<16 {
+            let start = index * 4
+            words[index] = (UInt32(block[start]) << 24)
+                | (UInt32(block[start + 1]) << 16)
+                | (UInt32(block[start + 2]) << 8)
+                | UInt32(block[start + 3])
+        }
+        for index in 16..<64 {
+            let s0 = rotate(words[index - 15], 7) ^ rotate(words[index - 15], 18) ^ (words[index - 15] >> 3)
+            let s1 = rotate(words[index - 2], 17) ^ rotate(words[index - 2], 19) ^ (words[index - 2] >> 10)
+            words[index] = words[index - 16] &+ s0 &+ words[index - 7] &+ s1
+        }
+        var a = hash[0]
+        var b = hash[1]
+        var c = hash[2]
+        var d = hash[3]
+        var e = hash[4]
+        var f = hash[5]
+        var g = hash[6]
+        var h = hash[7]
+        for index in 0..<64 {
+            let s1 = rotate(e, 6) ^ rotate(e, 11) ^ rotate(e, 25)
+            let choice = (e & f) ^ (~e & g)
+            let temp1 = h &+ s1 &+ choice &+ k[index] &+ words[index]
+            let s0 = rotate(a, 2) ^ rotate(a, 13) ^ rotate(a, 22)
+            let majority = (a & b) ^ (a & c) ^ (b & c)
+            let temp2 = s0 &+ majority
+            h = g
+            g = f
+            f = e
+            e = d &+ temp1
+            d = c
+            c = b
+            b = a
+            a = temp1 &+ temp2
+        }
+        hash[0] = hash[0] &+ a
+        hash[1] = hash[1] &+ b
+        hash[2] = hash[2] &+ c
+        hash[3] = hash[3] &+ d
+        hash[4] = hash[4] &+ e
+        hash[5] = hash[5] &+ f
+        hash[6] = hash[6] &+ g
+        hash[7] = hash[7] &+ h
     }
 
     private static func rotate(_ value: UInt32, _ count: UInt32) -> UInt32 {

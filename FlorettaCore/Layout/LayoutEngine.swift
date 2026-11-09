@@ -1,28 +1,29 @@
-import FlorettaCore
-import CoreGraphics
 import Foundation
+#if canImport(CoreGraphics)
+import CoreGraphics
+#endif
 
-enum LayoutKind: Equatable, Sendable {
+public enum LayoutKind: Equatable, Sendable {
     case bilateral
 }
 
-struct BranchColor: Equatable, Sendable {
-    var red: Double
-    var green: Double
-    var blue: Double
+public struct BranchColor: Equatable, Sendable {
+    public var red: Double
+    public var green: Double
+    public var blue: Double
 
     /// Named separately from the `blue` component so `.blue` is not the channel.
-    static let white = BranchColor(red: 1, green: 1, blue: 1)
-    static let black = BranchColor(red: 0, green: 0, blue: 0)
-    static let selectionBlue = BranchColor(red: 0.2, green: 0.45, blue: 1)
+    public static let white = BranchColor(red: 1, green: 1, blue: 1)
+    public static let black = BranchColor(red: 0, green: 0, blue: 0)
+    public static let selectionBlue = BranchColor(red: 0.2, green: 0.45, blue: 1)
 
-    init(red: Double, green: Double, blue: Double) {
+    public init(red: Double, green: Double, blue: Double) {
         self.red = red
         self.green = green
         self.blue = blue
     }
 
-    init?(hex: String) {
+    public init?(hex: String) {
         var raw = hex.trimmingCharacters(in: .whitespacesAndNewlines)
         if raw.hasPrefix("#") { raw.removeFirst() }
         guard raw.count == 6, let value = Int(raw, radix: 16) else { return nil }
@@ -33,7 +34,7 @@ struct BranchColor: Equatable, Sendable {
         )
     }
 
-    func lightened(by amount: Double) -> BranchColor {
+    public func lightened(by amount: Double) -> BranchColor {
         BranchColor(
             red: red + (1 - red) * amount,
             green: green + (1 - green) * amount,
@@ -42,10 +43,10 @@ struct BranchColor: Equatable, Sendable {
     }
 }
 
-struct BranchPalette: Equatable, Sendable {
-    var colors: [BranchColor]
+public struct BranchPalette: Equatable, Sendable {
+    public var colors: [BranchColor]
 
-    static let standard = BranchPalette(colors: [
+    public static let standard = BranchPalette(colors: [
         BranchColor(red: 0.86, green: 0.33, blue: 0.24),
         BranchColor(red: 0.18, green: 0.52, blue: 0.82),
         BranchColor(red: 0.22, green: 0.62, blue: 0.38),
@@ -53,23 +54,25 @@ struct BranchPalette: Equatable, Sendable {
         BranchColor(red: 0.52, green: 0.36, blue: 0.74),
     ])
 
-    func color(at index: Int) -> BranchColor {
+    public func color(at index: Int) -> BranchColor {
         guard !colors.isEmpty else { return .black }
         let wrapped = index % colors.count
         return colors[wrapped >= 0 ? wrapped : wrapped + colors.count]
     }
 }
 
-struct LayoutMetrics: Equatable, Sendable {
-    var centerFontSize: CGFloat = 30
-    var level1FontSize: CGFloat = 20
-    var level2FontSize: CGFloat = 18
-    var deeperFontSize: CGFloat = 16
-    var maxTextWidth: CGFloat = 240
-    var horizontalGap: CGFloat = 56
-    var siblingGap: CGFloat = 18
+public struct LayoutMetrics: Equatable, Sendable {
+    public var centerFontSize: CGFloat = 30
+    public var level1FontSize: CGFloat = 20
+    public var level2FontSize: CGFloat = 18
+    public var deeperFontSize: CGFloat = 16
+    public var maxTextWidth: CGFloat = 240
+    public var horizontalGap: CGFloat = 56
+    public var siblingGap: CGFloat = 18
 
-    func fontSize(depth: Int) -> CGFloat {
+    public init() {}
+
+    public func fontSize(depth: Int) -> CGFloat {
         switch depth {
         case 0: return centerFontSize
         case 1: return level1FontSize
@@ -78,73 +81,73 @@ struct LayoutMetrics: Equatable, Sendable {
         }
     }
 
-    func linkWidth(depth: Int) -> CGFloat {
+    public func linkWidth(depth: Int) -> CGFloat {
         max(1, 3 - CGFloat(max(depth, 0)) * 0.5)
     }
 }
 
-struct LayoutAppearance: Equatable, Sendable {
-    var centerFill: BranchColor = .white
-    var centerBorder: BranchColor = .black
-    var centerText: BranchColor = .black
-    var level1Text: BranchColor = .white
-    var deeperText: BranchColor = .black
-    var deeperFillMix: Double = 0.82
-    var showsShadows: Bool = false
-    var palette: BranchPalette = .standard
-    var cornerRadius: CGFloat = 8
+public struct LayoutAppearance: Equatable, Sendable {
+    public var centerFill: BranchColor = .white
+    public var centerBorder: BranchColor = .black
+    public var centerText: BranchColor = .black
+    public var level1Text: BranchColor = .white
+    public var deeperText: BranchColor = .black
+    public var deeperFillMix: Double = 0.82
+    public var showsShadows: Bool = false
+    public var palette: BranchPalette = .standard
+    public var cornerRadius: CGFloat = 8
 
-    static let standard = LayoutAppearance()
+    public static let standard = LayoutAppearance()
 }
 
-struct LinkCurve: Equatable, Sendable {
-    var start: CGPoint
-    var control1: CGPoint
-    var control2: CGPoint
-    var end: CGPoint
-    var lineWidth: CGFloat
-    var color: BranchColor
+public struct LinkCurve: Equatable, Sendable {
+    public var start: CGPoint
+    public var control1: CGPoint
+    public var control2: CGPoint
+    public var end: CGPoint
+    public var lineWidth: CGFloat
+    public var color: BranchColor
 }
 
-struct NodeFrame: Equatable, Identifiable, Sendable {
-    var id: UUID
-    var text: String
-    var origin: CGPoint
-    var size: CGSize
-    var depth: Int
-    var fontSize: CGFloat
-    var isRoot: Bool
-    var parentID: UUID?
-    var fill: BranchColor
-    var border: BranchColor
-    var textColor: BranchColor
-    var cornerRadius: CGFloat
-    var borderWidth: CGFloat = 1.5
-    var hidesFill: Bool = false
-    var bold: Bool = false
-    var italic: Bool = false
-    var strikethrough: Bool = false
-    var underline: Bool = false
-    var fontDesign: String = "default"
-    var link: LinkCurve?
+public struct NodeFrame: Equatable, Identifiable, Sendable {
+    public var id: UUID
+    public var text: String
+    public var origin: CGPoint
+    public var size: CGSize
+    public var depth: Int
+    public var fontSize: CGFloat
+    public var isRoot: Bool
+    public var parentID: UUID?
+    public var fill: BranchColor
+    public var border: BranchColor
+    public var textColor: BranchColor
+    public var cornerRadius: CGFloat
+    public var borderWidth: CGFloat = 1.5
+    public var hidesFill: Bool = false
+    public var bold: Bool = false
+    public var italic: Bool = false
+    public var strikethrough: Bool = false
+    public var underline: Bool = false
+    public var fontDesign: String = "default"
+    public var link: LinkCurve?
 
-    var rect: CGRect { CGRect(origin: origin, size: size) }
-    var frame: CGRect { rect }
+    public var rect: CGRect { CGRect(origin: origin, size: size) }
+    public var frame: CGRect { rect }
 }
 
-enum CanvasDirection: String, Equatable, Sendable, CaseIterable {
+public enum CanvasDirection: String, Equatable, Sendable, CaseIterable {
     case up, down, left, right
 }
 
-struct CanvasInteraction: Equatable, Sendable {
-    var hoveredNodeID: UUID?
-    var selectedNodeID: UUID?
-    var selectionBorder: BranchColor
-    var selectionBorderWidth: CGFloat
-    var resizeHandles: [CanvasDirection]
-    var showsShadows: Bool
+public struct CanvasInteraction: Equatable, Sendable {
+    public var hoveredNodeID: UUID?
+    public var selectedNodeID: UUID?
+    public var selectionBorder: BranchColor
+    public var selectionBorderWidth: CGFloat
+    public var resizeHandles: [CanvasDirection]
+    public var showsShadows: Bool
 
-    static let standard = CanvasInteraction(
+    public static let standard = CanvasInteraction(
         hoveredNodeID: nil,
         selectedNodeID: nil,
         selectionBorder: .selectionBlue,
@@ -153,32 +156,32 @@ struct CanvasInteraction: Equatable, Sendable {
         showsShadows: false
     )
 
-    var addDirections: [CanvasDirection] {
+    public var addDirections: [CanvasDirection] {
         hoveredNodeID == nil ? [] : CanvasDirection.allCases
     }
 
-    var showsSelectionChrome: Bool { selectedNodeID != nil }
+    public var showsSelectionChrome: Bool { selectedNodeID != nil }
 }
 
-struct CanvasSheet: Equatable, Identifiable, Sendable {
-    var id: UUID
-    var title: String
+public struct CanvasSheet: Equatable, Identifiable, Sendable {
+    public var id: UUID
+    public var title: String
 
-    init(id: UUID = UUID(), title: String) {
+    public init(id: UUID = UUID(), title: String) {
         self.id = id
         self.title = title
     }
 }
 
-struct CanvasChrome: Equatable, Sendable {
-    var isInfinite: Bool
-    var zoomPercent: Int
-    var zoomIsClickable: Bool
-    var fitControlVisible: Bool
-    var sheets: [CanvasSheet]
-    var activeSheetIndex: Int
+public struct CanvasChrome: Equatable, Sendable {
+    public var isInfinite: Bool
+    public var zoomPercent: Int
+    public var zoomIsClickable: Bool
+    public var fitControlVisible: Bool
+    public var sheets: [CanvasSheet]
+    public var activeSheetIndex: Int
 
-    static let standard = CanvasChrome(
+    public static let standard = CanvasChrome(
         isInfinite: true,
         zoomPercent: 100,
         zoomIsClickable: true,
@@ -187,31 +190,31 @@ struct CanvasChrome: Equatable, Sendable {
         activeSheetIndex: 0
     )
 
-    mutating func addSheet(title: String) {
+    public mutating func addSheet(title: String) {
         sheets.append(CanvasSheet(title: title))
     }
 
-    mutating func selectSheet(_ index: Int) {
+    public mutating func selectSheet(_ index: Int) {
         guard sheets.indices.contains(index) else { return }
         activeSheetIndex = index
     }
 
     /// The chrome percent is always a legal stop, never a raw value such as 137.
-    mutating func syncZoomPercent(toScale scale: CGFloat) {
+    public mutating func syncZoomPercent(toScale scale: CGFloat) {
         zoomPercent = ZoomStop.displayPercent(forScale: scale)
     }
 }
 
-enum CanvasCommand: Equatable, Sendable {
+public enum CanvasCommand: Equatable, Sendable {
     case hover(UUID?)
     case select(UUID?)
     case addChild(parentID: UUID, direction: CanvasDirection)
     case addFloatingTopic(at: CGPoint)
 }
 
-enum CanvasCommands {
+public enum CanvasCommands {
     @discardableResult
-    static func apply(
+    public static func apply(
         _ command: CanvasCommand,
         document: inout MindMapDocument,
         interaction: inout CanvasInteraction
@@ -251,13 +254,13 @@ enum CanvasCommands {
     }
 }
 
-struct LayoutEngine {
-    var kind: LayoutKind
-    var cache: TextMeasurementCache
-    var metrics: LayoutMetrics
-    var appearance: LayoutAppearance
+public struct LayoutEngine {
+    public var kind: LayoutKind
+    public var cache: TextMeasurementCache
+    public var metrics: LayoutMetrics
+    public var appearance: LayoutAppearance
 
-    init(
+    public init(
         kind: LayoutKind = .bilateral,
         cache: TextMeasurementCache = TextMeasurementCache(),
         metrics: LayoutMetrics = LayoutMetrics(),
@@ -269,11 +272,11 @@ struct LayoutEngine {
         self.appearance = appearance
     }
 
-    func fontSize(depth: Int) -> CGFloat {
+    public func fontSize(depth: Int) -> CGFloat {
         metrics.fontSize(depth: depth)
     }
 
-    func layout(_ document: MindMapDocument) -> [NodeFrame] {
+    public func layout(_ document: MindMapDocument) -> [NodeFrame] {
         switch kind {
         case .bilateral:
             return bilateral(document)

@@ -44,12 +44,6 @@
 		C4000000000000000000000C /* CanvasScrollInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000004 /* CanvasScrollInput.swift */; };
 		C4000000000000000000000D /* CanvasTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000005 /* CanvasTests.swift */; };
 		C5000000000000000000000A /* ContainerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000004 /* ContainerTests.swift */; };
-		C60000000000000000000001 /* TextMeasurementCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000001 /* TextMeasurementCache.swift */; };
-		C60000000000000000000002 /* LayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000002 /* LayoutEngine.swift */; };
-		C60000000000000000000003 /* TextMeasurementCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000001 /* TextMeasurementCache.swift */; };
-		C60000000000000000000004 /* LayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000002 /* LayoutEngine.swift */; };
-		C60000000000000000000005 /* TextMeasurementCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000001 /* TextMeasurementCache.swift */; };
-		C60000000000000000000006 /* LayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000002 /* LayoutEngine.swift */; };
 		C60000000000000000000007 /* LayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000003 /* LayoutTests.swift */; };
 		C70000000000000000000001 /* KeyboardCommandMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000001 /* KeyboardCommandMapper.swift */; };
 		C70000000000000000000002 /* SelectionNavigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000002 /* SelectionNavigator.swift */; };
@@ -97,9 +91,6 @@
 		CA4300000000000000000002 /* TemplateThumbnail.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4300000000000000000001 /* TemplateThumbnail.swift */; };
 		CA5100000000000000000001 /* DocumentEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5100000000000000000001 /* DocumentEditor.swift */; };
 		CA5100000000000000000002 /* DocumentEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5100000000000000000001 /* DocumentEditor.swift */; };
-		CA6100000000000000000001 /* ZoomStop.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA6100000000000000000001 /* ZoomStop.swift */; };
-		CA6100000000000000000002 /* ZoomStop.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA6100000000000000000001 /* ZoomStop.swift */; };
-		CA6100000000000000000003 /* ZoomStop.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA6100000000000000000001 /* ZoomStop.swift */; };
 		CA7100000000000000000001 /* ShellTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7100000000000000000001 /* ShellTests.swift */; };
 		CA8100000000000000000001 /* NOTICE in Resources */ = {isa = PBXBuildFile; fileRef = FA8100000000000000000001 /* NOTICE */; };
 		CA8100000000000000000002 /* NOTICE in Resources */ = {isa = PBXBuildFile; fileRef = FA8100000000000000000001 /* NOTICE */; };
@@ -133,9 +124,7 @@
 		F30000000000000000000004 /* CanvasScrollInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasScrollInput.swift; sourceTree = "<group>"; };
 		F30000000000000000000005 /* CanvasTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasTests.swift; sourceTree = "<group>"; };
 		F50000000000000000000004 /* ContainerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ContainerTests.swift; path = Tests/FlorettaCoreTests/ContainerTests.swift; sourceTree = SOURCE_ROOT; };
-		F60000000000000000000001 /* TextMeasurementCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextMeasurementCache.swift; sourceTree = "<group>"; };
-		F60000000000000000000002 /* LayoutEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayoutEngine.swift; sourceTree = "<group>"; };
-		F60000000000000000000003 /* LayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayoutTests.swift; sourceTree = "<group>"; };
+		F60000000000000000000003 /* LayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LayoutTests.swift; path = Tests/FlorettaCoreTests/LayoutTests.swift; sourceTree = SOURCE_ROOT; };
 		F70000000000000000000001 /* KeyboardCommandMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardCommandMapper.swift; sourceTree = "<group>"; };
 		F70000000000000000000002 /* SelectionNavigator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionNavigator.swift; sourceTree = "<group>"; };
 		F70000000000000000000003 /* MindMapKeyboardSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MindMapKeyboardSession.swift; sourceTree = "<group>"; };
@@ -151,7 +140,6 @@
 		FA4200000000000000000001 /* LocalDeviceLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDeviceLabel.swift; sourceTree = "<group>"; };
 		FA4300000000000000000001 /* TemplateThumbnail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateThumbnail.swift; sourceTree = "<group>"; };
 		FA5100000000000000000001 /* DocumentEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentEditor.swift; sourceTree = "<group>"; };
-		FA6100000000000000000001 /* ZoomStop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomStop.swift; sourceTree = "<group>"; };
 		FA7100000000000000000001 /* ShellTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellTests.swift; sourceTree = "<group>"; };
 		FA8100000000000000000001 /* NOTICE */ = {isa = PBXFileReference; lastKnownFileType = text; path = NOTICE; sourceTree = SOURCE_ROOT; };
 		FA9100000000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -199,6 +187,7 @@
 			F50000000000000000000004 /* ContainerTests.swift */,
 			F91000000000000000000002 /* MMTests.swift */,
 			F92000000000000000000003 /* OPMLMarkdownTests.swift */,
+			F60000000000000000000003 /* LayoutTests.swift */,
 				A10000000000000000000008 /* FlorettaTests */,
 				A10000000000000000000002 /* Products */,
 			);
@@ -257,9 +246,6 @@
 				F30000000000000000000001 /* CanvasViewport.swift */,
 				F30000000000000000000003 /* InfiniteCanvas.swift */,
 				F93000000000000000000001 /* MapExport.swift */,
-				F60000000000000000000002 /* LayoutEngine.swift */,
-				F60000000000000000000001 /* TextMeasurementCache.swift */,
-				FA6100000000000000000001 /* ZoomStop.swift */,
 			);
 			path = Canvas;
 			sourceTree = "<group>";
@@ -305,7 +291,6 @@
 				F30000000000000000000005 /* CanvasTests.swift */,
 				F70000000000000000000005 /* KeyboardTests.swift */,
 				F90000000000000000000003 /* OutlineTests.swift */,
-				F60000000000000000000003 /* LayoutTests.swift */,
 				F93000000000000000000002 /* MapExportTests.swift */,
 				FA7100000000000000000001 /* ShellTests.swift */,
 			);
@@ -491,8 +476,6 @@
 				C40000000000000000000003 /* InfiniteCanvas.swift in Sources */,
 				C93000000000000000000001 /* MapExport.swift in Sources */,
 				C40000000000000000000004 /* CanvasScrollInput.swift in Sources */,
-				C60000000000000000000001 /* TextMeasurementCache.swift in Sources */,
-				C60000000000000000000002 /* LayoutEngine.swift in Sources */,
 				C70000000000000000000001 /* KeyboardCommandMapper.swift in Sources */,
 				C70000000000000000000002 /* SelectionNavigator.swift in Sources */,
 				C70000000000000000000003 /* MindMapKeyboardSession.swift in Sources */,
@@ -506,7 +489,6 @@
 				CA4200000000000000000001 /* LocalDeviceLabel.swift in Sources */,
 				CA4300000000000000000001 /* TemplateThumbnail.swift in Sources */,
 				CA5100000000000000000001 /* DocumentEditor.swift in Sources */,
-				CA6100000000000000000001 /* ZoomStop.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -525,8 +507,6 @@
 				C40000000000000000000007 /* InfiniteCanvas.swift in Sources */,
 				C93000000000000000000002 /* MapExport.swift in Sources */,
 				C40000000000000000000008 /* CanvasScrollInput.swift in Sources */,
-				C60000000000000000000003 /* TextMeasurementCache.swift in Sources */,
-				C60000000000000000000004 /* LayoutEngine.swift in Sources */,
 				C70000000000000000000005 /* KeyboardCommandMapper.swift in Sources */,
 				C70000000000000000000006 /* SelectionNavigator.swift in Sources */,
 				C70000000000000000000007 /* MindMapKeyboardSession.swift in Sources */,
@@ -540,7 +520,6 @@
 				CA4200000000000000000002 /* LocalDeviceLabel.swift in Sources */,
 				CA4300000000000000000002 /* TemplateThumbnail.swift in Sources */,
 				CA5100000000000000000002 /* DocumentEditor.swift in Sources */,
-				CA6100000000000000000002 /* ZoomStop.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -564,8 +543,6 @@
 				C4000000000000000000000C /* CanvasScrollInput.swift in Sources */,
 				C4000000000000000000000D /* CanvasTests.swift in Sources */,
 				C5000000000000000000000A /* ContainerTests.swift in Sources */,
-				C60000000000000000000005 /* TextMeasurementCache.swift in Sources */,
-				C60000000000000000000006 /* LayoutEngine.swift in Sources */,
 				C60000000000000000000007 /* LayoutTests.swift in Sources */,
 				C70000000000000000000009 /* KeyboardCommandMapper.swift in Sources */,
 				C7000000000000000000000A /* SelectionNavigator.swift in Sources */,
@@ -579,7 +556,6 @@
 				CA4200000000000000000003 /* LocalDeviceLabel.swift in Sources */,
 				CA2100000000000000000003 /* RecentMapsStore.swift in Sources */,
 				CA3100000000000000000003 /* DocumentSession.swift in Sources */,
-				CA6100000000000000000003 /* ZoomStop.swift in Sources */,
 				CA7100000000000000000001 /* ShellTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

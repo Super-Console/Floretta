@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import FlorettaCore
 
 enum SelectionMove: String, Equatable, Sendable {
     case up

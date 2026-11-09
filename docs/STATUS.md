@@ -4,7 +4,7 @@
 
 P0-1 已由总指挥验收（合并 `ef9e4f2`；本机 `xcodebuild` macOS 与 iOS Simulator 均为 BUILD SUCCEEDED，`UIDeviceFamily = [1, 2]`）。
 
-P0-2 文档模型与 `.floretta` codec 已落盘，附带总指挥要求放进这一批的单元测试。等待本机 Mac 跑 `xcodebuild test`。P0-4、界面、画布、图标、P4 都没做。
+P0-2 文档模型与 `.floretta` codec 已落盘。总指挥在 Pro 上跑测试时，`testMissingAndMistypedVersionThrow` 失败：类型不对的 `formatVersion` 被说成「不是 .floretta JSON」。这一批只修这条错误映射。P0-4、界面、画布、图标、P4 都没做。
 
 Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be pasted back for fixes.
 
@@ -66,4 +66,5 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 | 2026-11-09 | 任务书合并 | 完成 | 主线任务 + App 图标任务合并进 TASKBOOK-001；产品名定为 Floretta；图标参考图入库 |
 | 2026-11-09 | 约束追加 | 完成 | 新增 D-8 原生控件 / D-9 复用开源 / D-10 TestFlight 交付；已写入 TASKBOOK 1.1、1.2、5.1 |
 | 2026-11-09 | P0-1 | 总指挥验收通过 | 合并 `ef9e4f2`。本机 xcodebuild macOS 与 iOS Simulator BUILD SUCCEEDED |
-| 2026-11-09 | P0-2 | 已提交，云端未测试 | 文档模型 + `.floretta` codec + `FlorettaTests`。云端不能跑 Xcode；本机 Mac 拉取后 `xcodebuild test`。合并前 `origin/main` 不含本批 |
+| 2026-11-09 | P0-2 | 总指挥测试未过 | `testMissingAndMistypedVersionThrow`：字符串或非整数 `formatVersion` 报成「不是 .floretta JSON」，测试要「Wrong JSON type」 |
+| 2026-11-09 | P0-2 修复 | 已提交，云端未复测 | 解码前先看 JSON 类型。`formatVersion` 不是整数、以及其它必填字段类型不对，抛 `.corrupt("Wrong JSON type at …")`。语法错误仍是「不是 .floretta JSON」。云端不能跑 xcodebuild |

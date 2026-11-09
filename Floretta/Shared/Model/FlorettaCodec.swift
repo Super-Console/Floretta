@@ -5,6 +5,10 @@ enum FlorettaCodecError: Error, Equatable, Sendable {
     case unsupportedVersion(found: Int, supported: Int)
     case duplicateID(UUID)
     case cyclicID(UUID)
+
+    static func wrongJSONType(at place: String) -> FlorettaCodecError {
+        .corrupt("Wrong JSON type at \(place).")
+    }
 }
 
 extension FlorettaCodecError: LocalizedError {
@@ -51,6 +55,7 @@ enum FlorettaCodec {
         guard String(data: data, encoding: .utf8) != nil else {
             throw FlorettaCodecError.corrupt("File is not valid UTF-8.")
         }
+        try preflightJSONTypes(data)
         do {
             return try JSONDecoder().decode(MindMapDocument.self, from: data)
         } catch {
@@ -58,8 +63,88 @@ enum FlorettaCodec {
         }
     }
 
+    /// JSONDecoder on the current SDK can report a mistyped value, including
+    /// `formatVersion`, as `DecodingError.dataCorrupted` with an empty coding path.
+    /// That used to be worded as "not a .floretta JSON document", which is only for
+    /// syntax failures. Check JSON kinds first so a wrong type stays distinguishable.
+    private static func preflightJSONTypes(_ data: Data) throws {
+        let value: Any
+        do {
+            value = try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
+        } catch {
+            throw FlorettaCodecError.corrupt("File is not a .floretta JSON document.")
+        }
+        guard let object = value as? [String: Any] else {
+            throw FlorettaCodecError.wrongJSONType(at: "the root")
+        }
+        try expect(object, key: "formatVersion", at: "formatVersion") { isJSONInteger($0) }
+        try expect(object, key: "title", at: "title") { isJSONString($0) }
+        try expect(object, key: "createdAt", at: "createdAt") { isJSONString($0) }
+        try expect(object, key: "modifiedAt", at: "modifiedAt") { isJSONString($0) }
+        if let roots = object["roots"] {
+            guard let array = roots as? [Any] else {
+                throw FlorettaCodecError.wrongJSONType(at: "roots")
+            }
+            for (index, root) in array.enumerated() {
+                try preflightNode(root, at: "roots[\(index)]")
+            }
+        }
+    }
+
+    private static func preflightNode(_ value: Any, at path: String) throws {
+        guard let object = value as? [String: Any] else {
+            throw FlorettaCodecError.wrongJSONType(at: path)
+        }
+        try expect(object, key: "id", at: "\(path).id") { isJSONString($0) }
+        try expect(object, key: "text", at: "\(path).text") { isJSONString($0) }
+        try expect(object, key: "note", at: "\(path).note") { isJSONString($0) }
+        try expect(object, key: "collapsed", at: "\(path).collapsed") { isJSONBool($0) }
+        if let style = object["style"], !(style is NSNull) {
+            guard let styleObject = style as? [String: Any] else {
+                throw FlorettaCodecError.wrongJSONType(at: "\(path).style")
+            }
+            try expect(styleObject, key: "colorHex", at: "\(path).style.colorHex") { isJSONString($0) }
+        }
+        if let children = object["children"] {
+            guard let array = children as? [Any] else {
+                throw FlorettaCodecError.wrongJSONType(at: "\(path).children")
+            }
+            for (index, child) in array.enumerated() {
+                try preflightNode(child, at: "\(path).children[\(index)]")
+            }
+        }
+    }
+
+    private static func expect(
+        _ object: [String: Any],
+        key: String,
+        at path: String,
+        _ predicate: (Any) -> Bool
+    ) throws {
+        guard let value = object[key] else { return }
+        if predicate(value) { return }
+        throw FlorettaCodecError.wrongJSONType(at: path)
+    }
+
+    private static func isJSONString(_ value: Any) -> Bool {
+        value is String
+    }
+
+    private static func isJSONBool(_ value: Any) -> Bool {
+        guard let number = value as? NSNumber else { return false }
+        return CFGetTypeID(number) == CFBooleanGetTypeID()
+    }
+
+    private static func isJSONInteger(_ value: Any) -> Bool {
+        guard let number = value as? NSNumber else { return false }
+        if CFGetTypeID(number) == CFBooleanGetTypeID() { return false }
+        let double = number.doubleValue
+        guard double.isFinite, double == double.rounded() else { return false }
+        return double >= Double(Int.min) && double <= Double(Int.max)
+    }
+
     private static func rethrowCodec(_ error: Error, writing: Bool) -> FlorettaCodecError {
-        let unwrapped = unwrap(error)
+        let unwrapped = mostSpecific(error)
         if let codec = unwrapped as? FlorettaCodecError {
             return codec
         }
@@ -69,34 +154,43 @@ enum FlorettaCodec {
         return .corrupt(describe(unwrapped))
     }
 
-    /// JSONEncoder/JSONDecoder sometimes wrap an error thrown from Codable.
-    private static func unwrap(_ error: Error, depth: Int = 0) -> Error {
+    /// Prefer a type mismatch or missing key over an empty-path `dataCorrupted`
+    /// wrapper. That wrapper is what a mistyped field was being reported as.
+    private static func mostSpecific(_ error: Error, depth: Int = 0) -> Error {
         if error is FlorettaCodecError || depth > 8 {
             return error
         }
-        if let underlying = underlying(error) {
-            let next = unwrap(underlying, depth: depth + 1)
-            if next is FlorettaCodecError {
-                return next
-            }
+        guard let decoding = error as? DecodingError else {
+            return error
         }
-        return error
+        switch decoding {
+        case .typeMismatch, .keyNotFound, .valueNotFound:
+            return decoding
+        case .dataCorrupted(let context):
+            if let underlying = context.underlyingError {
+                let next = mostSpecific(underlying, depth: depth + 1)
+                if next is FlorettaCodecError {
+                    return next
+                }
+                if prefers(next, overEmptyPathCorruption: context.codingPath.isEmpty) {
+                    return next
+                }
+            }
+            return decoding
+        @unknown default:
+            return decoding
+        }
     }
 
-    private static func underlying(_ error: Error) -> Error? {
-        switch error {
-        case DecodingError.keyNotFound(_, let context):
-            return context.underlyingError
-        case DecodingError.typeMismatch(_, let context):
-            return context.underlyingError
-        case DecodingError.valueNotFound(_, let context):
-            return context.underlyingError
-        case DecodingError.dataCorrupted(let context):
-            return context.underlyingError
-        case EncodingError.invalidValue(_, let context):
-            return context.underlyingError
-        default:
-            return nil
+    private static func prefers(_ error: Error, overEmptyPathCorruption emptyPath: Bool) -> Bool {
+        guard let decoding = error as? DecodingError else { return false }
+        switch decoding {
+        case .typeMismatch, .keyNotFound, .valueNotFound:
+            return true
+        case .dataCorrupted(let context):
+            return emptyPath && !context.codingPath.isEmpty
+        @unknown default:
+            return false
         }
     }
 
@@ -116,6 +210,9 @@ enum FlorettaCodec {
         case .valueNotFound(_, let context):
             return "Missing value at \(place(context.codingPath))."
         case .dataCorrupted(let context):
+            if looksLikeWrongJSONType(context) {
+                return "Wrong JSON type at \(place(context.codingPath))."
+            }
             if context.codingPath.isEmpty {
                 return "File is not a .floretta JSON document."
             }
@@ -128,5 +225,13 @@ enum FlorettaCodec {
     private static func place(_ path: [any CodingKey]) -> String {
         let joined = path.map(\.stringValue).joined(separator: ".")
         return joined.isEmpty ? "the root" : joined
+    }
+
+    private static func looksLikeWrongJSONType(_ context: DecodingError.Context) -> Bool {
+        let text = (context.debugDescription + " " + String(describing: context.underlyingError)).lowercased()
+        return text.contains("type mismatch")
+            || text.contains("expected to decode")
+            || text.contains("does not fit")
+            || text.contains("wrong json type")
     }
 }

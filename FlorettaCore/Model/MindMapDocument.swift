@@ -9,19 +9,24 @@ public struct MindMapDocument: Equatable, Sendable {
     public var createdAt: Date
     public var modifiedAt: Date
     public var roots: [MindMapNode]
+    /// Opaque YAML front matter for a Markdown document, fences included.
+    /// Nil when the map is not a Markdown projection. Omitted from `.floretta` JSON when nil.
+    public var markdownFrontMatter: String?
 
     public init(
         title: String,
         createdAt: Date = Date(),
         modifiedAt: Date = Date(),
         roots: [MindMapNode] = [],
-        formatVersion: Int = MindMapDocument.currentFormatVersion
+        formatVersion: Int = MindMapDocument.currentFormatVersion,
+        markdownFrontMatter: String? = nil
     ) {
         self.formatVersion = formatVersion
         self.title = title
         self.createdAt = createdAt
         self.modifiedAt = modifiedAt
         self.roots = roots
+        self.markdownFrontMatter = markdownFrontMatter
     }
 }
 
@@ -32,6 +37,7 @@ extension MindMapDocument: Codable {
         case createdAt
         case modifiedAt
         case roots
+        case markdownFrontMatter
     }
 
     public init(from decoder: Decoder) throws {
@@ -51,12 +57,14 @@ extension MindMapDocument: Codable {
             from: try container.decode(String.self, forKey: .modifiedAt)
         )
         let roots = try container.decode([MindMapNode].self, forKey: .roots)
+        let markdownFrontMatter = try container.decodeIfPresent(String.self, forKey: .markdownFrontMatter)
         try FlorettaTree.validate(roots)
         self.formatVersion = version
         self.title = title
         self.createdAt = createdAt
         self.modifiedAt = modifiedAt
         self.roots = roots
+        self.markdownFrontMatter = markdownFrontMatter
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -73,6 +81,7 @@ extension MindMapDocument: Codable {
         try container.encode(FlorettaTimestamp.string(from: createdAt), forKey: .createdAt)
         try container.encode(FlorettaTimestamp.string(from: modifiedAt), forKey: .modifiedAt)
         try container.encode(roots, forKey: .roots)
+        try container.encodeIfPresent(markdownFrontMatter, forKey: .markdownFrontMatter)
     }
 }
 

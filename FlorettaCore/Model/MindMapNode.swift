@@ -131,6 +131,8 @@ public struct MindMapNode: Equatable, Sendable, Identifiable {
     public var side: MindMapSide?
     /// References into `assets/<sha256>.<ext>`. Bytes live in the ZIP, not on the node.
     public var attachments: [NodeAttachment]
+    /// Markdown document section root (`# ` only). Nested flags are not written as headings.
+    public var isMarkdownSectionHeading: Bool
     public var children: [MindMapNode]
 
     public init(
@@ -143,7 +145,8 @@ public struct MindMapNode: Equatable, Sendable, Identifiable {
         link: String? = nil,
         side: MindMapSide? = nil,
         attachments: [NodeAttachment] = [],
-        children: [MindMapNode] = []
+        children: [MindMapNode] = [],
+        isMarkdownSectionHeading: Bool = false
     ) {
         self.id = id
         self.text = text
@@ -155,6 +158,7 @@ public struct MindMapNode: Equatable, Sendable, Identifiable {
         self.side = side
         self.attachments = attachments
         self.children = children
+        self.isMarkdownSectionHeading = isMarkdownSectionHeading
     }
 }
 
@@ -170,6 +174,7 @@ extension MindMapNode: Codable {
         case side
         case attachments
         case children
+        case isMarkdownSectionHeading
     }
 
     public init(from decoder: Decoder) throws {
@@ -188,6 +193,7 @@ extension MindMapNode: Codable {
         side = try container.decodeIfPresent(MindMapSide.self, forKey: .side)
         attachments = try container.decodeIfPresent([NodeAttachment].self, forKey: .attachments) ?? []
         children = try container.decode([MindMapNode].self, forKey: .children)
+        isMarkdownSectionHeading = try container.decodeIfPresent(Bool.self, forKey: .isMarkdownSectionHeading) ?? false
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -204,5 +210,8 @@ extension MindMapNode: Codable {
             try container.encode(attachments, forKey: .attachments)
         }
         try container.encode(children, forKey: .children)
+        if isMarkdownSectionHeading {
+            try container.encode(true, forKey: .isMarkdownSectionHeading)
+        }
     }
 }

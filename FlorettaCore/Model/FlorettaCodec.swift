@@ -82,6 +82,9 @@ public enum FlorettaCodec {
         try expect(object, key: "title", at: "title") { isJSONString($0) }
         try expect(object, key: "createdAt", at: "createdAt") { isJSONString($0) }
         try expect(object, key: "modifiedAt", at: "modifiedAt") { isJSONString($0) }
+        if let frontMatter = object["markdownFrontMatter"], !(frontMatter is NSNull) {
+            try expect(object, key: "markdownFrontMatter", at: "markdownFrontMatter") { isJSONString($0) }
+        }
         if let roots = object["roots"] {
             guard let array = roots as? [Any] else {
                 throw FlorettaCodecError.wrongJSONType(at: "roots")
@@ -132,6 +135,11 @@ public enum FlorettaCodec {
                 try expect(attachment, key: "fileExtension", at: "\(place).fileExtension") { isJSONString($0) }
                 try expect(attachment, key: "byteCount", at: "\(place).byteCount") { isJSONInteger($0) }
                 try expect(attachment, key: "filename", at: "\(place).filename") { isJSONString($0) }
+            }
+        }
+        if let heading = object["isMarkdownSectionHeading"], !(heading is NSNull) {
+            try expect(object, key: "isMarkdownSectionHeading", at: "\(path).isMarkdownSectionHeading") {
+                isJSONBool($0)
             }
         }
         if let children = object["children"] {

@@ -63,6 +63,19 @@
 		C60000000000000000000005 /* TextMeasurementCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000001 /* TextMeasurementCache.swift */; };
 		C60000000000000000000006 /* LayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000002 /* LayoutEngine.swift */; };
 		C60000000000000000000007 /* LayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000003 /* LayoutTests.swift */; };
+		C70000000000000000000001 /* KeyboardCommandMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000001 /* KeyboardCommandMapper.swift */; };
+		C70000000000000000000002 /* SelectionNavigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000002 /* SelectionNavigator.swift */; };
+		C70000000000000000000003 /* MindMapKeyboardSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000003 /* MindMapKeyboardSession.swift */; };
+		C70000000000000000000004 /* NodeTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000004 /* NodeTextEditor.swift */; };
+		C70000000000000000000005 /* KeyboardCommandMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000001 /* KeyboardCommandMapper.swift */; };
+		C70000000000000000000006 /* SelectionNavigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000002 /* SelectionNavigator.swift */; };
+		C70000000000000000000007 /* MindMapKeyboardSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000003 /* MindMapKeyboardSession.swift */; };
+		C70000000000000000000008 /* NodeTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000004 /* NodeTextEditor.swift */; };
+		C70000000000000000000009 /* KeyboardCommandMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000001 /* KeyboardCommandMapper.swift */; };
+		C7000000000000000000000A /* SelectionNavigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000002 /* SelectionNavigator.swift */; };
+		C7000000000000000000000B /* MindMapKeyboardSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000003 /* MindMapKeyboardSession.swift */; };
+		C7000000000000000000000C /* NodeTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000004 /* NodeTextEditor.swift */; };
+		C7000000000000000000000D /* KeyboardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000005 /* KeyboardTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -95,6 +108,11 @@
 		F60000000000000000000001 /* TextMeasurementCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextMeasurementCache.swift; sourceTree = "<group>"; };
 		F60000000000000000000002 /* LayoutEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayoutEngine.swift; sourceTree = "<group>"; };
 		F60000000000000000000003 /* LayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayoutTests.swift; sourceTree = "<group>"; };
+		F70000000000000000000001 /* KeyboardCommandMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardCommandMapper.swift; sourceTree = "<group>"; };
+		F70000000000000000000002 /* SelectionNavigator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionNavigator.swift; sourceTree = "<group>"; };
+		F70000000000000000000003 /* MindMapKeyboardSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MindMapKeyboardSession.swift; sourceTree = "<group>"; };
+		F70000000000000000000004 /* NodeTextEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeTextEditor.swift; sourceTree = "<group>"; };
+		F70000000000000000000005 /* KeyboardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -159,6 +177,7 @@
 				A20000000000000000000001 /* Autosave */,
 				A30000000000000000000001 /* Canvas */,
 				A40000000000000000000001 /* Container */,
+				A70000000000000000000001 /* Keyboard */,
 				A10000000000000000000007 /* Model */,
 			);
 			path = Shared;
@@ -197,6 +216,17 @@
 			path = Canvas;
 			sourceTree = "<group>";
 		};
+		A70000000000000000000001 /* Keyboard */ = {
+			isa = PBXGroup;
+			children = (
+				F70000000000000000000001 /* KeyboardCommandMapper.swift */,
+				F70000000000000000000003 /* MindMapKeyboardSession.swift */,
+				F70000000000000000000004 /* NodeTextEditor.swift */,
+				F70000000000000000000002 /* SelectionNavigator.swift */,
+			);
+			path = Keyboard;
+			sourceTree = "<group>";
+		};
 		A40000000000000000000001 /* Container */ = {
 			isa = PBXGroup;
 			children = (
@@ -213,6 +243,7 @@
 				F20000000000000000000004 /* AutosaveTests.swift */,
 				F30000000000000000000005 /* CanvasTests.swift */,
 				F50000000000000000000004 /* ContainerTests.swift */,
+				F70000000000000000000005 /* KeyboardTests.swift */,
 				F60000000000000000000003 /* LayoutTests.swift */,
 				F1000000000000000000000C /* MindMapDocumentTests.swift */,
 			);
@@ -381,6 +412,10 @@
 				C50000000000000000000003 /* ZipArchive.swift in Sources */,
 				C60000000000000000000001 /* TextMeasurementCache.swift in Sources */,
 				C60000000000000000000002 /* LayoutEngine.swift in Sources */,
+				C70000000000000000000001 /* KeyboardCommandMapper.swift in Sources */,
+				C70000000000000000000002 /* SelectionNavigator.swift in Sources */,
+				C70000000000000000000003 /* MindMapKeyboardSession.swift in Sources */,
+				C70000000000000000000004 /* NodeTextEditor.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -405,6 +440,10 @@
 				C50000000000000000000006 /* ZipArchive.swift in Sources */,
 				C60000000000000000000003 /* TextMeasurementCache.swift in Sources */,
 				C60000000000000000000004 /* LayoutEngine.swift in Sources */,
+				C70000000000000000000005 /* KeyboardCommandMapper.swift in Sources */,
+				C70000000000000000000006 /* SelectionNavigator.swift in Sources */,
+				C70000000000000000000007 /* MindMapKeyboardSession.swift in Sources */,
+				C70000000000000000000008 /* NodeTextEditor.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -432,6 +471,11 @@
 				C60000000000000000000005 /* TextMeasurementCache.swift in Sources */,
 				C60000000000000000000006 /* LayoutEngine.swift in Sources */,
 				C60000000000000000000007 /* LayoutTests.swift in Sources */,
+				C70000000000000000000009 /* KeyboardCommandMapper.swift in Sources */,
+				C7000000000000000000000A /* SelectionNavigator.swift in Sources */,
+				C7000000000000000000000B /* MindMapKeyboardSession.swift in Sources */,
+				C7000000000000000000000C /* NodeTextEditor.swift in Sources */,
+				C7000000000000000000000D /* KeyboardTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

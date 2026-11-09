@@ -18,7 +18,7 @@ P1-c 修复已由总指挥验收（58 个测试全绿，TEST SUCCEEDED）。
 
 P1-r 已由总指挥验收（60 个测试全绿，合并 `538b0d2`）。
 
-P1-d 大纲已落盘：和画布共用 `MindMapDocument` 与 `KeyboardCommandMapper`。系统 `List` + `DisclosureGroup`。等本机 `xcodebuild test`。没有开始 DocumentGroup、关系线、`.xmind`、实验 A/B、TestFlight。
+P1-d 大纲已合并（`b6d5bb8`）。macOS 编译失败：`EditMode` 只在 iOS 可用。已把编辑模式和 Reorder/Done 收进 `#if os(iOS)`。macOS 仍用 `List`、`.onMove`、`.draggable` / `dropDestination`。这台云机器没有 Xcode，两边构建都没跑。没有开始下一批。
 
 Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be pasted back for fixes.
 
@@ -180,4 +180,5 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 | 2026-11-09 | P1-c | 总指挥测试 57 通过、1 失败 | `testLayoutArrowsMoveBetweenParentAndSide`：上下键把对侧、Y 更近的兄弟当成了下一节点 |
 | 2026-11-09 | P1-c 修复 | 总指挥验收通过 | 58 个测试全绿，TEST SUCCEEDED |
 | 2026-11-09 | P1-r | 总指挥验收通过 | 60 个测试全绿。SwiftFlow 0.3.1。合并 `538b0d2` |
-| 2026-11-09 | P1-d | 已提交，云端未测试 | 大纲与画布共用文档和键盘映射。系统 List / DisclosureGroup。云端不能跑 xcodebuild |
+| 2026-11-09 | P1-d | 总指挥验收未过 | macOS 构建 exit 65：`EditMode` 在 macOS 不可用（`OutlineView.swift`） |
+| 2026-11-09 | P1-d 修复 | 已提交，云端未构建 | `EditMode` 与 Reorder/Done 仅 iOS。macOS 保留 List / onMove / draggable。本机没有 Xcode |

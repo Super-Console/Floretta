@@ -7,6 +7,8 @@ struct InfiniteCanvas: View {
     @State private var drag: RootDrag?
     @State private var panAnchor: CGPoint?
     @State private var pinchStartScale: CGFloat?
+    @State private var interaction = CanvasInteraction.standard
+    @State private var chrome = CanvasChrome.standard
 
     var body: some View {
         GeometryReader { geo in
@@ -26,6 +28,28 @@ struct InfiniteCanvas: View {
                     viewport.applyScroll(delta: delta, around: location, command: command)
                 }
             }
+            .overlay { hoverAddButtons }
+            .canvasHover { location in
+                guard let location else {
+                    interaction.hoveredNodeID = nil
+                    return
+                }
+                let point = viewport.canvasPoint(fromView: location)
+                interaction.hoveredNodeID = CanvasPlacement.nodeID(at: point, in: document)
+            }
+            .simultaneousGesture(SpatialTapGesture().onEnded { value in
+                let point = viewport.canvasPoint(fromView: value.location)
+                interaction.selectedNodeID = CanvasPlacement.nodeID(at: point, in: document)
+            })
+            .simultaneousGesture(SpatialTapGesture(count: 2).onEnded { value in
+                let point = viewport.canvasPoint(fromView: value.location)
+                guard CanvasPlacement.nodeID(at: point, in: document) == nil else { return }
+                _ = CanvasCommands.apply(
+                    .addFloatingTopic(at: point),
+                    document: &document,
+                    interaction: &interaction
+                )
+            })
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
                     Button {
@@ -33,20 +57,77 @@ struct InfiniteCanvas: View {
                     } label: {
                         Label("Zoom Out", systemImage: "minus.magnifyingglass")
                     }
+                    Button("\(zoomPercent)%") {
+                        viewport.zoom(to: 1, around: center(of: geo.size))
+                        chrome.zoomPercent = 100
+                    }
+                    .disabled(!chrome.zoomIsClickable)
                     Button {
                         viewport.zoom(by: 1.1, around: center(of: geo.size))
                     } label: {
                         Label("Zoom In", systemImage: "plus.magnifyingglass")
                     }
-                    Button {
-                        fit(in: geo.size)
-                    } label: {
-                        Label("Fit", systemImage: "arrow.up.left.and.arrow.down.right")
+                    if chrome.fitControlVisible {
+                        Button {
+                            fit(in: geo.size)
+                        } label: {
+                            Label("Fit", systemImage: "arrow.up.left.and.arrow.down.right")
+                        }
+                        .keyboardShortcut("0", modifiers: .command)
                     }
-                    .keyboardShortcut("0", modifiers: .command)
                 }
             }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                sheetBar
+            }
         }
+    }
+
+    private var zoomPercent: Int {
+        Int((viewport.scale * 100).rounded())
+    }
+
+    private var sheetBar: some View {
+        HStack(spacing: 8) {
+            ForEach(Array(chrome.sheets.enumerated()), id: \.element.id) { index, sheet in
+                Button(sheet.title) {
+                    chrome.selectSheet(index)
+                }
+                .buttonStyle(.bordered)
+            }
+            Button("Add Page") {
+                chrome.addSheet(title: "Page \(chrome.sheets.count + 1)")
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+    }
+
+    @ViewBuilder
+    private var hoverAddButtons: some View {
+        if let id = interaction.hoveredNodeID,
+           let frame = CanvasPlacement.nodes(in: document).first(where: { $0.id == id }) {
+            let rect = viewport.viewRect(fromCanvas: frame.frame)
+            addButton(.up, at: CGPoint(x: rect.midX, y: rect.minY - 18), parent: id)
+            addButton(.down, at: CGPoint(x: rect.midX, y: rect.maxY + 18), parent: id)
+            addButton(.left, at: CGPoint(x: rect.minX - 18, y: rect.midY), parent: id)
+            addButton(.right, at: CGPoint(x: rect.maxX + 18, y: rect.midY), parent: id)
+        }
+    }
+
+    private func addButton(_ direction: CanvasDirection, at point: CGPoint, parent: UUID) -> some View {
+        Button {
+            _ = CanvasCommands.apply(
+                .addChild(parentID: parent, direction: direction),
+                document: &document,
+                interaction: &interaction
+            )
+        } label: {
+            Image(systemName: "plus.circle.fill")
+        }
+        .buttonStyle(.borderless)
+        .position(point)
     }
 
     private var dragGesture: some Gesture {
@@ -108,36 +189,57 @@ struct InfiniteCanvas: View {
     private func draw(in context: GraphicsContext, size: CGSize) {
         drawGrid(in: context, size: size)
         let placed = CanvasPlacement.nodes(in: document)
-        var byID: [UUID: PlacedNode] = [:]
         for node in placed {
-            byID[node.id] = node
-        }
-        for node in placed {
-            guard let parentID = node.parentID, let parent = byID[parentID] else { continue }
-            let start = viewport.viewPoint(fromCanvas: center(of: parent.frame))
-            let end = viewport.viewPoint(fromCanvas: center(of: node.frame))
-            var line = Path()
-            line.move(to: start)
-            line.addLine(to: end)
-            context.stroke(line, with: .color(.secondary.opacity(0.7)), lineWidth: 1.5)
+            guard let link = node.link else { continue }
+            var curve = Path()
+            curve.move(to: viewport.viewPoint(fromCanvas: link.start))
+            curve.addCurve(
+                to: viewport.viewPoint(fromCanvas: link.end),
+                control1: viewport.viewPoint(fromCanvas: link.control1),
+                control2: viewport.viewPoint(fromCanvas: link.control2)
+            )
+            context.stroke(
+                curve,
+                with: .color(color(link.color)),
+                lineWidth: link.lineWidth
+            )
         }
         for node in placed {
             let rect = viewport.viewRect(fromCanvas: node.frame)
-            let path = Path(roundedRect: rect, cornerRadius: 8)
-            context.fill(
-                path,
-                with: .color(Color.primary.opacity(node.isRoot ? 0.08 : 0.04))
-            )
-            context.stroke(
-                path,
-                with: .color(Color.primary.opacity(node.isRoot ? 0.7 : 0.35)),
-                lineWidth: node.isRoot ? 1.5 : 1
-            )
+            let path = Path(roundedRect: rect, cornerRadius: node.cornerRadius)
+            context.fill(path, with: .color(color(node.fill)))
+            let selected = interaction.selectedNodeID == node.id
+            let border = selected ? interaction.selectionBorder : node.border
+            let width = selected ? interaction.selectionBorderWidth : 1.5
+            context.stroke(path, with: .color(color(border)), lineWidth: width)
+            if selected && interaction.showsSelectionChrome {
+                drawHandles(around: rect, in: context)
+            }
             context.draw(
-                Text(node.text).font(.body),
+                Text(node.text)
+                    .font(.system(size: node.fontSize))
+                    .foregroundStyle(color(node.textColor)),
                 in: rect.insetBy(dx: 10, dy: 6)
             )
         }
+    }
+
+    private func drawHandles(around rect: CGRect, in context: GraphicsContext) {
+        let handle: CGFloat = 6
+        let points = [
+            CGPoint(x: rect.minX, y: rect.minY),
+            CGPoint(x: rect.maxX, y: rect.minY),
+            CGPoint(x: rect.minX, y: rect.maxY),
+            CGPoint(x: rect.maxX, y: rect.maxY),
+        ]
+        for point in points {
+            let mark = CGRect(x: point.x - handle / 2, y: point.y - handle / 2, width: handle, height: handle)
+            context.fill(Path(mark), with: .color(color(interaction.selectionBorder)))
+        }
+    }
+
+    private func color(_ value: BranchColor) -> Color {
+        Color(red: value.red, green: value.green, blue: value.blue)
     }
 
     private func drawGrid(in context: GraphicsContext, size: CGSize) {
@@ -159,13 +261,28 @@ struct InfiniteCanvas: View {
         }
     }
 
-    private func center(of rect: CGRect) -> CGPoint {
-        CGPoint(x: rect.midX, y: rect.midY)
-    }
 }
 
 private struct RootDrag {
     var id: UUID
     var grabX: CGFloat
     var grabY: CGFloat
+}
+
+private extension View {
+    @ViewBuilder
+    func canvasHover(_ update: @escaping (CGPoint?) -> Void) -> some View {
+        #if os(macOS)
+        onContinuousHover { phase in
+            switch phase {
+            case .active(let location):
+                update(location)
+            case .ended:
+                update(nil)
+            }
+        }
+        #else
+        self
+        #endif
+    }
 }

@@ -10,7 +10,9 @@ P0-4 已由总指挥验收（20 个测试全绿）。P0 阶段通过。
 
 P1-1 已由总指挥验收（24 个测试全绿）。触控板手势留到 P1-c 再人工验。
 
-P0.5 容器切换已落盘：`DocumentContainer`、只读旧 JSON、`ZipContainer`。P1-2 布局、DocumentGroup、实验 A/B 都没做。
+P0.5 已由总指挥验收（32 个测试全绿）。DocumentGroup、实验 A/B 没做。
+
+P1-b 双边布局已落盘，等本机 `xcodebuild test`。只有 bilateral，没有其它布局。
 
 Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be pasted back for fixes.
 
@@ -23,6 +25,21 @@ xcodebuild test -project Floretta.xcodeproj -scheme Floretta-macOS -destination 
 ```
 
 构建或测试错误贴回再改。通过后再放行下一批。
+
+## P1-b 申报
+
+`LayoutEngine.layout` 只做 bilateral，输出 `[NodeFrame]`（位置、尺寸、S 曲线、层级样式）。画布按这些参数描边填色，不画阴影。
+
+- 一级子节点按两侧子树总高度贪心分边：哪边加上后更矮就放哪边；两边一样高时先放右侧。不是奇偶固定。父节点在整棵子树高度里垂直居中，左右两列也对着这个中心排。再往下继续向外侧长。
+- 字号：中心 30pt，一级 20pt，二级 18pt，更深 16pt。宽高来自 Core Text（Helvetica）测量。缓存键是文本 + 字号 + 最大宽度。同一层级用该层最大高度，宽度按文字收缩并封顶。兄弟纵向间距固定（`siblingGap`）。
+- 连线从父节点朝向子节点那条边的中点，到子节点朝向父节点那条边的中点。三次贝塞尔，控制点与端点同高，形成 S 形。越深线越细。颜色跟一级分支色走，孙节点继承。调色板是通用色，不是 XMind 图标或品牌色。
+- 样式参数：中心白底、黑边、黑字；一级实心分支色、白字；更深浅填色、黑字。`showsShadows` 为 false。
+- 交互：`CanvasInteraction` 悬停给出上下左右四个添加方向；选中是蓝色细边加四个缩放手柄。`CanvasCommands.addFloatingTopic` 在空白处双击时加一个带手动坐标的根。添加子主题走 `addChild`。
+- 画布参数：`CanvasChrome.isInfinite`、可点的缩放百分比（点一下回到 100%）、Fit、底栏多页 `sheets`（`addSheet` / `selectSheet`，这一批只是页签状态）。
+- 折叠节点只留下自己，子树不测量也不输出。`position` 有值的节点按该坐标摆放，它的子孙不再自动排。格式版本仍是 1。
+- 1000 个节点的测试只 `print` 耗时，不断言超时。
+
+`Floretta-macOS`、`Floretta-iOS`、`FlorettaTests` 都编译布局源文件。云上没有 Xcode，没有跑过 `xcodebuild`。
 
 ## P0.5 申报
 
@@ -46,7 +63,7 @@ xcodebuild test -project Floretta.xcodeproj -scheme Floretta-macOS -destination 
 - 触控板 / 滚轮：平移。⌘ + 滚轮：绕指针缩放。macOS 用本地 `scrollWheel` 监听；iOS 用挂在窗口上的 `UIPanGestureRecognizer`（`allowedScrollTypesMask`），手指拖动仍交给 SwiftUI。
 - 空白处拖动：平移。只有**根节点**可拖；拖完把 `MindMapPoint` 写进该根的 `position`。
 - ⌘0 和工具栏 **Fit**（系统 `Button` / `Label`）把全部节点框进窗口。缩放按钮也是系统按钮。
-- 子节点没有手动坐标时，画在父节点右侧，只为看得见。这不是 P1-2 的左右树布局。子节点不能拖。
+- 当时子节点没有手动坐标时，先画在父节点右侧，只为看得见。P1-b 已换成双边布局。子节点仍不能拖。
 - `position` 是可选字段，格式版本仍是 1。没有坐标时不写入 JSON，旧文件还能读。拖过的根会随自动保存进恢复副本。
 - 没有恢复副本时，窗口里放一张「未命名」开场图（一个带子节点的根，一个浮动根），方便直接拖。
 

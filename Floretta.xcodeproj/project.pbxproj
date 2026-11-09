@@ -56,6 +56,13 @@
 		C50000000000000000000008 /* ZipContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000002 /* ZipContainer.swift */; };
 		C50000000000000000000009 /* ZipArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000003 /* ZipArchive.swift */; };
 		C5000000000000000000000A /* ContainerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000004 /* ContainerTests.swift */; };
+		C60000000000000000000001 /* TextMeasurementCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000001 /* TextMeasurementCache.swift */; };
+		C60000000000000000000002 /* LayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000002 /* LayoutEngine.swift */; };
+		C60000000000000000000003 /* TextMeasurementCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000001 /* TextMeasurementCache.swift */; };
+		C60000000000000000000004 /* LayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000002 /* LayoutEngine.swift */; };
+		C60000000000000000000005 /* TextMeasurementCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000001 /* TextMeasurementCache.swift */; };
+		C60000000000000000000006 /* LayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000002 /* LayoutEngine.swift */; };
+		C60000000000000000000007 /* LayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000003 /* LayoutTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -85,6 +92,9 @@
 		F50000000000000000000002 /* ZipContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipContainer.swift; sourceTree = "<group>"; };
 		F50000000000000000000003 /* ZipArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipArchive.swift; sourceTree = "<group>"; };
 		F50000000000000000000004 /* ContainerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerTests.swift; sourceTree = "<group>"; };
+		F60000000000000000000001 /* TextMeasurementCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextMeasurementCache.swift; sourceTree = "<group>"; };
+		F60000000000000000000002 /* LayoutEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayoutEngine.swift; sourceTree = "<group>"; };
+		F60000000000000000000003 /* LayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayoutTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -181,6 +191,8 @@
 				F30000000000000000000004 /* CanvasScrollInput.swift */,
 				F30000000000000000000001 /* CanvasViewport.swift */,
 				F30000000000000000000003 /* InfiniteCanvas.swift */,
+				F60000000000000000000002 /* LayoutEngine.swift */,
+				F60000000000000000000001 /* TextMeasurementCache.swift */,
 			);
 			path = Canvas;
 			sourceTree = "<group>";
@@ -201,6 +213,7 @@
 				F20000000000000000000004 /* AutosaveTests.swift */,
 				F30000000000000000000005 /* CanvasTests.swift */,
 				F50000000000000000000004 /* ContainerTests.swift */,
+				F60000000000000000000003 /* LayoutTests.swift */,
 				F1000000000000000000000C /* MindMapDocumentTests.swift */,
 			);
 			path = FlorettaTests;
@@ -366,6 +379,8 @@
 				C50000000000000000000001 /* DocumentContainer.swift in Sources */,
 				C50000000000000000000002 /* ZipContainer.swift in Sources */,
 				C50000000000000000000003 /* ZipArchive.swift in Sources */,
+				C60000000000000000000001 /* TextMeasurementCache.swift in Sources */,
+				C60000000000000000000002 /* LayoutEngine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -388,6 +403,8 @@
 				C50000000000000000000004 /* DocumentContainer.swift in Sources */,
 				C50000000000000000000005 /* ZipContainer.swift in Sources */,
 				C50000000000000000000006 /* ZipArchive.swift in Sources */,
+				C60000000000000000000003 /* TextMeasurementCache.swift in Sources */,
+				C60000000000000000000004 /* LayoutEngine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -412,6 +429,9 @@
 				C50000000000000000000008 /* ZipContainer.swift in Sources */,
 				C50000000000000000000009 /* ZipArchive.swift in Sources */,
 				C5000000000000000000000A /* ContainerTests.swift in Sources */,
+				C60000000000000000000005 /* TextMeasurementCache.swift in Sources */,
+				C60000000000000000000006 /* LayoutEngine.swift in Sources */,
+				C60000000000000000000007 /* LayoutTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

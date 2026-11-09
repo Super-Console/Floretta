@@ -53,7 +53,7 @@ final class CanvasTests: XCTestCase {
         XCTAssertLessThanOrEqual(drawn.maxY, view.height - 47)
     }
 
-    func testDraggingARootRemembersCoordinatesAndChildrenFollow() {
+    func testDraggingARootStoresPositionAndSkipsThatBranch() {
         let childID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
         let rootID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
         let child = MindMapNode(id: childID, text: "子")
@@ -70,10 +70,9 @@ final class CanvasTests: XCTestCase {
         XCTAssertNil(moved.roots[0].children[0].position)
         let placed = CanvasPlacement.nodes(in: moved)
         let movedRoot = placed.first { $0.id == rootID }!.frame
-        let movedChild = placed.first { $0.id == childID }!.frame
+        XCTAssertNil(placed.first { $0.id == childID })
         XCTAssertEqual(movedRoot.origin.x, 80, accuracy: 0.001)
         XCTAssertEqual(movedRoot.origin.y, 40, accuracy: 0.001)
-        XCTAssertEqual(movedChild.minX, movedRoot.maxX + CanvasPlacement.childGapX, accuracy: 0.001)
     }
 
     func testStoredPositionRoundTripsAndIsOmittedWhenUnset() throws {

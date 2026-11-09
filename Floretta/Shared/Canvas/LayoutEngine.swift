@@ -1,0 +1,526 @@
+import CoreGraphics
+import Foundation
+
+enum LayoutKind: Equatable, Sendable {
+    case bilateral
+}
+
+struct BranchColor: Equatable, Sendable {
+    var red: Double
+    var green: Double
+    var blue: Double
+
+    static let white = BranchColor(red: 1, green: 1, blue: 1)
+    static let black = BranchColor(red: 0, green: 0, blue: 0)
+    static let blue = BranchColor(red: 0.2, green: 0.45, blue: 1)
+
+    func lightened(by amount: Double) -> BranchColor {
+        BranchColor(
+            red: red + (1 - red) * amount,
+            green: green + (1 - green) * amount,
+            blue: blue + (1 - blue) * amount
+        )
+    }
+}
+
+struct BranchPalette: Equatable, Sendable {
+    var colors: [BranchColor]
+
+    static let standard = BranchPalette(colors: [
+        BranchColor(red: 0.86, green: 0.33, blue: 0.24),
+        BranchColor(red: 0.18, green: 0.52, blue: 0.82),
+        BranchColor(red: 0.22, green: 0.62, blue: 0.38),
+        BranchColor(red: 0.90, green: 0.62, blue: 0.16),
+        BranchColor(red: 0.52, green: 0.36, blue: 0.74),
+    ])
+
+    func color(at index: Int) -> BranchColor {
+        guard !colors.isEmpty else { return .black }
+        let wrapped = index % colors.count
+        return colors[wrapped >= 0 ? wrapped : wrapped + colors.count]
+    }
+}
+
+struct LayoutMetrics: Equatable, Sendable {
+    var centerFontSize: CGFloat = 30
+    var level1FontSize: CGFloat = 20
+    var level2FontSize: CGFloat = 18
+    var deeperFontSize: CGFloat = 16
+    var maxTextWidth: CGFloat = 240
+    var horizontalGap: CGFloat = 56
+    var siblingGap: CGFloat = 18
+
+    func fontSize(depth: Int) -> CGFloat {
+        switch depth {
+        case 0: return centerFontSize
+        case 1: return level1FontSize
+        case 2: return level2FontSize
+        default: return deeperFontSize
+        }
+    }
+
+    func linkWidth(depth: Int) -> CGFloat {
+        max(1, 3 - CGFloat(max(depth, 0)) * 0.5)
+    }
+}
+
+struct LayoutAppearance: Equatable, Sendable {
+    var centerFill: BranchColor = .white
+    var centerBorder: BranchColor = .black
+    var centerText: BranchColor = .black
+    var level1Text: BranchColor = .white
+    var deeperText: BranchColor = .black
+    var deeperFillMix: Double = 0.82
+    var showsShadows: Bool = false
+    var palette: BranchPalette = .standard
+    var cornerRadius: CGFloat = 8
+
+    static let standard = LayoutAppearance()
+}
+
+struct LinkCurve: Equatable, Sendable {
+    var start: CGPoint
+    var control1: CGPoint
+    var control2: CGPoint
+    var end: CGPoint
+    var lineWidth: CGFloat
+    var color: BranchColor
+}
+
+struct NodeFrame: Equatable, Identifiable, Sendable {
+    var id: UUID
+    var text: String
+    var origin: CGPoint
+    var size: CGSize
+    var depth: Int
+    var fontSize: CGFloat
+    var isRoot: Bool
+    var parentID: UUID?
+    var fill: BranchColor
+    var border: BranchColor
+    var textColor: BranchColor
+    var cornerRadius: CGFloat
+    var link: LinkCurve?
+
+    var rect: CGRect { CGRect(origin: origin, size: size) }
+    var frame: CGRect { rect }
+}
+
+enum CanvasDirection: String, Equatable, Sendable, CaseIterable {
+    case up, down, left, right
+}
+
+struct CanvasInteraction: Equatable, Sendable {
+    var hoveredNodeID: UUID?
+    var selectedNodeID: UUID?
+    var selectionBorder: BranchColor
+    var selectionBorderWidth: CGFloat
+    var resizeHandles: [CanvasDirection]
+    var showsShadows: Bool
+
+    static let standard = CanvasInteraction(
+        hoveredNodeID: nil,
+        selectedNodeID: nil,
+        selectionBorder: .blue,
+        selectionBorderWidth: 1.5,
+        resizeHandles: CanvasDirection.allCases,
+        showsShadows: false
+    )
+
+    var addDirections: [CanvasDirection] {
+        hoveredNodeID == nil ? [] : CanvasDirection.allCases
+    }
+
+    var showsSelectionChrome: Bool { selectedNodeID != nil }
+}
+
+struct CanvasSheet: Equatable, Identifiable, Sendable {
+    var id: UUID
+    var title: String
+
+    init(id: UUID = UUID(), title: String) {
+        self.id = id
+        self.title = title
+    }
+}
+
+struct CanvasChrome: Equatable, Sendable {
+    var isInfinite: Bool
+    var zoomPercent: Int
+    var zoomIsClickable: Bool
+    var fitControlVisible: Bool
+    var sheets: [CanvasSheet]
+    var activeSheetIndex: Int
+
+    static let standard = CanvasChrome(
+        isInfinite: true,
+        zoomPercent: 100,
+        zoomIsClickable: true,
+        fitControlVisible: true,
+        sheets: [CanvasSheet(title: "Canvas")],
+        activeSheetIndex: 0
+    )
+
+    mutating func addSheet(title: String) {
+        sheets.append(CanvasSheet(title: title))
+    }
+
+    mutating func selectSheet(_ index: Int) {
+        guard sheets.indices.contains(index) else { return }
+        activeSheetIndex = index
+    }
+}
+
+enum CanvasCommand: Equatable, Sendable {
+    case hover(UUID?)
+    case select(UUID?)
+    case addChild(parentID: UUID, direction: CanvasDirection)
+    case addFloatingTopic(at: CGPoint)
+}
+
+enum CanvasCommands {
+    @discardableResult
+    static func apply(
+        _ command: CanvasCommand,
+        document: inout MindMapDocument,
+        interaction: inout CanvasInteraction
+    ) -> UUID? {
+        switch command {
+        case .hover(let id):
+            interaction.hoveredNodeID = id
+            return nil
+        case .select(let id):
+            interaction.selectedNodeID = id
+            return nil
+        case .addChild(let parentID, _):
+            let child = MindMapNode(text: "新主题")
+            guard insert(child, under: parentID, nodes: &document.roots) else { return nil }
+            return child.id
+        case .addFloatingTopic(let point):
+            let node = MindMapNode(
+                text: "浮动主题",
+                position: MindMapPoint(x: Double(point.x), y: Double(point.y))
+            )
+            document.roots.append(node)
+            return node.id
+        }
+    }
+
+    private static func insert(_ child: MindMapNode, under parentID: UUID, nodes: inout [MindMapNode]) -> Bool {
+        for index in nodes.indices {
+            if nodes[index].id == parentID {
+                nodes[index].children.append(child)
+                return true
+            }
+            if insert(child, under: parentID, nodes: &nodes[index].children) {
+                return true
+            }
+        }
+        return false
+    }
+}
+
+struct LayoutEngine {
+    var kind: LayoutKind
+    var cache: TextMeasurementCache
+    var metrics: LayoutMetrics
+    var appearance: LayoutAppearance
+
+    init(
+        kind: LayoutKind = .bilateral,
+        cache: TextMeasurementCache = TextMeasurementCache(),
+        metrics: LayoutMetrics = LayoutMetrics(),
+        appearance: LayoutAppearance = .standard
+    ) {
+        self.kind = kind
+        self.cache = cache
+        self.metrics = metrics
+        self.appearance = appearance
+    }
+
+    func fontSize(depth: Int) -> CGFloat {
+        metrics.fontSize(depth: depth)
+    }
+
+    func layout(_ document: MindMapDocument) -> [NodeFrame] {
+        switch kind {
+        case .bilateral:
+            return bilateral(document)
+        }
+    }
+
+    private struct Measured {
+        var node: MindMapNode
+        var size: CGSize
+        var children: [Measured]
+        var blockHeight: CGFloat
+        var depth: Int
+        var branch: BranchColor
+    }
+
+    private enum Side {
+        case left
+        case right
+    }
+
+    private func bilateral(_ document: MindMapDocument) -> [NodeFrame] {
+        var levelHeights: [Int: CGFloat] = [:]
+        for root in document.roots {
+            collectHeights(root, depth: 0, into: &levelHeights)
+        }
+        var frames: [NodeFrame] = []
+        var nextTop: CGFloat = 0
+        var placedAutoRoot = false
+        for root in document.roots {
+            if root.position != nil {
+                appendManual(root, depth: 0, parentID: nil, isRoot: true, parentRect: nil, branch: .black, heights: levelHeights, into: &frames)
+                continue
+            }
+            let autos = root.isCollapsed ? [] : root.children.filter { $0.position == nil }
+            let sides = split(autos, parent: root, depth: 1, heights: levelHeights)
+            let rootSize = nodeSize(root, depth: 0, heights: levelHeights)
+            let blockHeight = max(rootSize.height, stackHeight(sides.right), stackHeight(sides.left))
+            let centerY = placedAutoRoot ? nextTop + blockHeight / 2 : 0
+            let origin = CGPoint(x: -rootSize.width / 2, y: centerY - rootSize.height / 2)
+            let rootFrame = makeFrame(
+                node: root,
+                origin: origin,
+                size: rootSize,
+                depth: 0,
+                isRoot: true,
+                parentID: nil,
+                branch: .black,
+                link: nil
+            )
+            frames.append(rootFrame)
+            place(sides.right, side: .right, parent: rootFrame, centerY: centerY, heights: levelHeights, into: &frames)
+            place(sides.left, side: .left, parent: rootFrame, centerY: centerY, heights: levelHeights, into: &frames)
+            if !root.isCollapsed {
+                for child in root.children where child.position != nil {
+                    let color = appearance.palette.color(at: childIndex(of: child, in: root))
+                    appendManual(child, depth: 1, parentID: root.id, isRoot: false, parentRect: rootFrame.rect, branch: color, heights: levelHeights, into: &frames)
+                }
+            }
+            nextTop = centerY + blockHeight / 2 + metrics.siblingGap * 2
+            placedAutoRoot = true
+        }
+        return frames
+    }
+
+    private func collectHeights(_ node: MindMapNode, depth: Int, into heights: inout [Int: CGFloat]) {
+        let raw = cache.size(text: node.text, fontSize: fontSize(depth: depth), maxWidth: metrics.maxTextWidth)
+        heights[depth] = max(heights[depth] ?? 0, raw.height)
+        if node.position != nil || node.isCollapsed { return }
+        for child in node.children {
+            collectHeights(child, depth: depth + 1, into: &heights)
+        }
+    }
+
+    private func nodeSize(_ node: MindMapNode, depth: Int, heights: [Int: CGFloat]) -> CGSize {
+        let raw = cache.size(text: node.text, fontSize: fontSize(depth: depth), maxWidth: metrics.maxTextWidth)
+        return CGSize(width: raw.width, height: heights[depth] ?? raw.height)
+    }
+
+    private func split(
+        _ children: [MindMapNode],
+        parent: MindMapNode,
+        depth: Int,
+        heights: [Int: CGFloat]
+    ) -> (left: [Measured], right: [Measured]) {
+        var left: [Measured] = []
+        var right: [Measured] = []
+        var leftHeight: CGFloat = 0
+        var rightHeight: CGFloat = 0
+        for child in children {
+            let color = appearance.palette.color(at: childIndex(of: child, in: parent))
+            let block = measure(child, depth: depth, branch: color, heights: heights)
+            let rightNext = right.isEmpty ? block.blockHeight : rightHeight + metrics.siblingGap + block.blockHeight
+            let leftNext = left.isEmpty ? block.blockHeight : leftHeight + metrics.siblingGap + block.blockHeight
+            if rightNext < leftNext || (rightNext == leftNext && right.count <= left.count) {
+                right.append(block)
+                rightHeight = rightNext
+            } else {
+                left.append(block)
+                leftHeight = leftNext
+            }
+        }
+        return (left, right)
+    }
+
+    private func measure(
+        _ node: MindMapNode,
+        depth: Int,
+        branch: BranchColor,
+        heights: [Int: CGFloat]
+    ) -> Measured {
+        let size = nodeSize(node, depth: depth, heights: heights)
+        let kids = node.isCollapsed ? [] : node.children.filter { $0.position == nil }
+        let children = kids.map { measure($0, depth: depth + 1, branch: branch, heights: heights) }
+        return Measured(
+            node: node,
+            size: size,
+            children: children,
+            blockHeight: stacked(children, minimum: size.height),
+            depth: depth,
+            branch: branch
+        )
+    }
+
+    private func stackHeight(_ blocks: [Measured]) -> CGFloat {
+        stacked(blocks, minimum: 0)
+    }
+
+    private func stacked(_ blocks: [Measured], minimum: CGFloat) -> CGFloat {
+        guard !blocks.isEmpty else { return minimum }
+        let gaps = metrics.siblingGap * CGFloat(blocks.count - 1)
+        return max(minimum, blocks.reduce(CGFloat(0)) { $0 + $1.blockHeight } + gaps)
+    }
+
+    private func place(
+        _ blocks: [Measured],
+        side: Side,
+        parent: NodeFrame,
+        centerY: CGFloat,
+        heights: [Int: CGFloat],
+        into frames: inout [NodeFrame]
+    ) {
+        let height = stackHeight(blocks)
+        var top = centerY - height / 2
+        for block in blocks {
+            let y = top + (block.blockHeight - block.size.height) / 2
+            let x = side == .right
+                ? parent.rect.maxX + metrics.horizontalGap
+                : parent.rect.minX - metrics.horizontalGap - block.size.width
+            let origin = CGPoint(x: x, y: y)
+            let rect = CGRect(origin: origin, size: block.size)
+            let frame = makeFrame(
+                node: block.node,
+                origin: origin,
+                size: block.size,
+                depth: block.depth,
+                isRoot: false,
+                parentID: parent.id,
+                branch: block.branch,
+                link: curve(from: parent.rect, to: rect, side: side, depth: block.depth, color: block.branch)
+            )
+            frames.append(frame)
+            place(block.children, side: side, parent: frame, centerY: rect.midY, heights: heights, into: &frames)
+            if !block.node.isCollapsed {
+                for child in block.node.children where child.position != nil {
+                    appendManual(
+                        child,
+                        depth: block.depth + 1,
+                        parentID: block.node.id,
+                        isRoot: false,
+                        parentRect: rect,
+                        branch: block.branch,
+                        heights: heights,
+                        into: &frames
+                    )
+                }
+            }
+            top += block.blockHeight + metrics.siblingGap
+        }
+    }
+
+    private func appendManual(
+        _ node: MindMapNode,
+        depth: Int,
+        parentID: UUID?,
+        isRoot: Bool,
+        parentRect: CGRect?,
+        branch: BranchColor,
+        heights: [Int: CGFloat],
+        into frames: inout [NodeFrame]
+    ) {
+        guard let position = node.position else { return }
+        let size = nodeSize(node, depth: depth, heights: heights)
+        let origin = CGPoint(x: position.x, y: position.y)
+        let rect = CGRect(origin: origin, size: size)
+        let side: Side = rect.midX >= (parentRect?.midX ?? rect.midX) ? .right : .left
+        let link = parentRect.map {
+            curve(from: $0, to: rect, side: side, depth: depth, color: branch)
+        }
+        frames.append(
+            makeFrame(
+                node: node,
+                origin: origin,
+                size: size,
+                depth: depth,
+                isRoot: isRoot,
+                parentID: parentID,
+                branch: branch,
+                link: link
+            )
+        )
+    }
+
+    private func makeFrame(
+        node: MindMapNode,
+        origin: CGPoint,
+        size: CGSize,
+        depth: Int,
+        isRoot: Bool,
+        parentID: UUID?,
+        branch: BranchColor,
+        link: LinkCurve?
+    ) -> NodeFrame {
+        let style = colors(depth: depth, branch: branch)
+        return NodeFrame(
+            id: node.id,
+            text: node.text,
+            origin: origin,
+            size: size,
+            depth: depth,
+            fontSize: fontSize(depth: depth),
+            isRoot: isRoot,
+            parentID: parentID,
+            fill: style.fill,
+            border: style.border,
+            textColor: style.text,
+            cornerRadius: appearance.cornerRadius,
+            link: link
+        )
+    }
+
+    private func colors(depth: Int, branch: BranchColor) -> (fill: BranchColor, border: BranchColor, text: BranchColor) {
+        if depth == 0 {
+            return (appearance.centerFill, appearance.centerBorder, appearance.centerText)
+        }
+        if depth == 1 {
+            return (branch, branch, appearance.level1Text)
+        }
+        return (branch.lightened(by: appearance.deeperFillMix), branch, appearance.deeperText)
+    }
+
+    private func curve(
+        from parent: CGRect,
+        to child: CGRect,
+        side: Side,
+        depth: Int,
+        color: BranchColor
+    ) -> LinkCurve {
+        let start: CGPoint
+        let end: CGPoint
+        if side == .right {
+            start = CGPoint(x: parent.maxX, y: parent.midY)
+            end = CGPoint(x: child.minX, y: child.midY)
+        } else {
+            start = CGPoint(x: parent.minX, y: parent.midY)
+            end = CGPoint(x: child.maxX, y: child.midY)
+        }
+        let dx = end.x - start.x
+        return LinkCurve(
+            start: start,
+            control1: CGPoint(x: start.x + dx * 0.5, y: start.y),
+            control2: CGPoint(x: end.x - dx * 0.5, y: end.y),
+            end: end,
+            lineWidth: metrics.linkWidth(depth: depth),
+            color: color
+        )
+    }
+
+    private func childIndex(of child: MindMapNode, in parent: MindMapNode) -> Int {
+        parent.children.firstIndex(where: { $0.id == child.id }) ?? 0
+    }
+}

@@ -1,3 +1,4 @@
+import CoreTransferable
 import FlorettaCore
 import SwiftUI
 import UniformTypeIdentifiers
@@ -34,8 +35,10 @@ struct DocumentEditor: View {
     @State private var showAbout = false
     @State private var camera = CanvasCamera()
     @State private var showAttachmentImporter = false
+    @State private var showImageImporter = false
     @State private var insertProposal: AttachmentInsertProposal?
     @State private var insertSource: URL?
+    @State private var insertSourceIsCopy = false
     @State private var insertAccepted = false
     @State private var thumbnails = AttachmentThumbnailMemory()
 
@@ -161,16 +164,23 @@ struct DocumentEditor: View {
                 AboutSheet()
             }
             .fileImporter(
+                isPresented: $showImageImporter,
+                allowedContentTypes: [.image],
+                allowsMultipleSelection: false
+            ) { result in
+                importAttachment(result)
+            }
+            .fileImporter(
                 isPresented: $showAttachmentImporter,
                 allowedContentTypes: [.data, .image, .movie, .audio, .pdf],
                 allowsMultipleSelection: false
             ) { result in
-                switch result {
-                case .success(let urls):
-                    if let url = urls.first { stageAttachment(url) }
-                case .failure(let error):
-                    exportError = error.localizedDescription
-                }
+                importAttachment(result)
+            }
+            .dropDestination(for: DroppedImage.self) { items, _ in
+                guard let item = items.first else { return false }
+                stageAttachment(item.url, ownsCopy: item.ownsCopy)
+                return true
             }
             .confirmationDialog("放入附件？", isPresented: insertDialogPresented, titleVisibility: .visible) {
                 Button("放入") { beginInsert() }
@@ -273,6 +283,10 @@ struct DocumentEditor: View {
                 Label("同级", systemImage: "square.on.square")
             }
             .help("在选中的节点旁新建一个同级节点")
+            Button { showImageImporter = true } label: {
+                Label("图片", systemImage: "photo")
+            }
+            .help("从文件选择一张图片放进选中的节点")
             Button { showAttachmentImporter = true } label: {
                 Label("附件", systemImage: "paperclip")
             }
@@ -285,7 +299,7 @@ struct DocumentEditor: View {
             Image(systemName: "plus")
         }
         .accessibilityLabel("插入")
-        .help("插入子节点、同级节点，或从文件导入")
+        .help("插入子节点、同级、图片，或从文件导入")
     }
 
     private var zoomMenu: some View {
@@ -350,7 +364,7 @@ struct DocumentEditor: View {
             }
             .explained("按文字查找节点")
             Button("粘贴") { pasteFromClipboard() }
-                .explained("把剪贴板里的文字粘成子节点")
+                .explained("把剪贴板里的图片放进节点；没有图片时粘贴文字")
             Button("关于") { showAbout = true }
                 .explained("查看版本号和开源致谢")
         } label: {
@@ -420,7 +434,16 @@ struct DocumentEditor: View {
         )
     }
 
-    private func stageAttachment(_ url: URL) {
+    private func importAttachment(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            if let url = urls.first { stageAttachment(url) }
+        case .failure(let error):
+            exportError = error.localizedDescription
+        }
+    }
+
+    private func stageAttachment(_ url: URL, ownsCopy: Bool = false) {
         let started = url.startAccessingSecurityScopedResource()
         defer { if started { url.stopAccessingSecurityScopedResource() } }
         do {
@@ -429,6 +452,7 @@ struct DocumentEditor: View {
             let current = session.archiveByteCount
             insertAccepted = false
             insertSource = url
+            insertSourceIsCopy = ownsCopy
             insertProposal = AttachmentInsertProposal(
                 filename: url.lastPathComponent,
                 fileByteCount: fileSize,
@@ -436,33 +460,46 @@ struct DocumentEditor: View {
             )
             if started { _ = url.startAccessingSecurityScopedResource() }
         } catch {
+            if ownsCopy { try? FileManager.default.removeItem(at: url) }
             exportError = error.localizedDescription
         }
     }
 
     private func cancelInsert() {
-        if let url = insertSource {
-            url.stopAccessingSecurityScopedResource()
-        }
-        insertSource = nil
+        releaseInsertSource()
         insertProposal = nil
         insertAccepted = false
+    }
+
+    private func releaseInsertSource() {
+        if let url = insertSource {
+            url.stopAccessingSecurityScopedResource()
+            if insertSourceIsCopy {
+                try? FileManager.default.removeItem(at: url)
+            }
+        }
+        insertSource = nil
+        insertSourceIsCopy = false
     }
 
     private func beginInsert() {
         insertAccepted = true
         let source = insertSource
+        let ownsCopy = insertSourceIsCopy
         insertProposal = nil
         insertSource = nil
+        insertSourceIsCopy = false
         guard let source else { return }
         guard let archive = session.url else {
             source.stopAccessingSecurityScopedResource()
+            if ownsCopy { try? FileManager.default.removeItem(at: source) }
             exportError = "先把导图存成文件。"
             return
         }
         let nodeID = session.keyboard.selectedNodeID ?? session.document.roots.first?.id
         guard let nodeID else {
             source.stopAccessingSecurityScopedResource()
+            if ownsCopy { try? FileManager.default.removeItem(at: source) }
             exportError = "没有可以放入附件的节点。"
             return
         }
@@ -479,6 +516,7 @@ struct DocumentEditor: View {
                 }
             }.value
             source.stopAccessingSecurityScopedResource()
+            if ownsCopy { try? FileManager.default.removeItem(at: source) }
             switch outcome {
             case .success(let saved):
                 session.document = saved.document
@@ -526,20 +564,26 @@ struct DocumentEditor: View {
         do {
             let data: Data
             switch kind {
-            case "png":
-                let result = MapExporter.png(document: session.document, settings: settings)
-                guard let png = result.png, !png.isEmpty else {
-                    exportError = result.notice ?? "没有导出图片。"
+            case "png", "pdf":
+                if ImageAttachments.contains(session.document) {
+                    exportPicture(kind, title: title, type: type)
                     return
                 }
-                data = png
-            case "pdf":
-                let result = MapExporter.pdf(document: session.document)
-                guard let pdf = result.pdf, !pdf.isEmpty else {
-                    exportError = result.notice ?? "没有导出 PDF。"
-                    return
+                if kind == "png" {
+                    let result = MapExporter.png(document: session.document, settings: settings)
+                    guard let png = result.png, !png.isEmpty else {
+                        exportError = result.notice ?? "没有导出图片。"
+                        return
+                    }
+                    data = png
+                } else {
+                    let result = MapExporter.pdf(document: session.document)
+                    guard let pdf = result.pdf, !pdf.isEmpty else {
+                        exportError = result.notice ?? "没有导出 PDF。"
+                        return
+                    }
+                    data = pdf
                 }
-                data = pdf
             case "floretta":
                 if session.documentHasAttachments {
                     try exportFlorettaCopy()
@@ -575,7 +619,49 @@ struct DocumentEditor: View {
         return title + "." + ext
     }
 
+    private func exportPicture(_ kind: String, title: String, type: UTType) {
+        let document = session.document
+        let archive = session.url
+        let entries = session.attachmentCatalog.attachments
+        let cacheDirectory = thumbnailCache?.directory
+        let options = kind == "png" ? MapExportOptions(settings: settings) : MapExportOptions()
+        let scale = Double(options.scale.rawValue)
+        Task {
+            let spill = ImageExportLoader.spillDirectory(cacheDirectory: cacheDirectory)
+            let bitmaps = await Task.detached(priority: .userInitiated) {
+                ImageExportLoader.bitmaps(
+                    document: document,
+                    archive: archive,
+                    entries: entries,
+                    spillDirectory: spill,
+                    scale: scale
+                )
+            }.value
+            var images: [String: CGImage] = [:]
+            for bitmap in bitmaps {
+                images[bitmap.hash] = bitmap.image
+            }
+            let result = kind == "png"
+                ? MapExporter.png(document: document, options: options, images: images)
+                : MapExporter.pdf(document: document, options: options, images: images)
+            let data = kind == "png" ? result.png : result.pdf
+            guard let data, !data.isEmpty else {
+                exportError = result.notice ?? (kind == "png" ? "没有导出图片。" : "没有导出 PDF。")
+                return
+            }
+            exportKind = kind
+            exportFile = ExportFile(data: data)
+            exportType = type
+            exportName = exportFilename(title: title, kind: kind)
+            showExport = true
+        }
+    }
+
     private func pasteFromClipboard() {
+        if let pasted = ImageClipboard.fileURL() {
+            stageAttachment(pasted.url, ownsCopy: pasted.ownsCopy)
+            return
+        }
         #if os(macOS)
         let text = NSPasteboard.general.string(forType: .string) ?? ""
         #else
@@ -588,7 +674,7 @@ struct DocumentEditor: View {
         switch item {
         case "剪切": return "剪下选中节点的文字"
         case "拷贝": return "复制选中节点的文字"
-        case "粘贴": return "把剪贴板里的文字粘成子节点"
+        case "粘贴": return "把剪贴板里的图片放进节点；没有图片时粘贴文字"
         case "全选": return "选中当前节点里的全部文字"
         case "拷贝样式": return "复制选中节点的填充颜色"
         default: return item
@@ -979,6 +1065,91 @@ private final class MacWindowTitleView: NSView {
     }
 }
 #endif
+
+/// Drag-drop image. The system hands us a file; we copy it before that file disappears.
+struct DroppedImage: Transferable, Sendable {
+    var url: URL
+    var ownsCopy: Bool
+
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(contentType: .image) { image in
+            SentTransferredFile(image.url)
+        } importing: { received in
+            let ext = ImageFileName.preferredExtension(
+                pathExtension: received.file.pathExtension,
+                typeExtension: try? received.file.resourceValues(forKeys: [.contentTypeKey]).contentType?.preferredFilenameExtension
+            )
+            let original = (received.file.lastPathComponent as NSString).deletingPathExtension
+            let stem = original.isEmpty || original == received.file.lastPathComponent ? "图片" : original
+            let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            let dest = folder.appendingPathComponent("\(stem).\(ext)")
+            try FileManager.default.copyItem(at: received.file, to: dest)
+            return DroppedImage(url: dest, ownsCopy: true)
+        }
+    }
+}
+
+enum ImageClipboard {
+    static func fileURL() -> (url: URL, ownsCopy: Bool)? {
+        #if os(macOS)
+        macFileURL()
+        #else
+        iosFileURL()
+        #endif
+    }
+
+    private static func write(_ data: Data, extension ext: String) -> URL? {
+        let name = ImageFileName.preferredExtension(pathExtension: ext, typeExtension: nil)
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            let dest = folder.appendingPathComponent("粘贴.\(name)")
+            try data.write(to: dest, options: .atomic)
+            return dest
+        } catch {
+            return nil
+        }
+    }
+
+    #if os(macOS)
+    private static func macFileURL() -> (url: URL, ownsCopy: Bool)? {
+        let board = NSPasteboard.general
+        if let urls = board.readObjects(forClasses: [NSURL.self], options: [
+            .urlReadingFileURLsOnly: true,
+        ]) as? [URL],
+           let url = urls.first(where: { ImageInsertRoute.accepts(filename: $0.lastPathComponent) }) {
+            return (url, false)
+        }
+        let types: [(NSPasteboard.PasteboardType, String)] = [
+            (.png, "png"),
+            (NSPasteboard.PasteboardType("public.jpeg"), "jpg"),
+            (.tiff, "tiff"),
+            (NSPasteboard.PasteboardType("com.compuserve.gif"), "gif"),
+            (NSPasteboard.PasteboardType("public.heic"), "heic"),
+        ]
+        for (type, ext) in types {
+            guard let data = board.data(forType: type), !data.isEmpty, let url = write(data, extension: ext) else { continue }
+            return (url, true)
+        }
+        return nil
+    }
+    #else
+    private static func iosFileURL() -> (url: URL, ownsCopy: Bool)? {
+        let board = UIPasteboard.general
+        if let url = board.url, ImageInsertRoute.accepts(filename: url.lastPathComponent) {
+            return (url, false)
+        }
+        let types = ["public.png", "public.jpeg", "public.tiff", "com.compuserve.gif", "public.heic"]
+        let extensions = ["png", "jpg", "tiff", "gif", "heic"]
+        for (type, ext) in zip(types, extensions) {
+            guard let data = board.data(forPasteboardType: type), !data.isEmpty, let url = write(data, extension: ext) else { continue }
+            return (url, true)
+        }
+        return nil
+    }
+    #endif
+}
 
 private extension View {
     @ViewBuilder

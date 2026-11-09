@@ -137,9 +137,10 @@ final class StreamingTests: XCTestCase {
         let archive = directory.appendingPathComponent("huge.floretta")
         let payload: UInt64 = 10 * 1024 * 1024 * 1024
         let range = try writeSparsePackage(archive, payload: payload)
-        let before = residentBytes()
+        let before = ProcessFootprint.bytes()
         let opened = try openTracking(archive, files: POSIXStreamingFiles())
-        let after = residentBytes()
+        let after = ProcessFootprint.bytes()
+        _ = assertOpenGrowth(before: before, after: after, packageBytes: Int64(payload))
         XCTAssertEqual(opened.package.document.title, "大包")
         XCTAssertEqual(opened.package.directory.attachments.count, 1)
         XCTAssertEqual(opened.package.directory.attachments[0].byteCount, payload)
@@ -151,9 +152,68 @@ final class StreamingTests: XCTestCase {
         XCTAssertLessThan(opened.bytesRead, 1_000_000)
         XCTAssertLessThanOrEqual(opened.maxRead, StreamingBudget.chunkBytes)
         XCTAssertGreaterThan(range.count, 1_000_000)
-        if before > 0, after > 0 {
-            XCTAssertLessThan(after - before, Int64(StreamingBudget.openRamDeltaBytes))
-        }
+    }
+
+    func testOpenRSSDeltaIsIndependentOfOneAndTenGigabytePayloads() throws {
+        let one = try measureOpenGrowth(payload: 1 * 1024 * 1024 * 1024)
+        let ten = try measureOpenGrowth(payload: 10 * 1024 * 1024 * 1024)
+        guard ProcessFootprint.isRequired else { return }
+        XCTAssertLessThan(
+            abs(one - ten),
+            16 * 1024 * 1024,
+            "1GiB growth \(one) and 10GiB growth \(ten) should not track the 9GiB payload gap"
+        )
+        print("OPEN_RSS_COMPARE growth1=\(one) growth10=\(ten) sampler=\(ProcessFootprint.samplerName)")
+    }
+
+    func testExportDecodeSpillsThenDeletesWithoutTheThumbnailCache() throws {
+        let directory = try makeDirectory()
+        let source = directory.appendingPathComponent("photo.png")
+        let payload = Data("floretta-export-spill-is-not-the-thumbnail-cache".utf8)
+        try payload.write(to: source)
+        let files = POSIXStreamingFiles()
+        let hashed = try hash(source, files: files)
+        var document = sampleDocument(title: "导出图")
+        document.roots[0].attachments = [try hashed.nodeAttachment()]
+        let archive = directory.appendingPathComponent("map.floretta")
+        let written = try FlorettaStreamingDocument.save(
+            document: document,
+            to: archive,
+            files: files,
+            appending: (source, hashed)
+        )
+        let entry = try XCTUnwrap(written.attachments.first)
+        let spill = directory.appendingPathComponent("spill", isDirectory: true)
+        try FileManager.default.createDirectory(at: spill, withIntermediateDirectories: true)
+        let thumb = try ThumbnailPipeline.decodeSpilled(
+            entry: entry,
+            archiveURL: archive,
+            spillDirectory: spill,
+            files: files,
+            longestEdge: { url in
+                XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+                XCTAssertEqual(try? Data(contentsOf: url), payload)
+                return 640
+            },
+            decoder: SpillFileDecoder()
+        )
+        XCTAssertEqual(thumb[0], UInt8(640 & 0xFF))
+        XCTAssertEqual(thumb[1], UInt8((640 >> 8) & 0xFF))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: spill.appendingPathComponent(entry.sha256 ?? "").path))
+        XCTAssertEqual(
+            try SpillFileDecoder().downsample(spill: source, longestEdge: 640).prefix(2),
+            thumb.prefix(2)
+        )
+        let plan = ImageDecodePlanKind.export(
+            hash: entry.sha256 ?? "",
+            source: ImagePixelSize(width: 4000, height: 2000),
+            slot: ImageSlot.slot(nodeWidth: 176),
+            scale: 2
+        )
+        XCTAssertFalse(plan.storesInThumbnailCache)
+        XCTAssertGreaterThan(plan.longestEdge, StreamingBudget.thumbnailLongestEdge)
+        XCTAssertTrue(ImageDecodePlanKind.thumbnail(hash: "abc").storesInThumbnailCache)
+        XCTAssertEqual(ImageDecodePlanKind.thumbnail(hash: "abc").longestEdge, StreamingBudget.thumbnailLongestEdge)
     }
 
     func testZIP64LocalHeaderDoesNotEmbedThePayload() {
@@ -379,14 +439,55 @@ final class StreamingTests: XCTestCase {
     }
 
     private func residentBytes() -> Int64 {
-        guard let text = try? String(contentsOfFile: "/proc/self/status", encoding: .utf8) else { return 0 }
-        for line in text.split(separator: "\n") where line.hasPrefix("VmRSS:") {
-            let parts = line.split(whereSeparator: { $0 == " " || $0 == "\t" })
-            if parts.count >= 2, let kibibytes = Int64(parts[1]) {
-                return kibibytes * 1024
-            }
+        ProcessFootprint.bytes() ?? 0
+    }
+
+    private func measureOpenGrowth(payload: UInt64) throws -> Int64 {
+        let directory = try makeDirectory()
+        let archive = directory.appendingPathComponent("huge.floretta")
+        _ = try writeSparsePackage(archive, payload: payload)
+        let before = ProcessFootprint.bytes()
+        let opened = try openTracking(archive, files: POSIXStreamingFiles())
+        let after = ProcessFootprint.bytes()
+        XCTAssertEqual(opened.package.directory.attachments.first?.byteCount, payload)
+        XCTAssertFalse(opened.touchedPayload)
+        return assertOpenGrowth(before: before, after: after, packageBytes: Int64(payload))
+    }
+
+    @discardableResult
+    private func assertOpenGrowth(
+        before: Int64?,
+        after: Int64?,
+        packageBytes: Int64,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) -> Int64 {
+        guard ProcessFootprint.isRequired else { return 0 }
+        guard let before, let after, before > 0, after > 0 else {
+            XCTFail(
+                "open RSS sampler \(ProcessFootprint.samplerName) returned no bytes",
+                file: file,
+                line: line
+            )
+            return 0
         }
-        return 0
+        let growth = max(Int64(0), after - before)
+        XCTAssertLessThan(
+            growth,
+            Int64(StreamingBudget.openRamDeltaBytes),
+            "open RSS delta \(growth) package \(packageBytes) sampler \(ProcessFootprint.samplerName)",
+            file: file,
+            line: line
+        )
+        XCTAssertLessThan(
+            growth * 20,
+            packageBytes,
+            "open RSS delta \(growth) is not far below package \(packageBytes)",
+            file: file,
+            line: line
+        )
+        print("OPEN_RSS_DELTA growth=\(growth) package=\(packageBytes) sampler=\(ProcessFootprint.samplerName) before=\(before) after=\(after)")
+        return growth
     }
 
     private func writeSparse(_ url: URL, size: Int64, head: Data, tail: Data) throws {
@@ -604,6 +705,60 @@ private final class POSIXWriter: SequentialByteWriter {
             fd = -1
         }
     }
+}
+
+/// Darwin measures `task_info` / `phys_footprint` and must not skip.
+/// Linux reads `/proc/self/status` VmRSS, and skips only when that file is absent.
+private enum ProcessFootprint {
+    static var samplerName: String {
+        #if canImport(Darwin)
+        "phys_footprint"
+        #else
+        "VmRSS"
+        #endif
+    }
+
+    static var isRequired: Bool {
+        #if canImport(Darwin)
+        true
+        #else
+        FileManager.default.isReadableFile(atPath: "/proc/self/status")
+        #endif
+    }
+
+    static func bytes() -> Int64? {
+        #if canImport(Darwin)
+        darwinPhysicalFootprint()
+        #else
+        linuxVmRSS()
+        #endif
+    }
+
+    #if canImport(Darwin)
+    private static func darwinPhysicalFootprint() -> Int64? {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<integer_t>.size)
+        let result = withUnsafeMutablePointer(to: &info) { pointer -> kern_return_t in
+            pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { rebound in
+                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), rebound, &count)
+            }
+        }
+        guard result == KERN_SUCCESS else { return nil }
+        let footprint = Int64(info.phys_footprint)
+        return footprint > 0 ? footprint : nil
+    }
+    #else
+    private static func linuxVmRSS() -> Int64? {
+        guard let text = try? String(contentsOfFile: "/proc/self/status", encoding: .utf8) else { return nil }
+        for line in text.split(separator: "\n") where line.hasPrefix("VmRSS:") {
+            let parts = line.split(whereSeparator: { $0 == " " || $0 == "\t" })
+            if parts.count >= 2, let kibibytes = Int64(parts[1]), kibibytes > 0 {
+                return kibibytes * 1024
+            }
+        }
+        return nil
+    }
+    #endif
 }
 
 private enum DarwinOrGlibc {

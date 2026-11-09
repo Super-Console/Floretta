@@ -88,6 +88,10 @@
 
 LRU：`ThumbnailDiskBudget.victims` 按 `lastUsed` 从旧到新丢弃，直到 `≤ thumbnailCacheBytes`（200MB）。新的一张若本身大于上限，拒绝写入缓存，不把缓存撑破。
 
+画布上的图按原图宽高比放进节点顶部的槽里，整张可见，不裁切。解码走 `ImageDecodeLane.detached`，不在主线程做 ImageIO。
+
+导出 PDF/PNG 仍先 spill，再按「槽的点数 × 导出倍率」向 ImageIO 要最长边（不超过原图像素，封顶 4096）。这张图不写入缩略图 LRU，避免把 256 的缓存换成页面大图。原附件字节不动。
+
 ## iCloud
 
 排除的是应用支持目录里的 `Attachments`（含 `thumbnails` 和 `spill`），不是用户自己的 `.floretta`。

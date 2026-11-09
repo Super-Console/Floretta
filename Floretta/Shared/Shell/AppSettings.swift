@@ -1,3 +1,4 @@
+import CoreGraphics
 import FlorettaCore
 import Foundation
 import SwiftUI
@@ -196,8 +197,12 @@ extension MapExportOptions {
 
 extension MapExporter {
     @MainActor
-    static func png(document: MindMapDocument, settings: AppSettings) -> MapExportResult {
-        png(document: document, options: MapExportOptions(settings: settings))
+    static func png(
+        document: MindMapDocument,
+        settings: AppSettings,
+        images: [String: CGImage] = [:]
+    ) -> MapExportResult {
+        png(document: document, options: MapExportOptions(settings: settings), images: images)
     }
 }
 

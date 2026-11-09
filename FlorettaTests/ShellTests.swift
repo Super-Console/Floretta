@@ -325,7 +325,7 @@ final class ShellTests: XCTestCase {
 
     func testMenusAndTemplatesOmitDeadActions() {
         XCTAssertEqual(CanvasMenus.immersive, "全屏沉浸")
-        XCTAssertEqual(CanvasMenus.insert, ["子节点", "同级", "附件", "从文件导入"])
+        XCTAssertEqual(CanvasMenus.insert, ["子节点", "同级", "图片", "附件", "从文件导入"])
         XCTAssertEqual(
             CanvasMenus.zoom,
             ["50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%", "适应窗口"]

@@ -1,6 +1,8 @@
 import FlorettaCore
 import AppKit
+import ImageIO
 import PDFKit
+import UniformTypeIdentifiers
 import XCTest
 
 @MainActor
@@ -104,6 +106,89 @@ final class MapExportTests: XCTestCase {
         XCTAssertGreaterThan(result.png?.count ?? 0, 0)
     }
 
+    func testPNGAndPDFIncludeTheImageAspectFit() throws {
+        let hash = String(repeating: "d", count: 64)
+        let document = MindMapDocument(
+            title: "img",
+            roots: [MindMapNode(
+                text: "图",
+                attachments: [NodeAttachment(sha256: hash, fileExtension: "png", byteCount: 8, filename: "wide.png")]
+            )]
+        )
+        let source = try solid(width: 80, height: 40, red: 0, green: 1, blue: 1)
+        let images = [hash: source]
+        let png = MapExporter.png(
+            document: document,
+            options: MapExportOptions(scale: .two, background: .white),
+            images: images
+        )
+        let pngBox = try cyanBounds(try bitmap(try XCTUnwrap(png.png)))
+        assertWideCyan(pngBox, document: document, scale: 2)
+
+        let pdf = MapExporter.pdf(
+            document: document,
+            options: MapExportOptions(scale: .two, background: .white),
+            images: images
+        )
+        let page = try XCTUnwrap(PDFDocument(data: try XCTUnwrap(pdf.pdf))?.page(at: 0))
+        let media = page.bounds(for: .mediaBox)
+        let thumb = page.thumbnail(of: CGSize(width: media.width * 2, height: media.height * 2), for: .mediaBox)
+        let pdfBox = try cyanBounds(try bitmap(thumb))
+        assertWideCyan(pdfBox, document: document, scale: 2)
+    }
+
+    func testExportLoaderUsesPageResolutionNotTheThumbnailEdge() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("FlorettaExportImage-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let sourceURL = directory.appendingPathComponent("wide.png")
+        let source = try solid(width: 400, height: 200, red: 0, green: 1, blue: 1)
+        try writePNG(source, to: sourceURL)
+        let files = FoundationStreamingFiles()
+        let reader = try files.openReader(at: sourceURL)
+        let hashed = try FlorettaStreamingDocument.hashSource(reader, filename: "wide.png")
+        try reader.close()
+        let document = MindMapDocument(
+            title: "e",
+            roots: [MindMapNode(text: "图", attachments: [try hashed.nodeAttachment()])]
+        )
+        let archive = directory.appendingPathComponent("map.floretta")
+        let saved = try FlorettaStreamingDocument.save(
+            document: document,
+            to: archive,
+            files: files,
+            appending: (sourceURL, hashed)
+        )
+        let spill = directory.appendingPathComponent("spill", isDirectory: true)
+        let loaded = ImageExportLoader.images(
+            document: document,
+            archive: archive,
+            entries: saved.attachments,
+            spillDirectory: spill,
+            scale: 2
+        )
+        let image = try XCTUnwrap(loaded[hashed.sha256])
+        let frame = try XCTUnwrap(LayoutEngine().layout(document).first)
+        let slot = ImageSlot.slot(nodeWidth: Double(frame.size.width))
+        let edge = ImageExportResolution.longestEdge(
+            source: ImagePixelSize(width: 400, height: 200),
+            slot: slot,
+            scale: 2
+        )
+        XCTAssertGreaterThan(edge, StreamingBudget.thumbnailLongestEdge)
+        XCTAssertGreaterThanOrEqual(max(image.width, image.height), edge - 2)
+        XCTAssertLessThanOrEqual(max(image.width, image.height), 400)
+        XCTAssertEqual(Double(image.width) / Double(image.height), 2, accuracy: 0.08)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: spill.appendingPathComponent(hashed.sha256).path))
+        let plan = ImageDecodePlanKind.export(
+            hash: hashed.sha256,
+            source: ImagePixelSize(width: 400, height: 200),
+            slot: slot,
+            scale: 2
+        )
+        XCTAssertFalse(plan.storesInThumbnailCache)
+    }
+
     private func sampleMap() -> MindMapDocument {
         MindMapDocument(
             title: "export",
@@ -120,6 +205,67 @@ final class MapExportTests: XCTestCase {
         var proposed = CGRect(origin: .zero, size: image.size)
         let cg = try XCTUnwrap(image.cgImage(forProposedRect: &proposed, context: nil, hints: nil))
         return try XCTUnwrap(NSBitmapImageRep(cgImage: cg))
+    }
+
+    private func solid(width: Int, height: Int, red: CGFloat, green: CGFloat, blue: CGFloat) throws -> CGImage {
+        let context = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )
+        let image = try XCTUnwrap(context)
+        image.setFillColor(red: red, green: green, blue: blue, alpha: 1)
+        image.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        return try XCTUnwrap(image.makeImage())
+    }
+
+    private func writePNG(_ image: CGImage, to url: URL) throws {
+        guard let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
+            XCTFail("png destination")
+            return
+        }
+        CGImageDestinationAddImage(destination, image, nil)
+        XCTAssertTrue(CGImageDestinationFinalize(destination))
+    }
+
+    private func bitmap(_ image: NSImage) throws -> NSBitmapImageRep {
+        var proposed = CGRect(origin: .zero, size: image.size)
+        let cg = try XCTUnwrap(image.cgImage(forProposedRect: &proposed, context: nil, hints: nil))
+        return try XCTUnwrap(NSBitmapImageRep(cgImage: cg))
+    }
+
+    private func cyanBounds(_ rep: NSBitmapImageRep) throws -> CGRect {
+        var minX = rep.pixelsWide
+        var minY = rep.pixelsHigh
+        var maxX = 0
+        var maxY = 0
+        var found = false
+        for y in 0..<rep.pixelsHigh {
+            for x in 0..<rep.pixelsWide {
+                guard let color = rep.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { continue }
+                guard color.redComponent < 0.25, color.greenComponent > 0.75, color.blueComponent > 0.75 else { continue }
+                found = true
+                minX = min(minX, x)
+                minY = min(minY, y)
+                maxX = max(maxX, x)
+                maxY = max(maxY, y)
+            }
+        }
+        XCTAssertTrue(found, "exported image should contain the cyan picture")
+        return CGRect(x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1)
+    }
+
+    private func assertWideCyan(_ box: CGRect, document: MindMapDocument, scale: CGFloat) {
+        XCTAssertGreaterThan(box.width, box.height)
+        XCTAssertEqual(box.width / box.height, 2, accuracy: 0.35)
+        let frame = MapExporter.visibleFrames(in: document)[0]
+        let slot = ImageSlot.slot(nodeWidth: Double(frame.size.width))
+        let fitted = ImageAspectFit.fit(pixels: ImagePixelSize(width: 80, height: 40), in: slot)
+        XCTAssertGreaterThanOrEqual(box.width, fitted.width * Double(scale) - 8)
     }
 
     private func hasPixel(in rep: NSBitmapImageRep, where match: (NSColor) -> Bool) -> Bool {

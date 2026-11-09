@@ -60,7 +60,7 @@ struct MacQuickLookBridge: NSViewRepresentable {
 }
 
 @MainActor
-final class MacQuickLookCoordinator: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDelegate, PreviewMissingTarget {
+final class MacQuickLookCoordinator: NSObject, @preconcurrency QLPreviewPanelDataSource, @preconcurrency QLPreviewPanelDelegate, PreviewMissingTarget {
     var onMissing: () -> Void = {}
     var onClose: () -> Void = {}
     var onUnavailable: () -> Void = {}
@@ -266,7 +266,7 @@ struct IOSQuickLook: UIViewControllerRepresentable {
 }
 
 @MainActor
-final class IOSQuickLookCoordinator: NSObject, QLPreviewControllerDataSource, PreviewMissingTarget {
+final class IOSQuickLookCoordinator: NSObject, @preconcurrency QLPreviewControllerDataSource, PreviewMissingTarget {
     var item: PreviewFileItem
     var onMissing: () -> Void
     var onClose: () -> Void

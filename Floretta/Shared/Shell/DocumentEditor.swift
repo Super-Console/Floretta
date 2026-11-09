@@ -27,7 +27,6 @@ struct DocumentEditor: View {
     @State private var showFind = false
     @State private var findQuery = ""
     @State private var inspectorTab = 0
-    @State private var showEditorSettings = false
     @State private var showAbout = false
     @State private var camera = CanvasCamera()
 
@@ -70,6 +69,8 @@ struct DocumentEditor: View {
                             .explained("撤销上一步编辑")
                         Button("重做") { session.redo() }
                             .explained("恢复刚刚撤销的编辑")
+                        Button("删除") { session.deleteSelection() }
+                            .explained("删除选中的节点")
                     }
                     ToolbarItemGroup(placement: .primaryAction) {
                         insertMenu
@@ -126,9 +127,6 @@ struct DocumentEditor: View {
                     if !title.isEmpty { session.document.title = title }
                 }
                 Button("取消", role: .cancel) {}
-            }
-            .sheet(isPresented: $showEditorSettings) {
-                SettingsView(settings: settings)
             }
             .sheet(isPresented: $showAbout) {
                 AboutSheet()
@@ -287,14 +285,12 @@ struct DocumentEditor: View {
             .explained("按文字查找节点")
             Button("粘贴") { pasteFromClipboard() }
                 .explained("把剪贴板里的文字粘成子节点")
-            Button("更多设置") { showEditorSettings = true }
-                .explained("打开语言、外观和导出设置")
             Button("关于") { showAbout = true }
                 .explained("查看版本号和开源致谢")
         } label: {
             Text("更多")
         }
-        .explained("大纲、样式、设置和关于")
+        .explained("大纲、样式和关于")
     }
 
     private var inspectorPresented: Binding<Bool> {

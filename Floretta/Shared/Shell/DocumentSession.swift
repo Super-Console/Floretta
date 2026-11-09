@@ -42,6 +42,8 @@ enum DocumentOpener {
 
 struct ZenChrome: Equatable, Sendable {
     var showsToolbar: Bool
+    /// The shell owns the tab bar. The document editor keeps it hidden, Zen or not,
+    /// so the editor toolbar and the home tab bar are never on screen together.
     var showsTabBar: Bool
     var showsStatusBar: Bool
     var showsSidebar: Bool
@@ -49,7 +51,7 @@ struct ZenChrome: Equatable, Sendable {
 
     static let editing = ZenChrome(
         showsToolbar: true,
-        showsTabBar: true,
+        showsTabBar: false,
         showsStatusBar: true,
         showsSidebar: true,
         showsInspector: true
@@ -160,27 +162,45 @@ final class EditorSession {
     }
 
     func undo() {
+        finishEditingIfNeeded()
+        guard keyboard.mode == .command, !keyboard.isComposing else { return }
         let event = KeyEvent(key: .character("z"), modifiers: .command, mode: .command, isComposing: false)
-        guard keyboard.mode == .command else { return }
         _ = keyboard.handle(event, document: &document, frames: [])
     }
 
     func redo() {
+        finishEditingIfNeeded()
+        guard keyboard.mode == .command, !keyboard.isComposing else { return }
         let event = KeyEvent(key: .character("Z"), modifiers: [.command, .shift], mode: .command, isComposing: false)
-        guard keyboard.mode == .command else { return }
         _ = keyboard.handle(event, document: &document, frames: [])
     }
 
     func addChildFromToolbar() {
-        keyboard.mode = .command
+        finishEditingIfNeeded()
+        guard keyboard.mode == .command, !keyboard.isComposing else { return }
         let event = KeyEvent(key: .tab, modifiers: [], mode: .command, isComposing: false)
         _ = keyboard.handle(event, document: &document, frames: [])
     }
 
     func addSiblingFromToolbar() {
-        keyboard.mode = .command
+        finishEditingIfNeeded()
+        guard keyboard.mode == .command, !keyboard.isComposing else { return }
         let event = KeyEvent(key: .enter, modifiers: [], mode: .command, isComposing: false)
         _ = keyboard.handle(event, document: &document, frames: [])
+    }
+
+    func deleteSelection() {
+        finishEditingIfNeeded()
+        guard keyboard.mode == .command, !keyboard.isComposing else { return }
+        let event = KeyEvent(key: .backspace, modifiers: [], mode: .command, isComposing: false)
+        _ = keyboard.handle(event, document: &document, frames: [])
+    }
+
+    /// Toolbar actions arrive while a new node is still in the text view.
+    /// Commit that edit first so create / delete / undo see command mode.
+    private func finishEditingIfNeeded() {
+        guard !keyboard.isComposing, keyboard.mode == .edit else { return }
+        keyboard.apply(.commitEdit, document: &document, frames: [])
     }
 
     func pasteClipboard(_ text: String) {
@@ -447,7 +467,7 @@ enum CanvasMenus {
     static let insert = ["子节点", "同级", "从文件导入"]
     static let share = ["PDF", "PNG", "Markdown", "保存为 Floretta", ".mm", "OPML", "打印"]
     static let zoom = ["50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%", "适应窗口"]
-    static let more = ["大纲", "样式", "查看模式", "新建画布", "查找", "粘贴", "更多设置", "关于"]
+    static let more = ["大纲", "样式", "查看模式", "新建画布", "查找", "粘贴", "关于"]
     static let moreDisabled: [String] = []
     static let file = ["重新命名"]
     static let fileDisabled: [String] = []

@@ -8,6 +8,9 @@ struct RecentPage: View {
     @Binding var columnVisibility: NavigationSplitViewVisibility
     @Binding var searchText: String
     var showSettings: () -> Void
+    var openFiles: () -> Void
+    var openICloud: () -> Void
+    var browseLocal: () -> Void
 
     var body: some View {
         recentBody
@@ -18,12 +21,10 @@ struct RecentPage: View {
             .searchable(text: $searchText, prompt: "搜索")
             .toolbar {
                 ToolbarItemGroup(placement: .navigation) {
-                    if sidebarOpen {
-                        Button(action: showSettings) {
-                            Image(systemName: "gearshape")
-                        }
-                        .accessibilityLabel("设置")
+                    Button(action: showSettings) {
+                        Image(systemName: ShellTab.settings.systemImage)
                     }
+                    .accessibilityLabel(ShellTab.settings.title)
                     Button {
                         columnVisibility = sidebarOpen ? .detailOnly : .all
                     } label: {
@@ -46,11 +47,23 @@ struct RecentPage: View {
                     }
                     .accessibilityLabel("模板库")
                     Menu {
-                        Button("设置", action: showSettings)
+                        Button("从文件应用打开", action: openFiles)
+                        Button("从 iCloud 云盘打开", action: openICloud)
+                        Button(LocalDeviceLabel.current.title, action: browseLocal)
                     } label: {
-                        Image(systemName: "ellipsis")
+                        Image(systemName: "folder")
                     }
-                    .accessibilityLabel("更多")
+                    .accessibilityLabel("打开")
+                    if !ShellTab.homeOverflowTitles.isEmpty {
+                        Menu {
+                            ForEach(ShellTab.homeOverflowTitles, id: \.self) { title in
+                                Button(title, action: showSettings)
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis")
+                        }
+                        .accessibilityLabel("更多")
+                    }
                 }
             }
     }

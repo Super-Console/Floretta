@@ -102,16 +102,34 @@ struct InfiniteCanvas: View {
                 guard !keyboard.isComposing else { return }
                 let hit = CanvasPlacement.nodeID(at: point, in: layoutSource())
                 if zenActive, hit == nil { return }
+                let committedSameNode = keyboard.mode == .edit && hit == keyboard.selectedNodeID
                 if keyboard.mode == .edit {
                     keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
                 }
+                let begin = NodeEditTap.beginsEdit(
+                    hit: hit,
+                    selected: keyboard.selectedNodeID,
+                    mode: keyboard.mode,
+                    committedSameNode: committedSameNode
+                )
                 keyboard.selectedNodeID = hit
                 interaction.selectedNodeID = hit
+                if begin {
+                    keyboard.apply(.beginEdit, document: &document, frames: placedFrames())
+                }
             })
             .simultaneousGesture(SpatialTapGesture(count: 2).onEnded { value in
                 let point = camera.viewport.canvasPoint(fromView: value.location)
                 guard !keyboard.isComposing else { return }
-                guard CanvasPlacement.nodeID(at: point, in: layoutSource()) == nil else { return }
+                if let hit = CanvasPlacement.nodeID(at: point, in: layoutSource()) {
+                    if keyboard.mode == .edit {
+                        keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+                    }
+                    keyboard.selectedNodeID = hit
+                    interaction.selectedNodeID = hit
+                    keyboard.apply(.beginEdit, document: &document, frames: placedFrames())
+                    return
+                }
                 if onConsumeBlankDoubleTap() { return }
                 if focusNodeID != nil { return }
                 if keyboard.mode == .edit {
@@ -376,6 +394,21 @@ struct InfiniteCanvas: View {
         )
     }
 
+}
+
+/// Touch editing. The first tap selects. A later tap on that same node, or a
+/// double-tap, opens the system text view so Chinese input works without a keyboard shortcut.
+enum NodeEditTap {
+    static func beginsEdit(
+        hit: UUID?,
+        selected: UUID?,
+        mode: KeyboardMode,
+        committedSameNode: Bool
+    ) -> Bool {
+        if committedSameNode { return false }
+        guard mode == .command, let hit, hit == selected else { return false }
+        return true
+    }
 }
 
 private struct RootDrag {

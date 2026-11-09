@@ -60,6 +60,36 @@ enum PNGBackgroundPreference: String, CaseIterable, Equatable, Sendable {
 enum ShellTab: Hashable, Equatable, Sendable {
     case home
     case settings
+
+    var title: String {
+        switch self {
+        case .home: "首页"
+        case .settings: "设置"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .home: "house"
+        case .settings: "gearshape"
+        }
+    }
+
+    /// iPhone, iPad, and Mac share these two destinations. iOS draws them in the
+    /// system tab bar. Mac lists them in the sidebar.
+    static let destinations: [ShellTab] = [.home, .settings]
+
+    /// The home toolbar keeps a single settings control, the gear button.
+    /// This list stays empty so 设置 is not also offered from an overflow menu.
+    static let homeOverflowTitles: [String] = []
+
+    static var preferredColumnVisibility: NavigationSplitViewVisibility {
+        #if os(macOS)
+        .all
+        #else
+        .detailOnly
+        #endif
+    }
 }
 
 /// File types the library importer is allowed to offer. Nothing else.

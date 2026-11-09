@@ -318,7 +318,9 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
             }
         }
         if !uiView.isFirstResponder {
-            uiView.becomeFirstResponder()
+            DispatchQueue.main.async { [weak uiView] in
+                uiView?.becomeFirstResponder()
+            }
         }
     }
 

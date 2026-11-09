@@ -76,3 +76,49 @@
 - **前置（已核实）**：Team `JY5U4D6JD3`、ASC API Key `GT622JVW4H`、Apple Distribution 证书均在位。
 - **不做**：不提审、不做外部测试、不发公开链接。
 - **状态**：已定。
+## D-11 原生容器改为 ZIP（document.json + metadata.json + assets/）
+
+- **决策**：`.floretta` 从纯 JSON 改为 ZIP 容器：`document.json`（内容树 + formatVersion + relations）、
+  `metadata.json`（时间/应用版本/默认视图）、`assets/`（按内容哈希命名）。P1-1 之后、P2 之前一个批次完成。
+- **理由**：附件与图片迟早要做；纯 JSON 只能 base64（体积 +33%、diff 失效），之后必然推倒重来。
+  ZIP 仍是单文件，符合"用户自己管文件"，且适配 FileWrapper 原子写。
+- **代价**：ZIP 是二进制，Git 无法 diff。**补偿**：提供"导出为解压文件夹"与 Markdown 导出；
+  不把容器做成目录 package（微信/邮件传输会碎）。
+- **实现约束**：抽象 `DocumentContainer` 协议；JSON 保留为只读 legacy，ZIP 为默认写入。
+- **状态**：已定（2026-11-09，Timmy 批准）。
+
+## D-12 文档层统一 DocumentGroup + ReferenceFileDocument
+
+- **决策**：三端统一 `DocumentGroup` + `ReferenceFileDocument`，不用 `NSDocument`。
+- **理由**：共用一套文档生命周期，窗口/标签、自动保存、版本浏览器由系统接管；Reference 语义避免每次保存复制全量。
+- **约束**：iOS 需 `LSSupportsOpeningDocumentsInPlace`，支持"文件"App 直接打开。
+- **状态**：已定。
+
+## D-13 关系线进 MVP
+
+- **决策**：非树状关系线（from/to/label，按稳定 id 引用）进 MVP 数据模型。
+- **理由**：只加数据字段、不加交互复杂度；后加要动模型与导入导出映射。
+- **约束**：树仍是唯一真源；删节点级联删 relation。
+- **状态**：已定。
+
+## D-14 大纲视图提前到画布之后
+
+- **决策**：P1-a 画布 → P1-b 布局 → P1-c 键盘 → **P1-d 大纲** → P2 格式。
+- **理由**：同一棵树的第二个渲染器，成本低；iPhone 上几乎是唯一可用编辑形态。
+- **状态**：已定。
+
+## D-15 `.xmind` 只做导入
+
+- **决策**：`.xmind` 仅导入（zip + content.json），不承诺导出与样式还原。
+- **状态**：已定。
+
+## D-16 两个前置实验（不写完整功能）
+
+- **实验 A：中文 IME**。连续输入 200 字：组字时节点宽度、候选框位置、是否提前折行、Esc/方向键是否打断组字。
+- **实验 B：iCloud 冲突**。两台设备改同一文件，必须"提示冲突"而非"静默覆盖"，确认 `NSFileVersion` 能枚举冲突版本。
+- **状态**：已定（与 P1 并行，结论写 docs/measure.md 与 docs/STATUS.md）。
+
+## D-17 图标与上架名
+
+- **决策**：图标只按 `docs/design/app-icon-reference.png` 制作，不重绘；App Store 展示名不能只用 `Floretta`（已有同名 Games 应用），需副标题/后缀。
+- **状态**：已定（P3 执行）。

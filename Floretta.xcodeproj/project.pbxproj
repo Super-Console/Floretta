@@ -94,6 +94,11 @@
 		C80000000000000000000001 /* SwiftFlow in Frameworks */ = {isa = PBXBuildFile; productRef = D80000000000000000000001 /* SwiftFlow */; };
 		C80000000000000000000002 /* SwiftFlow in Frameworks */ = {isa = PBXBuildFile; productRef = D80000000000000000000002 /* SwiftFlow */; };
 		C80000000000000000000003 /* SwiftFlow in Frameworks */ = {isa = PBXBuildFile; productRef = D80000000000000000000003 /* SwiftFlow */; };
+		C81000000000000000000001 /* FlorettaCore in Frameworks */ = {isa = PBXBuildFile; productRef = D81000000000000000000001 /* FlorettaCore */; };
+		C81000000000000000000002 /* FlorettaCore in Frameworks */ = {isa = PBXBuildFile; productRef = D81000000000000000000002 /* FlorettaCore */; };
+		C81000000000000000000003 /* FlorettaCore in Frameworks */ = {isa = PBXBuildFile; productRef = D81000000000000000000003 /* FlorettaCore */; };
+		C81000000000000000000004 /* FlorettaUI in Frameworks */ = {isa = PBXBuildFile; productRef = D81000000000000000000004 /* FlorettaUI */; };
+		C81000000000000000000005 /* FlorettaUI in Frameworks */ = {isa = PBXBuildFile; productRef = D81000000000000000000005 /* FlorettaUI */; };
 		C90000000000000000000001 /* OutlineNavigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90000000000000000000001 /* OutlineNavigator.swift */; };
 		C90000000000000000000002 /* OutlineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90000000000000000000002 /* OutlineView.swift */; };
 		C90000000000000000000003 /* OutlineNavigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90000000000000000000001 /* OutlineNavigator.swift */; };
@@ -191,6 +196,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				C80000000000000000000001 /* SwiftFlow in Frameworks */,
+				C81000000000000000000001 /* FlorettaCore in Frameworks */,
+				C81000000000000000000004 /* FlorettaUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -199,6 +206,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				C80000000000000000000002 /* SwiftFlow in Frameworks */,
+				C81000000000000000000002 /* FlorettaCore in Frameworks */,
+				C81000000000000000000005 /* FlorettaUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -207,6 +216,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C80000000000000000000003 /* SwiftFlow in Frameworks */,
+				C81000000000000000000003 /* FlorettaCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -395,6 +405,8 @@
 			name = "Floretta-macOS";
 			packageProductDependencies = (
 				D80000000000000000000001 /* SwiftFlow */,
+				D81000000000000000000001 /* FlorettaCore */,
+				D81000000000000000000004 /* FlorettaUI */,
 			);
 			productName = "Floretta-macOS";
 			productReference = F10000000000000000000007 /* Floretta-macOS.app */;
@@ -415,6 +427,8 @@
 			name = "Floretta-iOS";
 			packageProductDependencies = (
 				D80000000000000000000002 /* SwiftFlow */,
+				D81000000000000000000002 /* FlorettaCore */,
+				D81000000000000000000005 /* FlorettaUI */,
 			);
 			productName = "Floretta-iOS";
 			productReference = F10000000000000000000008 /* Floretta-iOS.app */;
@@ -434,6 +448,7 @@
 			name = FlorettaTests;
 			packageProductDependencies = (
 				D80000000000000000000003 /* SwiftFlow */,
+				D81000000000000000000003 /* FlorettaCore */,
 			);
 			productName = FlorettaTests;
 			productReference = F1000000000000000000000D /* FlorettaTests.xctest */;
@@ -474,6 +489,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				A80000000000000000000001 /* XCRemoteSwiftPackageReference "SwiftFlow" */,
+				A81000000000000000000001 /* XCLocalSwiftPackageReference "." */,
 			);
 			productRefGroup = A10000000000000000000002 /* Products */;
 			projectDirPath = "";
@@ -992,6 +1008,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		A81000000000000000000001 /* XCLocalSwiftPackageReference "." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ".";
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		A80000000000000000000001 /* XCRemoteSwiftPackageReference "SwiftFlow" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -1018,6 +1041,31 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A80000000000000000000001 /* XCRemoteSwiftPackageReference "SwiftFlow" */;
 			productName = SwiftFlow;
+		};
+		D81000000000000000000001 /* FlorettaCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A81000000000000000000001 /* XCLocalSwiftPackageReference "." */;
+			productName = FlorettaCore;
+		};
+		D81000000000000000000002 /* FlorettaCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A81000000000000000000001 /* XCLocalSwiftPackageReference "." */;
+			productName = FlorettaCore;
+		};
+		D81000000000000000000003 /* FlorettaCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A81000000000000000000001 /* XCLocalSwiftPackageReference "." */;
+			productName = FlorettaCore;
+		};
+		D81000000000000000000004 /* FlorettaUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A81000000000000000000001 /* XCLocalSwiftPackageReference "." */;
+			productName = FlorettaUI;
+		};
+		D81000000000000000000005 /* FlorettaUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A81000000000000000000001 /* XCLocalSwiftPackageReference "." */;
+			productName = FlorettaUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

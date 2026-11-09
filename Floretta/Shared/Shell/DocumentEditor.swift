@@ -65,12 +65,21 @@ struct DocumentEditor: View {
                         }
                     }
                     ToolbarItemGroup(placement: .principal) {
-                        Button("撤销") { session.undo() }
-                            .explained("撤销上一步编辑")
-                        Button("重做") { session.redo() }
-                            .explained("恢复刚刚撤销的编辑")
-                        Button("删除") { session.deleteSelection() }
-                            .explained("删除选中的节点")
+                        Button { session.undo() } label: {
+                            Image(systemName: "arrow.uturn.backward")
+                        }
+                        .accessibilityLabel("撤销")
+                        .help("撤销上一步编辑")
+                        Button { session.redo() } label: {
+                            Image(systemName: "arrow.uturn.forward")
+                        }
+                        .accessibilityLabel("重做")
+                        .help("恢复刚刚撤销的编辑")
+                        Button { session.deleteSelection() } label: {
+                            Image(systemName: "trash")
+                        }
+                        .accessibilityLabel("删除")
+                        .help("删除选中的节点")
                     }
                     ToolbarItemGroup(placement: .primaryAction) {
                         insertMenu
@@ -211,16 +220,23 @@ struct DocumentEditor: View {
 
     private var insertMenu: some View {
         Menu {
-            Button("子节点") { session.addChildFromToolbar() }
-                .explained("在选中的节点下新建一个子节点")
-            Button("同级") { session.addSiblingFromToolbar() }
-                .explained("在选中的节点旁新建一个同级节点")
-            Button("从文件导入") { onImport() }
-                .explained("从文件打开另一份导图")
+            Button { session.addChildFromToolbar() } label: {
+                Label("子节点", systemImage: "plus.square")
+            }
+            .help("在选中的节点下新建一个子节点")
+            Button { session.addSiblingFromToolbar() } label: {
+                Label("同级", systemImage: "square.on.square")
+            }
+            .help("在选中的节点旁新建一个同级节点")
+            Button { onImport() } label: {
+                Label("从文件导入", systemImage: "folder")
+            }
+            .help("从文件打开另一份导图")
         } label: {
-            Text("插入")
+            Image(systemName: "plus")
         }
-        .explained("插入子节点、同级节点，或从文件导入")
+        .accessibilityLabel("插入")
+        .help("插入子节点、同级节点，或从文件导入")
     }
 
     private var zoomMenu: some View {
@@ -258,9 +274,10 @@ struct DocumentEditor: View {
                 .explained("打印这份导图")
             #endif
         } label: {
-            Text("分享")
+            Image(systemName: "square.and.arrow.up")
         }
-        .explained("把导图导出为 PDF、PNG、Markdown，或保存为已支持的文件")
+        .accessibilityLabel("分享")
+        .help("把导图导出为 PDF、PNG、Markdown，或保存为已支持的文件")
     }
 
     private var moreMenu: some View {
@@ -288,9 +305,10 @@ struct DocumentEditor: View {
             Button("关于") { showAbout = true }
                 .explained("查看版本号和开源致谢")
         } label: {
-            Text("更多")
+            Image(systemName: "ellipsis")
         }
-        .explained("大纲、样式和关于")
+        .accessibilityLabel("更多")
+        .help("大纲、样式和关于")
     }
 
     private var inspectorPresented: Binding<Bool> {

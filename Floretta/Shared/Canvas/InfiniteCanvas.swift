@@ -181,7 +181,10 @@ struct InfiniteCanvas: View {
                 ),
                 isComposing: $keyboard.isComposing,
                 minimumWidth: $compositionWidth,
-                fontSize: frame.fontSize * max(camera.viewport.scale, 1),
+                fontSize: CanvasTextScale.onScreenPointSize(
+                    fontSize: frame.fontSize,
+                    scale: camera.viewport.scale
+                ),
                 onEvent: { handleKey($0) }
             )
             .frame(width: max(rect.width, compositionWidth, 88), height: max(rect.height, 36))
@@ -289,7 +292,7 @@ struct InfiniteCanvas: View {
         }
         for node in visible {
             let onScreen = min(node.size.width, node.size.height) * scale
-            draw(node, detail: CanvasDetail.level(scale: scale, onScreenHeight: onScreen), in: context)
+            draw(node, detail: CanvasDetail.level(scale: scale, onScreenHeight: onScreen), scale: scale, in: context)
         }
     }
 
@@ -310,7 +313,7 @@ struct InfiniteCanvas: View {
         context.stroke(path, with: .color(color(link.color)), lineWidth: link.lineWidth)
     }
 
-    private func draw(_ node: NodeFrame, detail: CanvasDetail, in context: GraphicsContext) {
+    private func draw(_ node: NodeFrame, detail: CanvasDetail, scale: CGFloat, in context: GraphicsContext) {
         let rect = camera.viewport.viewRect(fromCanvas: node.frame)
         let path = Path(roundedRect: rect, cornerRadius: detail == .far ? min(node.cornerRadius, 4) : node.cornerRadius)
         let selected = interaction.selectedNodeID == node.id
@@ -337,8 +340,12 @@ struct InfiniteCanvas: View {
         if selected, detail.drawsSelectionHandles {
             drawHandles(around: rect, in: context)
         }
-        if detail.drawsText {
-            context.draw(styledText(node), in: rect.insetBy(dx: 10, dy: 6))
+        let pointSize = CanvasTextScale.onScreenPointSize(fontSize: node.fontSize, scale: scale)
+        if CanvasTextLOD.level(onScreenPointSize: pointSize).drawsTitle {
+            let text = styledText(node, pointSize: pointSize)
+            var layer = context
+            layer.clip(to: Path(rect.insetBy(dx: 6, dy: 4)))
+            layer.draw(text, at: CGPoint(x: rect.midX, y: rect.midY), anchor: .center)
         }
     }
 
@@ -356,9 +363,9 @@ struct InfiniteCanvas: View {
         }
     }
 
-    private func styledText(_ node: NodeFrame) -> Text {
+    private func styledText(_ node: NodeFrame, pointSize: CGFloat) -> Text {
         var text = Text(node.text)
-            .font(.system(size: node.fontSize, design: fontDesign(node.fontDesign)))
+            .font(.system(size: pointSize, design: fontDesign(node.fontDesign)))
             .foregroundStyle(color(node.textColor))
         if node.bold { text = text.bold() }
         if node.italic { text = text.italic() }

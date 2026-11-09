@@ -5,9 +5,7 @@ import UniformTypeIdentifiers
 struct RecentPage: View {
     @Bindable var library: LibraryModel
     @Binding var page: HomePage
-    @Binding var columnVisibility: NavigationSplitViewVisibility
     @Binding var searchText: String
-    var showSettings: () -> Void
     var openFiles: () -> Void
     var openICloud: () -> Void
     var browseLocal: () -> Void
@@ -20,18 +18,6 @@ struct RecentPage: View {
             #endif
             .searchable(text: $searchText, prompt: "搜索")
             .toolbar {
-                ToolbarItemGroup(placement: .navigation) {
-                    Button(action: showSettings) {
-                        Image(systemName: ShellTab.settings.systemImage)
-                    }
-                    .accessibilityLabel(ShellTab.settings.title)
-                    Button {
-                        columnVisibility = sidebarOpen ? .detailOnly : .all
-                    } label: {
-                        Image(systemName: "sidebar.left")
-                    }
-                    .accessibilityLabel("侧栏")
-                }
                 ToolbarItemGroup(placement: .primaryAction) {
                     Button {
                         library.makeNew()
@@ -40,7 +26,6 @@ struct RecentPage: View {
                     }
                     .accessibilityLabel("新建导图")
                     Button {
-                        columnVisibility = .detailOnly
                         page = .newMap
                     } label: {
                         Image(systemName: "square.grid.2x2")
@@ -54,16 +39,6 @@ struct RecentPage: View {
                         Image(systemName: "folder")
                     }
                     .accessibilityLabel("打开")
-                    if !ShellTab.homeOverflowTitles.isEmpty {
-                        Menu {
-                            ForEach(ShellTab.homeOverflowTitles, id: \.self) { title in
-                                Button(title, action: showSettings)
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis")
-                        }
-                        .accessibilityLabel("更多")
-                    }
                 }
             }
     }
@@ -113,8 +88,6 @@ struct RecentPage: View {
         }
     }
 
-    private var sidebarOpen: Bool { columnVisibility != .detailOnly }
-
     private var filtered: [RecentMapEntry] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return library.recents }
@@ -159,9 +132,7 @@ struct HomeSidebar: View {
 
 struct NewMapPage: View {
     var onClose: () -> Void
-    var onCreateMindMap: () -> Void
-
-    @State private var closedNotice: String?
+    var onCreate: (TemplateKind) -> Void
 
     private let sections = TemplateCatalog.sections
 
@@ -190,27 +161,11 @@ struct NewMapPage: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .alert("提示", isPresented: noticePresented) {
-            Button("好", role: .cancel) {}
-        } message: {
-            Text(closedNotice ?? "")
-        }
-    }
-
-    private var noticePresented: Binding<Bool> {
-        Binding(
-            get: { closedNotice != nil },
-            set: { if !$0 { closedNotice = nil } }
-        )
     }
 
     private func sectionView(_ section: TemplateSection) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(section.title).font(.title3)
-                Spacer()
-                Button("全部") { closedNotice = TemplateCatalog.seeAllNotice }
-            }
+            Text(section.title).font(.title3)
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: 16) {
                     ForEach(section.cards) { card in
@@ -223,29 +178,17 @@ struct NewMapPage: View {
 
     private func cardButton(_ card: TemplateCard) -> some View {
         Button {
-            switch card.tap {
-            case .createMindMap:
-                onCreateMindMap()
-            case .laterLayout:
-                closedNotice = TemplateCatalog.laterLayoutNotice
-            case .comingSoon:
-                closedNotice = TemplateCatalog.comingSoonNotice
-            }
+            onCreate(card.kind)
         } label: {
             VStack(alignment: .leading, spacing: 8) {
-                TemplateThumbnail(name: card.name)
+                TemplateThumbnail(kind: card.kind)
                 Text(card.name)
                     .font(.callout)
                     .frame(width: TemplateThumbnail.width, alignment: .leading)
-                if card.tap != .createMindMap {
-                    Text(card.tap == .laterLayout ? "后续版本" : "即将推出")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .frame(width: TemplateThumbnail.width, alignment: .leading)
-                }
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(card.name)
     }
 }
 

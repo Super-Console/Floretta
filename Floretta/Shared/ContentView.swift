@@ -142,9 +142,7 @@ struct ContentView: View {
                 RecentPage(
                     library: library,
                     page: $page,
-                    columnVisibility: $columnVisibility,
                     searchText: $searchText,
-                    showSettings: { library.tab = .settings },
                     openFiles: { showImporter = true },
                     openICloud: openICloud,
                     browseLocal: browsePad
@@ -152,7 +150,7 @@ struct ContentView: View {
             case .newMap:
                 NewMapPage(
                     onClose: { page = .recent },
-                    onCreateMindMap: { library.makeNew() }
+                    onCreate: { library.makeTemplate($0) }
                 )
             case .browse:
                 if let browseRoot {

@@ -13,9 +13,16 @@ import SwiftFlow
 struct CanvasViewport: Equatable, Sendable {
     var flow: Viewport = .identity
 
+    /// Eight-stop floor. The canvas cannot zoom out past 50%.
+    static let minimumScale: CGFloat = ZoomStop.fifty.scale
+    static let maximumScale: CGFloat = ZoomStop.fourHundred.scale
     /// Kept for fit. SwiftFlow's own fit default is higher.
-    static let minimumScale: CGFloat = 0.2
     static let maximumFitScale: CGFloat = 1.25
+
+    static func clampScale(_ scale: CGFloat) -> CGFloat {
+        guard scale.isFinite else { return ZoomStop.oneHundred.scale }
+        return min(max(scale, minimumScale), maximumScale)
+    }
 
     var offset: CGPoint {
         get { CGPoint(x: flow.x, y: flow.y) }
@@ -72,10 +79,14 @@ struct CanvasViewport: Equatable, Sendable {
 
     @MainActor
     mutating func zoom(to newScale: CGFloat, around anchor: CGPoint) {
+        let clamped = Self.clampScale(newScale)
         let instance = bridge
         instance.viewSize = CGSize(width: anchor.x * 2, height: anchor.y * 2)
-        instance.zoomTo(newScale, animated: false)
+        instance.zoomTo(clamped, animated: false)
         flow = instance.viewport
+        if !flow.zoom.isFinite || flow.zoom < Self.minimumScale || flow.zoom > Self.maximumScale {
+            flow.zoom = clamped
+        }
     }
 
     /// Scroll-wheel / trackpad. Command zooms around the pointer; otherwise pans.

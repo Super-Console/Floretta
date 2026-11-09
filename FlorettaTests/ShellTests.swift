@@ -330,16 +330,15 @@ final class ShellTests: XCTestCase {
         for name in CanvasMenus.omitted {
             XCTAssertFalse(visible.contains(name))
         }
-        XCTAssertEqual(
-            TemplateCatalog.sections.map(\.title),
-            ["基本", "知识管理", "会议和计划", "学习和教育"]
-        )
-        let creators = TemplateCatalog.sections.flatMap(\.cards).filter(\.createsDocument)
-        XCTAssertEqual(creators.map(\.name), ["思维导图"])
-        let basic = TemplateCatalog.sections[0].cards.filter { $0.tap == .laterLayout }
-        XCTAssertEqual(basic.map(\.name), ["逻辑图", "括号图", "组织结构图", "树形图", "时间轴"])
-        XCTAssertEqual(TemplateCatalog.laterLayoutNotice, "该布局将在后续版本提供")
-        XCTAssertEqual(TemplateCatalog.seeAllNotice, "敬请期待")
+        XCTAssertEqual(TemplateCatalog.sections.map(\.title), ["结构", "分析", "记录"])
+        let cards = TemplateCatalog.sections.flatMap(\.cards)
+        XCTAssertEqual(cards.count, 12)
+        XCTAssertTrue(cards.allSatisfy(\.createsDocument))
+        XCTAssertEqual(Set(cards.map(\.name)).count, cards.count)
+        let shapes = cards.map { TemplateKind.shape($0.kind.document()) }
+        XCTAssertEqual(Set(shapes).count, shapes.count)
+        XCTAssertFalse(cards.map(\.name).contains("即将推出"))
+        XCTAssertTrue(ShellTab.homeOverflowTitles.isEmpty)
     }
 
     func testSecondTapOnTheSelectedNodeStartsEditing() {

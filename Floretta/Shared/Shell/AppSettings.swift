@@ -79,8 +79,8 @@ enum ShellTab: Hashable, Equatable, Sendable {
     /// system tab bar. Mac lists them in the sidebar.
     static let destinations: [ShellTab] = [.home, .settings]
 
-    /// The home toolbar keeps a single settings control, the gear button.
-    /// This list stays empty so 设置 is not also offered from an overflow menu.
+    /// Visible settings entry is the sidebar row (wide) or the Settings tab (narrow).
+    /// The home toolbar must not add a second gear. ⌘, is a shortcut, not another row.
     static let homeOverflowTitles: [String] = []
 
     static var preferredColumnVisibility: NavigationSplitViewVisibility {

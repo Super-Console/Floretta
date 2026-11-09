@@ -52,7 +52,7 @@ struct InfiniteCanvas: View {
                 let point = camera.viewport.canvasPoint(fromView: location)
                 interaction.hoveredNodeID = CanvasPlacement.nodeID(at: point, in: layoutSource())
             }
-            .focusable()
+            .focusable(keyboard.mode == .command)
             .focusEffectDisabled(true)
             .background { CanvasFocusRingSuppressor() }
             .focused($canvasFocused)
@@ -92,6 +92,8 @@ struct InfiniteCanvas: View {
                 if mode == .command {
                     compositionWidth = 0
                     canvasFocused = true
+                } else {
+                    canvasFocused = false
                 }
             }
             .onChange(of: keyboard.selectedNodeID) { _, id in
@@ -99,35 +101,15 @@ struct InfiniteCanvas: View {
             }
             .simultaneousGesture(SpatialTapGesture().onEnded { value in
                 let point = camera.viewport.canvasPoint(fromView: value.location)
-                guard !keyboard.isComposing else { return }
                 let hit = CanvasPlacement.nodeID(at: point, in: layoutSource())
                 if zenActive, hit == nil { return }
-                let committedSameNode = keyboard.mode == .edit && hit == keyboard.selectedNodeID
-                if keyboard.mode == .edit {
-                    keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
-                }
-                let begin = NodeEditTap.beginsEdit(
-                    hit: hit,
-                    selected: keyboard.selectedNodeID,
-                    mode: keyboard.mode,
-                    committedSameNode: committedSameNode
-                )
-                keyboard.selectedNodeID = hit
-                interaction.selectedNodeID = hit
-                if begin {
-                    keyboard.apply(.beginEdit, document: &document, frames: placedFrames())
-                }
+                applyNodeTap(hit)
             })
             .simultaneousGesture(SpatialTapGesture(count: 2).onEnded { value in
                 let point = camera.viewport.canvasPoint(fromView: value.location)
                 guard !keyboard.isComposing else { return }
                 if let hit = CanvasPlacement.nodeID(at: point, in: layoutSource()) {
-                    if keyboard.mode == .edit {
-                        keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
-                    }
-                    keyboard.selectedNodeID = hit
-                    interaction.selectedNodeID = hit
-                    keyboard.apply(.beginEdit, document: &document, frames: placedFrames())
+                    beginEditing(hit)
                     return
                 }
                 if onConsumeBlankDoubleTap() { return }
@@ -146,6 +128,36 @@ struct InfiniteCanvas: View {
             })
         }
         .focusEffectDisabled(true)
+    }
+
+    private func applyNodeTap(_ hit: UUID?) {
+        switch NodeEditTap.action(
+            hit: hit,
+            selected: keyboard.selectedNodeID,
+            mode: keyboard.mode,
+            isComposing: keyboard.isComposing
+        ) {
+        case .ignore:
+            return
+        case .select(let id):
+            keyboard.selectedNodeID = id
+            interaction.selectedNodeID = id
+        case .beginEdit(let id):
+            beginEditing(id)
+        case .commitAndSelect(let id):
+            keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+            keyboard.selectedNodeID = id
+            interaction.selectedNodeID = id
+            canvasFocused = true
+        }
+    }
+
+    private func beginEditing(_ id: UUID) {
+        keyboard.selectedNodeID = id
+        interaction.selectedNodeID = id
+        canvasFocused = false
+        guard keyboard.mode != .edit else { return }
+        keyboard.apply(.beginEdit, document: &document, frames: placedFrames())
     }
 
     private func layoutSource() -> MindMapDocument {
@@ -403,18 +415,31 @@ struct InfiniteCanvas: View {
 
 }
 
-/// Touch editing. The first tap selects. A later tap on that same node, or a
-/// double-tap, opens the system text view so Chinese input works without a keyboard shortcut.
+/// Touch editing. The first tap selects. The next tap on that node opens the
+/// system text view and must not also close it, or typed characters never land.
 enum NodeEditTap {
-    static func beginsEdit(
+    enum Action: Equatable {
+        case ignore
+        case select(UUID?)
+        case beginEdit(UUID)
+        case commitAndSelect(UUID?)
+    }
+
+    static func action(
         hit: UUID?,
         selected: UUID?,
         mode: KeyboardMode,
-        committedSameNode: Bool
-    ) -> Bool {
-        if committedSameNode { return false }
-        guard mode == .command, let hit, hit == selected else { return false }
-        return true
+        isComposing: Bool
+    ) -> Action {
+        if isComposing { return .ignore }
+        if mode == .edit {
+            if hit != nil, hit == selected { return .ignore }
+            return .commitAndSelect(hit)
+        }
+        if let hit, hit == selected {
+            return .beginEdit(hit)
+        }
+        return .select(hit)
     }
 }
 

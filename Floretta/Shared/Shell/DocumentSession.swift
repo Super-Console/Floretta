@@ -16,19 +16,22 @@ enum DocumentOpenError: Error, Equatable, LocalizedError {
 }
 
 enum DocumentOpener {
+    /// Bytes win over the filename. The open panel can label a FreeMind or OPML
+    /// file as Markdown because `.mm` is also plain text on macOS.
     static func open(data: Data, filename: String) throws -> MindMapDocument {
         let ext = (filename as NSString).pathExtension.lowercased()
+        let format = sniffedFormat(data) ?? format(forExtension: ext)
         do {
-            switch ext {
-            case "floretta":
+            switch format {
+            case .floretta:
                 return try FlorettaDocumentFile.read(data: data).package.document
-            case "mm":
+            case .mm:
                 return try FlorettaMMCodec.importMap(data)
-            case "opml":
+            case .opml:
                 return try FlorettaOPMLCodec.importOutline(data)
-            case "md", "markdown":
+            case .markdown:
                 return try FlorettaMarkdown.importOutline(data)
-            default:
+            case nil:
                 throw DocumentOpenError.unsupported(ext.isEmpty ? filename : ext)
             }
         } catch let error as DocumentOpenError {
@@ -37,6 +40,45 @@ enum DocumentOpener {
             let text = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             throw DocumentOpenError.message(text)
         }
+    }
+
+    private enum Format {
+        case floretta
+        case mm
+        case opml
+        case markdown
+    }
+
+    private static func format(forExtension ext: String) -> Format? {
+        switch ext {
+        case "floretta": .floretta
+        case "mm": .mm
+        case "opml": .opml
+        case "md", "markdown": .markdown
+        default: nil
+        }
+    }
+
+    /// Nil when the bytes are not a map we know. Callers then trust the extension.
+    private static func sniffedFormat(_ data: Data) -> Format? {
+        if isZip(data) { return .floretta }
+        if isFlorettaJSON(data) { return .floretta }
+        guard let prefix = String(data: data.prefix(4096), encoding: .utf8)?.lowercased() else {
+            return nil
+        }
+        if prefix.contains("<opml") { return .opml }
+        if prefix.contains("<map") { return .mm }
+        return nil
+    }
+
+    private static func isZip(_ data: Data) -> Bool {
+        data.count >= 2 && data[data.startIndex] == 0x50 && data[data.index(after: data.startIndex)] == 0x4b
+    }
+
+    private static func isFlorettaJSON(_ data: Data) -> Bool {
+        guard let text = String(data: data.prefix(1024), encoding: .utf8) else { return false }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.hasPrefix("{") && text.contains("\"formatVersion\"") && text.contains("\"roots\"")
     }
 }
 

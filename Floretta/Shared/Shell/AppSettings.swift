@@ -108,13 +108,31 @@ enum FlorettaFileTypes {
 
     static let allowedExtensions = ["floretta", "mm", "opml", "md"]
 
+    /// Types the open panel may offer. Extension-backed types come first so the
+    /// panel does not collapse every text file into Markdown. `.mm` is also
+    /// Objective-C++ source on macOS; that system type is included so those
+    /// files can be chosen, and `DocumentOpener` still reads the bytes.
     static var allowedContentTypes: [UTType] {
-        [
-            UTType(exportedAs: florettaIdentifier, conformingTo: .data),
-            UTType(importedAs: mmIdentifier, conformingTo: .xml),
-            UTType(importedAs: opmlIdentifier, conformingTo: .xml),
-            UTType(importedAs: markdownIdentifier, conformingTo: .plainText),
-        ]
+        var types: [UTType] = []
+        func append(_ type: UTType?) {
+            guard let type, !types.contains(type) else { return }
+            types.append(type)
+        }
+        append(UTType(florettaIdentifier))
+        append(UTType(filenameExtension: "floretta"))
+        append(UTType(mmIdentifier))
+        append(UTType(filenameExtension: "mm"))
+        append(UTType(opmlIdentifier))
+        append(UTType(filenameExtension: "opml"))
+        append(UTType(markdownIdentifier))
+        append(UTType(filenameExtension: "md"))
+        append(UTType(filenameExtension: "markdown"))
+        if types.isEmpty {
+            append(.xml)
+            append(.json)
+            append(.plainText)
+        }
+        return types
     }
 }
 

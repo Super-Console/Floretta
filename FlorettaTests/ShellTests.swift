@@ -254,6 +254,18 @@ final class ShellTests: XCTestCase {
         XCTAssertThrowsError(try DocumentOpener.open(data: Data("nope".utf8), filename: "map.txt"))
     }
 
+    func testMapFilesAreNotImportedAsMarkdown() throws {
+        let map = MindMapDocument(title: "图", roots: [MindMapNode(text: "根", children: [MindMapNode(text: "子")])])
+        let mm = try DocumentOpener.open(data: try FlorettaMMCodec.export(map), filename: "notes.md")
+        XCTAssertEqual(mm.roots.first?.text, "根")
+        XCTAssertEqual(mm.roots.first?.children.first?.text, "子")
+        let opml = try DocumentOpener.open(data: try FlorettaOPMLCodec.export(map), filename: "notes.md")
+        XCTAssertEqual(opml.title, "图")
+        XCTAssertEqual(opml.roots.first?.text, "根")
+        let floretta = try DocumentOpener.open(data: try FlorettaCodec.encode(map), filename: "notes.md")
+        XCTAssertEqual(floretta.roots.first?.text, "根")
+    }
+
     func testFocusModeHidesTheRestOfTheTree() {
         let parent = UUID()
         let child = UUID()
@@ -343,11 +355,27 @@ final class ShellTests: XCTestCase {
 
     func testSecondTapOnTheSelectedNodeStartsEditing() {
         let id = UUID()
-        XCTAssertFalse(NodeEditTap.beginsEdit(hit: id, selected: nil, mode: .command, committedSameNode: false))
-        XCTAssertTrue(NodeEditTap.beginsEdit(hit: id, selected: id, mode: .command, committedSameNode: false))
-        XCTAssertFalse(NodeEditTap.beginsEdit(hit: id, selected: id, mode: .edit, committedSameNode: false))
-        XCTAssertFalse(NodeEditTap.beginsEdit(hit: id, selected: id, mode: .command, committedSameNode: true))
-        XCTAssertFalse(NodeEditTap.beginsEdit(hit: nil, selected: id, mode: .command, committedSameNode: false))
+        let other = UUID()
+        XCTAssertEqual(
+            NodeEditTap.action(hit: id, selected: nil, mode: .command, isComposing: false),
+            .select(id)
+        )
+        XCTAssertEqual(
+            NodeEditTap.action(hit: id, selected: id, mode: .command, isComposing: false),
+            .beginEdit(id)
+        )
+        XCTAssertEqual(
+            NodeEditTap.action(hit: id, selected: id, mode: .edit, isComposing: false),
+            .ignore
+        )
+        XCTAssertEqual(
+            NodeEditTap.action(hit: other, selected: id, mode: .edit, isComposing: false),
+            .commitAndSelect(other)
+        )
+        XCTAssertEqual(
+            NodeEditTap.action(hit: id, selected: id, mode: .edit, isComposing: true),
+            .ignore
+        )
     }
 
     func testUndoAndDeleteWorkWhileTheNewNodeIsStillBeingEdited() {

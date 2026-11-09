@@ -8,7 +8,7 @@ P0-2 已由总指挥验收（11 个测试，TEST SUCCEEDED）。P0-3 不再单�
 
 P0-4 已由总指挥验收（20 个测试全绿）。P0 阶段通过。
 
-P1-1 无限画布已落盘，等待本机构建。P1-2 布局算法及之后都没做。
+P1-1 在 Pro 上编译失败：`CanvasScrollInput` 的 `deinit` 碰了非 Sendable 的 `monitor`。这一批只修这个。P1-2 及 P0.5 都没做。
 
 Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be pasted back for fixes.
 
@@ -98,4 +98,5 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 | 2026-11-09 | P0-2 | 总指挥测试未过 | `testMissingAndMistypedVersionThrow`：字符串或非整数 `formatVersion` 报成「不是 .floretta JSON」，测试要「Wrong JSON type」 |
 | 2026-11-09 | P0-2 修复 | 总指挥验收通过 | 11 个测试 TEST SUCCEEDED。P0-3 跳过 |
 | 2026-11-09 | P0-4 | 总指挥验收通过 | 20 个测试全绿。P0 阶段通过 |
-| 2026-11-09 | P1-1 | 已提交，云端未构建 | 无限画布：滚轮/触控板平移、⌘滚轮缩放、⌘0 适配、根节点拖动并记住坐标。未做 P1-2 布局。云端不能跑 xcodebuild |
+| 2026-11-09 | P1-1 | Pro 编译失败 | `CanvasScrollInput.swift` deinit 访问 `monitor: Any?`，Swift 6 报 nonisolated deinit |
+| 2026-11-09 | P1-1 修复 | 已提交，云端未编译 | `monitor` 标成 `@MainActor`。注册和 `stop()` 都在主线程。`nonisolated deinit` 不再碰它。`MindMapPoint` 仍是可选。云端不能跑 xcodebuild |

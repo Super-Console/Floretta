@@ -31,41 +31,63 @@ private struct MacScrollCatcher: NSViewRepresentable {
     func updateNSView(_ view: ScrollWheelView, context: Context) {
         view.onScroll = onScroll
     }
+
+    static func dismantleNSView(_ nsView: ScrollWheelView, coordinator: ()) {
+        MainActor.assumeIsolated {
+            nsView.stop()
+        }
+    }
 }
 
 private final class ScrollWheelView: NSView, @unchecked Sendable {
     var onScroll: ((CGSize, CGPoint, Bool) -> Void)?
-    private var monitor: Any?
+    /// Register and remove only from the main actor. deinit must not touch this.
+    @MainActor private var monitor: Any?
 
     override var isFlipped: Bool { true }
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        if let monitor {
-            NSEvent.removeMonitor(monitor)
-            self.monitor = nil
-        }
-        guard window != nil else { return }
-        monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
-            guard let self, let window = self.window, event.window == window else { return event }
-            let local = self.convert(event.locationInWindow, from: nil)
-            guard self.bounds.contains(local) else { return event }
-            let multiplier: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 12
-            let delta = CGSize(
-                width: event.scrollingDeltaX * multiplier,
-                height: event.scrollingDeltaY * multiplier
-            )
-            self.onScroll?(delta, local, event.modifierFlags.contains(.command))
-            return nil
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        if newWindow == nil {
+            MainActor.assumeIsolated {
+                stop()
+            }
         }
     }
 
-    deinit {
-        if let monitor {
-            NSEvent.removeMonitor(monitor)
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        let attached = window != nil
+        MainActor.assumeIsolated {
+            stop()
+            guard attached else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+                guard let self, let window = self.window, event.window == window else { return event }
+                let local = self.convert(event.locationInWindow, from: nil)
+                guard self.bounds.contains(local) else { return event }
+                let multiplier: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 12
+                let delta = CGSize(
+                    width: event.scrollingDeltaX * multiplier,
+                    height: event.scrollingDeltaY * multiplier
+                )
+                self.onScroll?(delta, local, event.modifierFlags.contains(.command))
+                return nil
+            }
         }
+    }
+
+    /// Drops the local monitor. Safe to call more than once.
+    @MainActor
+    func stop() {
+        guard let monitor else { return }
+        NSEvent.removeMonitor(monitor)
+        self.monitor = nil
+    }
+
+    nonisolated deinit {
+        // Harmless. stop() already removed the monitor on the main actor.
     }
 }
 #else

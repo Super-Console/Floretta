@@ -18,6 +18,11 @@ struct InfiniteCanvas: View {
     var zenActive: Bool = false
     var onEscape: () -> Bool = { false }
     var onConsumeBlankDoubleTap: () -> Bool = { false }
+    var thumbnails: AttachmentThumbnailMemory? = nil
+    var thumbnailCache: ThumbnailFileCache? = nil
+    var attachmentArchive: URL? = nil
+    var spillDirectory: URL? = nil
+    var attachmentEntries: [ZipStoredEntry] = []
     @State private var compositionWidth: CGFloat = 0
     @State private var dotTiles = DotTileCache()
     @State private var laidOut = LaidOutFrames()
@@ -75,19 +80,26 @@ struct InfiniteCanvas: View {
                 camera.viewSize = geo.size
                 publishBounds()
                 camera.chrome.syncZoomPercent(toScale: camera.viewport.scale)
+                refreshThumbnails()
                 canvasFocused = true
             }
             .onChange(of: geo.size) { _, size in
                 camera.viewSize = size
+                refreshThumbnails()
             }
             .onChange(of: document) { _, _ in
                 publishBounds()
+                refreshThumbnails()
             }
             .onChange(of: focusNodeID) { _, _ in
                 publishBounds()
             }
             .onChange(of: camera.viewport.scale) { _, scale in
                 camera.chrome.syncZoomPercent(toScale: scale)
+                refreshThumbnails()
+            }
+            .onChange(of: camera.viewport.offset) { _, _ in
+                refreshThumbnails()
             }
             .onChange(of: keyboard.mode) { _, mode in
                 if mode == .command {
@@ -374,12 +386,26 @@ struct InfiniteCanvas: View {
         if selected, detail.drawsSelectionHandles {
             drawHandles(around: rect, in: context)
         }
+        var textRect = rect.insetBy(dx: 6, dy: 4)
+        if detail != .far,
+           let hash = node.thumbnailHashes.first,
+           let image = thumbnails?.image(for: hash) {
+            let side = min(48, max(16, rect.width - 12))
+            let imageRect = CGRect(x: rect.midX - side / 2, y: rect.minY + 4, width: side, height: side)
+            context.draw(Image(decorative: image, scale: 1), in: imageRect)
+            textRect = CGRect(
+                x: rect.minX + 6,
+                y: imageRect.maxY + 2,
+                width: max(0, rect.width - 12),
+                height: max(0, rect.maxY - imageRect.maxY - 6)
+            )
+        }
         let pointSize = CanvasTextScale.onScreenPointSize(fontSize: node.fontSize, scale: scale)
-        if CanvasTextLOD.level(onScreenPointSize: pointSize).drawsTitle {
+        if CanvasTextLOD.level(onScreenPointSize: pointSize).drawsTitle, textRect.height > 1, textRect.width > 1 {
             let text = styledText(node, pointSize: pointSize)
             var layer = context
-            layer.clip(to: Path(rect.insetBy(dx: 6, dy: 4)))
-            layer.draw(text, at: CGPoint(x: rect.midX, y: rect.midY), anchor: .center)
+            layer.clip(to: Path(textRect))
+            layer.draw(text, at: CGPoint(x: textRect.midX, y: textRect.midY), anchor: .center)
         }
     }
 
@@ -397,8 +423,38 @@ struct InfiniteCanvas: View {
         }
     }
 
+    private func refreshThumbnails() {
+        let view = camera.viewport.canvasRect(in: camera.viewSize)
+        let viewport = AttachmentViewportRect(
+            minX: view.minX,
+            minY: view.minY,
+            maxX: view.maxX,
+            maxY: view.maxY
+        )
+        let nodes = laidOut.frames(for: document).map { frame in
+            (
+                AttachmentViewportRect(
+                    minX: frame.origin.x,
+                    minY: frame.origin.y,
+                    maxX: frame.origin.x + frame.size.width,
+                    maxY: frame.origin.y + frame.size.height
+                ),
+                frame.thumbnailHashes
+            )
+        }
+        let visible = ThumbnailResidence.visibleHashes(nodes: nodes, viewport: viewport)
+        thumbnails?.sync(
+            visible: visible,
+            cache: thumbnailCache,
+            archiveURL: attachmentArchive,
+            spillDirectory: spillDirectory,
+            entries: attachmentEntries
+        )
+    }
+
     private func styledText(_ node: NodeFrame, pointSize: CGFloat) -> Text {
-        var text = Text(node.text)
+        let shown = node.caption.isEmpty ? node.text : node.text + "\n" + node.caption
+        var text = Text(shown)
             .font(.system(size: pointSize, design: fontDesign(node.fontDesign)))
             .foregroundStyle(color(node.textColor))
         if node.bold { text = text.bold() }
@@ -632,6 +688,78 @@ final class LaidOutFrames {
         cached = CanvasPlacement.nodes(in: document)
         source = document
         return cached
+    }
+}
+
+/// Decoded thumbnails for nodes inside the viewport.
+/// Scroll-out drops the `CGImage`. The disk LRU in `ThumbnailFileCache` stays.
+@MainActor
+@Observable
+final class AttachmentThumbnailMemory {
+    private(set) var images: [String: CGImage] = [:]
+    private var bytes = ThumbnailMemory()
+    private var visible: Set<String> = []
+    private var inFlight: Set<String> = []
+    private var failed: Set<String> = []
+
+    func image(for hash: String) -> CGImage? {
+        images[hash]
+    }
+
+    func sync(
+        visible: Set<String>,
+        cache: ThumbnailFileCache?,
+        archiveURL: URL?,
+        spillDirectory: URL?,
+        entries: [ZipStoredEntry]
+    ) {
+        self.visible = visible
+        bytes.apply(visible: visible) { hash in
+            guard let cache, cache.contains(hash) else { return nil }
+            try? cache.touch(hash)
+            return try? Data(contentsOf: cache.fileURL(for: hash))
+        }
+        images = images.filter { bytes.images[$0.key] != nil }
+        for (hash, data) in bytes.images where images[hash] == nil {
+            if let image = ImageIOThumbnailDecoder.image(from: data) {
+                images[hash] = image
+            }
+        }
+        guard let cache, let archiveURL, let spillDirectory else { return }
+        for hash in visible where bytes.images[hash] == nil && !inFlight.contains(hash) && !failed.contains(hash) {
+            guard let entry = entries.first(where: { $0.sha256 == hash }),
+                  let ext = AttachmentNames.parseAsset(entry.name)?.fileExtension,
+                  AttachmentKind.isImageExtension(ext) else { continue }
+            inFlight.insert(hash)
+            let decoder = ImageIOThumbnailDecoder()
+            Task.detached {
+                let produced: Data?
+                do {
+                    produced = try ThumbnailPipeline.materialize(
+                        entry: entry,
+                        archiveURL: archiveURL,
+                        spillDirectory: spillDirectory,
+                        cache: cache,
+                        decoder: decoder,
+                        files: FoundationStreamingFiles()
+                    )
+                } catch {
+                    produced = nil
+                }
+                let data = produced
+                await MainActor.run {
+                    self.inFlight.remove(hash)
+                    guard let data else {
+                        self.failed.insert(hash)
+                        return
+                    }
+                    self.bytes.remember(data, for: hash, visible: self.visible)
+                    if self.visible.contains(hash), let image = ImageIOThumbnailDecoder.image(from: data) {
+                        self.images[hash] = image
+                    }
+                }
+            }
+        }
     }
 }
 

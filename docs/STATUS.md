@@ -198,4 +198,5 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 | 2026-11-09 | P2 OPML+MD | 总指挥验收通过 | macOS 80/0，含 6 个 OPMLMarkdownTests。iOS EXIT=0。合并 `4c51de7` |
 | 2026-11-09 | P2-3 | 总指挥验收通过 | macOS 85/0，iOS EXIT=0。合并 `1b277ce` |
 | 2026-11-09 | P3 | 已提交，云端未测试 | 满幅纸面图标。无 sips、无 xcodebuild。深色变体不另做 |
-| 2026-11-10 | 1.1 基础链路 | 待 Censor | PR #31 / 验收结论=待 Censor。代码路径已接上；真机 SMOKE 仍未点通。云端无 xcodebuild。 |
+| 2026-11-10 | 1.1 基础链路 | Censor通过 + Pro 115/0 | 合并 `99b5156` / PR #31。 |
+| 2026-11-10 | 1.2 附件数据模型 | 待 Censor | PR #30。流式读写、引用计数、孤儿回收。打开 10GB 附件不读正文。 |

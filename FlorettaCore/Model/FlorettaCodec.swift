@@ -119,6 +119,21 @@ public enum FlorettaCodec {
         if let side = object["side"], !(side is NSNull) {
             try expect(object, key: "side", at: "\(path).side") { isJSONString($0) }
         }
+        if let attachments = object["attachments"], !(attachments is NSNull) {
+            guard let array = attachments as? [Any] else {
+                throw FlorettaCodecError.wrongJSONType(at: "\(path).attachments")
+            }
+            for (index, item) in array.enumerated() {
+                guard let attachment = item as? [String: Any] else {
+                    throw FlorettaCodecError.wrongJSONType(at: "\(path).attachments[\(index)]")
+                }
+                let place = "\(path).attachments[\(index)]"
+                try expect(attachment, key: "sha256", at: "\(place).sha256") { isJSONString($0) }
+                try expect(attachment, key: "fileExtension", at: "\(place).fileExtension") { isJSONString($0) }
+                try expect(attachment, key: "byteCount", at: "\(place).byteCount") { isJSONInteger($0) }
+                try expect(attachment, key: "filename", at: "\(place).filename") { isJSONString($0) }
+            }
+        }
         if let children = object["children"] {
             guard let array = children as? [Any] else {
                 throw FlorettaCodecError.wrongJSONType(at: "\(path).children")

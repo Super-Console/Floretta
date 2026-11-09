@@ -1,6 +1,8 @@
 import CoreGraphics
 import CoreText
+import Darwin
 import Foundation
+import ImageIO
 import FlorettaCore
 #if os(macOS)
 import AppKit
@@ -125,26 +127,32 @@ public struct SystemDeviceInfo: DeviceInfoPort {
 }
 #endif
 
-/// The five ports, built by the app target. Core only sees the protocols.
+/// The ports, built by the app target. Core only sees the protocols.
 public struct ApplePlatformPorts {
     public var files: any FileAccessPort
     public var pasteboard: any PasteboardPort
     public var device: any DeviceInfoPort
     public var clock: any ClockPort
     public var fonts: any FontMetricsPort
+    public var streaming: any StreamingFilePort
+    public var backup: any BackupExclusionPort
 
     public init(
         files: any FileAccessPort,
         pasteboard: any PasteboardPort,
         device: any DeviceInfoPort,
         clock: any ClockPort,
-        fonts: any FontMetricsPort
+        fonts: any FontMetricsPort,
+        streaming: any StreamingFilePort = FoundationStreamingFiles(),
+        backup: any BackupExclusionPort = URLBackupExclusion()
     ) {
         self.files = files
         self.pasteboard = pasteboard
         self.device = device
         self.clock = clock
         self.fonts = fonts
+        self.streaming = streaming
+        self.backup = backup
     }
 
     public static func current() -> ApplePlatformPorts {
@@ -155,5 +163,160 @@ public struct ApplePlatformPorts {
             clock: SystemClock(),
             fonts: CoreTextFontMetrics()
         )
+    }
+}
+
+public struct URLBackupExclusion: BackupExclusionPort {
+    public init() {}
+
+    public func excludeFromBackup(_ url: URL) throws {
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        var copy = url
+        try copy.setResourceValues(values)
+    }
+}
+
+/// Chunked file adapter. Reads and writes go through one caller-sized buffer.
+public final class FoundationStreamingFiles: StreamingFilePort {
+    public init() {}
+
+    public func byteCount(at url: URL) throws -> Int64 {
+        let values = try url.resourceValues(forKeys: [.fileSizeKey])
+        return Int64(values.fileSize ?? 0)
+    }
+
+    public func fileExists(at url: URL) -> Bool {
+        FileManager.default.fileExists(atPath: url.path)
+    }
+
+    public func isZip(at url: URL) throws -> Bool {
+        let reader = try POSIXFileReader(url: url)
+        defer { try? reader.close() }
+        guard reader.count >= 2 else { return false }
+        let pointer = UnsafeMutableRawPointer.allocate(byteCount: 2, alignment: 1)
+        defer { pointer.deallocate() }
+        let buffer = UnsafeMutableRawBufferPointer(start: pointer, count: 2)
+        let count = try reader.read(at: 0, into: buffer)
+        return count == 2 && buffer[0] == 0x50 && buffer[1] == 0x4B
+    }
+
+    public func openReader(at url: URL) throws -> RandomAccessReader {
+        try POSIXFileReader(url: url)
+    }
+
+    public func openWriter(at url: URL) throws -> SequentialByteWriter {
+        try POSIXFileWriter(url: url)
+    }
+
+    public func makeTemporary(nextTo url: URL) throws -> URL {
+        let directory = url.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory.appendingPathComponent(".\(UUID().uuidString).partial")
+    }
+
+    public func replace(destination: URL, with temporary: URL) throws {
+        let fileManager = FileManager.default
+        if fileManager.fileExists(atPath: destination.path) {
+            try fileManager.removeItem(at: destination)
+        }
+        try fileManager.moveItem(at: temporary, to: destination)
+    }
+
+    public func remove(at url: URL) throws {
+        let fileManager = FileManager.default
+        guard fileManager.fileExists(atPath: url.path) else { return }
+        try fileManager.removeItem(at: url)
+    }
+}
+
+private final class POSIXFileReader: RandomAccessReader {
+    let count: Int64
+    private var fd: Int32
+
+    init(url: URL) throws {
+        fd = Darwin.open(url.path, O_RDONLY)
+        guard fd >= 0 else { throw CocoaError(.fileReadNoSuchFile) }
+        let end = lseek(fd, 0, SEEK_END)
+        guard end >= 0 else { throw CocoaError(.fileReadUnknown) }
+        count = Int64(end)
+    }
+
+    func read(at offset: Int64, into buffer: UnsafeMutableRawBufferPointer) throws -> Int {
+        guard let base = buffer.baseAddress, buffer.count > 0 else { return 0 }
+        let count = pread(fd, base, buffer.count, off_t(offset))
+        if count < 0 { throw CocoaError(.fileReadUnknown) }
+        return count
+    }
+
+    func close() throws {
+        if fd >= 0 {
+            _ = Darwin.close(fd)
+            fd = -1
+        }
+    }
+}
+
+/// Apple thumbnail adapter. Reads the spill file URL and downsamples with ImageIO.
+/// The source attachment is not passed in as `Data`.
+public struct ImageIOThumbnailDecoder: ThumbnailDecodingPort {
+    public init() {}
+
+    public func downsample(spill: URL, longestEdge: Int) throws -> Data {
+        let edge = longestEdge > 0 ? longestEdge : StreamingBudget.thumbnailLongestEdge
+        guard let source = CGImageSourceCreateWithURL(spill as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        let options: [CFString: Any] = [
+            kCGImageSourceThumbnailMaxPixelSize: edge,
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCache: false,
+        ]
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        let data = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(data, "public.png" as CFString, 1, nil) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        CGImageDestinationAddImage(destination, image, nil)
+        guard CGImageDestinationFinalize(destination) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        return data as Data
+    }
+
+    public static func image(from data: Data) -> CGImage? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary) else {
+            return nil
+        }
+        return CGImageSourceCreateImageAtIndex(source, 0, nil)
+    }
+}
+
+private final class POSIXFileWriter: SequentialByteWriter {
+    private var fd: Int32
+
+    init(url: URL) throws {
+        fd = Darwin.open(url.path, O_WRONLY | O_CREAT | O_TRUNC, 0o644)
+        guard fd >= 0 else { throw CocoaError(.fileWriteNoPermission) }
+    }
+
+    func write(_ buffer: UnsafeRawBufferPointer) throws {
+        guard let base = buffer.baseAddress, buffer.count > 0 else { return }
+        var written = 0
+        while written < buffer.count {
+            let count = Darwin.write(fd, base.advanced(by: written), buffer.count - written)
+            if count < 0 { throw CocoaError(.fileWriteUnknown) }
+            written += count
+        }
+    }
+
+    func close() throws {
+        if fd >= 0 {
+            _ = Darwin.close(fd)
+            fd = -1
+        }
     }
 }

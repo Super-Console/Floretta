@@ -129,6 +129,8 @@ public struct MindMapNode: Equatable, Sendable, Identifiable {
     public var link: String?
     /// FreeMind `POSITION` (`left` / `right`). Absent when the file did not say.
     public var side: MindMapSide?
+    /// References into `assets/<sha256>.<ext>`. Bytes live in the ZIP, not on the node.
+    public var attachments: [NodeAttachment]
     public var children: [MindMapNode]
 
     public init(
@@ -140,6 +142,7 @@ public struct MindMapNode: Equatable, Sendable, Identifiable {
         position: MindMapPoint? = nil,
         link: String? = nil,
         side: MindMapSide? = nil,
+        attachments: [NodeAttachment] = [],
         children: [MindMapNode] = []
     ) {
         self.id = id
@@ -150,6 +153,7 @@ public struct MindMapNode: Equatable, Sendable, Identifiable {
         self.position = position
         self.link = link
         self.side = side
+        self.attachments = attachments
         self.children = children
     }
 }
@@ -164,6 +168,7 @@ extension MindMapNode: Codable {
         case position
         case link
         case side
+        case attachments
         case children
     }
 
@@ -181,6 +186,7 @@ extension MindMapNode: Codable {
         position = try container.decodeIfPresent(MindMapPoint.self, forKey: .position)
         link = try container.decodeIfPresent(String.self, forKey: .link)
         side = try container.decodeIfPresent(MindMapSide.self, forKey: .side)
+        attachments = try container.decodeIfPresent([NodeAttachment].self, forKey: .attachments) ?? []
         children = try container.decode([MindMapNode].self, forKey: .children)
     }
 
@@ -194,6 +200,9 @@ extension MindMapNode: Codable {
         try container.encodeIfPresent(position, forKey: .position)
         try container.encodeIfPresent(link, forKey: .link)
         try container.encodeIfPresent(side, forKey: .side)
+        if !attachments.isEmpty {
+            try container.encode(attachments, forKey: .attachments)
+        }
         try container.encode(children, forKey: .children)
     }
 }

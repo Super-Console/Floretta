@@ -146,6 +146,10 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
     public var underline: Bool = false
     public var fontDesign: String = "default"
     public var link: LinkCurve?
+    /// Attachment sizes drawn under the title. Empty when the node has no attachments.
+    public var caption: String = ""
+    /// Image attachment hashes that may have a thumbnail. Used for viewport unload.
+    public var thumbnailHashes: [String] = []
 
     public init(
         id: UUID,
@@ -167,7 +171,9 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
         strikethrough: Bool = false,
         underline: Bool = false,
         fontDesign: String = "default",
-        link: LinkCurve? = nil
+        link: LinkCurve? = nil,
+        caption: String = "",
+        thumbnailHashes: [String] = []
     ) {
         self.id = id
         self.text = text
@@ -189,6 +195,8 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
         self.underline = underline
         self.fontDesign = fontDesign
         self.link = link
+        self.caption = caption
+        self.thumbnailHashes = thumbnailHashes
     }
 
     public var rect: CGRect { CGRect(origin: origin, size: size) }
@@ -401,8 +409,13 @@ public struct LayoutEngine: Sendable {
         return frames
     }
 
+    private func layoutText(_ node: MindMapNode) -> String {
+        guard let label = node.attachmentSizeLabel, !label.isEmpty else { return node.text }
+        return node.text + "\n" + label
+    }
+
     private func collectHeights(_ node: MindMapNode, depth: Int, into heights: inout [Int: CGFloat]) {
-        let raw = cache.size(text: node.text, fontSize: resolvedFontSize(node, depth: depth), maxWidth: metrics.maxTextWidth)
+        let raw = cache.size(text: layoutText(node), fontSize: resolvedFontSize(node, depth: depth), maxWidth: metrics.maxTextWidth)
         heights[depth] = max(heights[depth] ?? 0, raw.height)
         if node.position != nil || node.isCollapsed { return }
         for child in node.children {
@@ -411,9 +424,14 @@ public struct LayoutEngine: Sendable {
     }
 
     private func nodeSize(_ node: MindMapNode, depth: Int, heights: [Int: CGFloat]) -> CGSize {
-        let raw = cache.size(text: node.text, fontSize: resolvedFontSize(node, depth: depth), maxWidth: metrics.maxTextWidth)
-        let width = max(raw.width, CGFloat(node.style?.topicWidth ?? 0))
-        return CGSize(width: width, height: heights[depth] ?? raw.height)
+        let raw = cache.size(text: layoutText(node), fontSize: resolvedFontSize(node, depth: depth), maxWidth: metrics.maxTextWidth)
+        let band = thumbnailBand(node)
+        let width = max(raw.width, CGFloat(node.style?.topicWidth ?? 0), band > 0 ? 72 : 0)
+        return CGSize(width: width, height: (heights[depth] ?? raw.height) + band)
+    }
+
+    private func thumbnailBand(_ node: MindMapNode) -> CGFloat {
+        node.attachments.contains { AttachmentKind.isImageExtension($0.fileExtension) } ? 56 : 0
     }
 
     private func resolvedFontSize(_ node: MindMapNode, depth: Int) -> CGFloat {
@@ -590,7 +608,11 @@ public struct LayoutEngine: Sendable {
             strikethrough: stored?.strikethrough ?? false,
             underline: stored?.underline ?? false,
             fontDesign: stored?.fontDesign ?? "default",
-            link: link
+            link: link,
+            caption: node.attachmentSizeLabel ?? "",
+            thumbnailHashes: node.attachments.compactMap { attachment in
+                AttachmentKind.isImageExtension(attachment.fileExtension) ? attachment.sha256 : nil
+            }
         )
     }
 

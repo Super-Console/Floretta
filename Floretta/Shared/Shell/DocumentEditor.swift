@@ -15,6 +15,7 @@ struct DocumentEditor: View {
     var onEdit: (MindMapDocument) -> Void
     var onImport: () -> Void
     var onSavedCopy: (URL) -> Void = { _ in }
+    var thumbnailCache: ThumbnailFileCache? = nil
 
     @State private var showExport = false
     @State private var exportKind = ""
@@ -32,6 +33,11 @@ struct DocumentEditor: View {
     @State private var inspectorTab = 0
     @State private var showAbout = false
     @State private var camera = CanvasCamera()
+    @State private var showAttachmentImporter = false
+    @State private var insertProposal: AttachmentInsertProposal?
+    @State private var insertSource: URL?
+    @State private var insertAccepted = false
+    @State private var thumbnails = AttachmentThumbnailMemory()
 
     var body: some View {
         canvasStack
@@ -154,6 +160,24 @@ struct DocumentEditor: View {
             .sheet(isPresented: $showAbout) {
                 AboutSheet()
             }
+            .fileImporter(
+                isPresented: $showAttachmentImporter,
+                allowedContentTypes: [.data, .image, .movie, .audio, .pdf],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    if let url = urls.first { stageAttachment(url) }
+                case .failure(let error):
+                    exportError = error.localizedDescription
+                }
+            }
+            .confirmationDialog("放入附件？", isPresented: insertDialogPresented, titleVisibility: .visible) {
+                Button("放入") { beginInsert() }
+                Button("取消", role: .cancel) { cancelInsert() }
+            } message: {
+                Text(insertProposal?.confirmationMessage ?? "")
+            }
             .alert("查找", isPresented: $showFind) {
                 TextField("文字", text: $findQuery)
                 Button("查找") {
@@ -176,7 +200,14 @@ struct DocumentEditor: View {
                 focusNodeID: session.viewMode == .focus ? session.focusNodeID : nil,
                 zenActive: session.zen.isActive,
                 onEscape: { session.handleEscape() },
-                onConsumeBlankDoubleTap: { session.consumeBlankDoubleTap() }
+                onConsumeBlankDoubleTap: { session.consumeBlankDoubleTap() },
+                thumbnails: thumbnails,
+                thumbnailCache: thumbnailCache,
+                attachmentArchive: session.url,
+                spillDirectory: thumbnailCache?.directory
+                    .deletingLastPathComponent()
+                    .appendingPathComponent("spill", isDirectory: true),
+                attachmentEntries: session.attachmentCatalog.attachments
             )
             .ignoresSafeArea()
             if showOutline, session.zen.chrome.showsSidebar {
@@ -242,6 +273,10 @@ struct DocumentEditor: View {
                 Label("同级", systemImage: "square.on.square")
             }
             .help("在选中的节点旁新建一个同级节点")
+            Button { showAttachmentImporter = true } label: {
+                Label("附件", systemImage: "paperclip")
+            }
+            .help("把一个文件原样放进选中的节点")
             Button { onImport() } label: {
                 Label("从文件导入", systemImage: "folder")
             }
@@ -343,15 +378,139 @@ struct DocumentEditor: View {
             .padding(.horizontal)
             if inspectorTab == 0 {
                 StyleInspector(document: $session.document, nodeID: session.keyboard.selectedNodeID)
+            } else if inspectorTab == 2 {
+                documentInfo
             } else {
                 ContentUnavailableView {
                     Label("尚未实现", systemImage: "clock")
                 } description: {
-                    Text(inspectorTab == 1 ? "演说" : "导图")
+                    Text("演说")
                 }
             }
         }
         .padding(.top, 12)
+    }
+
+    private var documentInfo: some View {
+        let references = AttachmentReferences.counts(in: session.document)
+        let stored = session.attachmentCatalog.storedAttachmentBytes
+        let total = stored > 0 ? stored : references.reduce(Int64(0)) { $0 + $1.byteCount }
+        return Form {
+            LabeledContent("附件合计") {
+                Text(AttachmentByteFormat.label(total)).monospacedDigit()
+            }
+            LabeledContent("文档大小") {
+                Text(AttachmentByteFormat.label(session.archiveByteCount)).monospacedDigit()
+            }
+            LabeledContent("引用") {
+                Text("\(references.reduce(0) { $0 + $1.count })").monospacedDigit()
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var insertDialogPresented: Binding<Bool> {
+        Binding(
+            get: { insertProposal != nil },
+            set: { presented in
+                if !presented, insertProposal != nil, !insertAccepted {
+                    cancelInsert()
+                }
+            }
+        )
+    }
+
+    private func stageAttachment(_ url: URL) {
+        let started = url.startAccessingSecurityScopedResource()
+        defer { if started { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let values = try url.resourceValues(forKeys: [.fileSizeKey])
+            let fileSize = Int64(values.fileSize ?? 0)
+            let current = session.archiveByteCount
+            insertAccepted = false
+            insertSource = url
+            insertProposal = AttachmentInsertProposal(
+                filename: url.lastPathComponent,
+                fileByteCount: fileSize,
+                currentDocumentByteCount: current
+            )
+            if started { _ = url.startAccessingSecurityScopedResource() }
+        } catch {
+            exportError = error.localizedDescription
+        }
+    }
+
+    private func cancelInsert() {
+        if let url = insertSource {
+            url.stopAccessingSecurityScopedResource()
+        }
+        insertSource = nil
+        insertProposal = nil
+        insertAccepted = false
+    }
+
+    private func beginInsert() {
+        insertAccepted = true
+        let source = insertSource
+        insertProposal = nil
+        insertSource = nil
+        guard let source else { return }
+        guard let archive = session.url else {
+            source.stopAccessingSecurityScopedResource()
+            exportError = "先把导图存成文件。"
+            return
+        }
+        let nodeID = session.keyboard.selectedNodeID ?? session.document.roots.first?.id
+        guard let nodeID else {
+            source.stopAccessingSecurityScopedResource()
+            exportError = "没有可以放入附件的节点。"
+            return
+        }
+        let document = session.document
+        Task {
+            let outcome = await Task.detached {
+                Result {
+                    try AttachmentInserter.insert(
+                        source: source,
+                        nodeID: nodeID,
+                        document: document,
+                        archive: archive
+                    )
+                }
+            }.value
+            source.stopAccessingSecurityScopedResource()
+            switch outcome {
+            case .success(let saved):
+                session.document = saved.document
+                session.notePackage(catalog: saved.catalog, bytes: saved.archiveByteCount)
+            case .failure(let error):
+                exportError = error.localizedDescription
+            }
+        }
+    }
+
+    private func exportFlorettaCopy() throws {
+        guard let archive = session.url else {
+            exportFile = ExportFile(data: try SharePayload.bytes(for: "floretta", document: session.document))
+            exportType = FlorettaFileTypes.contentType(forExport: "floretta")
+            exportName = exportFilename(title: session.document.title, kind: "floretta")
+            exportKind = "floretta"
+            showExport = true
+            return
+        }
+        let destination = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(UUID().uuidString).floretta")
+        _ = try FlorettaStreamingDocument.save(
+            document: session.document,
+            to: destination,
+            files: FoundationStreamingFiles(),
+            copyingAssetsFrom: archive
+        )
+        exportFile = ExportFile(data: Data(), fileURL: destination)
+        exportType = FlorettaFileTypes.contentType(forExport: "floretta")
+        exportName = exportFilename(title: session.document.title.isEmpty ? "Floretta" : session.document.title, kind: "floretta")
+        exportKind = "floretta"
+        showExport = true
     }
 
     private var exportErrorPresented: Binding<Bool> {
@@ -381,7 +540,13 @@ struct DocumentEditor: View {
                     return
                 }
                 data = pdf
-            case "floretta", "md", "opml", "mm":
+            case "floretta":
+                if session.documentHasAttachments {
+                    try exportFlorettaCopy()
+                    return
+                }
+                data = try SharePayload.bytes(for: kind, document: session.document)
+            case "md", "opml", "mm":
                 data = try SharePayload.bytes(for: kind, document: session.document)
             default:
                 return
@@ -724,15 +889,23 @@ private enum StyleColor {
 struct ExportFile: FileDocument {
     static var readableContentTypes: [UTType] { FlorettaFileTypes.exportableContentTypes }
     var data: Data
+    var fileURL: URL?
 
-    init(data: Data) { self.data = data }
+    init(data: Data, fileURL: URL? = nil) {
+        self.data = data
+        self.fileURL = fileURL
+    }
 
     init(configuration: ReadConfiguration) throws {
         data = configuration.file.regularFileContents ?? Data()
+        fileURL = nil
     }
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        FileWrapper(regularFileWithContents: data)
+        if let fileURL {
+            return try FileWrapper(url: fileURL, options: [])
+        }
+        return FileWrapper(regularFileWithContents: data)
     }
 }
 

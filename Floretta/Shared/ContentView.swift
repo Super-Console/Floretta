@@ -68,7 +68,8 @@ struct ContentView: View {
                     onClose: dismissEditor,
                     onEdit: { recovery.noteEdit($0) },
                     onImport: { showImporter = true },
-                    onSavedCopy: { library.noteExportedCopy($0) }
+                    onSavedCopy: { library.noteExportedCopy($0) },
+                    thumbnailCache: library.thumbnailCache
                 )
             }
         } else {

@@ -22,7 +22,9 @@ P1-d 已由总指挥验收（67 个 macOS 测试全绿；iOS Simulator BUILD SUC
 
 P2-1 `.mm` 已由总指挥验收（macOS 74/0，iOS EXIT=0，合并 `b51b8c5`）。
 
-P2 这一批是 `.opml` 往返和 Markdown 导出，进同一棵 `MindMapDocument`。PNG / PDF 没做。这台云机器没有 Xcode，没有跑 `xcodebuild`。
+P2-2 OPML 与 Markdown 已由总指挥验收（macOS 80/0，含 6 个 OPMLMarkdownTests；iOS EXIT=0，合并 `4c51de7`）。
+
+P2-3 PNG / PDF 已落盘：系统 `ImageRenderer`，只画当前可见的节点和连线。2x/3x，白底或透明。超出像素上限会裁切并给出说明。这台云机器没有 Xcode，没有跑 `xcodebuild`。
 
 Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be pasted back for fixes.
 
@@ -188,4 +190,5 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 | 2026-11-09 | P1-d 修复 | Pro 双端构建 exit 0 | `EditMode` 仅 iOS。`UIKeyboardHIDUsage.keypadEnter` 替换不存在的 `keyboardKeypadEnter`。云端未跑 xcodebuild |
 | 2026-11-09 | P1-d | 总指挥验收通过 | 67 个 macOS 测试全绿；iOS Simulator BUILD SUCCEEDED |
 | 2026-11-09 | P2-1 | 总指挥验收通过 | macOS 74/0，iOS EXIT=0。合并 `b51b8c5` |
-| 2026-11-09 | P2 OPML+MD | 已提交，云端未测试 | OPML 往返与 Markdown 导出。PNG/PDF 未做。云端不能跑 xcodebuild |
+| 2026-11-09 | P2 OPML+MD | 总指挥验收通过 | macOS 80/0，含 6 个 OPMLMarkdownTests。iOS EXIT=0。合并 `4c51de7` |
+| 2026-11-09 | P2-3 | 已提交，云端未测试 | PNG/PDF 用 ImageRenderer。折叠子树不画。超限裁切并提示。云端不能跑 xcodebuild |

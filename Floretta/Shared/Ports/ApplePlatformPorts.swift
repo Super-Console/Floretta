@@ -20,22 +20,7 @@ public struct FoundationFileAccess: FileAccessPort {
     }
 
     public func write(_ data: Data, to url: URL) throws {
-        let fileManager = FileManager.default
-        let directory = url.deletingLastPathComponent()
-        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-        let temp = directory.appendingPathComponent(".\(UUID().uuidString).partial")
-        do {
-            try data.write(to: temp)
-            // The replacement file is fully written before the previous file is removed.
-            // replaceItemAt on swift-corelibs-foundation deletes the destination and then throws.
-            if fileManager.fileExists(atPath: url.path) {
-                try fileManager.removeItem(at: url)
-            }
-            try fileManager.moveItem(at: temp, to: url)
-        } catch {
-            try? fileManager.removeItem(at: temp)
-            throw error
-        }
+        try AtomicFileBytes.write(data, to: url)
     }
 
     public func fileExists(at url: URL) -> Bool {
@@ -212,15 +197,11 @@ public final class FoundationStreamingFiles: StreamingFilePort {
     public func makeTemporary(nextTo url: URL) throws -> URL {
         let directory = url.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        return directory.appendingPathComponent(".\(UUID().uuidString).partial")
+        return AtomicFileBytes.partialURL(for: url)
     }
 
     public func replace(destination: URL, with temporary: URL) throws {
-        let fileManager = FileManager.default
-        if fileManager.fileExists(atPath: destination.path) {
-            try fileManager.removeItem(at: destination)
-        }
-        try fileManager.moveItem(at: temporary, to: destination)
+        try AtomicFileBytes.commit(temporary: temporary, replacing: destination)
     }
 
     public func remove(at url: URL) throws {
@@ -311,6 +292,11 @@ private final class POSIXFileWriter: SequentialByteWriter {
             if count < 0 { throw CocoaError(.fileWriteUnknown) }
             written += count
         }
+    }
+
+    func synchronize() throws {
+        guard fd >= 0 else { return }
+        if Darwin.fsync(fd) != 0 { throw CocoaError(.fileWriteUnknown) }
     }
 
     func close() throws {

@@ -12,6 +12,9 @@ public struct ZipContainer: DocumentContainer {
         do {
             entries = try ZipArchive.read(data, limits: limits)
         } catch let error as ZipArchiveError {
+            if let inventory = inventoryError(for: error) {
+                throw inventory
+            }
             throw map(error)
         }
         guard let documentEntry = entries.first(where: { $0.name == "document.json" }) else {
@@ -41,23 +44,40 @@ public struct ZipContainer: DocumentContainer {
             throw DocumentContainerError.corrupt("metadata.json could not be read.")
         }
         var assets: [FlorettaAsset] = []
+        var failures: [AssetCorruption] = []
+        var stored: Set<String> = []
         for entry in entries where entry.name.hasPrefix("assets/") {
             if entry.data.count > limits.maxAssetBytes {
                 throw DocumentContainerError.overLimit("Asset \(entry.name) exceeds the size limit.")
             }
-            let fileName = String(entry.name.dropFirst("assets/".count))
-            let parts = fileName.split(separator: ".", maxSplits: 1).map(String.init)
-            guard parts.count == 2, parts[0].count == 64, parts[0].allSatisfy(\.isHexDigit) else {
-                throw DocumentContainerError.corrupt("Asset name \(entry.name) is not assets/<sha256>.<ext>.")
-            }
-            let hash = parts[0].lowercased()
-            guard hash == sha256Hex(entry.data) else {
-                throw DocumentContainerError.corrupt("Asset \(entry.name) does not match its content hash.")
-            }
-            if assets.contains(where: { $0.sha256 == hash }) {
+            guard let parsed = AttachmentNames.parseAsset(entry.name) else {
+                failures.append(AssetCorruption(
+                    filename: String(entry.name.dropFirst("assets/".count)),
+                    sha256: "",
+                    entryName: entry.name,
+                    reason: .malformedName
+                ))
                 continue
             }
-            assets.append(FlorettaAsset(sha256: hash, fileExtension: parts[1].lowercased(), data: entry.data))
+            stored.insert(parsed.sha256)
+            let actual = sha256Hex(entry.data)
+            if actual != parsed.sha256 {
+                failures.append(AssetCorruption(
+                    filename: AssetInventory.filenames(for: parsed.sha256, in: document),
+                    sha256: parsed.sha256,
+                    entryName: entry.name,
+                    reason: .hashMismatch(actual: actual)
+                ))
+                continue
+            }
+            if assets.contains(where: { $0.sha256 == parsed.sha256 }) {
+                continue
+            }
+            assets.append(FlorettaAsset(sha256: parsed.sha256, fileExtension: parsed.fileExtension, data: entry.data))
+        }
+        failures.append(contentsOf: AssetInventory.missingReferences(in: document, stored: stored))
+        if let error = AssetInventory.error(from: failures) {
+            throw error
         }
         assets.sort { $0.sha256 < $1.sha256 }
         return FlorettaPackage(document: document, metadata: metadata, assets: assets)
@@ -99,6 +119,25 @@ public struct ZipContainer: DocumentContainer {
             throw DocumentContainerError.overLimit("Package exceeds \(limits.maxDecompressedBytes) bytes.")
         }
         return ZipArchive.write(entries)
+    }
+
+    /// In-memory reads reject a bad CRC before the bytes can be hashed. Name that asset anyway.
+    private func inventoryError(for error: ZipArchiveError) -> AssetInventoryError? {
+        guard case .corrupt(let message) = error else { return nil }
+        let prefix = "Zip entry "
+        let suffix = " failed its checksum."
+        guard message.hasPrefix(prefix), message.hasSuffix(suffix) else { return nil }
+        let name = String(message.dropFirst(prefix.count).dropLast(suffix.count))
+        guard name.hasPrefix("assets/") else { return nil }
+        let parsed = AttachmentNames.parseAsset(name)
+        return AssetInventoryError(failures: [
+            AssetCorruption(
+                filename: parsed.map { "\($0.sha256.prefix(8)).\($0.fileExtension)" } ?? name,
+                sha256: parsed?.sha256 ?? "",
+                entryName: name,
+                reason: .declaredChecksumMismatch
+            ),
+        ])
     }
 
     private func map(_ error: ZipArchiveError) -> DocumentContainerError {

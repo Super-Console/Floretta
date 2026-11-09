@@ -4,6 +4,7 @@ import Foundation
 /// live in the platform adapter, not in Core.
 public protocol FileAccessPort {
     func read(from url: URL) throws -> Data
+    /// Replaces `url` durably (temp file, fsync, rename). A crash leaves the previous bytes in place.
     func write(_ data: Data, to url: URL) throws
     func fileExists(at url: URL) -> Bool
     /// Deletes the file. Does nothing when the path is already absent.
@@ -62,6 +63,8 @@ public protocol RandomAccessReader: AnyObject {
 /// Sequential writes from a caller-provided buffer.
 public protocol SequentialByteWriter: AnyObject {
     func write(_ buffer: UnsafeRawBufferPointer) throws
+    /// Push bytes to stable storage. Saves call this before `rename`.
+    func synchronize() throws
     func close() throws
 }
 
@@ -82,7 +85,10 @@ public protocol StreamingFilePort {
     func isZip(at url: URL) throws -> Bool
     func openReader(at url: URL) throws -> RandomAccessReader
     func openWriter(at url: URL) throws -> SequentialByteWriter
+    /// `AtomicFileBytes.partialURL(for:)` after the parent directory exists.
+    /// The name is stable so a crash can be found. Do not delete `url` here.
     func makeTemporary(nextTo url: URL) throws -> URL
+    /// fsync `temporary`, then `rename` it over `destination`. Never delete `destination` first.
     func replace(destination: URL, with temporary: URL) throws
     func remove(at url: URL) throws
 }

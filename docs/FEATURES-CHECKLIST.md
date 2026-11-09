@@ -86,8 +86,8 @@
 
 - [x] G1 `docs/PERF-BUDGET.md`（九条硬门槛）
 - [~] G2 PR 必带「性能影响三行」（内存/帧率/包体），缺失即打回
-- [ ] G3 原子写入（临时文件 + rename）+ 完整性校验
-- [ ] G4 版本快照与回滚（本地保存历史版本）
+- [x] G3 原子写入（临时文件 + fsync + rename）+ 按附件点名的 sha256 清单
+- [~] G4 版本快照与回滚（`document.json` 旁路快照、可回滚；历史列表 UI 仍是 4.1）
 - [ ] G5 Quick Look 插件（macOS，Finder 里可预览 .floretta）
 - [ ] G6 多窗口（macOS，同一文档多窗口实时同步）
 

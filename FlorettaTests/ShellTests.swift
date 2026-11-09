@@ -650,6 +650,28 @@ final class ShellTests: XCTestCase {
         XCTAssertFalse(originalMM.contains("中文"))
     }
 
+    func testInterruptedSavePromptsBeforeOpening() throws {
+        let directory = try temporaryDirectory()
+        let library = try makeLibrary(directory: directory)
+        library.makeNew()
+        let session = try XCTUnwrap(library.editor)
+        session.document.title = "上一版"
+        let url = try XCTUnwrap(session.url)
+        XCTAssertTrue(library.closeEditor())
+        let partial = AtomicFileBytes.partialURL(for: url)
+        try Data("half-written".utf8).write(to: partial)
+        library.openFile(url)
+        XCTAssertNil(library.editor)
+        XCTAssertTrue(library.showInterruptedSave)
+        XCTAssertTrue(library.interruptedCanRestore)
+        XCTAssertEqual(library.interruptedTitle, "保存未完成")
+        XCTAssertTrue(library.interruptedMessage.contains("上一个完整版本"))
+        library.restoreInterruptedSave()
+        XCTAssertFalse(library.showInterruptedSave)
+        XCTAssertEqual(library.editor?.document.title, "上一版")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: partial.path))
+    }
+
     private func declaredExportType(_ kind: String) -> UTType? {
         switch kind {
         case "png": return .png

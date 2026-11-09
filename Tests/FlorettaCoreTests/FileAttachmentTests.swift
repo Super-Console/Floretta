@@ -311,14 +311,11 @@ private final class HandleFiles: StreamingFilePort {
     func makeTemporary(nextTo url: URL) throws -> URL {
         let directory = url.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        return directory.appendingPathComponent(".\(UUID().uuidString).partial")
+        return AtomicFileBytes.partialURL(for: url)
     }
 
     func replace(destination: URL, with temporary: URL) throws {
-        if FileManager.default.fileExists(atPath: destination.path) {
-            try FileManager.default.removeItem(at: destination)
-        }
-        try FileManager.default.moveItem(at: temporary, to: destination)
+        try AtomicFileBytes.commit(temporary: temporary, replacing: destination)
     }
 
     func remove(at url: URL) throws {
@@ -363,6 +360,10 @@ private final class SliceWriter: SequentialByteWriter {
     func write(_ buffer: UnsafeRawBufferPointer) throws {
         guard buffer.count > 0 else { return }
         try handle.write(contentsOf: Data(buffer))
+    }
+
+    func synchronize() throws {
+        try handle.synchronize()
     }
 
     func close() throws {

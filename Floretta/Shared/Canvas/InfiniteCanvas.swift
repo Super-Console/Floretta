@@ -10,6 +10,7 @@ struct InfiniteCanvas: View {
     @State private var interaction = CanvasInteraction.standard
     @State private var chrome = CanvasChrome.standard
     @State private var keyboard = MindMapKeyboardSession()
+    @State private var compositionWidth: CGFloat = 0
     @FocusState private var canvasFocused: Bool
 
     var body: some View {
@@ -58,6 +59,7 @@ struct InfiniteCanvas: View {
             }
             .onChange(of: keyboard.mode) { _, mode in
                 if mode == .command {
+                    compositionWidth = 0
                     canvasFocused = true
                 }
             }
@@ -165,9 +167,11 @@ struct InfiniteCanvas: View {
                     set: { keyboard.replaceEditingText($0, document: &document) }
                 ),
                 isComposing: $keyboard.isComposing,
+                minimumWidth: $compositionWidth,
+                fontSize: frame.fontSize * max(viewport.scale, 1),
                 onEvent: { handleKey($0) }
             )
-            .frame(width: max(rect.width, 88), height: max(rect.height, 36))
+            .frame(width: max(rect.width, compositionWidth, 88), height: max(rect.height, 36))
             .position(x: rect.midX, y: rect.midY)
         }
     }

@@ -14,7 +14,9 @@ P0.5 已由总指挥验收（32 个测试全绿）。DocumentGroup、实验 A/B 
 
 P1-b 已由总指挥验收（46 个测试全绿，含 S 曲线曲率断言）。触控板手势这批仍不验。
 
-P1-c 键盘模型：总指挥跑过 57 通过、1 失败。失败的是左右布局上的上下键跳到了对侧。已改为上下只在父节点同一侧的兄弟间移动。等本机再跑 `xcodebuild test`。没有开始 P1-r。
+P1-c 修复已由总指挥验收（58 个测试全绿，TEST SUCCEEDED）。
+
+P1-r 复用评审已落盘：SwiftFlow 0.3.1 作为 SPM 依赖，替换视口变换和命中测试；`LayoutEngine` 仍是我们的。Mindscape 没有整文件拷进仓库。等本机再跑 `xcodebuild test`（要能解析 Swift 包）。没有开始大纲、DocumentGroup、`.xmind` 导入、TestFlight。
 
 Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be pasted back for fixes.
 
@@ -26,7 +28,17 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 xcodebuild test -project Floretta.xcodeproj -scheme Floretta-macOS -destination 'platform=macOS'
 ```
 
-构建或测试错误贴回再改。通过后再放行下一批。
+构建或测试错误贴回再改。通过后再放行下一批。第一次构建会拉取 SwiftFlow 0.3.1。
+
+## P1-r 申报
+
+按 `docs/REUSE.md` 的 P1-r-1…P1-r-4。结论写在 `docs/REUSE-AUDIT.md`，第三方记录在根目录 `NOTICE`。
+
+- **SwiftFlow** `v0.3.1`（commit `98ff46633257d188f1819255df8c8453a9b72d8f`，根 `LICENSE.md` 是 MIT，版权 A.Aurelions）。三个 target 都链这个 SPM 产品。`CanvasViewport` 用它的 `Viewport`、`SwiftFlowInstance.screenToFlowPosition` / `flowToScreenPosition` / `zoomTo`，以及 `getViewportForBounds`。命中测试用 `getIntersectingNodes`，后画的节点 `zIndex` 更高。`LayoutEngine` 没换。没有改用它的整块 `SwiftFlow` 视图。
+- **Mindscape** `0.7.0`（`258dfe9`，MIT）只对照了组字。组字不走 `textDidChange`，所以 macOS / iOS 文本框在 `setMarkedText` / `unmarkText` 时把组字写进节点，编辑框先按文字宽度撑开，候选框仍由系统文本框贴在插入点上。没有拷它的源文件。`isComposing == true` 时映射仍然返回空。
+- **Brainstorm**、**SimpleMindMap**、**Freeplane** 的结论在审计里。Freeplane 是 GPL-2.0，没有复制代码。
+
+云上没有解析 Swift 包，也没有跑 `xcodebuild`。
 
 ## P1-c 申报
 
@@ -152,4 +164,5 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 | 2026-11-09 | P0.5 | 已提交，云端未测试 | DocumentContainer + 只读旧 JSON + ZipContainer（原子写、稳定顺序、哈希去重、zip bomb 上限）。不覆盖旧 JSON 原文件。云端不能跑 xcodebuild |
 | 2026-11-09 | P1-b | 总指挥验收通过 | 46 个测试全绿，含 Δy ≠ 0 时 S 曲线曲率断言 |
 | 2026-11-09 | P1-c | 总指挥测试 57 通过、1 失败 | `testLayoutArrowsMoveBetweenParentAndSide`：上下键把对侧、Y 更近的兄弟当成了下一节点 |
-| 2026-11-09 | P1-c 修复 | 已提交，云端未测试 | 上下只走父节点同一侧。云端不能跑 xcodebuild |
+| 2026-11-09 | P1-c 修复 | 总指挥验收通过 | 58 个测试全绿，TEST SUCCEEDED |
+| 2026-11-09 | P1-r | 已提交，云端未测试 | SwiftFlow 0.3.1 替换视口和命中；LayoutEngine 保留。NOTICE 与 REUSE-AUDIT 已写。云端不能跑 xcodebuild |

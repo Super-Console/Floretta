@@ -100,7 +100,7 @@ enum FlorettaMarkdown {
             close(through: parsedHeading.depth)
             let parsed = parseHeadingText(parsedHeading.text)
             let node = MindMapNode(text: parsed.text, link: parsed.link)
-            stack.append(HeadingItem(depth: heading.depth, node: node))
+            stack.append(HeadingItem(depth: parsedHeading.depth, node: node))
         }
         close(through: 1)
         guard !roots.isEmpty else { throw FlorettaMarkdownError.empty }

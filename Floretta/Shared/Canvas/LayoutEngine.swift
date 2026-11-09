@@ -10,17 +10,26 @@ struct BranchColor: Equatable, Sendable {
     var green: Double
     var blue: Double
 
+    /// Named separately from the `blue` component so `.blue` is not the channel.
     static let white = BranchColor(red: 1, green: 1, blue: 1)
     static let black = BranchColor(red: 0, green: 0, blue: 0)
-    static let blue = BranchColor(red: 0.2, green: 0.45, blue: 1)
+    static let selectionBlue = BranchColor(red: 0.2, green: 0.45, blue: 1)
+
+    init(red: Double, green: Double, blue: Double) {
+        self.red = red
+        self.green = green
+        self.blue = blue
+    }
 
     init?(hex: String) {
         var raw = hex.trimmingCharacters(in: .whitespacesAndNewlines)
         if raw.hasPrefix("#") { raw.removeFirst() }
         guard raw.count == 6, let value = Int(raw, radix: 16) else { return nil }
-        red = Double((value >> 16) & 0xFF) / 255
-        green = Double((value >> 8) & 0xFF) / 255
-        blue = Double(value & 0xFF) / 255
+        self.init(
+            red: Double((value >> 16) & 0xFF) / 255,
+            green: Double((value >> 8) & 0xFF) / 255,
+            blue: Double(value & 0xFF) / 255
+        )
     }
 
     func lightened(by amount: Double) -> BranchColor {
@@ -137,7 +146,7 @@ struct CanvasInteraction: Equatable, Sendable {
     static let standard = CanvasInteraction(
         hoveredNodeID: nil,
         selectedNodeID: nil,
-        selectionBorder: .blue,
+        selectionBorder: .selectionBlue,
         selectionBorderWidth: 1.5,
         resizeHandles: CanvasDirection.allCases,
         showsShadows: false

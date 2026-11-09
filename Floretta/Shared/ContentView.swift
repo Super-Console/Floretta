@@ -12,7 +12,6 @@ struct ContentView: View {
     @State private var showImporter = false
     @State private var browseRoot: URL?
     @State private var browseTitle = "我的iPad"
-    @State private var saveLocationTitle = "我的iPad"
     @State private var notice: String?
 
     var body: some View {
@@ -95,10 +94,7 @@ struct ContentView: View {
                     case .newMap:
                         NewMapPage(
                             onClose: { page = .recent },
-                            onCreateMindMap: { library.makeNew() },
-                            saveLocationTitle: $saveLocationTitle,
-                            chooseDocuments: chooseDocuments,
-                            chooseICloud: chooseICloudSave
+                            onCreateMindMap: { library.makeNew() }
                         )
                     case .browse:
                         if let browseRoot {
@@ -152,16 +148,4 @@ struct ContentView: View {
         page = .browse
     }
 
-    private func chooseDocuments() {
-        library.useDocumentsForNewFiles()
-        saveLocationTitle = "我的iPad"
-    }
-
-    private func chooseICloudSave() {
-        guard library.useICloudForNewFiles() else {
-            notice = "iCloud 云盘不可用。"
-            return
-        }
-        saveLocationTitle = "iCloud云盘"
-    }
 }

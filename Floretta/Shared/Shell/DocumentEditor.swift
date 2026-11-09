@@ -26,6 +26,7 @@ struct DocumentEditor: View {
     @State private var showFind = false
     @State private var findQuery = ""
     @State private var inspectorTab = 0
+    @State private var showRelationNotice = false
 
     var body: some View {
         canvasStack
@@ -46,24 +47,36 @@ struct DocumentEditor: View {
                             fileMenu
                         }
                     }
+                    #if os(macOS)
+                    ToolbarItemGroup(placement: .principal) {
+                        canvasCommands
+                    }
+                    #endif
                     ToolbarItemGroup(placement: .primaryAction) {
                         shareMenu
-                        moreMenu
+                        Button {} label: {
+                            Image(systemName: "tv")
+                        }
+                        .disabled(true)
+                        .accessibilityLabel("投屏")
                         Button {
                             showInspector = true
                         } label: {
                             Image(systemName: "paintbrush")
                         }
-                        .accessibilityLabel("样式")
+                        .accessibilityLabel("样式刷")
+                        moreMenu
                     }
                 }
             }
+            #if os(iOS)
             .safeAreaInset(edge: .top, spacing: 0) {
                 if session.zen.chrome.showsToolbar {
                     centerCapsule
                         .padding(.top, 8)
                 }
             }
+            #endif
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if session.zen.chrome.showsToolbar {
                     HStack {
@@ -96,6 +109,7 @@ struct DocumentEditor: View {
             .contextMenu {
                 ForEach(CanvasMenus.text, id: \.self) { item in
                     Button(item) { runTextCommand(item) }
+                        .disabled(CanvasMenus.textDisabled.contains(item))
                 }
             }
             .fileExporter(
@@ -116,6 +130,11 @@ struct DocumentEditor: View {
                     if !title.isEmpty { session.document.title = title }
                 }
                 Button("取消", role: .cancel) {}
+            }
+            .alert("关系线", isPresented: $showRelationNotice) {
+                Button("好", role: .cancel) {}
+            } message: {
+                Text("关系线尚未接入。")
             }
             .alert("查找", isPresented: $showFind) {
                 TextField("文字", text: $findQuery)
@@ -170,37 +189,27 @@ struct DocumentEditor: View {
         }
     }
 
-    private var centerCapsule: some View {
+    private var canvasCommands: some View {
         HStack(spacing: 4) {
-            Button {
-                session.undo()
-            } label: {
-                Image(systemName: "arrow.uturn.backward")
-            }
-            .accessibilityLabel("撤销")
-            Button {
-                showOutline.toggle()
-            } label: {
-                Image(systemName: "list.bullet")
-            }
-            .accessibilityLabel("大纲")
-            Button {
-                pasteFromClipboard()
-            } label: {
-                Image(systemName: "doc.on.clipboard")
-            }
-            .accessibilityLabel("粘贴")
-            Button {
-                session.addChildFromToolbar()
-            } label: {
-                Image(systemName: "plus")
-            }
-            .accessibilityLabel("新建")
+            Button { session.undo() } label: { Image(systemName: "arrow.uturn.backward") }
+                .accessibilityLabel("撤销")
+            Button { showOutline.toggle() } label: { Image(systemName: "list.bullet") }
+                .accessibilityLabel("大纲")
+            Button { showRelationNotice = true } label: { Image(systemName: "arrow.triangle.branch") }
+                .accessibilityLabel("关系线")
+            Button { pasteFromClipboard() } label: { Image(systemName: "doc.on.clipboard") }
+                .accessibilityLabel("粘贴")
+            Button { session.addChildFromToolbar() } label: { Image(systemName: "plus") }
+                .accessibilityLabel("新建")
         }
         .buttonStyle(.borderless)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial, in: Capsule())
+    }
+
+    private var centerCapsule: some View {
+        canvasCommands
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background { Capsule().fill(.ultraThinMaterial) }
     }
 
     private var fileMenu: some View {
@@ -210,6 +219,10 @@ struct DocumentEditor: View {
                     renameText = session.document.title
                     showRename = true
                 }
+                Button("设置密码") {}
+                    .disabled(true)
+                Button("风格化分享") {}
+                    .disabled(true)
                 Menu("导出") {
                     ForEach(CanvasMenus.export, id: \.self) { kind in
                         Button(exportTitle(kind)) { export(kind) }
@@ -246,12 +259,20 @@ struct DocumentEditor: View {
 
     private var moreMenu: some View {
         Menu {
+            Menu("查看模式") {
+                Button("地图模式") { session.viewMode = .map }
+                Button("聚焦模式") { session.viewMode = .focus }
+            }
+            Button("新建画布") { session.addCanvas() }
+            Button("演说") {}
+                .disabled(true)
             Button("ZEN") { session.enterZen() }
             Button("查找") {
                 findQuery = ""
                 showFind = true
             }
-            Button("新建画布") { session.addCanvas() }
+            Button("反馈") {}
+                .disabled(true)
         } label: {
             Image(systemName: "ellipsis")
         }
@@ -278,7 +299,7 @@ struct DocumentEditor: View {
                 StyleInspector(document: $session.document, nodeID: session.keyboard.selectedNodeID)
             } else {
                 ContentUnavailableView {
-                    Label("即将推出", systemImage: "clock")
+                    Label("尚未实现", systemImage: "clock")
                 } description: {
                     Text(inspectorTab == 1 ? "演说" : "导图")
                 }
@@ -297,7 +318,9 @@ struct DocumentEditor: View {
     private var fileHeader: String {
         let title = session.document.title.isEmpty ? "未命名" : session.document.title
         let bytes = session.url.flatMap { try? Data(contentsOf: $0).count } ?? 0
-        return "\(title) · Floretta · \(bytes) bytes"
+        let kilobytes = max(bytes, 1) / 1024
+        let size = bytes < 1024 ? "\(max(bytes, 1)) B" : "\(max(kilobytes, 1)) KB"
+        return "\(title) · Floretta 文件 · \(size)"
     }
 
     private func exportTitle(_ kind: String) -> String {
@@ -376,8 +399,13 @@ struct DocumentEditor: View {
             if let text = session.copySelection() { writePasteboard(text) }
         case "粘贴":
             pasteFromClipboard()
-        case "选择":
+        case "全选", "选择":
             session.selectCurrent()
+        case "拷贝样式":
+            if let id = session.keyboard.selectedNodeID,
+               let style = session.document.node(id)?.style {
+                writePasteboard(style.fillHex ?? style.colorHex)
+            }
         default:
             break
         }

@@ -1,3 +1,4 @@
+import FlorettaCore
 import Foundation
 
 /// FreeMind / Freeplane `.mm` XML, written from the public element shape

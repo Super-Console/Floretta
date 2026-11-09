@@ -1,3 +1,4 @@
+import FlorettaCore
 import Foundation
 
 /// While a document has unsaved edits, `tick` runs every `interval` (5 seconds).

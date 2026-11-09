@@ -1,3 +1,4 @@
+import FlorettaCore
 import AppKit
 import PDFKit
 import XCTest

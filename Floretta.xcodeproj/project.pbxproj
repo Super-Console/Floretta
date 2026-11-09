@@ -13,15 +13,6 @@
 		C10000000000000000000004 /* FlorettaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000001 /* FlorettaApp.swift */; };
 		C10000000000000000000005 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000002 /* ContentView.swift */; };
 		C10000000000000000000006 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000005 /* Assets.xcassets */; };
-		C10000000000000000000007 /* MindMapNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000009 /* MindMapNode.swift */; };
-		C10000000000000000000008 /* MindMapDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000A /* MindMapDocument.swift */; };
-		C10000000000000000000009 /* FlorettaCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000B /* FlorettaCodec.swift */; };
-		C1000000000000000000000A /* MindMapNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000009 /* MindMapNode.swift */; };
-		C1000000000000000000000B /* MindMapDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000A /* MindMapDocument.swift */; };
-		C1000000000000000000000C /* FlorettaCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000B /* FlorettaCodec.swift */; };
-		C1000000000000000000000D /* MindMapNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000009 /* MindMapNode.swift */; };
-		C1000000000000000000000E /* MindMapDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000A /* MindMapDocument.swift */; };
-		C1000000000000000000000F /* FlorettaCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000B /* FlorettaCodec.swift */; };
 		C91000000000000000000001 /* FlorettaMMCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = F91000000000000000000001 /* FlorettaMMCodec.swift */; };
 		C91000000000000000000002 /* FlorettaMMCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = F91000000000000000000001 /* FlorettaMMCodec.swift */; };
 		C91000000000000000000003 /* FlorettaMMCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = F91000000000000000000001 /* FlorettaMMCodec.swift */; };
@@ -61,15 +52,6 @@
 		C93000000000000000000004 /* MapExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F93000000000000000000002 /* MapExportTests.swift */; };
 		C4000000000000000000000C /* CanvasScrollInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000004 /* CanvasScrollInput.swift */; };
 		C4000000000000000000000D /* CanvasTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000005 /* CanvasTests.swift */; };
-		C50000000000000000000001 /* DocumentContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000001 /* DocumentContainer.swift */; };
-		C50000000000000000000002 /* ZipContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000002 /* ZipContainer.swift */; };
-		C50000000000000000000003 /* ZipArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000003 /* ZipArchive.swift */; };
-		C50000000000000000000004 /* DocumentContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000001 /* DocumentContainer.swift */; };
-		C50000000000000000000005 /* ZipContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000002 /* ZipContainer.swift */; };
-		C50000000000000000000006 /* ZipArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000003 /* ZipArchive.swift */; };
-		C50000000000000000000007 /* DocumentContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000001 /* DocumentContainer.swift */; };
-		C50000000000000000000008 /* ZipContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000002 /* ZipContainer.swift */; };
-		C50000000000000000000009 /* ZipArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000003 /* ZipArchive.swift */; };
 		C5000000000000000000000A /* ContainerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000004 /* ContainerTests.swift */; };
 		C60000000000000000000001 /* TextMeasurementCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000001 /* TextMeasurementCache.swift */; };
 		C60000000000000000000002 /* LayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000002 /* LayoutEngine.swift */; };
@@ -130,6 +112,9 @@
 		CA7100000000000000000001 /* ShellTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7100000000000000000001 /* ShellTests.swift */; };
 		CA8100000000000000000001 /* NOTICE in Resources */ = {isa = PBXBuildFile; fileRef = FA8100000000000000000001 /* NOTICE */; };
 		CA8100000000000000000002 /* NOTICE in Resources */ = {isa = PBXBuildFile; fileRef = FA8100000000000000000001 /* NOTICE */; };
+		CB1000000000000000000001 /* ApplePlatformPorts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000000000000000000001 /* ApplePlatformPorts.swift */; };
+		CB1000000000000000000002 /* ApplePlatformPorts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000000000000000000001 /* ApplePlatformPorts.swift */; };
+		CB1000000000000000000003 /* ApplePlatformPorts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000000000000000000001 /* ApplePlatformPorts.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -141,15 +126,12 @@
 		F10000000000000000000006 /* Floretta-macOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Floretta-macOS.entitlements"; sourceTree = "<group>"; };
 		F10000000000000000000007 /* Floretta-macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Floretta-macOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		F10000000000000000000008 /* Floretta-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Floretta-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		F10000000000000000000009 /* MindMapNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MindMapNode.swift; sourceTree = "<group>"; };
-		F1000000000000000000000A /* MindMapDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MindMapDocument.swift; sourceTree = "<group>"; };
-		F1000000000000000000000B /* FlorettaCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlorettaCodec.swift; sourceTree = "<group>"; };
 		F91000000000000000000001 /* FlorettaMMCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlorettaMMCodec.swift; sourceTree = "<group>"; };
 		F91000000000000000000002 /* MMTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMTests.swift; sourceTree = "<group>"; };
 		F92000000000000000000001 /* FlorettaOPMLCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlorettaOPMLCodec.swift; sourceTree = "<group>"; };
 		F92000000000000000000002 /* FlorettaMarkdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlorettaMarkdown.swift; sourceTree = "<group>"; };
 		F92000000000000000000003 /* OPMLMarkdownTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OPMLMarkdownTests.swift; sourceTree = "<group>"; };
-		F1000000000000000000000C /* MindMapDocumentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MindMapDocumentTests.swift; sourceTree = "<group>"; };
+		F1000000000000000000000C /* MindMapDocumentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MindMapDocumentTests.swift; path = Tests/FlorettaCoreTests/MindMapDocumentTests.swift; sourceTree = SOURCE_ROOT; };
 		F1000000000000000000000D /* FlorettaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FlorettaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F20000000000000000000001 /* AutosaveStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutosaveStore.swift; sourceTree = "<group>"; };
 		F20000000000000000000002 /* AutosaveSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutosaveSession.swift; sourceTree = "<group>"; };
@@ -162,10 +144,7 @@
 		F93000000000000000000002 /* MapExportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapExportTests.swift; sourceTree = "<group>"; };
 		F30000000000000000000004 /* CanvasScrollInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasScrollInput.swift; sourceTree = "<group>"; };
 		F30000000000000000000005 /* CanvasTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasTests.swift; sourceTree = "<group>"; };
-		F50000000000000000000001 /* DocumentContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentContainer.swift; sourceTree = "<group>"; };
-		F50000000000000000000002 /* ZipContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipContainer.swift; sourceTree = "<group>"; };
-		F50000000000000000000003 /* ZipArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipArchive.swift; sourceTree = "<group>"; };
-		F50000000000000000000004 /* ContainerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerTests.swift; sourceTree = "<group>"; };
+		F50000000000000000000004 /* ContainerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ContainerTests.swift; path = Tests/FlorettaCoreTests/ContainerTests.swift; sourceTree = SOURCE_ROOT; };
 		F60000000000000000000001 /* TextMeasurementCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextMeasurementCache.swift; sourceTree = "<group>"; };
 		F60000000000000000000002 /* LayoutEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayoutEngine.swift; sourceTree = "<group>"; };
 		F60000000000000000000003 /* LayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayoutTests.swift; sourceTree = "<group>"; };
@@ -188,6 +167,7 @@
 		FA7100000000000000000001 /* ShellTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellTests.swift; sourceTree = "<group>"; };
 		FA8100000000000000000001 /* NOTICE */ = {isa = PBXFileReference; lastKnownFileType = text; path = NOTICE; sourceTree = SOURCE_ROOT; };
 		FA9100000000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		FB1000000000000000000001 /* ApplePlatformPorts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplePlatformPorts.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -227,6 +207,8 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000003 /* Floretta */,
+				F1000000000000000000000C /* MindMapDocumentTests.swift */,
+			F50000000000000000000004 /* ContainerTests.swift */,
 				A10000000000000000000008 /* FlorettaTests */,
 				A10000000000000000000002 /* Products */,
 			);
@@ -259,9 +241,9 @@
 				F10000000000000000000002 /* ContentView.swift */,
 				A20000000000000000000001 /* Autosave */,
 				A30000000000000000000001 /* Canvas */,
-				A40000000000000000000001 /* Container */,
 				A70000000000000000000001 /* Keyboard */,
 				A90000000000000000000001 /* Outline */,
+				AB1000000000000000000001 /* Ports */,
 				AA1000000000000000000001 /* Shell */,
 				A10000000000000000000007 /* Model */,
 			);
@@ -271,12 +253,9 @@
 		A10000000000000000000007 /* Model */ = {
 			isa = PBXGroup;
 			children = (
-				F1000000000000000000000B /* FlorettaCodec.swift */,
 				F91000000000000000000001 /* FlorettaMMCodec.swift */,
 				F92000000000000000000002 /* FlorettaMarkdown.swift */,
 				F92000000000000000000001 /* FlorettaOPMLCodec.swift */,
-				F1000000000000000000000A /* MindMapDocument.swift */,
-				F10000000000000000000009 /* MindMapNode.swift */,
 			);
 			path = Model;
 			sourceTree = "<group>";
@@ -340,29 +319,17 @@
 			path = Shell;
 			sourceTree = "<group>";
 		};
-		A40000000000000000000001 /* Container */ = {
-			isa = PBXGroup;
-			children = (
-				F50000000000000000000001 /* DocumentContainer.swift */,
-				F50000000000000000000003 /* ZipArchive.swift */,
-				F50000000000000000000002 /* ZipContainer.swift */,
-			);
-			path = Container;
-			sourceTree = "<group>";
-		};
 		A10000000000000000000008 /* FlorettaTests */ = {
 			isa = PBXGroup;
 			children = (
 				F20000000000000000000004 /* AutosaveTests.swift */,
 				F30000000000000000000005 /* CanvasTests.swift */,
-				F50000000000000000000004 /* ContainerTests.swift */,
 				F70000000000000000000005 /* KeyboardTests.swift */,
 				F90000000000000000000003 /* OutlineTests.swift */,
 				F60000000000000000000003 /* LayoutTests.swift */,
 				F91000000000000000000002 /* MMTests.swift */,
 				F92000000000000000000003 /* OPMLMarkdownTests.swift */,
 				F93000000000000000000002 /* MapExportTests.swift */,
-				F1000000000000000000000C /* MindMapDocumentTests.swift */,
 				FA7100000000000000000001 /* ShellTests.swift */,
 			);
 			path = FlorettaTests;
@@ -385,6 +352,14 @@
 				F10000000000000000000004 /* Info.plist */,
 			);
 			path = iOS;
+			sourceTree = "<group>";
+		};
+		AB1000000000000000000001 /* Ports */ = {
+			isa = PBXGroup;
+			children = (
+				FB1000000000000000000001 /* ApplePlatformPorts.swift */,
+			);
+			path = Ports;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -528,11 +503,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CB1000000000000000000001 /* ApplePlatformPorts.swift in Sources */,
 				C10000000000000000000001 /* FlorettaApp.swift in Sources */,
 				C10000000000000000000002 /* ContentView.swift in Sources */,
-				C10000000000000000000007 /* MindMapNode.swift in Sources */,
-				C10000000000000000000008 /* MindMapDocument.swift in Sources */,
-				C10000000000000000000009 /* FlorettaCodec.swift in Sources */,
 				C91000000000000000000001 /* FlorettaMMCodec.swift in Sources */,
 				C92000000000000000000001 /* FlorettaOPMLCodec.swift in Sources */,
 				C92000000000000000000002 /* FlorettaMarkdown.swift in Sources */,
@@ -544,9 +517,6 @@
 				C40000000000000000000003 /* InfiniteCanvas.swift in Sources */,
 				C93000000000000000000001 /* MapExport.swift in Sources */,
 				C40000000000000000000004 /* CanvasScrollInput.swift in Sources */,
-				C50000000000000000000001 /* DocumentContainer.swift in Sources */,
-				C50000000000000000000002 /* ZipContainer.swift in Sources */,
-				C50000000000000000000003 /* ZipArchive.swift in Sources */,
 				C60000000000000000000001 /* TextMeasurementCache.swift in Sources */,
 				C60000000000000000000002 /* LayoutEngine.swift in Sources */,
 				C70000000000000000000001 /* KeyboardCommandMapper.swift in Sources */,
@@ -570,11 +540,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CB1000000000000000000002 /* ApplePlatformPorts.swift in Sources */,
 				C10000000000000000000004 /* FlorettaApp.swift in Sources */,
 				C10000000000000000000005 /* ContentView.swift in Sources */,
-				C1000000000000000000000A /* MindMapNode.swift in Sources */,
-				C1000000000000000000000B /* MindMapDocument.swift in Sources */,
-				C1000000000000000000000C /* FlorettaCodec.swift in Sources */,
 				C91000000000000000000002 /* FlorettaMMCodec.swift in Sources */,
 				C92000000000000000000003 /* FlorettaOPMLCodec.swift in Sources */,
 				C92000000000000000000004 /* FlorettaMarkdown.swift in Sources */,
@@ -586,9 +554,6 @@
 				C40000000000000000000007 /* InfiniteCanvas.swift in Sources */,
 				C93000000000000000000002 /* MapExport.swift in Sources */,
 				C40000000000000000000008 /* CanvasScrollInput.swift in Sources */,
-				C50000000000000000000004 /* DocumentContainer.swift in Sources */,
-				C50000000000000000000005 /* ZipContainer.swift in Sources */,
-				C50000000000000000000006 /* ZipArchive.swift in Sources */,
 				C60000000000000000000003 /* TextMeasurementCache.swift in Sources */,
 				C60000000000000000000004 /* LayoutEngine.swift in Sources */,
 				C70000000000000000000005 /* KeyboardCommandMapper.swift in Sources */,
@@ -612,14 +577,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C1000000000000000000000D /* MindMapNode.swift in Sources */,
-				C1000000000000000000000E /* MindMapDocument.swift in Sources */,
-				C1000000000000000000000F /* FlorettaCodec.swift in Sources */,
 				C91000000000000000000003 /* FlorettaMMCodec.swift in Sources */,
 				C91000000000000000000004 /* MMTests.swift in Sources */,
 				C92000000000000000000005 /* FlorettaOPMLCodec.swift in Sources */,
 				C92000000000000000000006 /* FlorettaMarkdown.swift in Sources */,
 				C92000000000000000000007 /* OPMLMarkdownTests.swift in Sources */,
+				CB1000000000000000000003 /* ApplePlatformPorts.swift in Sources */,
 				C20000000000000000000001 /* MindMapDocumentTests.swift in Sources */,
 				C30000000000000000000007 /* AutosaveStore.swift in Sources */,
 				C30000000000000000000008 /* AutosaveSession.swift in Sources */,
@@ -632,9 +595,6 @@
 				C93000000000000000000004 /* MapExportTests.swift in Sources */,
 				C4000000000000000000000C /* CanvasScrollInput.swift in Sources */,
 				C4000000000000000000000D /* CanvasTests.swift in Sources */,
-				C50000000000000000000007 /* DocumentContainer.swift in Sources */,
-				C50000000000000000000008 /* ZipContainer.swift in Sources */,
-				C50000000000000000000009 /* ZipArchive.swift in Sources */,
 				C5000000000000000000000A /* ContainerTests.swift in Sources */,
 				C60000000000000000000005 /* TextMeasurementCache.swift in Sources */,
 				C60000000000000000000006 /* LayoutEngine.swift in Sources */,

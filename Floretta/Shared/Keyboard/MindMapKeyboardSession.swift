@@ -1,3 +1,4 @@
+import FlorettaCore
 import Foundation
 
 struct EditBuffer: Equatable, Sendable {

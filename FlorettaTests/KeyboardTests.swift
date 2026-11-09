@@ -1,3 +1,4 @@
+import FlorettaCore
 import XCTest
 
 final class KeyboardTests: XCTestCase {

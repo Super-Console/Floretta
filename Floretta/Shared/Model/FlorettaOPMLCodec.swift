@@ -1,3 +1,4 @@
+import FlorettaCore
 import Foundation
 
 /// OPML 2.0 outlines. Public shape: `opml` / `head` / `title` / `body` / `outline`,

@@ -1,3 +1,4 @@
+import FlorettaCore
 import SwiftUI
 
 /// The same `MindMapDocument` as the canvas, drawn with system list controls.

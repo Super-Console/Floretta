@@ -19,6 +19,11 @@ final class PortInjectionTests: XCTestCase {
         let metrics = fonts.measure(text: "中", fontName: "serif", fontSize: 16, maxWidth: nil)
         XCTAssertEqual(metrics.width, 16)
     }
+
+    func testCodecErrorDescriptionCrossesTheModuleBoundary() {
+        let error: Error = FlorettaCodecError.corrupt("nope")
+        XCTAssertEqual((error as? LocalizedError)?.errorDescription, "nope")
+    }
 }
 
 private struct FixedClock: ClockPort {

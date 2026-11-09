@@ -1,3 +1,4 @@
+import FlorettaCore
 import Foundation
 
 /// Markdown headings follow outline depth.

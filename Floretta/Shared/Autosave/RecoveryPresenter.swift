@@ -1,3 +1,4 @@
+import FlorettaCore
 import SwiftUI
 
 /// Launch-time recovery offer. Alerts are system SwiftUI controls.

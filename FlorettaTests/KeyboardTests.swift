@@ -113,6 +113,19 @@ final class KeyboardTests: XCTestCase {
         XCTAssertEqual(SelectionNavigator.destination(from: lower, move: .up, frames: frames), upper)
         XCTAssertEqual(SelectionNavigator.destination(from: upper, move: .down, frames: frames), lower)
         XCTAssertNil(SelectionNavigator.destination(from: upper, move: .up, frames: frames))
+
+        let root = UUID()
+        let rightUpper = UUID()
+        let rightLower = UUID()
+        let leftMiddle = UUID()
+        let bilateral = [
+            sample(root, parent: nil, x: 100, y: 80, w: 40, h: 40),
+            sample(rightUpper, parent: root, x: 200, y: 0, w: 40, h: 30),
+            sample(leftMiddle, parent: root, x: 0, y: 90, w: 40, h: 20),
+            sample(rightLower, parent: root, x: 200, y: 160, w: 40, h: 30),
+        ]
+        XCTAssertEqual(SelectionNavigator.destination(from: rightUpper, move: .down, frames: bilateral), rightLower)
+        XCTAssertEqual(SelectionNavigator.destination(from: rightLower, move: .up, frames: bilateral), rightUpper)
     }
 
     func testLayoutArrowsMoveBetweenParentAndSide() {
@@ -147,6 +160,11 @@ final class KeyboardTests: XCTestCase {
         let landedFrame = try! XCTUnwrap(frames.first { $0.id == landed })
         let other = rightIDs.subtracting([landed]).first!
         let otherFrame = try! XCTUnwrap(frames.first { $0.id == other })
+        let leftFrame = try! XCTUnwrap(frames.first { $0.id == left })
+        let upperY = min(landedFrame.frame.midY, otherFrame.frame.midY)
+        let lowerY = max(landedFrame.frame.midY, otherFrame.frame.midY)
+        XCTAssertGreaterThan(leftFrame.frame.midY, upperY)
+        XCTAssertLessThan(leftFrame.frame.midY, lowerY)
         session.selectedNodeID = landed
         let towardOther: SelectionMove = otherFrame.frame.midY > landedFrame.frame.midY ? .down : .up
         session.apply(.moveSelection(towardOther), document: &document, frames: frames)

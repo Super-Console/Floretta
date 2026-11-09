@@ -10,7 +10,10 @@ enum SelectionMove: String, Equatable, Sendable {
 
 /// Arrow targets from laid-out frames.
 ///
-/// Up and down stay on siblings (same parent), the nearest one on that side of the current midY.
+/// Up and down stay on siblings that share the current node's side of the parent. A bilateral
+/// root centers a lone child on the other side between the stacked pair, so that child is closer
+/// in Y and must not steal the move. Distance is each candidate's own midY against the current
+/// node, not the parent's midY.
 /// Left and right prefer this node's own children on that side, and among those pick the nearest
 /// by vertical distance, then horizontal distance. If there is no child on that side, the parent
 /// is used when the parent lies on that side. Otherwise the move crosses branches and picks the
@@ -32,12 +35,27 @@ enum SelectionNavigator {
 
     private static func sibling(of node: NodeFrame, in frames: [NodeFrame], above: Bool) -> UUID? {
         let siblings = frames.filter { $0.parentID == node.parentID && $0.id != node.id }
-        let candidates = siblings.filter { candidate in
+        let column = siblings.filter { sameSide($0, as: node, in: frames) }
+        let candidates = column.filter { candidate in
             above
                 ? candidate.frame.midY < node.frame.midY - 0.5
                 : candidate.frame.midY > node.frame.midY + 0.5
         }
         return nearest(candidates, to: node)?.id
+    }
+
+    /// Roots stack in one column. Children are split by which side of the parent they sit on.
+    private static func sameSide(_ candidate: NodeFrame, as node: NodeFrame, in frames: [NodeFrame]) -> Bool {
+        guard let parentID = node.parentID,
+              let parent = frames.first(where: { $0.id == parentID }) else {
+            return true
+        }
+        let nodeDX = node.frame.midX - parent.frame.midX
+        let candidateDX = candidate.frame.midX - parent.frame.midX
+        if abs(nodeDX) <= 0.5 || abs(candidateDX) <= 0.5 {
+            return abs(nodeDX) <= 0.5 && abs(candidateDX) <= 0.5
+        }
+        return (nodeDX > 0) == (candidateDX > 0)
     }
 
     private static func horizontal(from node: NodeFrame, in frames: [NodeFrame], towardLeft: Bool) -> UUID? {

@@ -29,6 +29,30 @@
 | 许可证 | 只借鉴思想，不复制 GPL/AGPL 源码（尤其 Freeplane 是 GPL-2.0） |
 | 素材 | 只使用项目内已有素材与 Timmy 提供的参考图；不引入来源不明的图标/字体 |
 
+## 1.1 UI 硬规则：只用 Apple 官方控件
+
+- 所有界面元素（按钮、开关、滑块、分段控件、选择器、列表、表单、弹窗、选项卡、菜单、搜索框）
+  **必须使用系统原生控件**：SwiftUI 标准控件，或 AppKit / UIKit 原生控件。
+- **禁止**自绘"假控件"（用 Shape/Canvas 画一个看起来像按钮的东西），禁止自定义 toggle/slider 外观，
+  禁止为了统一视觉而替换系统控件的行为（键盘导航、VoiceOver、Dynamic Type 必须保留）。
+- 视觉风格（纸感、陶土色）通过系统允许的方式表达：颜色、字体尺寸、`tint`、间距、背景材质。
+  不改控件形状，不隐藏系统交互特征。
+- **例外必须事前讨论**：任何"这里不得不用自定义控件/自绘"的情况，先写进 `docs/STATUS.md`
+  说明原因与替代方案，等 Timmy 明确同意后才能做。**未经同意擅自自绘 = 该批次不通过。**
+- 文档画布（节点绘制）本身是内容视图，不是"控件"，允许用 SwiftUI `Canvas` 或 AppKit/UIKit
+  自绘——但画布内**不要**造按钮、滑块、菜单等交互控件，这些一律用系统控件覆盖在画布上。
+
+## 1.2 复用规则：不重复造轮子
+
+- 本项目已选定可借鉴/可复用的开源实现（详见 `docs/REFERENCES.md`）：**Mindscape**、**Brainstorm**、
+  **SwiftFlow**（均为 MIT）。
+- 优先复用已有实现/思路，**不要重新发明**：画布视口（平移/缩放/变换）、树形布局、
+  键盘导航、序列化结构、`.mm`/`.xmind` 解析，都应先看这三个项目和 `docs/FORMATS.md`
+  是否已有可用方案，再决定要不要写。
+- 但 **MIT 以外（尤其 Freeplane 的 GPL-2.0）只许读思路、不许复制代码**。
+- 引入任何第三方依赖前先写进 `docs/STATUS.md` 报批；被批准后必须记录版本与来源。
+- 若判断某能力"必须自己写"，也要在 `docs/STATUS.md` 写清"看过谁、为什么不能用"，再动手。
+
 ## 2. 阶段总览
 
 | 阶段 | 内容 | 放行方式 |
@@ -37,6 +61,7 @@
 | **P1** | Mac 画布与键盘录入（核心体验） | P0 验收后 |
 | **P2** | 格式互通（`.mm`/`.opml`/Markdown/XMind 导入） | P1 验收后 |
 | **P3** | App 图标与品牌资源 | 可在 P0 之后任意时点插入 |
+| **P4** | 首版构建 + TestFlight 内部测试（邀请 timmysh34@icloud.com） | P1 可跑 + P3 完成后 |
 
 ## 3. 本期的"完成"定义
 
@@ -234,6 +259,27 @@
 - ❌ 主题商城、模板市场
 - ❌ P1 期间动 iPhone/iPad 布局（iPad 双栏留到后续阶段）
 - ❌ 图标重绘、品牌 VI 扩展（只做本任务书 P3 范围内的图标资源）
+
+## 5.1 交付：TestFlight 内部测试（P4）
+
+第一版完成后**直接发 TestFlight 内部测试**，由 Timmy 在自己手机上下载验收。
+
+- **团队**：Team ID `JY5U4D6JD3`（Tianwei Huang）
+- **分发**：App Store Connect 上传 → TestFlight 内部测试组
+- **邀请测试员**：`timmysh34@icloud.com`
+- **凭据**：ASC API Key `GT622JVW4H`（Issuer `797306ef-5e59-477e-b00d-b2109a4d5b63`），
+  私钥在 `~/.appstoreconnect/private_keys/`；证书用现有 Apple Distribution
+- **不做**：不提交 App Store 审核、不做外部测试、不发公开链接
+
+交付时必须汇报：
+
+1. bundle id / 版本号 / build 号
+2. 上传结果（`altool`/`notarytool` 或 Transporter 的实际返回，不是"应该成功了"）
+3. TestFlight 处理状态（Processing / Ready to Test）
+4. 内部测试组是否已加入 `timmysh34@icloud.com`
+5. 自己在模拟器/真机上实际启动过一次的截图
+
+> 若上传或处理失败，**如实报告失败点**，不许把"已上传"说成"已可测试"。
 
 ## 6. 每批的交付物
 

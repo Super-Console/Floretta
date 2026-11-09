@@ -9,7 +9,7 @@ struct InfiniteCanvas: View {
     @State private var pinchStartScale: CGFloat?
     @State private var interaction = CanvasInteraction.standard
     @State private var chrome = CanvasChrome.standard
-    @State private var keyboard = MindMapKeyboardSession()
+    @Binding var keyboard: MindMapKeyboardSession
     @State private var compositionWidth: CGFloat = 0
     @FocusState private var canvasFocused: Bool
 
@@ -62,6 +62,9 @@ struct InfiniteCanvas: View {
                     compositionWidth = 0
                     canvasFocused = true
                 }
+            }
+            .onChange(of: keyboard.selectedNodeID) { _, id in
+                interaction.selectedNodeID = id
             }
             .simultaneousGesture(SpatialTapGesture().onEnded { value in
                 let point = viewport.canvasPoint(fromView: value.location)

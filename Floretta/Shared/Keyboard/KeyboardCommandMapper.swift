@@ -5,6 +5,13 @@ enum KeyboardMode: Equatable, Sendable {
     case edit
 }
 
+/// Canvas arrows use laid-out frames. Outline arrows walk the visible tree.
+/// Both surfaces use the same `KeyboardCommandMapper` commands.
+enum KeyboardSurface: Equatable, Sendable {
+    case canvas
+    case outline
+}
+
 struct KeyModifiers: OptionSet, Equatable, Sendable {
     var rawValue: Int
 

@@ -16,7 +16,9 @@ P1-b 已由总指挥验收（46 个测试全绿，含 S 曲线曲率断言）。
 
 P1-c 修复已由总指挥验收（58 个测试全绿，TEST SUCCEEDED）。
 
-P1-r 复用评审已落盘：SwiftFlow 0.3.1 作为 SPM 依赖，替换视口变换和命中测试；`LayoutEngine` 仍是我们的。Mindscape 没有整文件拷进仓库。等本机再跑 `xcodebuild test`（要能解析 Swift 包）。没有开始大纲、DocumentGroup、`.xmind` 导入、TestFlight。
+P1-r 已由总指挥验收（60 个测试全绿，合并 `538b0d2`）。
+
+P1-d 大纲已落盘：和画布共用 `MindMapDocument` 与 `KeyboardCommandMapper`。系统 `List` + `DisclosureGroup`。等本机 `xcodebuild test`。没有开始 DocumentGroup、关系线、`.xmind`、实验 A/B、TestFlight。
 
 Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be pasted back for fixes.
 
@@ -39,6 +41,18 @@ xcodebuild test -project Floretta.xcodeproj -scheme Floretta-macOS -destination 
 - **Brainstorm**、**SimpleMindMap**、**Freeplane** 的结论在审计里。Freeplane 是 GPL-2.0，没有复制代码。
 
 云上没有解析 Swift 包，也没有跑 `xcodebuild`。
+
+## P1-d 申报
+
+大纲是同一棵树的第二个系统控件视图，不是另一份数据。`docs/REUSE-AUDIT.md` 原先没有大纲专节；对照过的 Mindscape / Brainstorm 都没有可复用的 SwiftUI 大纲，Freeplane 的大纲不能拷。所以视图自研，模型仍是 `MindMapDocument`。
+
+- `List` 的选中绑定就是 `MindMapKeyboardSession.selectedNodeID`，画布画选中框也读这个 id。
+- 大纲里改字走 `replaceEditingText`，节点 `text` 立刻变，画布下一帧按新文字排。
+- 画布 Tab 新建的子节点在 `children` 里，大纲按 id 列出。
+- 同一层用系统 `onMove` 改兄弟顺序。拖到另一行上用系统 `draggable` / `dropDestination` 改父节点，并拒绝拖进自己的子孙。`LayoutEngine` 仍按 `children` 顺序排，算法没改。
+- 方向键仍由 `KeyboardCommandMapper` 变成 `moveSelection`。大纲表面按可见行上下走，左右只改选中（父节点 / 第一个已展开的子节点），不搬动节点。
+- `isComposing` 时映射仍是空。
+- 折叠只改那个节点的 `isCollapsed`。行身份是 UUID，展开时只读取这一层的子 id。
 
 ## P1-c 申报
 
@@ -165,4 +179,5 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 | 2026-11-09 | P1-b | 总指挥验收通过 | 46 个测试全绿，含 Δy ≠ 0 时 S 曲线曲率断言 |
 | 2026-11-09 | P1-c | 总指挥测试 57 通过、1 失败 | `testLayoutArrowsMoveBetweenParentAndSide`：上下键把对侧、Y 更近的兄弟当成了下一节点 |
 | 2026-11-09 | P1-c 修复 | 总指挥验收通过 | 58 个测试全绿，TEST SUCCEEDED |
-| 2026-11-09 | P1-r | 已提交，云端未测试 | SwiftFlow 0.3.1 替换视口和命中；LayoutEngine 保留。NOTICE 与 REUSE-AUDIT 已写。云端不能跑 xcodebuild |
+| 2026-11-09 | P1-r | 总指挥验收通过 | 60 个测试全绿。SwiftFlow 0.3.1。合并 `538b0d2` |
+| 2026-11-09 | P1-d | 已提交，云端未测试 | 大纲与画布共用文档和键盘映射。系统 List / DisclosureGroup。云端不能跑 xcodebuild |

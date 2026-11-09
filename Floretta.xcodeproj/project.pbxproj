@@ -79,6 +79,13 @@
 		C80000000000000000000001 /* SwiftFlow in Frameworks */ = {isa = PBXBuildFile; productRef = D80000000000000000000001 /* SwiftFlow */; };
 		C80000000000000000000002 /* SwiftFlow in Frameworks */ = {isa = PBXBuildFile; productRef = D80000000000000000000002 /* SwiftFlow */; };
 		C80000000000000000000003 /* SwiftFlow in Frameworks */ = {isa = PBXBuildFile; productRef = D80000000000000000000003 /* SwiftFlow */; };
+		C90000000000000000000001 /* OutlineNavigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90000000000000000000001 /* OutlineNavigator.swift */; };
+		C90000000000000000000002 /* OutlineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90000000000000000000002 /* OutlineView.swift */; };
+		C90000000000000000000003 /* OutlineNavigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90000000000000000000001 /* OutlineNavigator.swift */; };
+		C90000000000000000000004 /* OutlineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90000000000000000000002 /* OutlineView.swift */; };
+		C90000000000000000000005 /* OutlineNavigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90000000000000000000001 /* OutlineNavigator.swift */; };
+		C90000000000000000000006 /* OutlineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90000000000000000000002 /* OutlineView.swift */; };
+		C90000000000000000000007 /* OutlineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90000000000000000000003 /* OutlineTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -116,6 +123,9 @@
 		F70000000000000000000003 /* MindMapKeyboardSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MindMapKeyboardSession.swift; sourceTree = "<group>"; };
 		F70000000000000000000004 /* NodeTextEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeTextEditor.swift; sourceTree = "<group>"; };
 		F70000000000000000000005 /* KeyboardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardTests.swift; sourceTree = "<group>"; };
+		F90000000000000000000001 /* OutlineNavigator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutlineNavigator.swift; sourceTree = "<group>"; };
+		F90000000000000000000002 /* OutlineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutlineView.swift; sourceTree = "<group>"; };
+		F90000000000000000000003 /* OutlineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutlineTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -184,6 +194,7 @@
 				A30000000000000000000001 /* Canvas */,
 				A40000000000000000000001 /* Container */,
 				A70000000000000000000001 /* Keyboard */,
+				A90000000000000000000001 /* Outline */,
 				A10000000000000000000007 /* Model */,
 			);
 			path = Shared;
@@ -222,6 +233,15 @@
 			path = Canvas;
 			sourceTree = "<group>";
 		};
+		A90000000000000000000001 /* Outline */ = {
+			isa = PBXGroup;
+			children = (
+				F90000000000000000000001 /* OutlineNavigator.swift */,
+				F90000000000000000000002 /* OutlineView.swift */,
+			);
+			path = Outline;
+			sourceTree = "<group>";
+		};
 		A70000000000000000000001 /* Keyboard */ = {
 			isa = PBXGroup;
 			children = (
@@ -250,6 +270,7 @@
 				F30000000000000000000005 /* CanvasTests.swift */,
 				F50000000000000000000004 /* ContainerTests.swift */,
 				F70000000000000000000005 /* KeyboardTests.swift */,
+				F90000000000000000000003 /* OutlineTests.swift */,
 				F60000000000000000000003 /* LayoutTests.swift */,
 				F1000000000000000000000C /* MindMapDocumentTests.swift */,
 			);
@@ -428,6 +449,8 @@
 				C70000000000000000000002 /* SelectionNavigator.swift in Sources */,
 				C70000000000000000000003 /* MindMapKeyboardSession.swift in Sources */,
 				C70000000000000000000004 /* NodeTextEditor.swift in Sources */,
+				C90000000000000000000001 /* OutlineNavigator.swift in Sources */,
+				C90000000000000000000002 /* OutlineView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -456,6 +479,8 @@
 				C70000000000000000000006 /* SelectionNavigator.swift in Sources */,
 				C70000000000000000000007 /* MindMapKeyboardSession.swift in Sources */,
 				C70000000000000000000008 /* NodeTextEditor.swift in Sources */,
+				C90000000000000000000003 /* OutlineNavigator.swift in Sources */,
+				C90000000000000000000004 /* OutlineView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -488,6 +513,9 @@
 				C7000000000000000000000B /* MindMapKeyboardSession.swift in Sources */,
 				C7000000000000000000000C /* NodeTextEditor.swift in Sources */,
 				C7000000000000000000000D /* KeyboardTests.swift in Sources */,
+				C90000000000000000000005 /* OutlineNavigator.swift in Sources */,
+				C90000000000000000000006 /* OutlineView.swift in Sources */,
+				C90000000000000000000007 /* OutlineTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

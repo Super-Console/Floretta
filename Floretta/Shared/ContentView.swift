@@ -69,7 +69,8 @@ struct ContentView: View {
                 session: editor,
                 settings: settings,
                 onClose: dismissEditor,
-                onEdit: { recovery.noteEdit($0) }
+                onEdit: { recovery.noteEdit($0) },
+                onImport: { showImporter = true }
             )
         } else {
             NavigationSplitView(columnVisibility: $columnVisibility) {

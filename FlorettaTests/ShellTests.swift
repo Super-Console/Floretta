@@ -309,14 +309,21 @@ final class ShellTests: XCTestCase {
     }
 
     func testMenusAndTemplatesOmitDeadActions() {
-        XCTAssertEqual(CanvasMenus.more, ["查看模式", "新建画布", "沉浸模式", "查找", "适合窗口"])
+        XCTAssertEqual(CanvasMenus.immersive, "全屏沉浸")
+        XCTAssertEqual(CanvasMenus.insert, ["子节点", "同级", "从文件导入"])
+        XCTAssertEqual(
+            CanvasMenus.zoom,
+            ["50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%", "适应窗口"]
+        )
+        XCTAssertEqual(ZoomStop.allCases.map { "\($0.percent)%" }, Array(CanvasMenus.zoom.dropLast()))
+        XCTAssertEqual(CanvasMenus.more, ["大纲", "样式", "查看模式", "新建画布", "查找", "粘贴", "更多设置", "关于"])
         XCTAssertEqual(CanvasMenus.moreDisabled, [])
         XCTAssertFalse(CanvasMenus.more.contains("ZEN"))
         XCTAssertFalse(CanvasMenus.more.contains("Zen"))
-        XCTAssertEqual(CanvasMenus.file, ["重新命名", "导出", "保存至", "打印"])
+        XCTAssertEqual(CanvasMenus.file, ["重新命名"])
         XCTAssertEqual(CanvasMenus.fileDisabled, [])
         XCTAssertEqual(CanvasMenus.export, ["floretta", "mm", "opml", "md", "png", "pdf"])
-        XCTAssertEqual(CanvasMenus.share, ["导出", "保存至"])
+        XCTAssertEqual(CanvasMenus.share, ["PDF", "PNG", "Markdown", "保存为 Floretta", ".mm", "OPML", "打印"])
         XCTAssertEqual(CanvasMenus.text, ["剪切", "拷贝", "粘贴", "全选", "拷贝样式"])
         XCTAssertEqual(CanvasMenus.textDisabled, [])
         let visible = CanvasMenus.more + CanvasMenus.file + CanvasMenus.share + CanvasMenus.text + CanvasMenus.export

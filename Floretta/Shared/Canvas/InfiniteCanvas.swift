@@ -390,8 +390,7 @@ struct InfiniteCanvas: View {
         if detail != .far,
            let hash = node.thumbnailHashes.first,
            let image = thumbnails?.image(for: hash) {
-            let side = min(48, max(16, rect.width - 12))
-            let imageRect = CGRect(x: rect.midX - side / 2, y: rect.minY + 4, width: side, height: side)
+            let imageRect = ImagePlacement.rect(for: image, in: rect)
             context.draw(Image(decorative: image, scale: 1), in: imageRect)
             textRect = CGRect(
                 x: rect.minX + 6,
@@ -714,52 +713,104 @@ final class AttachmentThumbnailMemory {
         entries: [ZipStoredEntry]
     ) {
         self.visible = visible
-        bytes.apply(visible: visible) { hash in
-            guard let cache, cache.contains(hash) else { return nil }
+        bytes.unload(keeping: visible)
+        images = images.filter { visible.contains($0.key) }
+        for hash in visible where images[hash] == nil && !inFlight.contains(hash) && !failed.contains(hash) {
+            let plan = ImageDecodePlanKind.thumbnail(hash: hash)
+            guard plan.storesInThumbnailCache else { continue }
+            let entry = entries.first { $0.sha256 == hash }
+            guard let entry,
+                  let ext = AttachmentNames.parseAsset(entry.name)?.fileExtension,
+                  AttachmentKind.isImageExtension(ext) else { continue }
+            guard cache != nil, archiveURL != nil, spillDirectory != nil else { continue }
+            inFlight.insert(hash)
+            let cache = cache
+            let archiveURL = archiveURL
+            let spillDirectory = spillDirectory
+            let bridge = ThumbnailPublish(memory: self)
+            ImageDecodeScheduler.submit(runner: ImageDecodeLane.detached) {
+                let produced = AttachmentThumbnailMemory.produce(
+                    entry: entry,
+                    cache: cache,
+                    archiveURL: archiveURL,
+                    spillDirectory: spillDirectory
+                )
+                let image = produced.flatMap { ImageIOThumbnailDecoder.image(from: $0) }
+                bridge.finish(hash: hash, box: DecodedThumb(data: produced, image: image))
+            }
+        }
+    }
+
+    /// Spill → ImageIO at the thumbnail edge → disk LRU. Runs off the main actor.
+    nonisolated static func produce(
+        entry: ZipStoredEntry,
+        cache: ThumbnailFileCache?,
+        archiveURL: URL?,
+        spillDirectory: URL?
+    ) -> Data? {
+        if let cache, cache.contains(entry.sha256 ?? "") {
+            let hash = entry.sha256 ?? ""
             try? cache.touch(hash)
             return try? Data(contentsOf: cache.fileURL(for: hash))
         }
-        images = images.filter { bytes.images[$0.key] != nil }
-        for (hash, data) in bytes.images where images[hash] == nil {
-            if let image = ImageIOThumbnailDecoder.image(from: data) {
-                images[hash] = image
-            }
+        guard let cache, let archiveURL, let spillDirectory else { return nil }
+        return try? ThumbnailPipeline.materialize(
+            entry: entry,
+            archiveURL: archiveURL,
+            spillDirectory: spillDirectory,
+            cache: cache,
+            decoder: ImageIOThumbnailDecoder(),
+            files: FoundationStreamingFiles()
+        )
+    }
+
+    private func finish(hash: String, box: DecodedThumb) {
+        inFlight.remove(hash)
+        guard let data = box.data, let image = box.image else {
+            failed.insert(hash)
+            return
         }
-        guard let cache, let archiveURL, let spillDirectory else { return }
-        for hash in visible where bytes.images[hash] == nil && !inFlight.contains(hash) && !failed.contains(hash) {
-            guard let entry = entries.first(where: { $0.sha256 == hash }),
-                  let ext = AttachmentNames.parseAsset(entry.name)?.fileExtension,
-                  AttachmentKind.isImageExtension(ext) else { continue }
-            inFlight.insert(hash)
-            let decoder = ImageIOThumbnailDecoder()
-            Task.detached {
-                let produced: Data?
-                do {
-                    produced = try ThumbnailPipeline.materialize(
-                        entry: entry,
-                        archiveURL: archiveURL,
-                        spillDirectory: spillDirectory,
-                        cache: cache,
-                        decoder: decoder,
-                        files: FoundationStreamingFiles()
-                    )
-                } catch {
-                    produced = nil
-                }
-                let data = produced
-                await MainActor.run {
-                    self.inFlight.remove(hash)
-                    guard let data else {
-                        self.failed.insert(hash)
-                        return
-                    }
-                    self.bytes.remember(data, for: hash, visible: self.visible)
-                    if self.visible.contains(hash), let image = ImageIOThumbnailDecoder.image(from: data) {
-                        self.images[hash] = image
-                    }
-                }
-            }
+        bytes.remember(data, for: hash, visible: visible)
+        if visible.contains(hash) {
+            images[hash] = image
         }
+    }
+}
+
+private struct DecodedThumb: @unchecked Sendable {
+    var data: Data?
+    var image: CGImage?
+}
+
+/// Hops a finished decode back to the main actor without decoding there.
+private final class ThumbnailPublish: @unchecked Sendable {
+    nonisolated(unsafe) private let memory: AttachmentThumbnailMemory
+
+    init(memory: AttachmentThumbnailMemory) {
+        self.memory = memory
+    }
+
+    func finish(hash: String, box: DecodedThumb) {
+        let memory = memory
+        Task { @MainActor in
+            memory.finish(hash: hash, box: box)
+        }
+    }
+}
+
+enum ImagePlacement {
+    static func rect(for image: CGImage, in node: CGRect) -> CGRect {
+        let slot = ImageSlot.slot(nodeWidth: Double(node.width))
+        let fitted = ImageAspectFit.fit(
+            pixels: ImagePixelSize(width: image.width, height: image.height),
+            in: slot
+        )
+        return CGRect(
+            x: node.minX + CGFloat(fitted.x),
+            y: node.minY + CGFloat(fitted.y),
+            width: CGFloat(fitted.width),
+            height: CGFloat(fitted.height)
+        )
     }
 }
 

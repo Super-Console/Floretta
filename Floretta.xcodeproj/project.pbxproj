@@ -39,6 +39,7 @@
 		C4000000000000000000000D /* CanvasTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000005 /* CanvasTests.swift */; };
 		C5000000000000000000000A /* ContainerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000004 /* ContainerTests.swift */; };
 		C5000000000000000000000B /* StreamingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000005 /* StreamingTests.swift */; };
+		C5100000000000000000000C /* ImageInsertTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F51000000000000000000006 /* ImageInsertTests.swift */; };
 		C60000000000000000000007 /* LayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000003 /* LayoutTests.swift */; };
 		C70000000000000000000004 /* NodeTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000004 /* NodeTextEditor.swift */; };
 		C70000000000000000000008 /* NodeTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000004 /* NodeTextEditor.swift */; };
@@ -107,6 +108,7 @@
 		F30000000000000000000005 /* CanvasTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasTests.swift; sourceTree = "<group>"; };
 		F50000000000000000000004 /* ContainerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ContainerTests.swift; path = Tests/FlorettaCoreTests/ContainerTests.swift; sourceTree = SOURCE_ROOT; };
 		F50000000000000000000005 /* StreamingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = StreamingTests.swift; path = Tests/FlorettaCoreTests/StreamingTests.swift; sourceTree = SOURCE_ROOT; };
+		F51000000000000000000006 /* ImageInsertTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ImageInsertTests.swift; path = Tests/FlorettaCoreTests/ImageInsertTests.swift; sourceTree = SOURCE_ROOT; };
 		F60000000000000000000003 /* LayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LayoutTests.swift; path = Tests/FlorettaCoreTests/LayoutTests.swift; sourceTree = SOURCE_ROOT; };
 		F70000000000000000000004 /* NodeTextEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeTextEditor.swift; sourceTree = "<group>"; };
 		F70000000000000000000005 /* KeyboardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = KeyboardTests.swift; path = Tests/FlorettaCoreTests/KeyboardTests.swift; sourceTree = SOURCE_ROOT; };
@@ -166,6 +168,7 @@
 				F1000000000000000000000C /* MindMapDocumentTests.swift */,
 			F50000000000000000000004 /* ContainerTests.swift */,
 			F50000000000000000000005 /* StreamingTests.swift */,
+			F51000000000000000000006 /* ImageInsertTests.swift */,
 			F91000000000000000000002 /* MMTests.swift */,
 			F92000000000000000000003 /* OPMLMarkdownTests.swift */,
 			F60000000000000000000003 /* LayoutTests.swift */,
@@ -507,6 +510,7 @@
 				C4000000000000000000000D /* CanvasTests.swift in Sources */,
 				C5000000000000000000000A /* ContainerTests.swift in Sources */,
 				C5000000000000000000000B /* StreamingTests.swift in Sources */,
+				C5100000000000000000000C /* ImageInsertTests.swift in Sources */,
 				C60000000000000000000007 /* LayoutTests.swift in Sources */,
 				C7000000000000000000000C /* NodeTextEditor.swift in Sources */,
 				C7000000000000000000000D /* KeyboardTests.swift in Sources */,

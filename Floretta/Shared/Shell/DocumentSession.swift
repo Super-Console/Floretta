@@ -888,7 +888,7 @@ enum HomePage: String, Hashable, Sendable {
 /// Menu rows that are allowed to appear. Disabled rows are listed separately.
 enum CanvasMenus {
     static let immersive = "全屏沉浸"
-    static let insert = ["子节点", "同级", "附件", "从文件导入"]
+    static let insert = ["子节点", "同级", "图片", "附件", "从文件导入"]
     static let share = ["PDF", "PNG", "Markdown", "保存为 Floretta", ".mm", "OPML", "打印"]
     static let zoom = ["50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%", "适应窗口"]
     static let more = ["大纲", "样式", "查看模式", "新建画布", "查找", "粘贴", "关于"]

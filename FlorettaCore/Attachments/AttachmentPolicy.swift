@@ -343,6 +343,12 @@ public struct ThumbnailMemory: Equatable, Sendable {
         }
     }
 
+    /// Drops hashes that scrolled out. Does not decode.
+    public mutating func unload(keeping visible: Set<String>) {
+        let keep = ThumbnailResidence.retained(loaded: Set(images.keys), visible: visible)
+        images = images.filter { keep.contains($0.key) }
+    }
+
     public mutating func remember(_ data: Data, for hash: String, visible: Set<String>) {
         guard visible.contains(hash), !data.isEmpty else { return }
         images[hash] = data
@@ -360,6 +366,59 @@ public enum ThumbnailPipeline {
         decoder: any ThumbnailDecodingPort,
         files: any StreamingFilePort
     ) throws -> Data {
+        let spill = try writeSpill(
+            entry: entry,
+            archiveURL: archiveURL,
+            spillDirectory: spillDirectory,
+            files: files
+        )
+        do {
+            let thumbnail = try decoder.downsample(spill: spill, longestEdge: StreamingBudget.thumbnailLongestEdge)
+            if let hash = entry.sha256 {
+                try cache.store(thumbnail, for: hash)
+            }
+            try? files.remove(at: spill)
+            return thumbnail
+        } catch {
+            try? files.remove(at: spill)
+            throw error
+        }
+    }
+
+    /// Same spill as a thumbnail, then decode at `longestEdge` and delete the spill.
+    /// Does not write the disk LRU. Export uses this so a page-resolution image does not evict thumbnails.
+    @discardableResult
+    public static func decodeSpilled(
+        entry: ZipStoredEntry,
+        archiveURL: URL,
+        spillDirectory: URL,
+        files: any StreamingFilePort,
+        longestEdge: (URL) -> Int,
+        decoder: any ThumbnailDecodingPort
+    ) throws -> Data {
+        let spill = try writeSpill(
+            entry: entry,
+            archiveURL: archiveURL,
+            spillDirectory: spillDirectory,
+            files: files
+        )
+        do {
+            let edge = longestEdge(spill)
+            let data = try decoder.downsample(spill: spill, longestEdge: edge)
+            try? files.remove(at: spill)
+            return data
+        } catch {
+            try? files.remove(at: spill)
+            throw error
+        }
+    }
+
+    private static func writeSpill(
+        entry: ZipStoredEntry,
+        archiveURL: URL,
+        spillDirectory: URL,
+        files: any StreamingFilePort
+    ) throws -> URL {
         guard entry.method == 0 else {
             throw DocumentContainerError.corrupt("Attachment \(entry.name) is compressed.")
         }
@@ -379,15 +438,7 @@ public enum ThumbnailPipeline {
             try? files.remove(at: spill)
             throw error
         }
-        do {
-            let thumbnail = try decoder.downsample(spill: spill, longestEdge: StreamingBudget.thumbnailLongestEdge)
-            try cache.store(thumbnail, for: hash)
-            try? files.remove(at: spill)
-            return thumbnail
-        } catch {
-            try? files.remove(at: spill)
-            throw error
-        }
+        return spill
     }
 }
 

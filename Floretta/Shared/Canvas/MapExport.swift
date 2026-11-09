@@ -48,12 +48,16 @@ enum MapExporter {
         CanvasPlacement.nodes(in: document)
     }
 
-    static func png(document: MindMapDocument, options: MapExportOptions = MapExportOptions()) -> MapExportResult {
+    static func png(
+        document: MindMapDocument,
+        options: MapExportOptions = MapExportOptions(),
+        images: [String: CGImage] = [:]
+    ) -> MapExportResult {
         let plan = plan(document: document, options: options)
         guard plan.pointSize.width > 1, plan.pointSize.height > 1 else {
             return empty(plan)
         }
-        let renderer = makeRenderer(plan: plan, options: options, document: document)
+        let renderer = makeRenderer(plan: plan, options: options, document: document, images: images)
         guard let image = renderer.cgImage else {
             return failed(plan)
         }
@@ -70,12 +74,16 @@ enum MapExporter {
         )
     }
 
-    static func pdf(document: MindMapDocument, options: MapExportOptions = MapExportOptions()) -> MapExportResult {
+    static func pdf(
+        document: MindMapDocument,
+        options: MapExportOptions = MapExportOptions(),
+        images: [String: CGImage] = [:]
+    ) -> MapExportResult {
         let plan = plan(document: document, options: options)
         guard plan.pointSize.width > 1, plan.pointSize.height > 1 else {
             return empty(plan)
         }
-        let renderer = makeRenderer(plan: plan, options: options, document: document)
+        let renderer = makeRenderer(plan: plan, options: options, document: document, images: images)
         let data = NSMutableData()
         guard let consumer = CGDataConsumer(data: data as CFMutableData) else {
             return failed(plan)
@@ -142,12 +150,14 @@ enum MapExporter {
     private static func makeRenderer(
         plan: Plan,
         options: MapExportOptions,
-        document: MindMapDocument
+        document: MindMapDocument,
+        images: [String: CGImage]
     ) -> ImageRenderer<MapExportView> {
         let view = MapExportView(
             frames: visibleFrames(in: document),
             renderBounds: plan.renderBounds,
-            background: options.background
+            background: options.background,
+            images: images
         )
         let renderer = ImageRenderer(content: view)
         renderer.scale = options.scale.rawValue
@@ -188,6 +198,7 @@ private struct MapExportView: View {
     var frames: [NodeFrame]
     var renderBounds: CGRect
     var background: MapExportBackground
+    var images: [String: CGImage]
 
     var body: some View {
         Canvas { context, _ in
@@ -207,12 +218,26 @@ private struct MapExportView: View {
                 let path = Path(roundedRect: rect, cornerRadius: node.cornerRadius)
                 context.fill(path, with: .color(color(node.fill)))
                 context.stroke(path, with: .color(color(node.border)), lineWidth: 1.5)
-                context.draw(
-                    Text(node.text)
-                        .font(.system(size: node.fontSize))
-                        .foregroundStyle(color(node.textColor)),
-                    in: rect.insetBy(dx: 8, dy: 4)
-                )
+                var textRect = rect.insetBy(dx: 8, dy: 4)
+                if let hash = node.thumbnailHashes.first, let image = images[hash] {
+                    let imageRect = ImagePlacement.rect(for: image, in: rect)
+                    context.draw(Image(decorative: image, scale: 1), in: imageRect)
+                    let top = imageRect.maxY + 2
+                    textRect = CGRect(
+                        x: rect.minX + 8,
+                        y: top,
+                        width: max(0, rect.width - 16),
+                        height: max(0, rect.maxY - top - 4)
+                    )
+                }
+                if textRect.width > 1, textRect.height > 1 {
+                    context.draw(
+                        Text(node.text)
+                            .font(.system(size: node.fontSize))
+                            .foregroundStyle(color(node.textColor)),
+                        in: textRect
+                    )
+                }
             }
         }
         .frame(width: renderBounds.width, height: renderBounds.height)
@@ -230,5 +255,115 @@ private struct MapExportView: View {
 
     private func color(_ value: BranchColor) -> Color {
         Color(red: value.red, green: value.green, blue: value.blue)
+    }
+}
+
+struct ExportImageBitmap: @unchecked Sendable {
+    var hash: String
+    var image: CGImage
+}
+
+/// Page-resolution images for PDF/PNG. Spills each asset, asks ImageIO for the
+/// longest edge the page needs, and does not write the thumbnail LRU.
+enum ImageExportLoader {
+    static func spillDirectory(cacheDirectory: URL?) -> URL {
+        if let cacheDirectory {
+            return cacheDirectory
+                .deletingLastPathComponent()
+                .appendingPathComponent("spill", isDirectory: true)
+        }
+        return FileManager.default.temporaryDirectory
+            .appendingPathComponent("floretta-export-spill-\(UUID().uuidString)", isDirectory: true)
+    }
+
+    static func bitmaps(
+        document: MindMapDocument,
+        archive: URL?,
+        entries: [ZipStoredEntry],
+        spillDirectory: URL,
+        scale: Double
+    ) -> [ExportImageBitmap] {
+        images(
+            document: document,
+            archive: archive,
+            entries: entries,
+            spillDirectory: spillDirectory,
+            scale: scale
+        ).map { ExportImageBitmap(hash: $0.key, image: $0.value) }
+    }
+
+    static func images(
+        document: MindMapDocument,
+        archive: URL?,
+        entries: [ZipStoredEntry],
+        spillDirectory: URL,
+        scale: Double
+    ) -> [String: CGImage] {
+        guard let archive else { return [:] }
+        try? FileManager.default.createDirectory(at: spillDirectory, withIntermediateDirectories: true)
+        let files = FoundationStreamingFiles()
+        var decoded: [String: CGImage] = [:]
+        for frame in LayoutEngine().layout(document) {
+            let slot = ImageSlot.slot(nodeWidth: Double(frame.size.width))
+            for hash in frame.thumbnailHashes where decoded[hash] == nil {
+                guard let entry = entries.first(where: { $0.sha256 == hash }) else { continue }
+                guard let image = decode(
+                    entry: entry,
+                    hash: hash,
+                    archive: archive,
+                    spillDirectory: spillDirectory,
+                    slot: slot,
+                    scale: scale,
+                    files: files
+                ) else { continue }
+                decoded[hash] = image
+            }
+        }
+        return decoded
+    }
+
+    private static func decode(
+        entry: ZipStoredEntry,
+        hash: String,
+        archive: URL,
+        spillDirectory: URL,
+        slot: ImageSlotRect,
+        scale: Double,
+        files: FoundationStreamingFiles
+    ) -> CGImage? {
+        guard let data = try? ThumbnailPipeline.decodeSpilled(
+            entry: entry,
+            archiveURL: archive,
+            spillDirectory: spillDirectory,
+            files: files,
+            longestEdge: { spill in
+                let source = pixelSize(of: spill) ?? ImagePixelSize(width: 0, height: 0)
+                return ImageDecodePlanKind.export(
+                    hash: hash,
+                    source: source,
+                    slot: slot,
+                    scale: scale
+                ).longestEdge
+            },
+            decoder: ImageIOThumbnailDecoder()
+        ) else { return nil }
+        return ImageIOThumbnailDecoder.image(from: data)
+    }
+
+    private static func pixelSize(of url: URL) -> ImagePixelSize? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] else {
+            return nil
+        }
+        guard let width = number(properties[kCGImagePropertyPixelWidth]),
+              let height = number(properties[kCGImagePropertyPixelHeight]),
+              width > 0, height > 0 else { return nil }
+        return ImagePixelSize(width: width, height: height)
+    }
+
+    private static func number(_ value: Any?) -> Int? {
+        if let number = value as? NSNumber { return number.intValue }
+        if let number = value as? Int { return number }
+        return nil
     }
 }

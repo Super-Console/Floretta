@@ -426,12 +426,14 @@ public struct LayoutEngine: Sendable {
     private func nodeSize(_ node: MindMapNode, depth: Int, heights: [Int: CGFloat]) -> CGSize {
         let raw = cache.size(text: layoutText(node), fontSize: resolvedFontSize(node, depth: depth), maxWidth: metrics.maxTextWidth)
         let band = thumbnailBand(node)
-        let width = max(raw.width, CGFloat(node.style?.topicWidth ?? 0), band > 0 ? 72 : 0)
+        let imageWidth = band > 0 ? CGFloat(ImageSlot.maxWidth + ImageSlot.horizontalInset * 2) : 0
+        let width = max(raw.width, CGFloat(node.style?.topicWidth ?? 0), imageWidth)
         return CGSize(width: width, height: (heights[depth] ?? raw.height) + band)
     }
 
     private func thumbnailBand(_ node: MindMapNode) -> CGFloat {
-        node.attachments.contains { AttachmentKind.isImageExtension($0.fileExtension) } ? 56 : 0
+        let hasImage = node.attachments.contains { AttachmentKind.isImageExtension($0.fileExtension) }
+        return CGFloat(ImageSlot.bandHeight(hasImage: hasImage))
     }
 
     private func resolvedFontSize(_ node: MindMapNode, depth: Int) -> CGFloat {

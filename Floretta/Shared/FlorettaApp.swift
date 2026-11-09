@@ -15,13 +15,31 @@ struct FlorettaApp: App {
     #endif
 
     @State private var recovery = RecoveryPresenter()
+    @State private var settings = AppSettings.shared
+    @State private var library = LibraryModel.shared
 
     var body: some Scene {
         let _ = appDelegate
         WindowGroup {
-            ContentView(recovery: recovery)
+            ContentView(recovery: recovery, settings: settings, library: library)
         }
-        .defaultSize(width: 800, height: 600)
+        .defaultSize(width: 960, height: 680)
+        .commands {
+            CommandGroup(replacing: .newItem) {
+                Button("新建") {
+                    library.makeNew()
+                }
+                .keyboardShortcut("n", modifiers: .command)
+            }
+        }
+        #if os(macOS)
+        Settings {
+            SettingsView(settings: settings)
+                .preferredColorScheme(settings.appearance.colorScheme)
+                .environment(\.locale, settings.resolvedLocale)
+                .frame(minWidth: 480, minHeight: 420)
+        }
+        #endif
     }
 }
 

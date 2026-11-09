@@ -101,6 +101,25 @@
 		C90000000000000000000005 /* OutlineNavigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90000000000000000000001 /* OutlineNavigator.swift */; };
 		C90000000000000000000006 /* OutlineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90000000000000000000002 /* OutlineView.swift */; };
 		C90000000000000000000007 /* OutlineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90000000000000000000003 /* OutlineTests.swift */; };
+		CA1100000000000000000001 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1100000000000000000001 /* AppSettings.swift */; };
+		CA1100000000000000000002 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1100000000000000000001 /* AppSettings.swift */; };
+		CA1100000000000000000003 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1100000000000000000001 /* AppSettings.swift */; };
+		CA2100000000000000000001 /* RecentMapsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA2100000000000000000001 /* RecentMapsStore.swift */; };
+		CA2100000000000000000002 /* RecentMapsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA2100000000000000000001 /* RecentMapsStore.swift */; };
+		CA2100000000000000000003 /* RecentMapsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA2100000000000000000001 /* RecentMapsStore.swift */; };
+		CA3100000000000000000001 /* DocumentSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA3100000000000000000001 /* DocumentSession.swift */; };
+		CA3100000000000000000002 /* DocumentSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA3100000000000000000001 /* DocumentSession.swift */; };
+		CA3100000000000000000003 /* DocumentSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA3100000000000000000001 /* DocumentSession.swift */; };
+		CA4100000000000000000001 /* LibraryHome.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4100000000000000000001 /* LibraryHome.swift */; };
+		CA4100000000000000000002 /* LibraryHome.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4100000000000000000001 /* LibraryHome.swift */; };
+		CA5100000000000000000001 /* DocumentEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5100000000000000000001 /* DocumentEditor.swift */; };
+		CA5100000000000000000002 /* DocumentEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5100000000000000000001 /* DocumentEditor.swift */; };
+		CA6100000000000000000001 /* ZoomStop.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA6100000000000000000001 /* ZoomStop.swift */; };
+		CA6100000000000000000002 /* ZoomStop.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA6100000000000000000001 /* ZoomStop.swift */; };
+		CA6100000000000000000003 /* ZoomStop.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA6100000000000000000001 /* ZoomStop.swift */; };
+		CA7100000000000000000001 /* ShellTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7100000000000000000001 /* ShellTests.swift */; };
+		CA8100000000000000000001 /* NOTICE in Resources */ = {isa = PBXBuildFile; fileRef = FA8100000000000000000001 /* NOTICE */; };
+		CA8100000000000000000002 /* NOTICE in Resources */ = {isa = PBXBuildFile; fileRef = FA8100000000000000000001 /* NOTICE */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -148,6 +167,15 @@
 		F90000000000000000000001 /* OutlineNavigator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutlineNavigator.swift; sourceTree = "<group>"; };
 		F90000000000000000000002 /* OutlineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutlineView.swift; sourceTree = "<group>"; };
 		F90000000000000000000003 /* OutlineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutlineTests.swift; sourceTree = "<group>"; };
+		FA1100000000000000000001 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		FA2100000000000000000001 /* RecentMapsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentMapsStore.swift; sourceTree = "<group>"; };
+		FA3100000000000000000001 /* DocumentSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentSession.swift; sourceTree = "<group>"; };
+		FA4100000000000000000001 /* LibraryHome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryHome.swift; sourceTree = "<group>"; };
+		FA5100000000000000000001 /* DocumentEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentEditor.swift; sourceTree = "<group>"; };
+		FA6100000000000000000001 /* ZoomStop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomStop.swift; sourceTree = "<group>"; };
+		FA7100000000000000000001 /* ShellTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellTests.swift; sourceTree = "<group>"; };
+		FA8100000000000000000001 /* NOTICE */ = {isa = PBXFileReference; lastKnownFileType = text; path = NOTICE; sourceTree = SOURCE_ROOT; };
+		FA9100000000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -217,6 +245,7 @@
 				A40000000000000000000001 /* Container */,
 				A70000000000000000000001 /* Keyboard */,
 				A90000000000000000000001 /* Outline */,
+				AA1000000000000000000001 /* Shell */,
 				A10000000000000000000007 /* Model */,
 			);
 			path = Shared;
@@ -255,6 +284,7 @@
 				F93000000000000000000001 /* MapExport.swift */,
 				F60000000000000000000002 /* LayoutEngine.swift */,
 				F60000000000000000000001 /* TextMeasurementCache.swift */,
+				FA6100000000000000000001 /* ZoomStop.swift */,
 			);
 			path = Canvas;
 			sourceTree = "<group>";
@@ -277,6 +307,18 @@
 				F70000000000000000000002 /* SelectionNavigator.swift */,
 			);
 			path = Keyboard;
+			sourceTree = "<group>";
+		};
+		AA1000000000000000000001 /* Shell */ = {
+			isa = PBXGroup;
+			children = (
+				FA1100000000000000000001 /* AppSettings.swift */,
+				FA5100000000000000000001 /* DocumentEditor.swift */,
+				FA3100000000000000000001 /* DocumentSession.swift */,
+				FA4100000000000000000001 /* LibraryHome.swift */,
+				FA2100000000000000000001 /* RecentMapsStore.swift */,
+			);
+			path = Shell;
 			sourceTree = "<group>";
 		};
 		A40000000000000000000001 /* Container */ = {
@@ -302,6 +344,7 @@
 				F92000000000000000000003 /* OPMLMarkdownTests.swift */,
 				F93000000000000000000002 /* MapExportTests.swift */,
 				F1000000000000000000000C /* MindMapDocumentTests.swift */,
+				FA7100000000000000000001 /* ShellTests.swift */,
 			);
 			path = FlorettaTests;
 			sourceTree = "<group>";
@@ -311,6 +354,7 @@
 			children = (
 				F10000000000000000000003 /* Assets.xcassets */,
 				F10000000000000000000006 /* Floretta-macOS.entitlements */,
+				FA9100000000000000000001 /* Info.plist */,
 			);
 			path = macOS;
 			sourceTree = "<group>";
@@ -439,6 +483,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C10000000000000000000003 /* Assets.xcassets in Resources */,
+				CA8100000000000000000001 /* NOTICE in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -447,6 +492,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C10000000000000000000006 /* Assets.xcassets in Resources */,
+				CA8100000000000000000002 /* NOTICE in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -484,6 +530,12 @@
 				C70000000000000000000004 /* NodeTextEditor.swift in Sources */,
 				C90000000000000000000001 /* OutlineNavigator.swift in Sources */,
 				C90000000000000000000002 /* OutlineView.swift in Sources */,
+				CA1100000000000000000001 /* AppSettings.swift in Sources */,
+				CA2100000000000000000001 /* RecentMapsStore.swift in Sources */,
+				CA3100000000000000000001 /* DocumentSession.swift in Sources */,
+				CA4100000000000000000001 /* LibraryHome.swift in Sources */,
+				CA5100000000000000000001 /* DocumentEditor.swift in Sources */,
+				CA6100000000000000000001 /* ZoomStop.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -518,6 +570,12 @@
 				C70000000000000000000008 /* NodeTextEditor.swift in Sources */,
 				C90000000000000000000003 /* OutlineNavigator.swift in Sources */,
 				C90000000000000000000004 /* OutlineView.swift in Sources */,
+				CA1100000000000000000002 /* AppSettings.swift in Sources */,
+				CA2100000000000000000002 /* RecentMapsStore.swift in Sources */,
+				CA3100000000000000000002 /* DocumentSession.swift in Sources */,
+				CA4100000000000000000002 /* LibraryHome.swift in Sources */,
+				CA5100000000000000000002 /* DocumentEditor.swift in Sources */,
+				CA6100000000000000000002 /* ZoomStop.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -560,6 +618,11 @@
 				C90000000000000000000005 /* OutlineNavigator.swift in Sources */,
 				C90000000000000000000006 /* OutlineView.swift in Sources */,
 				C90000000000000000000007 /* OutlineTests.swift in Sources */,
+				CA1100000000000000000003 /* AppSettings.swift in Sources */,
+				CA2100000000000000000003 /* RecentMapsStore.swift in Sources */,
+				CA3100000000000000000003 /* DocumentSession.swift in Sources */,
+				CA6100000000000000000003 /* ZoomStop.swift in Sources */,
+				CA7100000000000000000001 /* ShellTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -703,6 +766,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Floretta/macOS/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Floretta;
 				INFOPLIST_KEY_CFBundleName = Floretta;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
@@ -735,6 +799,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Floretta/macOS/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Floretta;
 				INFOPLIST_KEY_CFBundleName = Floretta;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";

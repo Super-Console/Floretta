@@ -2,15 +2,29 @@ import SwiftUI
 
 struct ContentView: View {
     @Bindable var recovery: RecoveryPresenter
-    @State private var document = openingMap()
-    @State private var keyboard = MindMapKeyboardSession()
+    @Bindable var settings: AppSettings
+    @Bindable var library: LibraryModel
+
+    @State private var page: HomePage = .recent
+    @State private var sidebarVisible = false
+    @State private var searchText = ""
+    @State private var showSettings = false
+    @State private var showImporter = false
+    @State private var browseRoot: URL?
+    @State private var browseTitle = "我的iPad"
+    @State private var saveLocationTitle = "我的iPad"
+    @State private var notice: String?
 
     var body: some View {
-        NavigationSplitView {
-            OutlineView(document: $document, keyboard: $keyboard)
-        } detail: {
-            canvas
-        }
+        root
+            .preferredColorScheme(settings.appearance.colorScheme)
+            .environment(\.locale, settings.resolvedLocale)
+            .onAppear { recovery.checkOnLaunch() }
+            .onChange(of: recovery.restoredDocument) { _, restored in
+                if let restored {
+                    library.openRecovered(restored)
+                }
+            }
             .alert("Recover unsaved mind map?", isPresented: $recovery.showOffer) {
                 Button("Recover") { recovery.restore() }
                 Button("Discard", role: .destructive) { recovery.discard() }
@@ -22,48 +36,133 @@ struct ContentView: View {
             } message: {
                 Text(recovery.failureMessage)
             }
-            .onAppear { recovery.checkOnLaunch() }
-            .onChange(of: recovery.restoredDocument) { _, restored in
-                if let restored {
-                    document = restored
-                    keyboard = MindMapKeyboardSession()
-                    keyboard.selectedNodeID = document.roots.first?.id
+            .alert("无法打开", isPresented: openErrorPresented) {
+                Button("好", role: .cancel) {}
+            } message: {
+                Text(library.openError ?? "")
+            }
+            .alert("提示", isPresented: noticePresented) {
+                Button("好", role: .cancel) {}
+            } message: {
+                Text(notice ?? "")
+            }
+            .fileImporter(
+                isPresented: $showImporter,
+                allowedContentTypes: FlorettaFileTypes.allowedContentTypes,
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    if let url = urls.first { library.openFile(url) }
+                case .failure(let error):
+                    library.openError = error.localizedDescription
                 }
             }
-            .onAppear {
-                if keyboard.selectedNodeID == nil {
-                    keyboard.selectedNodeID = document.roots.first?.id
-                }
-            }
-            .onChange(of: document) { _, updated in
-                recovery.noteEdit(updated)
+            .sheet(isPresented: $showSettings) {
+                SettingsView(settings: settings)
             }
     }
 
     @ViewBuilder
-    private var canvas: some View {
-        #if os(macOS)
-        InfiniteCanvas(document: $document, keyboard: $keyboard)
-            .frame(minWidth: 800, minHeight: 600)
-        #else
-        InfiniteCanvas(document: $document, keyboard: $keyboard)
-        #endif
+    private var root: some View {
+        if let editor = library.editor {
+            DocumentEditor(
+                session: editor,
+                settings: settings,
+                onClose: dismissEditor,
+                onEdit: { recovery.noteEdit($0) }
+            )
+        } else {
+            NavigationSplitView {
+                HomeSidebar(
+                    library: library,
+                    page: $page,
+                    openFiles: { showImporter = true },
+                    openICloud: openICloud,
+                    browsePad: browsePad
+                )
+            } detail: {
+                NavigationStack {
+                    switch page {
+                    case .recent:
+                        RecentPage(
+                            library: library,
+                            page: $page,
+                            sidebarVisible: $sidebarVisible,
+                            searchText: $searchText,
+                            showSettings: { showSettings = true }
+                        )
+                    case .newMap:
+                        NewMapPage(
+                            onClose: { page = .recent },
+                            onCreateMindMap: { library.makeNew() },
+                            saveLocationTitle: $saveLocationTitle,
+                            chooseDocuments: chooseDocuments,
+                            chooseICloud: chooseICloudSave
+                        )
+                    case .browse:
+                        if let browseRoot {
+                            LocalBrowser(
+                                title: browseTitle,
+                                directory: browseRoot,
+                                files: { library.files(in: $0) },
+                                openFile: { library.openFile($0) }
+                            )
+                        }
+                    }
+                }
+            }
+            .navigationSplitViewColumnVisibility(sidebarVisible ? .all : .detailOnly)
+        }
     }
-}
 
-/// Opening map so the canvas is not empty before New/Open exists.
-/// Positions are unset until a root is dragged.
-private func openingMap() -> MindMapDocument {
-    let child = MindMapNode(id: stableID("22222222-2222-2222-2222-222222222222"), text: "子节点")
-    let center = MindMapNode(
-        id: stableID("11111111-1111-1111-1111-111111111111"),
-        text: "中心",
-        children: [child]
-    )
-    let floating = MindMapNode(id: stableID("33333333-3333-3333-3333-333333333333"), text: "浮动")
-    return MindMapDocument(title: "未命名", roots: [center, floating])
-}
+    private var openErrorPresented: Binding<Bool> {
+        Binding(
+            get: { library.openError != nil },
+            set: { if !$0 { library.openError = nil } }
+        )
+    }
 
-private func stableID(_ string: String) -> UUID {
-    UUID(uuidString: string) ?? UUID()
+    private var noticePresented: Binding<Bool> {
+        Binding(
+            get: { notice != nil },
+            set: { if !$0 { notice = nil } }
+        )
+    }
+
+    private func dismissEditor() {
+        if library.closeEditor() {
+            recovery.quitNormally()
+        }
+        page = .recent
+    }
+
+    private func browsePad() {
+        browseRoot = library.documentsRoot
+        browseTitle = "我的iPad"
+        page = .browse
+    }
+
+    private func openICloud() {
+        guard let directory = library.iCloudDocumentsDirectory() else {
+            notice = "iCloud 云盘不可用。"
+            return
+        }
+        browseRoot = directory
+        browseTitle = "iCloud云盘"
+        page = .browse
+    }
+
+    private func chooseDocuments() {
+        library.useDocumentsForNewFiles()
+        saveLocationTitle = "我的iPad"
+    }
+
+    private func chooseICloudSave() {
+        guard library.useICloudForNewFiles() else {
+            notice = "iCloud 云盘不可用。"
+            return
+        }
+        saveLocationTitle = "iCloud云盘"
+    }
 }

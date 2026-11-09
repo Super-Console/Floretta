@@ -14,6 +14,15 @@ struct BranchColor: Equatable, Sendable {
     static let black = BranchColor(red: 0, green: 0, blue: 0)
     static let blue = BranchColor(red: 0.2, green: 0.45, blue: 1)
 
+    init?(hex: String) {
+        var raw = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        if raw.hasPrefix("#") { raw.removeFirst() }
+        guard raw.count == 6, let value = Int(raw, radix: 16) else { return nil }
+        red = Double((value >> 16) & 0xFF) / 255
+        green = Double((value >> 8) & 0xFF) / 255
+        blue = Double(value & 0xFF) / 255
+    }
+
     func lightened(by amount: Double) -> BranchColor {
         BranchColor(
             red: red + (1 - red) * amount,
@@ -100,6 +109,13 @@ struct NodeFrame: Equatable, Identifiable, Sendable {
     var border: BranchColor
     var textColor: BranchColor
     var cornerRadius: CGFloat
+    var borderWidth: CGFloat = 1.5
+    var hidesFill: Bool = false
+    var bold: Bool = false
+    var italic: Bool = false
+    var strikethrough: Bool = false
+    var underline: Bool = false
+    var fontDesign: String = "default"
     var link: LinkCurve?
 
     var rect: CGRect { CGRect(origin: origin, size: size) }
@@ -168,6 +184,11 @@ struct CanvasChrome: Equatable, Sendable {
     mutating func selectSheet(_ index: Int) {
         guard sheets.indices.contains(index) else { return }
         activeSheetIndex = index
+    }
+
+    /// The chrome percent is always a legal stop, never a raw value such as 137.
+    mutating func syncZoomPercent(toScale scale: CGFloat) {
+        zoomPercent = ZoomStop.displayPercent(forScale: scale)
     }
 }
 
@@ -308,7 +329,7 @@ struct LayoutEngine {
     }
 
     private func collectHeights(_ node: MindMapNode, depth: Int, into heights: inout [Int: CGFloat]) {
-        let raw = cache.size(text: node.text, fontSize: fontSize(depth: depth), maxWidth: metrics.maxTextWidth)
+        let raw = cache.size(text: node.text, fontSize: resolvedFontSize(node, depth: depth), maxWidth: metrics.maxTextWidth)
         heights[depth] = max(heights[depth] ?? 0, raw.height)
         if node.position != nil || node.isCollapsed { return }
         for child in node.children {
@@ -317,8 +338,14 @@ struct LayoutEngine {
     }
 
     private func nodeSize(_ node: MindMapNode, depth: Int, heights: [Int: CGFloat]) -> CGSize {
-        let raw = cache.size(text: node.text, fontSize: fontSize(depth: depth), maxWidth: metrics.maxTextWidth)
-        return CGSize(width: raw.width, height: heights[depth] ?? raw.height)
+        let raw = cache.size(text: node.text, fontSize: resolvedFontSize(node, depth: depth), maxWidth: metrics.maxTextWidth)
+        let width = max(raw.width, CGFloat(node.style?.topicWidth ?? 0))
+        return CGSize(width: width, height: heights[depth] ?? raw.height)
+    }
+
+    private func resolvedFontSize(_ node: MindMapNode, depth: Int) -> CGFloat {
+        if let size = node.style?.fontSize, size > 0 { return CGFloat(size) }
+        return fontSize(depth: depth)
     }
 
     private func split(
@@ -465,20 +492,31 @@ struct LayoutEngine {
         branch: BranchColor,
         link: LinkCurve?
     ) -> NodeFrame {
-        let style = colors(depth: depth, branch: branch)
+        let palette = colors(depth: depth, branch: branch)
+        let stored = node.style
+        let fill = stored?.fillHex.flatMap(BranchColor.init(hex:)) ?? palette.fill
+        let border = stored?.borderHex.flatMap(BranchColor.init(hex:)) ?? palette.border
+        let text = stored?.textHex.flatMap(BranchColor.init(hex:)) ?? palette.text
         return NodeFrame(
             id: node.id,
             text: node.text,
             origin: origin,
             size: size,
             depth: depth,
-            fontSize: fontSize(depth: depth),
+            fontSize: resolvedFontSize(node, depth: depth),
             isRoot: isRoot,
             parentID: parentID,
-            fill: style.fill,
-            border: style.border,
-            textColor: style.text,
-            cornerRadius: appearance.cornerRadius,
+            fill: fill,
+            border: border,
+            textColor: text,
+            cornerRadius: CGFloat(stored?.cornerRadius ?? Double(appearance.cornerRadius)),
+            borderWidth: CGFloat(stored?.borderWidth ?? 1.5),
+            hidesFill: stored?.fillStyle == "none",
+            bold: stored?.bold ?? false,
+            italic: stored?.italic ?? false,
+            strikethrough: stored?.strikethrough ?? false,
+            underline: stored?.underline ?? false,
+            fontDesign: stored?.fontDesign ?? "default",
             link: link
         )
     }

@@ -33,12 +33,13 @@ struct RecentPage: View {
                 }
                 ToolbarItemGroup(placement: .primaryAction) {
                     Button {
-                        page = .newMap
+                        library.makeNew()
                     } label: {
                         Image(systemName: "plus")
                     }
-                    .accessibilityLabel("新建")
+                    .accessibilityLabel("新建导图")
                     Button {
+                        columnVisibility = .detailOnly
                         page = .newMap
                     } label: {
                         Image(systemName: "square.grid.2x2")
@@ -63,7 +64,7 @@ struct RecentPage: View {
             } description: {
                 Text("现在是创建一个好的时机。")
             } actions: {
-                Button("新建导图") { page = .newMap }
+                Button("新建导图") { library.makeNew() }
                     .buttonStyle(.borderedProminent)
                     .buttonBorderShape(.capsule)
             }
@@ -123,7 +124,7 @@ struct HomeSidebar: View {
                 Label("最近", systemImage: "clock")
             }
             Button {
-                page = .newMap
+                library.makeNew()
             } label: {
                 Label("新建导图", systemImage: "plus")
             }
@@ -219,17 +220,16 @@ struct NewMapPage: View {
             }
         } label: {
             VStack(alignment: .leading, spacing: 8) {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.quaternary)
-                    .frame(width: 180, height: 120)
-                    .overlay {
-                        Image(systemName: card.symbol)
-                            .font(.title)
-                            .foregroundStyle(.secondary)
-                    }
+                TemplateThumbnail(name: card.name)
                 Text(card.name)
                     .font(.callout)
-                    .frame(width: 180, alignment: .leading)
+                    .frame(width: TemplateThumbnail.width, alignment: .leading)
+                if card.tap != .createMindMap {
+                    Text(card.tap == .laterLayout ? "后续版本" : "即将推出")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .frame(width: TemplateThumbnail.width, alignment: .leading)
+                }
             }
         }
         .buttonStyle(.plain)

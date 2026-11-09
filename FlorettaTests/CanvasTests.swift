@@ -140,4 +140,46 @@ final class CanvasTests: XCTestCase {
         XCTAssertEqual(CanvasPlacement.nodeID(at: shared, in: document), over)
         XCTAssertEqual(CanvasPlacement.rootID(at: shared, in: document), over)
     }
+
+    func testDotLatticeCoversEveryCornerAtZoomStopsAndStaysPhaseLocked() throws {
+        let view = CGSize(width: 1400, height: 900)
+        let stops: [CGFloat] = [0.5, 1, 2, 4]
+        for scale in stops {
+            let offset = CGPoint(x: 37.5, y: -18)
+            let layout = DotLatticeLayout.make(offset: offset, scale: scale, viewSize: view)
+            let lattice = try XCTUnwrap(layout)
+            XCTAssertEqual(lattice.step, DotLatticeLayout.worldStep * scale, accuracy: 0.001)
+            XCTAssertGreaterThanOrEqual(lattice.phase.x, 0)
+            XCTAssertLessThan(lattice.phase.x, lattice.step)
+            XCTAssertGreaterThanOrEqual(lattice.phase.y, 0)
+            XCTAssertLessThan(lattice.phase.y, lattice.step)
+            XCTAssertTrue(lattice.coversView(view), "scale \(scale) left a corner uncovered")
+            let widthRemainder = lattice.fillRectInTileSpace.width.truncatingRemainder(dividingBy: lattice.step)
+            XCTAssertTrue(
+                abs(widthRemainder) < 0.01 || abs(widthRemainder - lattice.step) < 0.01,
+                "tile fill width \(lattice.fillRectInTileSpace.width) is not a multiple of \(lattice.step)"
+            )
+
+            let shifted = try XCTUnwrap(DotLatticeLayout.make(
+                offset: CGPoint(x: offset.x + lattice.step, y: offset.y + lattice.step * 3),
+                scale: scale,
+                viewSize: view
+            ))
+            XCTAssertEqual(shifted.phase.x, lattice.phase.x, accuracy: 0.001)
+            XCTAssertEqual(shifted.phase.y, lattice.phase.y, accuracy: 0.001)
+
+            let half = try XCTUnwrap(DotLatticeLayout.make(
+                offset: CGPoint(x: offset.x + lattice.step / 2, y: offset.y),
+                scale: scale,
+                viewSize: view
+            ))
+            XCTAssertEqual(half.phase.x, positiveRemainder(lattice.phase.x + lattice.step / 2, modulo: lattice.step), accuracy: 0.001)
+            XCTAssertNotEqual(half.phase.x, lattice.phase.x)
+        }
+
+        let wide = CGSize(width: 3200, height: 1800)
+        let zoomedOut = try XCTUnwrap(DotLatticeLayout.make(offset: CGPoint(x: -5, y: 800), scale: 0.5, viewSize: wide))
+        XCTAssertTrue(zoomedOut.coversView(wide))
+        XCTAssertEqual(zoomedOut.step, 16, accuracy: 0.001)
+    }
 }

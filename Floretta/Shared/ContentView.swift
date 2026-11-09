@@ -108,6 +108,7 @@ struct ContentView: View {
                     }
                 }
             }
+            .id(page)
         }
     }
 

@@ -31,6 +31,8 @@ git push origin main
 
 ## 验收由总指挥做
 
+性能按 `docs/PERF-BUDGET.md`。新功能提案先对预算，不许「以后再优化」。PR 描述要有三行「性能影响」（内存 / 帧率 / 包体各一行），缺一行即阻断。
+
 版本与安装按 `docs/HANDOFF.md` 第 29 条：验收只走 TestFlight，不用 Xcode 装进 `/Applications`，本机不叠多份 1.0 (3)/(4)/(5)；只留一套可运行构建，旧 archive 与 DerivedData 进废纸篓而不是 `rm`；每一轮测试组只留最新构建，旧构建移出测试组但不删 App Store Connect 记录；`CURRENT_PROJECT_VERSION` 递增，`MARKETING_VERSION` 不动。
 
 执行者说"完成"只算申报。总指挥会独立检查：

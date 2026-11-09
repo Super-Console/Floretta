@@ -35,6 +35,7 @@ open Floretta.xcodeproj
 - `docs/REFERENCES.md` — 参考的开源实现与可借鉴/不可借鉴的边界
 - `docs/WORKFLOW.md` — 分步提交推送规则、验收方式
 - `docs/HANDOFF.md` — 协作交接；第 29 条是版本与安装
+- `docs/PERF-BUDGET.md` — 性能预算；新功能先对预算，PR 描述要有三行性能影响
 - `docs/DECISIONS.md` — 决策与理由（含命名）
 - `docs/design/` — 设计素材（App 图标参考图）
 - `docs/STATUS.md` — 当前进度

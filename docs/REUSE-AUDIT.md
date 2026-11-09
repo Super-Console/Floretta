@@ -68,6 +68,10 @@
 
 **Freeplane：** 根 `license.txt` 是 GPL-2.0。没有把 Java 源码拷进仓库。`.mm` 已按公开 XML 形状自研（`FlorettaMMCodec`），不链接 Freeplane。
 
+## PNG / PDF
+
+**用系统 `ImageRenderer`，没有可复用的导出库。** `docs/REUSE.md` 没有 PNG/PDF 候选。不抄 Freeplane 的导出，也不自写光栅器。画面是现有节点框和连线，不含界面装饰。
+
 ## OPML / Markdown
 
 **自研，没有现成 Swift 库可链。** `docs/REUSE.md` 没有 OPML 或 Markdown 的候选实现。OPML 2.0 和 Markdown 都是公开文本格式。`FlorettaOPMLCodec` 用 Foundation `XMLParser`，跟 `.mm` 一样拒绝外部实体。`FlorettaMarkdown` 只导出。不复制 Freeplane，也不引入 SimpleMindMap。

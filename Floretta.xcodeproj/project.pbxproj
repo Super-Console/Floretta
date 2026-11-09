@@ -55,6 +55,10 @@
 		C40000000000000000000009 /* CanvasViewport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000001 /* CanvasViewport.swift */; };
 		C4000000000000000000000A /* CanvasPlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000002 /* CanvasPlacement.swift */; };
 		C4000000000000000000000B /* InfiniteCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000003 /* InfiniteCanvas.swift */; };
+		C93000000000000000000001 /* MapExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F93000000000000000000001 /* MapExport.swift */; };
+		C93000000000000000000002 /* MapExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F93000000000000000000001 /* MapExport.swift */; };
+		C93000000000000000000003 /* MapExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F93000000000000000000001 /* MapExport.swift */; };
+		C93000000000000000000004 /* MapExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F93000000000000000000002 /* MapExportTests.swift */; };
 		C4000000000000000000000C /* CanvasScrollInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000004 /* CanvasScrollInput.swift */; };
 		C4000000000000000000000D /* CanvasTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000005 /* CanvasTests.swift */; };
 		C50000000000000000000001 /* DocumentContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000001 /* DocumentContainer.swift */; };
@@ -125,6 +129,8 @@
 		F30000000000000000000001 /* CanvasViewport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasViewport.swift; sourceTree = "<group>"; };
 		F30000000000000000000002 /* CanvasPlacement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasPlacement.swift; sourceTree = "<group>"; };
 		F30000000000000000000003 /* InfiniteCanvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfiniteCanvas.swift; sourceTree = "<group>"; };
+		F93000000000000000000001 /* MapExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapExport.swift; sourceTree = "<group>"; };
+		F93000000000000000000002 /* MapExportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapExportTests.swift; sourceTree = "<group>"; };
 		F30000000000000000000004 /* CanvasScrollInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasScrollInput.swift; sourceTree = "<group>"; };
 		F30000000000000000000005 /* CanvasTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasTests.swift; sourceTree = "<group>"; };
 		F50000000000000000000001 /* DocumentContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentContainer.swift; sourceTree = "<group>"; };
@@ -246,6 +252,7 @@
 				F30000000000000000000004 /* CanvasScrollInput.swift */,
 				F30000000000000000000001 /* CanvasViewport.swift */,
 				F30000000000000000000003 /* InfiniteCanvas.swift */,
+				F93000000000000000000001 /* MapExport.swift */,
 				F60000000000000000000002 /* LayoutEngine.swift */,
 				F60000000000000000000001 /* TextMeasurementCache.swift */,
 			);
@@ -293,6 +300,7 @@
 				F60000000000000000000003 /* LayoutTests.swift */,
 				F91000000000000000000002 /* MMTests.swift */,
 				F92000000000000000000003 /* OPMLMarkdownTests.swift */,
+				F93000000000000000000002 /* MapExportTests.swift */,
 				F1000000000000000000000C /* MindMapDocumentTests.swift */,
 			);
 			path = FlorettaTests;
@@ -463,6 +471,7 @@
 				C40000000000000000000001 /* CanvasViewport.swift in Sources */,
 				C40000000000000000000002 /* CanvasPlacement.swift in Sources */,
 				C40000000000000000000003 /* InfiniteCanvas.swift in Sources */,
+				C93000000000000000000001 /* MapExport.swift in Sources */,
 				C40000000000000000000004 /* CanvasScrollInput.swift in Sources */,
 				C50000000000000000000001 /* DocumentContainer.swift in Sources */,
 				C50000000000000000000002 /* ZipContainer.swift in Sources */,
@@ -496,6 +505,7 @@
 				C40000000000000000000005 /* CanvasViewport.swift in Sources */,
 				C40000000000000000000006 /* CanvasPlacement.swift in Sources */,
 				C40000000000000000000007 /* InfiniteCanvas.swift in Sources */,
+				C93000000000000000000002 /* MapExport.swift in Sources */,
 				C40000000000000000000008 /* CanvasScrollInput.swift in Sources */,
 				C50000000000000000000004 /* DocumentContainer.swift in Sources */,
 				C50000000000000000000005 /* ZipContainer.swift in Sources */,
@@ -531,6 +541,8 @@
 				C40000000000000000000009 /* CanvasViewport.swift in Sources */,
 				C4000000000000000000000A /* CanvasPlacement.swift in Sources */,
 				C4000000000000000000000B /* InfiniteCanvas.swift in Sources */,
+				C93000000000000000000003 /* MapExport.swift in Sources */,
+				C93000000000000000000004 /* MapExportTests.swift in Sources */,
 				C4000000000000000000000C /* CanvasScrollInput.swift in Sources */,
 				C4000000000000000000000D /* CanvasTests.swift in Sources */,
 				C50000000000000000000007 /* DocumentContainer.swift in Sources */,

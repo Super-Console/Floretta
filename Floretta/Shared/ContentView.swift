@@ -34,7 +34,7 @@ struct ContentView: View {
             } message: {
                 Text(recovery.failureMessage)
             }
-            .alert("无法打开", isPresented: openErrorPresented) {
+            .alert(library.alertTitle, isPresented: openErrorPresented) {
                 Button("好", role: .cancel) {}
             } message: {
                 Text(library.openError ?? "")
@@ -67,7 +67,8 @@ struct ContentView: View {
                     settings: settings,
                     onClose: dismissEditor,
                     onEdit: { recovery.noteEdit($0) },
-                    onImport: { showImporter = true }
+                    onImport: { showImporter = true },
+                    onSavedCopy: { library.noteExportedCopy($0) }
                 )
             }
         } else {

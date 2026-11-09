@@ -101,14 +101,23 @@ struct InfiniteCanvas: View {
                 interaction.selectedNodeID = id
             }
             .simultaneousGesture(SpatialTapGesture().onEnded { value in
+                if EditFieldGuard.ignoresCanvasTap(
+                    at: value.location,
+                    editFrame: editFieldFrame(),
+                    isComposing: keyboard.isComposing
+                ) { return }
                 let point = camera.viewport.canvasPoint(fromView: value.location)
                 let hit = CanvasPlacement.nodeID(at: point, in: layoutSource())
                 if zenActive, hit == nil { return }
                 applyNodeTap(hit)
             })
             .simultaneousGesture(SpatialTapGesture(count: 2).onEnded { value in
+                if EditFieldGuard.ignoresCanvasTap(
+                    at: value.location,
+                    editFrame: editFieldFrame(),
+                    isComposing: keyboard.isComposing
+                ) { return }
                 let point = camera.viewport.canvasPoint(fromView: value.location)
-                guard !keyboard.isComposing else { return }
                 if let hit = CanvasPlacement.nodeID(at: point, in: layoutSource()) {
                     beginEditing(hit)
                     return
@@ -203,6 +212,18 @@ struct InfiniteCanvas: View {
             .frame(width: max(rect.width, compositionWidth, 88), height: max(rect.height, 36))
             .position(x: rect.midX, y: rect.midY)
         }
+    }
+
+    /// View rect of the system text field, including the extra width used while
+    /// marked text is wider than the topic.
+    private func editFieldFrame() -> CGRect? {
+        guard keyboard.mode == .edit,
+              let id = keyboard.selectedNodeID,
+              let frame = placedFrames().first(where: { $0.id == id }) else { return nil }
+        let rect = camera.viewport.viewRect(fromCanvas: frame.frame)
+        let width = max(rect.width, compositionWidth, 88)
+        let height = max(rect.height, 36)
+        return CGRect(x: rect.midX - width / 2, y: rect.midY - height / 2, width: width, height: height)
     }
 
     private func placedFrames() -> [NodeFrame] {
@@ -414,6 +435,17 @@ struct InfiniteCanvas: View {
         )
     }
 
+}
+
+/// Taps that land on the system text field must not commit or close it.
+/// The field is at least 88 points wide, so a short Chinese topic leaves a
+/// margin that the node hit-test misses. Marked text makes that margin larger.
+enum EditFieldGuard {
+    static func ignoresCanvasTap(at location: CGPoint, editFrame: CGRect?, isComposing: Bool) -> Bool {
+        if isComposing { return true }
+        guard let editFrame else { return false }
+        return editFrame.contains(location)
+    }
 }
 
 /// Touch editing. The first tap selects. The next tap on that node opens the

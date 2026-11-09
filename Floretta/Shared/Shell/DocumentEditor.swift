@@ -14,8 +14,10 @@ struct DocumentEditor: View {
     var onClose: () -> Void
     var onEdit: (MindMapDocument) -> Void
     var onImport: () -> Void
+    var onSavedCopy: (URL) -> Void = { _ in }
 
     @State private var showExport = false
+    @State private var exportKind = ""
     @State private var exportFile = ExportFile(data: Data())
     @State private var exportType: UTType = .png
     @State private var exportName = "Floretta"
@@ -52,12 +54,14 @@ struct DocumentEditor: View {
             }
             .toolbar {
                 if session.zen.chrome.showsToolbar {
-                    ToolbarItem(placement: .navigation) {
+                    ToolbarItem(placement: .cancellationAction) {
                         HStack(spacing: 8) {
                             Button(action: onClose) {
                                 Image(systemName: "chevron.backward")
                             }
-                            .explained("返回导图列表")
+                            .accessibilityLabel("返回")
+                            .accessibilityIdentifier("basicChain.back")
+                            .help("返回导图列表")
                             Button(action: beginRename) {
                                 Text(documentTitle)
                                     .lineLimit(1)
@@ -124,7 +128,16 @@ struct DocumentEditor: View {
                 document: exportFile,
                 contentType: exportType,
                 defaultFilename: exportName
-            ) { _ in }
+            ) { result in
+                switch result {
+                case .success(let url):
+                    if exportKind == "floretta" {
+                        onSavedCopy(url)
+                    }
+                case .failure(let error):
+                    exportError = error.localizedDescription
+                }
+            }
             .alert("无法导出", isPresented: exportErrorPresented) {
                 Button("好", role: .cancel) {}
             } message: {
@@ -350,49 +363,51 @@ struct DocumentEditor: View {
 
     private func export(_ kind: String) {
         let title = session.document.title.isEmpty ? "Floretta" : session.document.title
+        let type = FlorettaFileTypes.contentType(forExport: kind)
         do {
+            let data: Data
             switch kind {
-            case "floretta":
-                exportFile = ExportFile(data: try ZipContainer().write(FlorettaPackage(document: session.document)))
-                exportType = FlorettaFileTypes.allowedContentTypes[0]
-                exportName = title + ".floretta"
             case "png":
                 let result = MapExporter.png(document: session.document, settings: settings)
                 guard let png = result.png, !png.isEmpty else {
                     exportError = result.notice ?? "没有导出图片。"
                     return
                 }
-                exportFile = ExportFile(data: png)
-                exportType = .png
-                exportName = title + ".png"
+                data = png
             case "pdf":
                 let result = MapExporter.pdf(document: session.document)
                 guard let pdf = result.pdf, !pdf.isEmpty else {
                     exportError = result.notice ?? "没有导出 PDF。"
                     return
                 }
-                exportFile = ExportFile(data: pdf)
-                exportType = .pdf
-                exportName = title + ".pdf"
-            case "md":
-                exportFile = ExportFile(data: Data(FlorettaMarkdown.export(session.document).utf8))
-                exportType = FlorettaFileTypes.allowedContentTypes[3]
-                exportName = title + ".md"
-            case "opml":
-                exportFile = ExportFile(data: try FlorettaOPMLCodec.export(session.document))
-                exportType = FlorettaFileTypes.allowedContentTypes[2]
-                exportName = title + ".opml"
-            case "mm":
-                exportFile = ExportFile(data: try FlorettaMMCodec.export(session.document))
-                exportType = FlorettaFileTypes.allowedContentTypes[1]
-                exportName = title + ".mm"
+                data = pdf
+            case "floretta", "md", "opml", "mm":
+                data = try SharePayload.bytes(for: kind, document: session.document)
             default:
                 return
             }
+            exportKind = kind
+            exportFile = ExportFile(data: data)
+            exportType = type
+            exportName = exportFilename(title: title, kind: kind)
             showExport = true
         } catch {
             exportError = error.localizedDescription
         }
+    }
+
+    private func exportFilename(title: String, kind: String) -> String {
+        let ext: String
+        switch kind {
+        case "png": ext = "png"
+        case "pdf": ext = "pdf"
+        case "md": ext = "md"
+        case "opml": ext = "opml"
+        case "mm": ext = "mm"
+        case "floretta": ext = "floretta"
+        default: ext = "dat"
+        }
+        return title + "." + ext
     }
 
     private func pasteFromClipboard() {
@@ -707,7 +722,7 @@ private enum StyleColor {
 }
 
 struct ExportFile: FileDocument {
-    static var readableContentTypes: [UTType] { [.data] }
+    static var readableContentTypes: [UTType] { FlorettaFileTypes.exportableContentTypes }
     var data: Data
 
     init(data: Data) { self.data = data }

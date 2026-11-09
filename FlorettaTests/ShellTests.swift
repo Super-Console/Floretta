@@ -1,4 +1,6 @@
+import CoreGraphics
 import FlorettaCore
+import UniformTypeIdentifiers
 import XCTest
 
 @MainActor
@@ -452,6 +454,204 @@ final class ShellTests: XCTestCase {
         XCTAssertTrue(AppInfo.fallbackNotice.contains("NOTICE"))
     }
 
+    func testExportTypesStayInTheReadableList() {
+        XCTAssertEqual(FlorettaFileTypes.contentType(forExport: "png"), .png)
+        XCTAssertEqual(FlorettaFileTypes.contentType(forExport: "pdf"), .pdf)
+        XCTAssertNotEqual(FlorettaFileTypes.contentType(forExport: "md"), .png)
+        XCTAssertNotEqual(FlorettaFileTypes.contentType(forExport: "md"), .pdf)
+        XCTAssertNotEqual(FlorettaFileTypes.contentType(forExport: "opml"), .png)
+        XCTAssertNotEqual(FlorettaFileTypes.contentType(forExport: "mm"), .pdf)
+        for kind in FlorettaFileTypes.exportKinds {
+            let type = FlorettaFileTypes.contentType(forExport: kind)
+            XCTAssertTrue(FlorettaFileTypes.exportableContentTypes.contains(type), kind)
+            if let declared = declaredExportType(kind) {
+                XCTAssertEqual(type, declared, kind)
+            }
+        }
+        XCTAssertTrue(FlorettaFileTypes.allowedContentTypes.contains(.xml))
+        XCTAssertTrue(FlorettaFileTypes.allowedContentTypes.contains(.plainText))
+    }
+
+    func testEditFieldTapDoesNotDismissChineseInput() {
+        let field = CGRect(x: 10, y: 10, width: 88, height: 36)
+        XCTAssertTrue(EditFieldGuard.ignoresCanvasTap(at: CGPoint(x: 90, y: 20), editFrame: field, isComposing: false))
+        XCTAssertFalse(EditFieldGuard.ignoresCanvasTap(at: CGPoint(x: 0, y: 0), editFrame: field, isComposing: false))
+        XCTAssertTrue(EditFieldGuard.ignoresCanvasTap(at: CGPoint(x: 0, y: 0), editFrame: nil, isComposing: true))
+        XCTAssertFalse(EditFieldGuard.ignoresCanvasTap(at: CGPoint(x: 0, y: 0), editFrame: nil, isComposing: false))
+        XCTAssertEqual(
+            NodeEditTap.action(hit: nil, selected: UUID(), mode: .edit, isComposing: true),
+            .ignore
+        )
+    }
+
+    func testBasicChainSaveReopenExportImportAndExit() throws {
+        let directory = try temporaryDirectory()
+        let library = try makeLibrary(directory: directory)
+        library.makeNew()
+        let session = try XCTUnwrap(library.editor)
+        session.document.title = "中文图"
+        session.keyboard.selectedNodeID = session.document.roots[0].id
+        session.commitText("中文")
+        session.addChildFromToolbar()
+        session.commitText("子节点")
+        session.addSiblingFromToolbar()
+        session.commitText("同级")
+        session.deleteSelection()
+        XCTAssertEqual(session.document.roots[0].children.map(\.text), ["子节点"])
+        session.undo()
+        XCTAssertEqual(session.document.roots[0].children.map(\.text), ["子节点", "同级"])
+        session.redo()
+        XCTAssertEqual(session.document.roots[0].children.map(\.text), ["子节点"])
+        session.undo()
+        XCTAssertEqual(session.document.roots[0].children.map(\.text), ["子节点", "同级"])
+
+        let savedURL = try XCTUnwrap(session.url)
+        XCTAssertTrue(library.closeEditor())
+        XCTAssertNil(library.editor)
+
+        library.openFile(savedURL)
+        let reopened = try XCTUnwrap(library.editor?.document)
+        XCTAssertEqual(reopened.title, "中文图")
+        XCTAssertEqual(reopened.roots.first?.text, "中文")
+        XCTAssertEqual(reopened.roots.first?.children.map(\.text), ["子节点", "同级"])
+
+        let md = try SharePayload.bytes(for: "md", document: reopened)
+        let mm = try SharePayload.bytes(for: "mm", document: reopened)
+        let opml = try SharePayload.bytes(for: "opml", document: reopened)
+        let fromMD = try DocumentOpener.open(data: md, filename: "笔记.md")
+        XCTAssertEqual(fromMD.roots.first?.text, "中文")
+        XCTAssertEqual(fromMD.roots.first?.children.map(\.text), ["子节点", "同级"])
+        let fromMM = try DocumentOpener.open(data: mm, filename: "notes.md")
+        XCTAssertEqual(fromMM.roots.first?.text, "中文")
+        XCTAssertEqual(fromMM.roots.first?.children.map(\.text), ["子节点", "同级"])
+        let fromOPML = try DocumentOpener.open(data: opml, filename: "notes.md")
+        XCTAssertEqual(fromOPML.title, "中文图")
+        XCTAssertEqual(fromOPML.roots.first?.text, "中文")
+        XCTAssertEqual(fromOPML.roots.first?.children.map(\.text), ["子节点", "同级"])
+
+        let png = MapExporter.png(document: reopened)
+        XCTAssertGreaterThan(png.png?.count ?? 0, 8)
+        let pdf = MapExporter.pdf(document: reopened)
+        let pdfBytes = try XCTUnwrap(pdf.pdf)
+        XCTAssertTrue(pdfBytes.starts(with: Data("%PDF".utf8)))
+
+        let opmlURL = directory.appendingPathComponent("导入.opml")
+        try opml.write(to: opmlURL)
+        library.openFile(opmlURL)
+        XCTAssertNil(library.openError)
+        XCTAssertEqual(library.editor?.sourceExtension, "opml")
+        XCTAssertEqual(library.editor?.document.roots.first?.text, "中文")
+        let still = try DocumentOpener.open(data: Data(contentsOf: savedURL), filename: savedURL.lastPathComponent)
+        XCTAssertEqual(still.roots.first?.text, "中文")
+        XCTAssertEqual(still.roots.first?.children.map(\.text), ["子节点", "同级"])
+        XCTAssertFalse(library.closeEditor())
+        XCTAssertNil(library.editor)
+    }
+
+    func testSaveFailureKeepsTheOpenMap() throws {
+        let directory = try temporaryDirectory()
+        let gate = WriteGate()
+        var ports = ApplePlatformPorts.current()
+        ports.files = gate
+        let library = try makeLibrary(directory: directory, ports: ports)
+        library.makeNew()
+        let session = try XCTUnwrap(library.editor)
+        session.keyboard.selectedNodeID = session.document.roots[0].id
+        session.commitText("中文")
+        gate.allow = false
+        XCTAssertFalse(library.closeEditor())
+        XCTAssertNotNil(library.editor)
+        XCTAssertEqual(library.alertTitle, "无法保存")
+        XCTAssertEqual(library.editor?.document.roots.first?.text, "中文")
+        library.makeNew()
+        XCTAssertEqual(library.editor?.document.roots.first?.text, "中文")
+        gate.allow = true
+        XCTAssertTrue(library.closeEditor())
+        XCTAssertNil(library.editor)
+        XCTAssertNil(library.openError)
+        let entry = try XCTUnwrap(library.recents.first { $0.filename.hasSuffix(".floretta") })
+        library.openRecent(entry)
+        XCTAssertEqual(library.editor?.document.roots.first?.text, "中文")
+    }
+
+    func testLegacyJSONCloseWritesANewZipAndLeavesTheOriginal() throws {
+        let directory = try temporaryDirectory()
+        let legacyURL = directory.appendingPathComponent("旧图.floretta")
+        let original = MindMapDocument(title: "旧", roots: [MindMapNode(text: "原文")])
+        let bytes = try FlorettaCodec.encode(original)
+        try bytes.write(to: legacyURL)
+        let library = try makeLibrary(directory: directory)
+        library.openFile(legacyURL)
+        XCTAssertNil(library.openError)
+        let session = try XCTUnwrap(library.editor)
+        session.document.roots[0].text = "中文修订"
+        XCTAssertTrue(library.closeEditor())
+        XCTAssertNil(library.editor)
+        XCTAssertEqual(try Data(contentsOf: legacyURL), bytes)
+        let created = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent != "旧图.floretta" && $0.pathExtension == "floretta" }
+        XCTAssertEqual(created.count, 1)
+        let saved = try DocumentOpener.open(data: Data(contentsOf: created[0]), filename: created[0].lastPathComponent)
+        XCTAssertEqual(saved.roots.first?.text, "中文修订")
+    }
+
+    func testSaveAsAdoptsFlorettaWhenTheOpenFileIsNotOne() throws {
+        let directory = try temporaryDirectory()
+        let library = try makeLibrary(directory: directory)
+        library.makeNew()
+        let original = try XCTUnwrap(library.editor?.url)
+        let copy = directory.appendingPathComponent("另存.floretta")
+        let snapshot = try XCTUnwrap(library.editor).document
+        try SharePayload.bytes(for: "floretta", document: snapshot).write(to: copy)
+        library.noteExportedCopy(copy)
+        XCTAssertEqual(library.editor?.url?.path, original.path)
+        XCTAssertTrue(library.recents.contains { $0.filename == "另存.floretta" })
+        XCTAssertTrue(library.closeEditor())
+
+        let mm = directory.appendingPathComponent("图.mm")
+        let xml = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <map version="1.0.1"><node TEXT="根"/></map>
+        """
+        try Data(xml.utf8).write(to: mm)
+        library.openFile(mm)
+        XCTAssertEqual(library.editor?.sourceExtension, "mm")
+        try SharePayload.bytes(for: "floretta", document: try XCTUnwrap(library.editor).document).write(to: copy)
+        library.noteExportedCopy(copy)
+        XCTAssertEqual(library.editor?.url?.path, copy.path)
+        XCTAssertEqual(library.editor?.sourceExtension, "floretta")
+        let adopted = try XCTUnwrap(library.editor)
+        adopted.document.roots[0].text = "中文"
+        XCTAssertTrue(library.closeEditor())
+        let again = try DocumentOpener.open(data: Data(contentsOf: copy), filename: copy.lastPathComponent)
+        XCTAssertEqual(again.roots.first?.text, "中文")
+        let originalMM = try XCTUnwrap(String(contentsOf: mm, encoding: .utf8))
+        XCTAssertTrue(originalMM.contains("根"))
+        XCTAssertFalse(originalMM.contains("中文"))
+    }
+
+    private func declaredExportType(_ kind: String) -> UTType? {
+        switch kind {
+        case "png": return .png
+        case "pdf": return .pdf
+        case "md": return UTType(FlorettaFileTypes.markdownIdentifier)
+        case "opml": return UTType(FlorettaFileTypes.opmlIdentifier)
+        case "mm": return UTType(FlorettaFileTypes.mmIdentifier)
+        case "floretta": return UTType(FlorettaFileTypes.florettaIdentifier)
+        default: return nil
+        }
+    }
+
+    private func makeLibrary(directory: URL, ports: ApplePlatformPorts = .current()) throws -> LibraryModel {
+        let defaults = try freshDefaults()
+        return LibraryModel(
+            settings: AppSettings(defaults: defaults),
+            store: RecentMapsStore(defaults: defaults),
+            documentsDirectory: directory,
+            ports: ports
+        )
+    }
+
     private func freshDefaults() throws -> UserDefaults {
         let name = "floretta.shell.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
@@ -463,5 +663,29 @@ final class ShellTests: XCTestCase {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
+    }
+}
+
+private final class WriteGate: FileAccessPort {
+    var allow = true
+    private let inner = FoundationFileAccess()
+
+    func read(from url: URL) throws -> Data {
+        try inner.read(from: url)
+    }
+
+    func write(_ data: Data, to url: URL) throws {
+        if !allow {
+            throw CocoaError(.fileWriteNoPermission)
+        }
+        try inner.write(data, to: url)
+    }
+
+    func fileExists(at url: URL) -> Bool {
+        inner.fileExists(at: url)
+    }
+
+    func remove(at url: URL) throws {
+        try inner.remove(at: url)
     }
 }

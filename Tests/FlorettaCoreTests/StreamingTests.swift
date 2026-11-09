@@ -89,7 +89,7 @@ final class StreamingTests: XCTestCase {
         let opened = try openTracking(archive, files: files)
         XCTAssertEqual(opened.package.directory.attachments.count, 1)
         XCTAssertFalse(opened.touchedPayload)
-        XCTAssertLessThan(opened.bytesRead, archiveByteCount(archive))
+        XCTAssertLessThan(Int64(opened.bytesRead), archiveByteCount(archive))
     }
 
     func testLargeInsertStaysUnderTheWriteCeiling() throws {
@@ -208,6 +208,56 @@ final class StreamingTests: XCTestCase {
         XCTAssertTrue(exclusion.urls.allSatisfy { $0.path.contains("Attachments") })
         XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("thumbnails").path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("spill").path))
+    }
+
+    func testReferenceCountAndOrphanGC() throws {
+        let shared = String(repeating: "a", count: 64)
+        let first = NodeAttachment(sha256: shared, fileExtension: "png", byteCount: 4, filename: "a.png")
+        var root = MindMapNode(text: "根", attachments: [first])
+        root.children = [MindMapNode(text: "子", attachments: [first])]
+        var document = MindMapDocument(title: "引用", createdAt: stamped, modifiedAt: stamped, roots: [root])
+        let counts = AttachmentReferences.counts(in: document)
+        XCTAssertEqual(counts.count, 1)
+        XCTAssertEqual(counts[0].count, 2)
+        XCTAssertEqual(counts[0].sha256, shared)
+
+        let directory = try makeDirectory()
+        let files = POSIXStreamingFiles()
+        let left = directory.appendingPathComponent("a.bin")
+        let right = directory.appendingPathComponent("b.bin")
+        try Data("aaaa".utf8).write(to: left)
+        try Data("bbbb".utf8).write(to: right)
+        let leftHash = try hash(left, files: files)
+        let rightHash = try hash(right, files: files)
+        document.roots[0].attachments = [try leftHash.nodeAttachment()]
+        document.roots[0].children[0].attachments = [try leftHash.nodeAttachment(), try rightHash.nodeAttachment()]
+        let archive = directory.appendingPathComponent("map.floretta")
+        let both = try FlorettaStreamingDocument.save(
+            document: document,
+            to: archive,
+            files: files,
+            appending: (left, leftHash)
+        )
+        XCTAssertEqual(both.attachments.count, 1)
+        let withRight = try FlorettaStreamingDocument.save(
+            document: document,
+            to: archive,
+            files: files,
+            appending: (right, rightHash)
+        )
+        XCTAssertEqual(withRight.attachments.count, 2)
+        XCTAssertEqual(AttachmentReferences.counts(in: document).first { $0.sha256 == leftHash.sha256 }?.count, 2)
+
+        document.roots[0].children[0].attachments = [try leftHash.nodeAttachment()]
+        document.roots[0].attachments = []
+        let orphans = AttachmentReferences.orphans(stored: withRight.attachments, document: document)
+        XCTAssertEqual(orphans.count, 1)
+        XCTAssertTrue(orphans[0].contains(rightHash.sha256))
+        let kept = try FlorettaStreamingDocument.save(document: document, to: archive, files: files)
+        XCTAssertEqual(kept.attachments.count, 1)
+        XCTAssertEqual(kept.attachments[0].sha256, leftHash.sha256)
+        let frame = try XCTUnwrap(LayoutEngine().layout(document).first { $0.caption.isEmpty == false })
+        XCTAssertTrue(frame.caption.contains(AttachmentByteFormat.label(4)))
     }
 
     func testNodeShowsEachAttachmentSizeAndTheDocumentTotal() throws {
@@ -575,10 +625,9 @@ private final class POSIXStreamingFiles: StreamingFilePort {
     func replace(destination: URL, with temporary: URL) throws {
         let fileManager = FileManager.default
         if fileManager.fileExists(atPath: destination.path) {
-            _ = try fileManager.replaceItemAt(destination, withItemAt: temporary)
-        } else {
-            try fileManager.moveItem(at: temporary, to: destination)
+            try fileManager.removeItem(at: destination)
         }
+        try fileManager.moveItem(at: temporary, to: destination)
     }
 
     func remove(at url: URL) throws {

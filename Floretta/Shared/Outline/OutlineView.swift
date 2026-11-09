@@ -127,8 +127,16 @@ private struct OutlineRow: View {
             )
             .frame(minWidth: max(minimumWidth, 80), minHeight: 28)
         } else {
-            Text(document.node(id)?.text ?? "")
-                .lineLimit(3)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(document.node(id)?.text ?? "")
+                    .lineLimit(3)
+                if let label = document.node(id)?.attachmentSizeLabel {
+                    Text(label)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(4)
+                }
+            }
         }
     }
 }

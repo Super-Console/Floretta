@@ -18,6 +18,8 @@ struct InfiniteCanvas: View {
     var zenActive: Bool = false
     var onEscape: () -> Bool = { false }
     var onConsumeBlankDoubleTap: () -> Bool = { false }
+    var thumbnails: AttachmentThumbnailMemory? = nil
+    var thumbnailCache: ThumbnailFileCache? = nil
     @State private var compositionWidth: CGFloat = 0
     @State private var dotTiles = DotTileCache()
     @State private var laidOut = LaidOutFrames()
@@ -75,19 +77,26 @@ struct InfiniteCanvas: View {
                 camera.viewSize = geo.size
                 publishBounds()
                 camera.chrome.syncZoomPercent(toScale: camera.viewport.scale)
+                refreshThumbnails()
                 canvasFocused = true
             }
             .onChange(of: geo.size) { _, size in
                 camera.viewSize = size
+                refreshThumbnails()
             }
             .onChange(of: document) { _, _ in
                 publishBounds()
+                refreshThumbnails()
             }
             .onChange(of: focusNodeID) { _, _ in
                 publishBounds()
             }
             .onChange(of: camera.viewport.scale) { _, scale in
                 camera.chrome.syncZoomPercent(toScale: scale)
+                refreshThumbnails()
+            }
+            .onChange(of: camera.viewport.offset) { _, _ in
+                refreshThumbnails()
             }
             .onChange(of: keyboard.mode) { _, mode in
                 if mode == .command {
@@ -397,8 +406,32 @@ struct InfiniteCanvas: View {
         }
     }
 
+    private func refreshThumbnails() {
+        let view = camera.viewport.canvasRect(in: camera.viewSize)
+        let viewport = AttachmentViewportRect(
+            minX: view.minX,
+            minY: view.minY,
+            maxX: view.maxX,
+            maxY: view.maxY
+        )
+        let nodes = laidOut.frames(for: document).map { frame in
+            (
+                AttachmentViewportRect(
+                    minX: frame.origin.x,
+                    minY: frame.origin.y,
+                    maxX: frame.origin.x + frame.size.width,
+                    maxY: frame.origin.y + frame.size.height
+                ),
+                frame.thumbnailHashes
+            )
+        }
+        let visible = ThumbnailResidence.visibleHashes(nodes: nodes, viewport: viewport)
+        thumbnails?.sync(visible: visible, cache: thumbnailCache)
+    }
+
     private func styledText(_ node: NodeFrame, pointSize: CGFloat) -> Text {
-        var text = Text(node.text)
+        let shown = node.caption.isEmpty ? node.text : node.text + "\n" + node.caption
+        var text = Text(shown)
             .font(.system(size: pointSize, design: fontDesign(node.fontDesign)))
             .foregroundStyle(color(node.textColor))
         if node.bold { text = text.bold() }
@@ -632,6 +665,25 @@ final class LaidOutFrames {
         cached = CanvasPlacement.nodes(in: document)
         source = document
         return cached
+    }
+}
+
+/// In-memory thumbnail keys. Disk files stay in `ThumbnailFileCache`.
+/// Leaving the viewport drops the key; the next visit reloads from disk.
+@MainActor
+@Observable
+final class AttachmentThumbnailMemory {
+    private(set) var loaded: Set<String> = []
+
+    func sync(visible: Set<String>, cache: ThumbnailFileCache?) {
+        var next = ThumbnailResidence.retained(loaded: loaded, visible: visible)
+        if let cache {
+            for hash in visible where !next.contains(hash) && cache.contains(hash) {
+                next.insert(hash)
+                try? cache.touch(hash)
+            }
+        }
+        loaded = next
     }
 }
 

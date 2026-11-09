@@ -42,6 +42,50 @@ enum SharePayload {
     }
 }
 
+enum AttachmentInserter {
+    /// Hashes and stores after the user confirms. Does not read the source into one buffer.
+    static func insert(
+        source: URL,
+        nodeID: UUID,
+        document: MindMapDocument,
+        archive: URL,
+        files: any StreamingFilePort = FoundationStreamingFiles()
+    ) throws -> (document: MindMapDocument, catalog: ZipDirectory, archiveByteCount: Int64) {
+        let reader = try files.openReader(at: source)
+        let hashed = try FlorettaStreamingDocument.hashSource(reader, filename: source.lastPathComponent)
+        try reader.close()
+        var attachment = try hashed.nodeAttachment()
+        if files.fileExists(at: archive), try files.isZip(at: archive) {
+            let archiveReader = try files.openReader(at: archive)
+            let opened = try FlorettaStreamingDocument.open(archiveReader)
+            try archiveReader.close()
+            if let stored = opened.directory.attachments.first(where: { $0.sha256 == hashed.sha256 }),
+               let parsed = AttachmentNames.parseAsset(stored.name) {
+                attachment = NodeAttachment(
+                    sha256: parsed.sha256,
+                    fileExtension: parsed.fileExtension,
+                    byteCount: Int64(min(stored.byteCount, UInt64(Int64.max))),
+                    filename: hashed.filename
+                )
+            }
+        }
+        var updated = document
+        guard updated.mutateNode(nodeID, { node in
+            guard !node.attachments.contains(where: { $0.sha256 == attachment.sha256 }) else { return }
+            node.attachments.append(attachment)
+        }) else {
+            throw DocumentContainerError.corrupt("No topic for the attachment.")
+        }
+        let catalog = try FlorettaStreamingDocument.save(
+            document: updated,
+            to: archive,
+            files: files,
+            appending: (source, hashed)
+        )
+        return (updated, catalog, try files.byteCount(at: archive))
+    }
+}
+
 enum DocumentOpenError: Error, Equatable, LocalizedError {
     case unsupported(String)
     case message(String)
@@ -205,6 +249,8 @@ final class EditorSession {
     var zen = ZenFlags()
     var focusNodeID: UUID?
     var zenEnteredFullScreen = false
+    var attachmentCatalog = ZipDirectory(entries: [])
+    var archiveByteCount: Int64 = 0
 
     init(
         document: MindMapDocument,
@@ -218,6 +264,15 @@ final class EditorSession {
         self.viewMode = viewMode
         focusNodeID = document.roots.first?.id
         keyboard.selectedNodeID = document.roots.first?.id
+    }
+
+    func notePackage(catalog: ZipDirectory, bytes: Int64) {
+        attachmentCatalog = catalog
+        archiveByteCount = bytes
+    }
+
+    var documentHasAttachments: Bool {
+        !attachmentCatalog.attachments.isEmpty || !AttachmentReferences.hashes(in: document).isEmpty
     }
 
     func enterZen() {
@@ -354,8 +409,23 @@ final class LibraryModel {
         self.documentsDirectory = documentsDirectory
         self.saveDirectory = documentsDirectory
         self.ports = ports
+        if let support = try? FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        ) {
+            _ = try? AttachmentDirectory.prepare(applicationSupport: support, exclusion: ports.backup)
+            thumbnailCache = ThumbnailFileCache(
+                directory: AttachmentDirectory.thumbnails(applicationSupport: support)
+            )
+        } else {
+            thumbnailCache = nil
+        }
         reload()
     }
+
+    let thumbnailCache: ThumbnailFileCache?
 
     func useDocumentsForNewFiles() {
         saveDirectory = documentsDirectory
@@ -405,18 +475,12 @@ final class LibraryModel {
         guard finishCurrentEditor() else { return }
         let access = SecurityScopedURL(url: url)
         do {
-            let data = try Data(contentsOf: url)
-            let document = try DocumentOpener.open(data: data, filename: url.lastPathComponent)
+            let session = try openSession(at: url, access: access)
             try store.remember(url)
             reload()
             scope = access
             openError = nil
-            editor = EditorSession(
-                document: document,
-                url: url,
-                sourceExtension: url.pathExtension.lowercased(),
-                viewMode: settings.defaultView
-            )
+            editor = session
         } catch {
             access.end()
             alertTitle = "无法打开"
@@ -503,16 +567,18 @@ final class LibraryModel {
     private func persistFloretta(_ session: EditorSession) throws {
         if let url = session.url {
             do {
-                try write(session.document, to: url)
+                let catalog = try write(session.document, to: url)
+                session.notePackage(catalog: catalog, bytes: (try? ports.streaming.byteCount(at: url)) ?? 0)
                 return
             } catch DocumentContainerError.refusesToOverwriteLegacy {
                 // The original JSON bytes stay put. The edited map goes to a new ZIP.
             }
         }
         let created = freshURL()
-        try write(session.document, to: created)
+        let catalog = try write(session.document, to: created)
         session.url = created
         session.sourceExtension = "floretta"
+        session.notePackage(catalog: catalog, bytes: (try? ports.streaming.byteCount(at: created)) ?? 0)
     }
 
     private func saveFailureMessage(_ error: Error) -> String {
@@ -526,16 +592,19 @@ final class LibraryModel {
         guard finishCurrentEditor() else { return }
         let mode = settings.defaultView
         do {
-            let url = try write(document, to: preferredURL ?? freshURL())
+            let url = preferredURL ?? freshURL()
+            let catalog = try write(document, to: url)
             try store.remember(url)
             reload()
             openError = nil
-            editor = EditorSession(
+            let session = EditorSession(
                 document: document,
                 url: url,
                 sourceExtension: sourceExtension,
                 viewMode: mode
             )
+            session.notePackage(catalog: catalog, bytes: (try? ports.streaming.byteCount(at: url)) ?? 0)
+            editor = session
         } catch {
             alertTitle = "无法保存"
             openError = saveFailureMessage(error)
@@ -548,9 +617,38 @@ final class LibraryModel {
         }
     }
 
-    private func write(_ document: MindMapDocument, to url: URL) throws -> URL {
-        try FlorettaDocumentFile.save(FlorettaPackage(document: document), to: url, fileAccess: ports.files)
-        return url
+    @discardableResult
+    private func write(_ document: MindMapDocument, to url: URL) throws -> ZipDirectory {
+        try FlorettaStreamingDocument.save(document: document, to: url, files: ports.streaming)
+    }
+
+    private func openSession(at url: URL, access: SecurityScopedURL) throws -> EditorSession {
+        let ext = url.pathExtension.lowercased()
+        if ext == "floretta", try ports.streaming.isZip(at: url) {
+            let reader = try ports.streaming.openReader(at: url)
+            let opened = try FlorettaStreamingDocument.open(reader)
+            let bytes = reader.count
+            try reader.close()
+            let session = EditorSession(
+                document: opened.document,
+                url: url,
+                sourceExtension: ext,
+                viewMode: settings.defaultView
+            )
+            session.notePackage(catalog: opened.directory, bytes: bytes)
+            _ = access
+            return session
+        }
+        let data = try Data(contentsOf: url)
+        let document = try DocumentOpener.open(data: data, filename: url.lastPathComponent)
+        let session = EditorSession(
+            document: document,
+            url: url,
+            sourceExtension: ext,
+            viewMode: settings.defaultView
+        )
+        session.notePackage(catalog: ZipDirectory(entries: []), bytes: Int64(data.count))
+        return session
     }
 
     func files(in directory: URL) -> [URL] {
@@ -790,7 +888,7 @@ enum HomePage: String, Hashable, Sendable {
 /// Menu rows that are allowed to appear. Disabled rows are listed separately.
 enum CanvasMenus {
     static let immersive = "全屏沉浸"
-    static let insert = ["子节点", "同级", "从文件导入"]
+    static let insert = ["子节点", "同级", "附件", "从文件导入"]
     static let share = ["PDF", "PNG", "Markdown", "保存为 Floretta", ".mm", "OPML", "打印"]
     static let zoom = ["50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%", "适应窗口"]
     static let more = ["大纲", "样式", "查看模式", "新建画布", "查找", "粘贴", "关于"]

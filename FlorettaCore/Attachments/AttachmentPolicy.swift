@@ -137,6 +137,62 @@ extension MindMapNode {
     }
 }
 
+public struct AttachmentReferenceCount: Equatable, Sendable {
+    public var sha256: String
+    public var fileExtension: String
+    public var byteCount: Int64
+    public var count: Int
+
+    public init(sha256: String, fileExtension: String, byteCount: Int64, count: Int) {
+        self.sha256 = sha256
+        self.fileExtension = fileExtension
+        self.byteCount = byteCount
+        self.count = count
+    }
+}
+
+public enum AttachmentReferences {
+    /// How many nodes point at each sha256. Order is by hash.
+    public static func counts(in document: MindMapDocument) -> [AttachmentReferenceCount] {
+        var order: [String] = []
+        var tally: [String: AttachmentReferenceCount] = [:]
+        func walk(_ nodes: [MindMapNode]) {
+            for node in nodes {
+                for attachment in node.attachments {
+                    if var existing = tally[attachment.sha256] {
+                        existing.count += 1
+                        tally[attachment.sha256] = existing
+                    } else {
+                        order.append(attachment.sha256)
+                        tally[attachment.sha256] = AttachmentReferenceCount(
+                            sha256: attachment.sha256,
+                            fileExtension: attachment.fileExtension,
+                            byteCount: attachment.byteCount,
+                            count: 1
+                        )
+                    }
+                }
+                walk(node.children)
+            }
+        }
+        walk(document.roots)
+        return order.compactMap { tally[$0] }.sorted { $0.sha256 < $1.sha256 }
+    }
+
+    public static func hashes(in document: MindMapDocument) -> Set<String> {
+        Set(counts(in: document).map(\.sha256))
+    }
+
+    /// Stored asset names whose sha256 no node still references.
+    public static func orphans(stored: [ZipStoredEntry], document: MindMapDocument) -> [String] {
+        let live = hashes(in: document)
+        return stored.compactMap { entry in
+            guard let asset = AttachmentNames.parseAsset(entry.name), !live.contains(asset.sha256) else { return nil }
+            return entry.name
+        }
+    }
+}
+
 public enum AttachmentTotals {
     public static func uniqueReferencedBytes(_ document: MindMapDocument) -> Int64 {
         var seen: [String: Int64] = [:]

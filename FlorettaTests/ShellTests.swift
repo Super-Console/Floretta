@@ -325,7 +325,7 @@ final class ShellTests: XCTestCase {
 
     func testMenusAndTemplatesOmitDeadActions() {
         XCTAssertEqual(CanvasMenus.immersive, "全屏沉浸")
-        XCTAssertEqual(CanvasMenus.insert, ["子节点", "同级", "从文件导入"])
+        XCTAssertEqual(CanvasMenus.insert, ["子节点", "同级", "附件", "从文件导入"])
         XCTAssertEqual(
             CanvasMenus.zoom,
             ["50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%", "适应窗口"]
@@ -553,6 +553,7 @@ final class ShellTests: XCTestCase {
         let gate = WriteGate()
         var ports = ApplePlatformPorts.current()
         ports.files = gate
+        ports.streaming = GatedStreaming(gate: gate)
         let library = try makeLibrary(directory: directory, ports: ports)
         library.makeNew()
         let session = try XCTUnwrap(library.editor)
@@ -664,6 +665,35 @@ final class ShellTests: XCTestCase {
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }
+}
+
+private final class GatedStreaming: StreamingFilePort {
+    let gate: WriteGate
+    private let inner = FoundationStreamingFiles()
+
+    init(gate: WriteGate) { self.gate = gate }
+
+    func byteCount(at url: URL) throws -> Int64 { try inner.byteCount(at: url) }
+    func fileExists(at url: URL) -> Bool { inner.fileExists(at: url) }
+    func isZip(at url: URL) throws -> Bool { try inner.isZip(at: url) }
+    func openReader(at url: URL) throws -> RandomAccessReader { try inner.openReader(at: url) }
+
+    func openWriter(at url: URL) throws -> SequentialByteWriter {
+        if !gate.allow { throw CocoaError(.fileWriteNoPermission) }
+        return try inner.openWriter(at: url)
+    }
+
+    func makeTemporary(nextTo url: URL) throws -> URL {
+        if !gate.allow { throw CocoaError(.fileWriteNoPermission) }
+        return try inner.makeTemporary(nextTo: url)
+    }
+
+    func replace(destination: URL, with temporary: URL) throws {
+        if !gate.allow { throw CocoaError(.fileWriteNoPermission) }
+        try inner.replace(destination: destination, with: temporary)
+    }
+
+    func remove(at url: URL) throws { try inner.remove(at: url) }
 }
 
 private final class WriteGate: FileAccessPort {

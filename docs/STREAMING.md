@@ -35,6 +35,12 @@
 
 导出附件是同一条拷贝：从 `dataOffset` 起按块写到目标文件，方法必须是 0。导出字节与源文件一致。
 
+## 引用计数与孤儿回收
+
+节点上的 `attachments` 是引用，不是正文。`AttachmentReferences.counts` 按 sha256 计数：同一份字节被多个节点引用时计数大于 1，ZIP 里仍然只有一条 `assets/<sha256>.<ext>`。
+
+保存时重写 ZIP。`assets/` 里 sha256 已经不在任何节点上的条目是孤儿，`AttachmentReferences.orphans` 列出它们，重写时不拷贝。引用还在的附件按块拷贝，不整段读入。去重看 sha256，不看扩展名：同一哈希已在包里就不再写第二份正文。
+
 ## ZIP 条目
 
 排序后的名字与现有 `ZipArchive.write` 一致：

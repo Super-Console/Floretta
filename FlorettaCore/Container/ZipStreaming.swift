@@ -294,6 +294,7 @@ public enum FlorettaStreamingDocument {
     ) throws -> ZipDirectory {
         try withChunk { chunk in
             let existing = try archive.map { try readDirectory($0, chunk: chunk) } ?? ZipDirectory(entries: [])
+            let referenced = AttachmentReferences.hashes(in: document)
             let documentData = try FlorettaCodec.encode(document)
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
@@ -304,7 +305,9 @@ public enum FlorettaStreamingDocument {
             ]
             for entry in existing.entries {
                 if entry.name == "document.json" || entry.name == "metadata.json" { continue }
-                if entry.name.hasPrefix("assets/"), AttachmentNames.parseAsset(entry.name) == nil {
+                if let asset = AttachmentNames.parseAsset(entry.name) {
+                    if !referenced.contains(asset.sha256) { continue }
+                } else if entry.name.hasPrefix("assets/") {
                     throw DocumentContainerError.corrupt("Asset name \(entry.name) is not assets/<sha256>.<ext>.")
                 }
                 if entry.method != 0 {
@@ -322,7 +325,10 @@ public enum FlorettaStreamingDocument {
             }
             if let source {
                 let name = source.hashed.assetName
-                if !planned.contains(where: { $0.name == name }) {
+                let already = planned.contains {
+                    AttachmentNames.parseAsset($0.name)?.sha256 == source.hashed.sha256
+                }
+                if !already {
                     planned.append(Planned(
                         name: name,
                         crc32: source.hashed.crc32,

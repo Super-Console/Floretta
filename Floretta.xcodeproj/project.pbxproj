@@ -46,6 +46,16 @@
 		C4000000000000000000000B /* InfiniteCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000003 /* InfiniteCanvas.swift */; };
 		C4000000000000000000000C /* CanvasScrollInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000004 /* CanvasScrollInput.swift */; };
 		C4000000000000000000000D /* CanvasTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000005 /* CanvasTests.swift */; };
+		C50000000000000000000001 /* DocumentContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000001 /* DocumentContainer.swift */; };
+		C50000000000000000000002 /* ZipContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000002 /* ZipContainer.swift */; };
+		C50000000000000000000003 /* ZipArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000003 /* ZipArchive.swift */; };
+		C50000000000000000000004 /* DocumentContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000001 /* DocumentContainer.swift */; };
+		C50000000000000000000005 /* ZipContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000002 /* ZipContainer.swift */; };
+		C50000000000000000000006 /* ZipArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000003 /* ZipArchive.swift */; };
+		C50000000000000000000007 /* DocumentContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000001 /* DocumentContainer.swift */; };
+		C50000000000000000000008 /* ZipContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000002 /* ZipContainer.swift */; };
+		C50000000000000000000009 /* ZipArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000003 /* ZipArchive.swift */; };
+		C5000000000000000000000A /* ContainerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000004 /* ContainerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -71,6 +81,10 @@
 		F30000000000000000000003 /* InfiniteCanvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfiniteCanvas.swift; sourceTree = "<group>"; };
 		F30000000000000000000004 /* CanvasScrollInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasScrollInput.swift; sourceTree = "<group>"; };
 		F30000000000000000000005 /* CanvasTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasTests.swift; sourceTree = "<group>"; };
+		F50000000000000000000001 /* DocumentContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentContainer.swift; sourceTree = "<group>"; };
+		F50000000000000000000002 /* ZipContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipContainer.swift; sourceTree = "<group>"; };
+		F50000000000000000000003 /* ZipArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipArchive.swift; sourceTree = "<group>"; };
+		F50000000000000000000004 /* ContainerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -134,6 +148,7 @@
 				F10000000000000000000002 /* ContentView.swift */,
 				A20000000000000000000001 /* Autosave */,
 				A30000000000000000000001 /* Canvas */,
+				A40000000000000000000001 /* Container */,
 				A10000000000000000000007 /* Model */,
 			);
 			path = Shared;
@@ -170,11 +185,22 @@
 			path = Canvas;
 			sourceTree = "<group>";
 		};
+		A40000000000000000000001 /* Container */ = {
+			isa = PBXGroup;
+			children = (
+				F50000000000000000000001 /* DocumentContainer.swift */,
+				F50000000000000000000003 /* ZipArchive.swift */,
+				F50000000000000000000002 /* ZipContainer.swift */,
+			);
+			path = Container;
+			sourceTree = "<group>";
+		};
 		A10000000000000000000008 /* FlorettaTests */ = {
 			isa = PBXGroup;
 			children = (
 				F20000000000000000000004 /* AutosaveTests.swift */,
 				F30000000000000000000005 /* CanvasTests.swift */,
+				F50000000000000000000004 /* ContainerTests.swift */,
 				F1000000000000000000000C /* MindMapDocumentTests.swift */,
 			);
 			path = FlorettaTests;
@@ -337,6 +363,9 @@
 				C40000000000000000000002 /* CanvasPlacement.swift in Sources */,
 				C40000000000000000000003 /* InfiniteCanvas.swift in Sources */,
 				C40000000000000000000004 /* CanvasScrollInput.swift in Sources */,
+				C50000000000000000000001 /* DocumentContainer.swift in Sources */,
+				C50000000000000000000002 /* ZipContainer.swift in Sources */,
+				C50000000000000000000003 /* ZipArchive.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -356,6 +385,9 @@
 				C40000000000000000000006 /* CanvasPlacement.swift in Sources */,
 				C40000000000000000000007 /* InfiniteCanvas.swift in Sources */,
 				C40000000000000000000008 /* CanvasScrollInput.swift in Sources */,
+				C50000000000000000000004 /* DocumentContainer.swift in Sources */,
+				C50000000000000000000005 /* ZipContainer.swift in Sources */,
+				C50000000000000000000006 /* ZipArchive.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -376,6 +408,10 @@
 				C4000000000000000000000B /* InfiniteCanvas.swift in Sources */,
 				C4000000000000000000000C /* CanvasScrollInput.swift in Sources */,
 				C4000000000000000000000D /* CanvasTests.swift in Sources */,
+				C50000000000000000000007 /* DocumentContainer.swift in Sources */,
+				C50000000000000000000008 /* ZipContainer.swift in Sources */,
+				C50000000000000000000009 /* ZipArchive.swift in Sources */,
+				C5000000000000000000000A /* ContainerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

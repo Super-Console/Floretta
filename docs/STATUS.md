@@ -6,7 +6,9 @@ P0-1 已由总指挥验收（合并 `ef9e4f2`；本机 `xcodebuild` macOS 与 iO
 
 P0-2 已由总指挥验收（11 个测试，TEST SUCCEEDED）。P0-3 不再单开（那些测试已随 P0-2 落地）。
 
-P0-4 自动保存与崩溃恢复已落盘，等待本机 `xcodebuild test`。画布、图标、P4 都没做。
+P0-4 已由总指挥验收（20 个测试全绿）。P0 阶段通过。
+
+P1-1 无限画布已落盘，等待本机构建。P1-2 布局算法及之后都没做。
 
 Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be pasted back for fixes.
 
@@ -18,7 +20,20 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 xcodebuild test -project Floretta.xcodeproj -scheme Floretta-macOS -destination 'platform=macOS'
 ```
 
-构建或测试错误贴回再改。通过后再放行下一批。
+构建或测试错误贴回再改。通过后再放行 P1-2。
+
+## P1-1 申报
+
+无限画布用 SwiftUI `Canvas` 画节点、连线和点阵。平移缩放是视口变换（`view = canvas × scale + offset`），思路接近 SwiftFlow 的 viewport，没有抄它的代码，也没有用 Freeplane。
+
+- 触控板 / 滚轮：平移。⌘ + 滚轮：绕指针缩放。macOS 用本地 `scrollWheel` 监听；iOS 用挂在窗口上的 `UIPanGestureRecognizer`（`allowedScrollTypesMask`），手指拖动仍交给 SwiftUI。
+- 空白处拖动：平移。只有**根节点**可拖；拖完把 `MindMapPoint` 写进该根的 `position`。
+- ⌘0 和工具栏 **Fit**（系统 `Button` / `Label`）把全部节点框进窗口。缩放按钮也是系统按钮。
+- 子节点没有手动坐标时，画在父节点右侧，只为看得见。这不是 P1-2 的左右树布局。子节点不能拖。
+- `position` 是可选字段，格式版本仍是 1。没有坐标时不写入 JSON，旧文件还能读。拖过的根会随自动保存进恢复副本。
+- 没有恢复副本时，窗口里放一张「未命名」开场图（一个带子节点的根，一个浮动根），方便直接拖。
+
+两边 target 都编译这些画布源文件。`CanvasTests` 在 `FlorettaTests` 里，scheme 仍是 `Floretta-macOS`。
 
 ## P0-4 申报
 
@@ -82,4 +97,5 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 | 2026-11-09 | P0-1 | 总指挥验收通过 | 合并 `ef9e4f2`。本机 xcodebuild macOS 与 iOS Simulator BUILD SUCCEEDED |
 | 2026-11-09 | P0-2 | 总指挥测试未过 | `testMissingAndMistypedVersionThrow`：字符串或非整数 `formatVersion` 报成「不是 .floretta JSON」，测试要「Wrong JSON type」 |
 | 2026-11-09 | P0-2 修复 | 总指挥验收通过 | 11 个测试 TEST SUCCEEDED。P0-3 跳过 |
-| 2026-11-09 | P0-4 | 已提交，云端未测试 | 5 秒自动保存、原子替换、正常退出删除副本、异常退出后系统 alert 恢复。损坏副本返回错误不崩溃。云端不能跑 xcodebuild |
+| 2026-11-09 | P0-4 | 总指挥验收通过 | 20 个测试全绿。P0 阶段通过 |
+| 2026-11-09 | P1-1 | 已提交，云端未构建 | 无限画布：滚轮/触控板平移、⌘滚轮缩放、⌘0 适配、根节点拖动并记住坐标。未做 P1-2 布局。云端不能跑 xcodebuild |

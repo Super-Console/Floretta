@@ -33,6 +33,19 @@
 		C30000000000000000000008 /* AutosaveSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000002 /* AutosaveSession.swift */; };
 		C30000000000000000000009 /* RecoveryPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000003 /* RecoveryPresenter.swift */; };
 		C3000000000000000000000A /* AutosaveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000004 /* AutosaveTests.swift */; };
+		C40000000000000000000001 /* CanvasViewport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000001 /* CanvasViewport.swift */; };
+		C40000000000000000000002 /* CanvasPlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000002 /* CanvasPlacement.swift */; };
+		C40000000000000000000003 /* InfiniteCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000003 /* InfiniteCanvas.swift */; };
+		C40000000000000000000004 /* CanvasScrollInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000004 /* CanvasScrollInput.swift */; };
+		C40000000000000000000005 /* CanvasViewport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000001 /* CanvasViewport.swift */; };
+		C40000000000000000000006 /* CanvasPlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000002 /* CanvasPlacement.swift */; };
+		C40000000000000000000007 /* InfiniteCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000003 /* InfiniteCanvas.swift */; };
+		C40000000000000000000008 /* CanvasScrollInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000004 /* CanvasScrollInput.swift */; };
+		C40000000000000000000009 /* CanvasViewport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000001 /* CanvasViewport.swift */; };
+		C4000000000000000000000A /* CanvasPlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000002 /* CanvasPlacement.swift */; };
+		C4000000000000000000000B /* InfiniteCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000003 /* InfiniteCanvas.swift */; };
+		C4000000000000000000000C /* CanvasScrollInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000004 /* CanvasScrollInput.swift */; };
+		C4000000000000000000000D /* CanvasTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000005 /* CanvasTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -53,6 +66,11 @@
 		F20000000000000000000002 /* AutosaveSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutosaveSession.swift; sourceTree = "<group>"; };
 		F20000000000000000000003 /* RecoveryPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryPresenter.swift; sourceTree = "<group>"; };
 		F20000000000000000000004 /* AutosaveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutosaveTests.swift; sourceTree = "<group>"; };
+		F30000000000000000000001 /* CanvasViewport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasViewport.swift; sourceTree = "<group>"; };
+		F30000000000000000000002 /* CanvasPlacement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasPlacement.swift; sourceTree = "<group>"; };
+		F30000000000000000000003 /* InfiniteCanvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfiniteCanvas.swift; sourceTree = "<group>"; };
+		F30000000000000000000004 /* CanvasScrollInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasScrollInput.swift; sourceTree = "<group>"; };
+		F30000000000000000000005 /* CanvasTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -115,6 +133,7 @@
 				F10000000000000000000001 /* FlorettaApp.swift */,
 				F10000000000000000000002 /* ContentView.swift */,
 				A20000000000000000000001 /* Autosave */,
+				A30000000000000000000001 /* Canvas */,
 				A10000000000000000000007 /* Model */,
 			);
 			path = Shared;
@@ -140,10 +159,22 @@
 			path = Autosave;
 			sourceTree = "<group>";
 		};
+		A30000000000000000000001 /* Canvas */ = {
+			isa = PBXGroup;
+			children = (
+				F30000000000000000000002 /* CanvasPlacement.swift */,
+				F30000000000000000000004 /* CanvasScrollInput.swift */,
+				F30000000000000000000001 /* CanvasViewport.swift */,
+				F30000000000000000000003 /* InfiniteCanvas.swift */,
+			);
+			path = Canvas;
+			sourceTree = "<group>";
+		};
 		A10000000000000000000008 /* FlorettaTests */ = {
 			isa = PBXGroup;
 			children = (
 				F20000000000000000000004 /* AutosaveTests.swift */,
+				F30000000000000000000005 /* CanvasTests.swift */,
 				F1000000000000000000000C /* MindMapDocumentTests.swift */,
 			);
 			path = FlorettaTests;
@@ -302,6 +333,10 @@
 				C30000000000000000000001 /* AutosaveStore.swift in Sources */,
 				C30000000000000000000002 /* AutosaveSession.swift in Sources */,
 				C30000000000000000000003 /* RecoveryPresenter.swift in Sources */,
+				C40000000000000000000001 /* CanvasViewport.swift in Sources */,
+				C40000000000000000000002 /* CanvasPlacement.swift in Sources */,
+				C40000000000000000000003 /* InfiniteCanvas.swift in Sources */,
+				C40000000000000000000004 /* CanvasScrollInput.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -317,6 +352,10 @@
 				C30000000000000000000004 /* AutosaveStore.swift in Sources */,
 				C30000000000000000000005 /* AutosaveSession.swift in Sources */,
 				C30000000000000000000006 /* RecoveryPresenter.swift in Sources */,
+				C40000000000000000000005 /* CanvasViewport.swift in Sources */,
+				C40000000000000000000006 /* CanvasPlacement.swift in Sources */,
+				C40000000000000000000007 /* InfiniteCanvas.swift in Sources */,
+				C40000000000000000000008 /* CanvasScrollInput.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -332,6 +371,11 @@
 				C30000000000000000000008 /* AutosaveSession.swift in Sources */,
 				C30000000000000000000009 /* RecoveryPresenter.swift in Sources */,
 				C3000000000000000000000A /* AutosaveTests.swift in Sources */,
+				C40000000000000000000009 /* CanvasViewport.swift in Sources */,
+				C4000000000000000000000A /* CanvasPlacement.swift in Sources */,
+				C4000000000000000000000B /* InfiniteCanvas.swift in Sources */,
+				C4000000000000000000000C /* CanvasScrollInput.swift in Sources */,
+				C4000000000000000000000D /* CanvasTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

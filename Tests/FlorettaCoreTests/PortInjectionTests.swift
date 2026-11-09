@@ -35,6 +35,7 @@ private struct MemoryFileAccess: FileAccessPort {
     func read(from url: URL) throws -> Data { Data() }
     func write(_ data: Data, to url: URL) throws {}
     func fileExists(at url: URL) -> Bool { false }
+    func remove(at url: URL) throws {}
 }
 
 private final class MemoryPasteboard: PasteboardPort {

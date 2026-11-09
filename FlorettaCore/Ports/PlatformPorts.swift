@@ -6,6 +6,8 @@ public protocol FileAccessPort {
     func read(from url: URL) throws -> Data
     func write(_ data: Data, to url: URL) throws
     func fileExists(at url: URL) -> Bool
+    /// Deletes the file. Does nothing when the path is already absent.
+    func remove(at url: URL) throws
 }
 
 /// Clipboard text. AppKit and UIKit adapters sit outside Core.

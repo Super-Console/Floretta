@@ -1,4 +1,5 @@
 import FlorettaCore
+import Foundation
 import SwiftUI
 
 /// Launch-time recovery offer. Alerts are system SwiftUI controls.
@@ -16,9 +17,12 @@ final class RecoveryPresenter {
     private var didCheck = false
 
     init(store: AutosaveStore? = nil) {
-        let resolved = store ?? (try? AutosaveStore.inApplicationSupport()) ?? AutosaveStore(
-            directory: FileManager.default.temporaryDirectory
-        )
+        let resolved = store
+            ?? (try? AutosaveStore.inApplicationSupport(fileAccess: FoundationFileAccess()))
+            ?? AutosaveStore(
+                directory: FileManager.default.temporaryDirectory,
+                fileAccess: FoundationFileAccess()
+            )
         session = AutosaveSession(store: resolved)
         quitBox.presenter = self
         let box = quitBox
@@ -72,5 +76,13 @@ final class RecoveryPresenter {
 
     func noteEdit(_ document: MindMapDocument) {
         session.noteEdit(document)
+    }
+}
+
+final class AutosaveQuitBox: @unchecked Sendable {
+    weak var presenter: RecoveryPresenter?
+
+    func quit() {
+        presenter?.quitNormally()
     }
 }

@@ -16,14 +16,8 @@
 		C91000000000000000000004 /* MMTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F91000000000000000000002 /* MMTests.swift */; };
 		C92000000000000000000007 /* OPMLMarkdownTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F92000000000000000000003 /* OPMLMarkdownTests.swift */; };
 		C20000000000000000000001 /* MindMapDocumentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000C /* MindMapDocumentTests.swift */; };
-		C30000000000000000000001 /* AutosaveStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* AutosaveStore.swift */; };
-		C30000000000000000000002 /* AutosaveSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000002 /* AutosaveSession.swift */; };
 		C30000000000000000000003 /* RecoveryPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000003 /* RecoveryPresenter.swift */; };
-		C30000000000000000000004 /* AutosaveStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* AutosaveStore.swift */; };
-		C30000000000000000000005 /* AutosaveSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000002 /* AutosaveSession.swift */; };
 		C30000000000000000000006 /* RecoveryPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000003 /* RecoveryPresenter.swift */; };
-		C30000000000000000000007 /* AutosaveStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* AutosaveStore.swift */; };
-		C30000000000000000000008 /* AutosaveSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000002 /* AutosaveSession.swift */; };
 		C30000000000000000000009 /* RecoveryPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000003 /* RecoveryPresenter.swift */; };
 		C3000000000000000000000A /* AutosaveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000004 /* AutosaveTests.swift */; };
 		C40000000000000000000001 /* CanvasViewport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000001 /* CanvasViewport.swift */; };
@@ -85,6 +79,7 @@
 		CB1000000000000000000001 /* ApplePlatformPorts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000000000000000000001 /* ApplePlatformPorts.swift */; };
 		CB1000000000000000000002 /* ApplePlatformPorts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000000000000000000001 /* ApplePlatformPorts.swift */; };
 		CB1000000000000000000003 /* ApplePlatformPorts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000000000000000000001 /* ApplePlatformPorts.swift */; };
+		C3000000000000000000000B /* RecoveryPresenterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000005 /* RecoveryPresenterTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -100,10 +95,8 @@
 		F92000000000000000000003 /* OPMLMarkdownTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OPMLMarkdownTests.swift; path = Tests/FlorettaCoreTests/OPMLMarkdownTests.swift; sourceTree = SOURCE_ROOT; };
 		F1000000000000000000000C /* MindMapDocumentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MindMapDocumentTests.swift; path = Tests/FlorettaCoreTests/MindMapDocumentTests.swift; sourceTree = SOURCE_ROOT; };
 		F1000000000000000000000D /* FlorettaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FlorettaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		F20000000000000000000001 /* AutosaveStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutosaveStore.swift; sourceTree = "<group>"; };
-		F20000000000000000000002 /* AutosaveSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutosaveSession.swift; sourceTree = "<group>"; };
 		F20000000000000000000003 /* RecoveryPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryPresenter.swift; sourceTree = "<group>"; };
-		F20000000000000000000004 /* AutosaveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutosaveTests.swift; sourceTree = "<group>"; };
+		F20000000000000000000004 /* AutosaveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AutosaveTests.swift; path = Tests/FlorettaCoreTests/AutosaveTests.swift; sourceTree = SOURCE_ROOT; };
 		F30000000000000000000001 /* CanvasViewport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasViewport.swift; sourceTree = "<group>"; };
 		F30000000000000000000002 /* CanvasPlacement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasPlacement.swift; sourceTree = "<group>"; };
 		F30000000000000000000003 /* InfiniteCanvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfiniteCanvas.swift; sourceTree = "<group>"; };
@@ -128,6 +121,7 @@
 		FA8100000000000000000001 /* NOTICE */ = {isa = PBXFileReference; lastKnownFileType = text; path = NOTICE; sourceTree = SOURCE_ROOT; };
 		FA9100000000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		FB1000000000000000000001 /* ApplePlatformPorts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplePlatformPorts.swift; sourceTree = "<group>"; };
+		F20000000000000000000005 /* RecoveryPresenterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryPresenterTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -174,6 +168,7 @@
 			F60000000000000000000003 /* LayoutTests.swift */,
 			F70000000000000000000005 /* KeyboardTests.swift */,
 			F90000000000000000000003 /* OutlineTests.swift */,
+			F20000000000000000000004 /* AutosaveTests.swift */,
 				A10000000000000000000008 /* FlorettaTests */,
 				A10000000000000000000002 /* Products */,
 			);
@@ -217,8 +212,6 @@
 		A20000000000000000000001 /* Autosave */ = {
 			isa = PBXGroup;
 			children = (
-				F20000000000000000000002 /* AutosaveSession.swift */,
-				F20000000000000000000001 /* AutosaveStore.swift */,
 				F20000000000000000000003 /* RecoveryPresenter.swift */,
 			);
 			path = Autosave;
@@ -269,10 +262,10 @@
 		A10000000000000000000008 /* FlorettaTests */ = {
 			isa = PBXGroup;
 			children = (
-				F20000000000000000000004 /* AutosaveTests.swift */,
 				F30000000000000000000005 /* CanvasTests.swift */,
 				F93000000000000000000002 /* MapExportTests.swift */,
 				FA7100000000000000000001 /* ShellTests.swift */,
+				F20000000000000000000005 /* RecoveryPresenterTests.swift */,
 			);
 			path = FlorettaTests;
 			sourceTree = "<group>";
@@ -448,8 +441,6 @@
 				CB1000000000000000000001 /* ApplePlatformPorts.swift in Sources */,
 				C10000000000000000000001 /* FlorettaApp.swift in Sources */,
 				C10000000000000000000002 /* ContentView.swift in Sources */,
-				C30000000000000000000001 /* AutosaveStore.swift in Sources */,
-				C30000000000000000000002 /* AutosaveSession.swift in Sources */,
 				C30000000000000000000003 /* RecoveryPresenter.swift in Sources */,
 				C40000000000000000000001 /* CanvasViewport.swift in Sources */,
 				C40000000000000000000002 /* CanvasPlacement.swift in Sources */,
@@ -475,8 +466,6 @@
 				CB1000000000000000000002 /* ApplePlatformPorts.swift in Sources */,
 				C10000000000000000000004 /* FlorettaApp.swift in Sources */,
 				C10000000000000000000005 /* ContentView.swift in Sources */,
-				C30000000000000000000004 /* AutosaveStore.swift in Sources */,
-				C30000000000000000000005 /* AutosaveSession.swift in Sources */,
 				C30000000000000000000006 /* RecoveryPresenter.swift in Sources */,
 				C40000000000000000000005 /* CanvasViewport.swift in Sources */,
 				C40000000000000000000006 /* CanvasPlacement.swift in Sources */,
@@ -503,10 +492,9 @@
 				C92000000000000000000007 /* OPMLMarkdownTests.swift in Sources */,
 				CB1000000000000000000003 /* ApplePlatformPorts.swift in Sources */,
 				C20000000000000000000001 /* MindMapDocumentTests.swift in Sources */,
-				C30000000000000000000007 /* AutosaveStore.swift in Sources */,
-				C30000000000000000000008 /* AutosaveSession.swift in Sources */,
 				C30000000000000000000009 /* RecoveryPresenter.swift in Sources */,
 				C3000000000000000000000A /* AutosaveTests.swift in Sources */,
+				C3000000000000000000000B /* RecoveryPresenterTests.swift in Sources */,
 				C40000000000000000000009 /* CanvasViewport.swift in Sources */,
 				C4000000000000000000000A /* CanvasPlacement.swift in Sources */,
 				C4000000000000000000000B /* InfiniteCanvas.swift in Sources */,

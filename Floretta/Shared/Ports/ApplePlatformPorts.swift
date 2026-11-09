@@ -24,11 +24,12 @@ public struct FoundationFileAccess: FileAccessPort {
         let temp = directory.appendingPathComponent(".\(UUID().uuidString).partial")
         do {
             try data.write(to: temp)
+            // The replacement file is fully written before the previous file is removed.
+            // replaceItemAt on swift-corelibs-foundation deletes the destination and then throws.
             if fileManager.fileExists(atPath: url.path) {
-                _ = try fileManager.replaceItemAt(url, withItemAt: temp)
-            } else {
-                try fileManager.moveItem(at: temp, to: url)
+                try fileManager.removeItem(at: url)
             }
+            try fileManager.moveItem(at: temp, to: url)
         } catch {
             try? fileManager.removeItem(at: temp)
             throw error
@@ -37,6 +38,12 @@ public struct FoundationFileAccess: FileAccessPort {
 
     public func fileExists(at url: URL) -> Bool {
         FileManager.default.fileExists(atPath: url.path)
+    }
+
+    public func remove(at url: URL) throws {
+        let fileManager = FileManager.default
+        guard fileManager.fileExists(atPath: url.path) else { return }
+        try fileManager.removeItem(at: url)
     }
 }
 

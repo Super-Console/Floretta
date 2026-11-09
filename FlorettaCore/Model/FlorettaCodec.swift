@@ -101,6 +101,29 @@ public enum FlorettaCodec {
                 try preflightNode(node, at: "freeNodes[\(index)]")
             }
         }
+        if let stickies = object["stickies"], !(stickies is NSNull) {
+            guard let array = stickies as? [Any] else {
+                throw FlorettaCodecError.wrongJSONType(at: "stickies")
+            }
+            for (index, item) in array.enumerated() {
+                guard let sticky = item as? [String: Any] else {
+                    throw FlorettaCodecError.wrongJSONType(at: "stickies[\(index)]")
+                }
+                let place = "stickies[\(index)]"
+                try expect(sticky, key: "id", at: "\(place).id") { isJSONString($0) }
+                try expect(sticky, key: "text", at: "\(place).text") { isJSONString($0) }
+                try expect(sticky, key: "color", at: "\(place).color") { isJSONString($0) }
+                if let origin = sticky["origin"], !(origin is NSNull) {
+                    guard let point = origin as? [String: Any] else {
+                        throw FlorettaCodecError.wrongJSONType(at: "\(place).origin")
+                    }
+                    try expect(point, key: "x", at: "\(place).origin.x") { isJSONNumber($0) }
+                    try expect(point, key: "y", at: "\(place).origin.y") { isJSONNumber($0) }
+                }
+                try expect(sticky, key: "width", at: "\(place).width") { isJSONNumber($0) }
+                try expect(sticky, key: "height", at: "\(place).height") { isJSONNumber($0) }
+            }
+        }
         if let relationships = object["relationships"], !(relationships is NSNull) {
             guard let array = relationships as? [Any] else {
                 throw FlorettaCodecError.wrongJSONType(at: "relationships")

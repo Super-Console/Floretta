@@ -258,6 +258,8 @@ struct SettingsView: View {
                         Text("白色").tag(PNGBackgroundPreference.white)
                         Text("透明").tag(PNGBackgroundPreference.transparent)
                     }
+                    Toggle("导出包含便签", isOn: $settings.exportIncludesStickies)
+                        .help("PNG 和 PDF 可以带上便签。关掉后便签还在导图里，只是不画进图片。")
                 }
                 Section("关于") {
                     LabeledContent("版本", value: AppInfo.version)

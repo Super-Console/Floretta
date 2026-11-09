@@ -7,6 +7,7 @@ import Foundation
 /// This is not open/save for `.md` documents. That projection is
 /// `FlorettaMarkdownDocumentCodec` (nested `- ` lists, H1 sections only).
 /// Free nodes are not written: Markdown has no floating topic, and they must not become children.
+/// Sticky notes are not topics and are not written.
 public enum FlorettaMarkdownError: Error, Equatable, LocalizedError {
     case notUTF8
     case empty

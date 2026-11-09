@@ -193,7 +193,8 @@ extension MapExportOptions {
     init(settings: AppSettings) {
         self.init(
             scale: settings.pngScale.exportScale,
-            background: settings.pngBackground.exportBackground
+            background: settings.pngBackground.exportBackground,
+            includeStickies: settings.exportIncludesStickies
         )
     }
 }
@@ -273,6 +274,11 @@ final class AppSettings {
         didSet { defaults.set(pngBackground.rawValue, forKey: Key.pngBackground) }
     }
 
+    /// PNG and PDF. On unless the user turns it off. The cards stay in the document either way.
+    var exportIncludesStickies: Bool {
+        didSet { defaults.set(exportIncludesStickies, forKey: Key.exportIncludesStickies) }
+    }
+
     init(defaults: UserDefaults) {
         self.defaults = defaults
         language = AppLanguage(rawValue: defaults.string(forKey: Key.language) ?? "") ?? .system
@@ -285,6 +291,11 @@ final class AppSettings {
         }
         pngScale = PNGScalePreference(rawValue: defaults.string(forKey: Key.pngScale) ?? "") ?? .two
         pngBackground = PNGBackgroundPreference(rawValue: defaults.string(forKey: Key.pngBackground) ?? "") ?? .white
+        if defaults.object(forKey: Key.exportIncludesStickies) == nil {
+            exportIncludesStickies = true
+        } else {
+            exportIncludesStickies = defaults.bool(forKey: Key.exportIncludesStickies)
+        }
     }
 
     static let shared = AppSettings(defaults: .standard)
@@ -314,5 +325,6 @@ final class AppSettings {
         static let defaultView = "floretta.defaultView"
         static let pngScale = "floretta.pngScale"
         static let pngBackground = "floretta.pngBackground"
+        static let exportIncludesStickies = "floretta.exportIncludesStickies"
     }
 }

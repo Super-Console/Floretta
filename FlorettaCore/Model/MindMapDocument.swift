@@ -3,9 +3,9 @@ import Foundation
 /// A mind map.
 /// `roots` is the ordered hierarchy and may contain more than one center.
 /// `freeNodes` are outside that tree: each has its own id and a canvas point.
-/// Sticky notes are not topics and are not stored in `freeNodes`.
+/// `stickies` are canvas cards. They are not topics and are not stored in `freeNodes`.
 public struct MindMapDocument: Equatable, Sendable {
-    /// Additive keys (`freeNodes`, `relationships`) stay on version 1.
+    /// Additive keys (`freeNodes`, `relationships`, `stickies`) stay on version 1.
     /// A version bump would refuse every existing file. Empty arrays are omitted.
     public static let currentFormatVersion = 1
 
@@ -18,6 +18,8 @@ public struct MindMapDocument: Equatable, Sendable {
     public var freeNodes: [MindMapNode]
     /// Connections between any topics. The canvas does not draw these yet.
     public var relationships: [TopicRelationship]
+    /// Canvas cards. Not topics, so they are outside the tree and the node count.
+    public var stickies: [StickyNote]
     /// Opaque YAML front matter for a Markdown document, fences included.
     /// Nil when the map is not a Markdown projection. Omitted from `.floretta` JSON when nil.
     public var markdownFrontMatter: String?
@@ -29,6 +31,7 @@ public struct MindMapDocument: Equatable, Sendable {
         roots: [MindMapNode] = [],
         freeNodes: [MindMapNode] = [],
         relationships: [TopicRelationship] = [],
+        stickies: [StickyNote] = [],
         formatVersion: Int = MindMapDocument.currentFormatVersion,
         markdownFrontMatter: String? = nil
     ) {
@@ -39,6 +42,7 @@ public struct MindMapDocument: Equatable, Sendable {
         self.roots = roots
         self.freeNodes = freeNodes
         self.relationships = relationships
+        self.stickies = stickies
         self.markdownFrontMatter = markdownFrontMatter
     }
 }
@@ -106,6 +110,7 @@ extension MindMapDocument: Codable {
         case roots
         case freeNodes
         case relationships
+        case stickies
         case markdownFrontMatter
     }
 
@@ -129,6 +134,7 @@ extension MindMapDocument: Codable {
         let markdownFrontMatter = try container.decodeIfPresent(String.self, forKey: .markdownFrontMatter)
         let freeNodes = try container.decodeIfPresent([MindMapNode].self, forKey: .freeNodes) ?? []
         let relationships = try container.decodeIfPresent([TopicRelationship].self, forKey: .relationships) ?? []
+        let stickies = try container.decodeIfPresent([StickyNote].self, forKey: .stickies) ?? []
         self.formatVersion = version
         self.title = title
         self.createdAt = createdAt
@@ -136,6 +142,7 @@ extension MindMapDocument: Codable {
         self.roots = roots
         self.freeNodes = freeNodes
         self.relationships = relationships
+        self.stickies = stickies
         self.markdownFrontMatter = markdownFrontMatter
         try FlorettaTree.validate(self)
     }
@@ -160,6 +167,9 @@ extension MindMapDocument: Codable {
         if !relationships.isEmpty {
             try container.encode(relationships, forKey: .relationships)
         }
+        if !stickies.isEmpty {
+            try container.encode(stickies, forKey: .stickies)
+        }
         try container.encodeIfPresent(markdownFrontMatter, forKey: .markdownFrontMatter)
     }
 }
@@ -177,14 +187,23 @@ enum FlorettaTree {
         for node in document.freeNodes {
             try visit(node, seen: &seen, stack: &stack)
         }
+        var stickyIDs: Set<UUID> = []
+        for sticky in document.stickies {
+            if seen.contains(sticky.id) || !stickyIDs.insert(sticky.id).inserted {
+                throw FlorettaCodecError.duplicateID(sticky.id)
+            }
+        }
         var relationshipIDs: Set<UUID> = []
         for relationship in document.relationships {
-            if seen.contains(relationship.id) || !relationshipIDs.insert(relationship.id).inserted {
+            if seen.contains(relationship.id)
+                || stickyIDs.contains(relationship.id)
+                || !relationshipIDs.insert(relationship.id).inserted {
                 throw FlorettaCodecError.duplicateID(relationship.id)
             }
             if !seen.contains(relationship.sourceID) || !seen.contains(relationship.targetID) {
+                let missing = seen.contains(relationship.sourceID) ? relationship.targetID : relationship.sourceID
                 throw FlorettaCodecError.corrupt(
-                    "Relationship \(relationship.id.uuidString) points at a missing topic."
+                    "Relationship \(relationship.id.uuidString) points at a missing topic \(missing.uuidString)."
                 )
             }
         }
@@ -244,6 +263,15 @@ public extension MindMapDocument {
     /// Sticky notes are not topics and are not included.
     public var topicCount: Int {
         countTopics(roots) + countTopics(freeNodes)
+    }
+
+    public func sticky(_ id: UUID) -> StickyNote? {
+        stickies.first { $0.id == id }
+    }
+
+    /// Cards to draw in a PNG or PDF. `included` is the user's choice; the default is to include them.
+    public func stickiesForPictureExport(included: Bool = true) -> [StickyNote] {
+        included ? stickies : []
     }
 
     public func isFreeNode(_ id: UUID) -> Bool {
@@ -323,6 +351,87 @@ public extension MindMapDocument {
         )
         freeNodes.append(node)
         return id
+    }
+
+    /// Appends a canvas card. Returns nil when `id` is already a topic, a sticky, or a relationship.
+    @discardableResult
+    public mutating func addSticky(
+        text: String = "便签",
+        color: StickyColor = .yellow,
+        at origin: MindMapPoint,
+        width: Double = StickyLimits.defaultWidth,
+        height: Double = StickyLimits.defaultHeight,
+        id: UUID = UUID()
+    ) -> UUID? {
+        if node(id) != nil || sticky(id) != nil || relationships.contains(where: { $0.id == id }) {
+            return nil
+        }
+        stickies.append(StickyNote(
+            id: id,
+            text: text,
+            color: color,
+            origin: origin,
+            width: width,
+            height: height
+        ))
+        return id
+    }
+
+    /// Moves and resizes one card. Size is clamped. Returns false when `id` is missing or the origin is not finite.
+    @discardableResult
+    public mutating func placeSticky(
+        _ id: UUID,
+        origin: MindMapPoint,
+        width: Double,
+        height: Double
+    ) -> Bool {
+        guard origin.x.isFinite, origin.y.isFinite else { return false }
+        guard let index = stickies.firstIndex(where: { $0.id == id }) else { return false }
+        stickies[index].origin = origin
+        stickies[index].width = width
+        stickies[index].height = height
+        return true
+    }
+
+    @discardableResult
+    public mutating func moveSticky(_ id: UUID, to origin: MindMapPoint) -> Bool {
+        guard let current = sticky(id) else { return false }
+        return placeSticky(id, origin: origin, width: current.width, height: current.height)
+    }
+
+    @discardableResult
+    public mutating func resizeSticky(_ id: UUID, width: Double, height: Double) -> Bool {
+        guard let current = sticky(id) else { return false }
+        return placeSticky(id, origin: current.origin, width: width, height: height)
+    }
+
+    @discardableResult
+    public mutating func replaceStickyText(_ id: UUID, with text: String) -> Bool {
+        guard let index = stickies.firstIndex(where: { $0.id == id }) else { return false }
+        stickies[index].text = text
+        return true
+    }
+
+    @discardableResult
+    public mutating func recolorSticky(_ id: UUID, color: StickyColor) -> Bool {
+        guard let index = stickies.firstIndex(where: { $0.id == id }) else { return false }
+        stickies[index].color = color
+        return true
+    }
+
+    @discardableResult
+    public mutating func removeSticky(_ id: UUID) -> Bool {
+        guard let index = stickies.firstIndex(where: { $0.id == id }) else { return false }
+        stickies.remove(at: index)
+        return true
+    }
+
+    /// The sticky to select after `id` is removed. Does not fall through to a topic.
+    public func stickySelection(afterRemoving id: UUID) -> UUID? {
+        guard let index = stickies.firstIndex(where: { $0.id == id }) else { return nil }
+        if index + 1 < stickies.count { return stickies[index + 1].id }
+        if index > 0 { return stickies[index - 1].id }
+        return nil
     }
 
     /// Writes the canvas point. Returns false when `id` is not a free node, so a tree topic is left alone.

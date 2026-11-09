@@ -4,6 +4,7 @@ import Foundation
 /// Free nodes are written as `rootTopic.children.detached` with `position`,
 /// which is XMind's floating topic. Relationships are written on the sheet
 /// and are not drawn by the canvas. One sheet only.
+/// Sticky notes are not topics and are not written.
 public enum FlorettaXMindError: Error, Equatable, Sendable {
     case notZip
     case missingContent

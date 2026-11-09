@@ -323,6 +323,10 @@ struct DocumentEditor: View {
                 Label("自由节点", systemImage: "arrow.up.left.and.arrow.down.right")
             }
             .help("在画布上放一个不进层级的节点，位置会保存")
+            Button { session.addStickyFromToolbar() } label: {
+                Label("便签", systemImage: "note.text")
+            }
+            .help("在画布上放一张便签。最多五种颜色，不计入节点，可以拖动，大小有上限")
             Menu {
                 let source = session.keyboard.selectedNodeID
                 let targets = session.document.linkTargets(excluding: source)
@@ -356,7 +360,7 @@ struct DocumentEditor: View {
             Image(systemName: "plus")
         }
         .accessibilityLabel("插入")
-        .help("插入子节点、同级、自由节点、图片、附件，或从文件导入")
+        .help("插入子节点、同级、自由节点、便签、图片、附件，或从文件导入")
     }
 
     private var zoomMenu: some View {
@@ -480,6 +484,9 @@ struct DocumentEditor: View {
             }
             LabeledContent("节点") {
                 Text("\(session.document.topicCount)").monospacedDigit()
+            }
+            LabeledContent("便签") {
+                Text("\(session.document.stickies.count)").monospacedDigit()
             }
             LabeledContent("关系") {
                 Text("\(session.document.relationships.count)").monospacedDigit()
@@ -735,6 +742,17 @@ struct DocumentEditor: View {
         )
     }
 
+    /// PNG keeps the scale and background from settings. PDF keeps its own page setup.
+    /// Both follow the sticky switch.
+    private func pictureOptions(kind: String) -> MapExportOptions {
+        if kind == "png" {
+            return MapExportOptions(settings: settings)
+        }
+        var options = MapExportOptions()
+        options.includeStickies = settings.exportIncludesStickies
+        return options
+    }
+
     private func export(_ kind: String) {
         let title = session.document.title.isEmpty ? "Floretta" : session.document.title
         let type = FlorettaFileTypes.contentType(forExport: kind)
@@ -754,7 +772,7 @@ struct DocumentEditor: View {
                     }
                     data = png
                 } else {
-                    let result = MapExporter.pdf(document: session.document)
+                    let result = MapExporter.pdf(document: session.document, options: pictureOptions(kind: "pdf"))
                     guard let pdf = result.pdf, !pdf.isEmpty else {
                         exportError = result.notice ?? "没有导出 PDF。"
                         return
@@ -802,7 +820,7 @@ struct DocumentEditor: View {
         let archive = session.url
         let entries = session.attachmentCatalog.attachments
         let cacheDirectory = thumbnailCache?.directory
-        let options = kind == "png" ? MapExportOptions(settings: settings) : MapExportOptions()
+        let options = pictureOptions(kind: kind)
         let scale = Double(options.scale.rawValue)
         Task {
             let spill = ImageExportLoader.spillDirectory(cacheDirectory: cacheDirectory)
@@ -890,7 +908,7 @@ struct DocumentEditor: View {
 
     private func printMap() {
         #if os(macOS)
-        let result = MapExporter.pdf(document: session.document)
+        let result = MapExporter.pdf(document: session.document, options: pictureOptions(kind: "pdf"))
         guard let data = result.pdf, let document = PDFDocument(data: data) else {
             exportError = result.notice ?? "没有可打印的内容。"
             return

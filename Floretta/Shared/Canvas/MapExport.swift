@@ -23,6 +23,8 @@ struct MapExportOptions: Equatable, Sendable {
     var padding: CGFloat = 32
     /// Longest PNG edge, in pixels. Larger maps are clipped, not drawn at full size.
     var maxPixelDimension: CGFloat = 8192
+    /// User choice for PNG and PDF. On by default so the control is available and the picture matches the canvas.
+    var includeStickies: Bool = true
 }
 
 struct MapExportResult: Equatable, Sendable {
@@ -38,7 +40,8 @@ struct MapExportResult: Equatable, Sendable {
 }
 
 /// PNG and PDF of the current map through SwiftUI `ImageRenderer`.
-/// The picture is the nodes and links only: no toolbar, sidebar, grid, or selection.
+/// The picture is the nodes, links, and — when the user leaves the option on — sticky cards.
+/// No toolbar, sidebar, grid, or selection. Stickies are not topics.
 @MainActor
 enum MapExporter {
     static let clippingNotice = "导出已按最大尺寸裁切，超出的内容没有画进文件。"
@@ -122,7 +125,10 @@ enum MapExporter {
     private static func plan(document: MindMapDocument, options: MapExportOptions) -> Plan {
         let frames = visibleFrames(in: document)
         let ids = frames.map(\.id)
-        guard let content = CanvasPlacement.contentBounds(in: document),
+        guard let content = CanvasPlacement.contentBounds(
+            in: document,
+            includingStickies: options.includeStickies
+        ),
               content.width > 0, content.height > 0 else {
             return Plan(renderBounds: .zero, pointSize: .zero, truncated: false, notice: emptyNotice, visibleNodeIDs: ids)
         }
@@ -155,6 +161,7 @@ enum MapExporter {
     ) -> ImageRenderer<MapExportView> {
         let view = MapExportView(
             frames: visibleFrames(in: document),
+            stickies: document.stickiesForPictureExport(included: options.includeStickies),
             renderBounds: plan.renderBounds,
             background: options.background,
             images: images
@@ -196,6 +203,7 @@ enum MapExporter {
 /// Nodes and links in export coordinates. No chrome.
 private struct MapExportView: View {
     var frames: [NodeFrame]
+    var stickies: [StickyNote]
     var renderBounds: CGRect
     var background: MapExportBackground
     var images: [String: CGImage]
@@ -235,6 +243,22 @@ private struct MapExportView: View {
                         Text(node.text)
                             .font(.system(size: node.fontSize))
                             .foregroundStyle(color(node.textColor)),
+                        in: textRect
+                    )
+                }
+            }
+            for sticky in stickies {
+                let rect = local(CanvasPlacement.stickyCanvasRect(sticky))
+                guard rect.width > 1, rect.height > 1 else { continue }
+                let path = Path(roundedRect: rect, cornerRadius: 8)
+                context.fill(path, with: .color(color(sticky.color.fill)))
+                context.stroke(path, with: .color(color(sticky.color.ink).opacity(0.35)), lineWidth: 1)
+                let textRect = rect.insetBy(dx: 10, dy: 8)
+                if textRect.width > 1, textRect.height > 1, !sticky.text.isEmpty {
+                    context.draw(
+                        Text(sticky.text)
+                            .font(.system(size: 15))
+                            .foregroundStyle(color(sticky.color.ink)),
                         in: textRect
                     )
                 }

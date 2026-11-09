@@ -1,9 +1,15 @@
 import Foundation
 
+public enum EditedObject: Equatable, Sendable {
+    case node
+    case sticky
+}
+
 public struct EditBuffer: Equatable, Sendable {
     public var nodeID: UUID
     public var original: String
     public var text: String
+    public var object: EditedObject = .node
 }
 
 /// Applies keyboard commands and keeps one undo step per create, delete, committed text edit,
@@ -16,11 +22,26 @@ public struct MindMapKeyboardSession {
 
     public var mode: KeyboardMode = .command
     public var isComposing = false
-    public var selectedNodeID: UUID?
+    public var selectedNodeID: UUID? {
+        didSet {
+            if selectedNodeID != nil {
+                selectedStickyID = nil
+            }
+        }
+    }
+    public var selectedStickyID: UUID? {
+        didSet {
+            if selectedStickyID != nil {
+                selectedNodeID = nil
+            }
+        }
+    }
     private(set) var edit: EditBuffer?
     private var undoStack: [Snapshot] = []
     private var redoStack: [Snapshot] = []
     private var editOrigin: Snapshot?
+    /// One snapshot for a drag or resize that updates the document many times.
+    private var pendingChange: Snapshot?
 
     public var editingText: String { edit?.text ?? "" }
 
@@ -72,7 +93,12 @@ public struct MindMapKeyboardSession {
         guard mode == .edit, var buffer = edit, buffer.text != text else { return }
         buffer.text = text
         edit = buffer
-        _ = document.mutateNode(buffer.nodeID) { $0.text = text }
+        switch buffer.object {
+        case .node:
+            _ = document.mutateNode(buffer.nodeID) { $0.text = text }
+        case .sticky:
+            _ = document.replaceStickyText(buffer.nodeID, with: text)
+        }
     }
 
     private mutating func createChild(document: inout MindMapDocument) {
@@ -104,8 +130,14 @@ public struct MindMapKeyboardSession {
     }
 
     private mutating func beginEdit(document: MindMapDocument) {
-        guard mode == .command, editOrigin == nil,
-              let id = selectedNodeID, let node = document.node(id) else { return }
+        guard mode == .command, editOrigin == nil, pendingChange == nil else { return }
+        if let stickyID = selectedStickyID, selectedNodeID == nil, let sticky = document.sticky(stickyID) {
+            editOrigin = capture(document)
+            edit = EditBuffer(nodeID: stickyID, original: sticky.text, text: sticky.text, object: .sticky)
+            mode = .edit
+            return
+        }
+        guard let id = selectedNodeID, let node = document.node(id) else { return }
         editOrigin = capture(document)
         edit = EditBuffer(nodeID: id, original: node.text, text: node.text)
         mode = .edit
@@ -131,7 +163,15 @@ public struct MindMapKeyboardSession {
     }
 
     private mutating func deleteSelection(document: inout MindMapDocument) {
-        guard mode == .command, let id = selectedNodeID, document.node(id) != nil else { return }
+        guard mode == .command else { return }
+        if let stickyID = selectedStickyID, document.sticky(stickyID) != nil {
+            let next = document.stickySelection(afterRemoving: stickyID)
+            record(document)
+            guard document.removeSticky(stickyID) else { return }
+            selectedStickyID = next
+            return
+        }
+        guard let id = selectedNodeID, document.node(id) != nil else { return }
         let next = document.selectionAfterRemoving(id)
         record(document)
         guard document.removeNode(id) else { return }
@@ -198,12 +238,18 @@ public struct MindMapKeyboardSession {
     }
 
     private mutating func undo(document: inout MindMapDocument) {
+        if pendingChange != nil {
+            commitStickyChange(document: document)
+        }
         guard mode == .command, editOrigin == nil, let previous = undoStack.popLast() else { return }
         redoStack.append(capture(document))
         restore(previous, document: &document)
     }
 
     private mutating func redo(document: inout MindMapDocument) {
+        if pendingChange != nil {
+            commitStickyChange(document: document)
+        }
         guard mode == .command, editOrigin == nil, let next = redoStack.popLast() else { return }
         undoStack.append(capture(document))
         restore(next, document: &document)
@@ -221,6 +267,115 @@ public struct MindMapKeyboardSession {
         let id = document.addFreeNode(text: text, at: position)
         selectedNodeID = id
         return id
+    }
+
+    /// Places a sticky and selects it. One undo step. The card is not inserted into `roots` or `freeNodes`.
+    @discardableResult
+    public mutating func addSticky(
+        at origin: MindMapPoint,
+        color: StickyColor = .yellow,
+        text: String = "便签",
+        width: Double = StickyLimits.defaultWidth,
+        height: Double = StickyLimits.defaultHeight,
+        document: inout MindMapDocument
+    ) -> UUID? {
+        guard mode == .command, editOrigin == nil, pendingChange == nil else { return nil }
+        record(document)
+        guard let id = document.addSticky(text: text, color: color, at: origin, width: width, height: height) else {
+            if !undoStack.isEmpty { undoStack.removeLast() }
+            return nil
+        }
+        selectedStickyID = id
+        return id
+    }
+
+    /// One undo step for a finished move. A drag that calls `placeSticky` many times should use
+    /// `beginStickyChange` / `commitStickyChange` instead, so the whole gesture is one step.
+    @discardableResult
+    public mutating func moveSticky(
+        _ id: UUID,
+        to origin: MindMapPoint,
+        document: inout MindMapDocument
+    ) -> Bool {
+        guard mode == .command, editOrigin == nil, pendingChange == nil, document.sticky(id) != nil else { return false }
+        if document.sticky(id)?.origin == origin { return true }
+        record(document)
+        guard document.moveSticky(id, to: origin) else {
+            if !undoStack.isEmpty { undoStack.removeLast() }
+            return false
+        }
+        selectedStickyID = id
+        return true
+    }
+
+    @discardableResult
+    public mutating func resizeSticky(
+        _ id: UUID,
+        width: Double,
+        height: Double,
+        document: inout MindMapDocument
+    ) -> Bool {
+        guard mode == .command, editOrigin == nil, pendingChange == nil, let current = document.sticky(id) else {
+            return false
+        }
+        let clampedWidth = StickyLimits.clampWidth(width)
+        let clampedHeight = StickyLimits.clampHeight(height)
+        if current.width == clampedWidth, current.height == clampedHeight { return true }
+        record(document)
+        guard document.resizeSticky(id, width: width, height: height) else {
+            if !undoStack.isEmpty { undoStack.removeLast() }
+            return false
+        }
+        selectedStickyID = id
+        return true
+    }
+
+    @discardableResult
+    public mutating func setStickyColor(
+        _ color: StickyColor,
+        id: UUID,
+        document: inout MindMapDocument
+    ) -> Bool {
+        guard mode == .command, editOrigin == nil, pendingChange == nil, document.sticky(id) != nil else { return false }
+        if document.sticky(id)?.color == color { return true }
+        record(document)
+        guard document.recolorSticky(id, color: color) else {
+            if !undoStack.isEmpty { undoStack.removeLast() }
+            return false
+        }
+        selectedStickyID = id
+        return true
+    }
+
+    @discardableResult
+    public mutating func deleteSticky(_ id: UUID, document: inout MindMapDocument) -> Bool {
+        guard mode == .command, editOrigin == nil, pendingChange == nil, document.sticky(id) != nil else { return false }
+        let next = document.stickySelection(afterRemoving: id)
+        record(document)
+        guard document.removeSticky(id) else {
+            if !undoStack.isEmpty { undoStack.removeLast() }
+            return false
+        }
+        if selectedStickyID == id {
+            selectedStickyID = next
+        }
+        return true
+    }
+
+    /// Remembers the document once, before a drag or resize updates it on each movement.
+    public mutating func beginStickyChange(document: MindMapDocument) {
+        guard mode == .command, editOrigin == nil, pendingChange == nil else { return }
+        pendingChange = capture(document)
+    }
+
+    /// Pushes one undo step when the gesture changed the document.
+    public mutating func commitStickyChange(document: MindMapDocument) {
+        guard let origin = pendingChange else { return }
+        pendingChange = nil
+        if origin.document != document {
+            undoStack.append(origin)
+            redoStack.removeAll()
+        }
     }
 
     /// Connects the selected free node to any other topic. One undo step. Nothing is drawn.
@@ -248,6 +403,7 @@ public struct MindMapKeyboardSession {
         Snapshot(
             document: document,
             selectedNodeID: selectedNodeID,
+            selectedStickyID: selectedStickyID,
             mode: mode,
             edit: edit,
             isComposing: isComposing
@@ -257,6 +413,7 @@ public struct MindMapKeyboardSession {
     private mutating func restore(_ snapshot: Snapshot, document: inout MindMapDocument) {
         document = snapshot.document
         selectedNodeID = snapshot.selectedNodeID
+        selectedStickyID = snapshot.selectedStickyID
         mode = snapshot.mode
         edit = snapshot.edit
         isComposing = snapshot.isComposing
@@ -266,6 +423,7 @@ public struct MindMapKeyboardSession {
 private struct Snapshot: Equatable {
     var document: MindMapDocument
     var selectedNodeID: UUID?
+    var selectedStickyID: UUID?
     var mode: KeyboardMode
     var edit: EditBuffer?
     var isComposing: Bool

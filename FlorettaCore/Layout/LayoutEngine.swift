@@ -107,6 +107,22 @@ public struct LinkCurve: Equatable, Sendable {
     public var end: CGPoint
     public var lineWidth: CGFloat
     public var color: BranchColor
+
+    public init(
+        start: CGPoint,
+        control1: CGPoint,
+        control2: CGPoint,
+        end: CGPoint,
+        lineWidth: CGFloat,
+        color: BranchColor
+    ) {
+        self.start = start
+        self.control1 = control1
+        self.control2 = control2
+        self.end = end
+        self.lineWidth = lineWidth
+        self.color = color
+    }
 }
 
 public struct NodeFrame: Equatable, Identifiable, Sendable {

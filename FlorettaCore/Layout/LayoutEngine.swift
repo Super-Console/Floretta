@@ -131,6 +131,50 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
     public var fontDesign: String = "default"
     public var link: LinkCurve?
 
+    public init(
+        id: UUID,
+        text: String,
+        origin: CGPoint,
+        size: CGSize,
+        depth: Int,
+        fontSize: CGFloat,
+        isRoot: Bool,
+        parentID: UUID? = nil,
+        fill: BranchColor,
+        border: BranchColor,
+        textColor: BranchColor,
+        cornerRadius: CGFloat,
+        borderWidth: CGFloat = 1.5,
+        hidesFill: Bool = false,
+        bold: Bool = false,
+        italic: Bool = false,
+        strikethrough: Bool = false,
+        underline: Bool = false,
+        fontDesign: String = "default",
+        link: LinkCurve? = nil
+    ) {
+        self.id = id
+        self.text = text
+        self.origin = origin
+        self.size = size
+        self.depth = depth
+        self.fontSize = fontSize
+        self.isRoot = isRoot
+        self.parentID = parentID
+        self.fill = fill
+        self.border = border
+        self.textColor = textColor
+        self.cornerRadius = cornerRadius
+        self.borderWidth = borderWidth
+        self.hidesFill = hidesFill
+        self.bold = bold
+        self.italic = italic
+        self.strikethrough = strikethrough
+        self.underline = underline
+        self.fontDesign = fontDesign
+        self.link = link
+    }
+
     public var rect: CGRect { CGRect(origin: origin, size: size) }
     public var frame: CGRect { rect }
 }

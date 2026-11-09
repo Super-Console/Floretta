@@ -1,27 +1,31 @@
 import Foundation
 
-enum KeyboardMode: Equatable, Sendable {
+public enum KeyboardMode: Equatable, Sendable {
     case command
     case edit
 }
 
 /// Canvas arrows use laid-out frames. Outline arrows walk the visible tree.
 /// Both surfaces use the same `KeyboardCommandMapper` commands.
-enum KeyboardSurface: Equatable, Sendable {
+public enum KeyboardSurface: Equatable, Sendable {
     case canvas
     case outline
 }
 
-struct KeyModifiers: OptionSet, Equatable, Sendable {
-    var rawValue: Int
+public struct KeyModifiers: OptionSet, Equatable, Sendable {
+    public var rawValue: Int
 
-    static let shift = KeyModifiers(rawValue: 1 << 0)
-    static let command = KeyModifiers(rawValue: 1 << 1)
-    static let option = KeyModifiers(rawValue: 1 << 2)
-    static let control = KeyModifiers(rawValue: 1 << 3)
+    public init(rawValue: Int) {
+        self.rawValue = rawValue
+    }
+
+    public static let shift = KeyModifiers(rawValue: 1 << 0)
+    public static let command = KeyModifiers(rawValue: 1 << 1)
+    public static let option = KeyModifiers(rawValue: 1 << 2)
+    public static let control = KeyModifiers(rawValue: 1 << 3)
 }
 
-enum KeyToken: Equatable, Sendable {
+public enum KeyToken: Equatable, Sendable {
     case tab
     case enter
     case space
@@ -35,14 +39,21 @@ enum KeyToken: Equatable, Sendable {
     case character(Character)
 }
 
-struct KeyEvent: Equatable, Sendable {
-    var key: KeyToken
-    var modifiers: KeyModifiers
-    var mode: KeyboardMode
-    var isComposing: Bool
+public struct KeyEvent: Equatable, Sendable {
+    public var key: KeyToken
+    public var modifiers: KeyModifiers
+    public var mode: KeyboardMode
+    public var isComposing: Bool
+
+    public init(key: KeyToken, modifiers: KeyModifiers, mode: KeyboardMode, isComposing: Bool) {
+        self.key = key
+        self.modifiers = modifiers
+        self.mode = mode
+        self.isComposing = isComposing
+    }
 }
 
-enum MindMapCommand: Equatable, Sendable {
+public enum MindMapCommand: Equatable, Sendable {
     case createChild
     case createSibling
     case insertNewline
@@ -67,8 +78,8 @@ enum MindMapCommand: Equatable, Sendable {
 /// selected node. macOS prints "delete" on the large Backspace key; a full keyboard also has
 /// forward Delete. Mapping both means either keyboard removes the node. Edit mode does not
 /// map those keys, so the text view deletes characters. ⌘Backspace is the taskbook chord.
-enum KeyboardCommandMapper {
-    static func map(_ event: KeyEvent) -> MindMapCommand? {
+public enum KeyboardCommandMapper {
+    public static func map(_ event: KeyEvent) -> MindMapCommand? {
         if event.isComposing {
             return nil
         }

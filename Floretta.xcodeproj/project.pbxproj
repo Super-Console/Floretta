@@ -45,17 +45,8 @@
 		C4000000000000000000000D /* CanvasTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000005 /* CanvasTests.swift */; };
 		C5000000000000000000000A /* ContainerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000004 /* ContainerTests.swift */; };
 		C60000000000000000000007 /* LayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000003 /* LayoutTests.swift */; };
-		C70000000000000000000001 /* KeyboardCommandMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000001 /* KeyboardCommandMapper.swift */; };
-		C70000000000000000000002 /* SelectionNavigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000002 /* SelectionNavigator.swift */; };
-		C70000000000000000000003 /* MindMapKeyboardSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000003 /* MindMapKeyboardSession.swift */; };
 		C70000000000000000000004 /* NodeTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000004 /* NodeTextEditor.swift */; };
-		C70000000000000000000005 /* KeyboardCommandMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000001 /* KeyboardCommandMapper.swift */; };
-		C70000000000000000000006 /* SelectionNavigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000002 /* SelectionNavigator.swift */; };
-		C70000000000000000000007 /* MindMapKeyboardSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000003 /* MindMapKeyboardSession.swift */; };
 		C70000000000000000000008 /* NodeTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000004 /* NodeTextEditor.swift */; };
-		C70000000000000000000009 /* KeyboardCommandMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000001 /* KeyboardCommandMapper.swift */; };
-		C7000000000000000000000A /* SelectionNavigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000002 /* SelectionNavigator.swift */; };
-		C7000000000000000000000B /* MindMapKeyboardSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000003 /* MindMapKeyboardSession.swift */; };
 		C7000000000000000000000C /* NodeTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000004 /* NodeTextEditor.swift */; };
 		C7000000000000000000000D /* KeyboardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000005 /* KeyboardTests.swift */; };
 		C80000000000000000000001 /* SwiftFlow in Frameworks */ = {isa = PBXBuildFile; productRef = D80000000000000000000001 /* SwiftFlow */; };
@@ -66,11 +57,8 @@
 		C81000000000000000000003 /* FlorettaCore in Frameworks */ = {isa = PBXBuildFile; productRef = D81000000000000000000003 /* FlorettaCore */; };
 		C81000000000000000000004 /* FlorettaUI in Frameworks */ = {isa = PBXBuildFile; productRef = D81000000000000000000004 /* FlorettaUI */; };
 		C81000000000000000000005 /* FlorettaUI in Frameworks */ = {isa = PBXBuildFile; productRef = D81000000000000000000005 /* FlorettaUI */; };
-		C90000000000000000000001 /* OutlineNavigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90000000000000000000001 /* OutlineNavigator.swift */; };
 		C90000000000000000000002 /* OutlineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90000000000000000000002 /* OutlineView.swift */; };
-		C90000000000000000000003 /* OutlineNavigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90000000000000000000001 /* OutlineNavigator.swift */; };
 		C90000000000000000000004 /* OutlineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90000000000000000000002 /* OutlineView.swift */; };
-		C90000000000000000000005 /* OutlineNavigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90000000000000000000001 /* OutlineNavigator.swift */; };
 		C90000000000000000000006 /* OutlineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90000000000000000000002 /* OutlineView.swift */; };
 		C90000000000000000000007 /* OutlineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90000000000000000000003 /* OutlineTests.swift */; };
 		CA1100000000000000000001 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1100000000000000000001 /* AppSettings.swift */; };
@@ -125,14 +113,10 @@
 		F30000000000000000000005 /* CanvasTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasTests.swift; sourceTree = "<group>"; };
 		F50000000000000000000004 /* ContainerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ContainerTests.swift; path = Tests/FlorettaCoreTests/ContainerTests.swift; sourceTree = SOURCE_ROOT; };
 		F60000000000000000000003 /* LayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LayoutTests.swift; path = Tests/FlorettaCoreTests/LayoutTests.swift; sourceTree = SOURCE_ROOT; };
-		F70000000000000000000001 /* KeyboardCommandMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardCommandMapper.swift; sourceTree = "<group>"; };
-		F70000000000000000000002 /* SelectionNavigator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionNavigator.swift; sourceTree = "<group>"; };
-		F70000000000000000000003 /* MindMapKeyboardSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MindMapKeyboardSession.swift; sourceTree = "<group>"; };
 		F70000000000000000000004 /* NodeTextEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeTextEditor.swift; sourceTree = "<group>"; };
-		F70000000000000000000005 /* KeyboardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardTests.swift; sourceTree = "<group>"; };
-		F90000000000000000000001 /* OutlineNavigator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutlineNavigator.swift; sourceTree = "<group>"; };
+		F70000000000000000000005 /* KeyboardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = KeyboardTests.swift; path = Tests/FlorettaCoreTests/KeyboardTests.swift; sourceTree = SOURCE_ROOT; };
 		F90000000000000000000002 /* OutlineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutlineView.swift; sourceTree = "<group>"; };
-		F90000000000000000000003 /* OutlineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutlineTests.swift; sourceTree = "<group>"; };
+		F90000000000000000000003 /* OutlineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OutlineTests.swift; path = Tests/FlorettaCoreTests/OutlineTests.swift; sourceTree = SOURCE_ROOT; };
 		FA1100000000000000000001 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		FA2100000000000000000001 /* RecentMapsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentMapsStore.swift; sourceTree = "<group>"; };
 		FA3100000000000000000001 /* DocumentSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentSession.swift; sourceTree = "<group>"; };
@@ -188,6 +172,8 @@
 			F91000000000000000000002 /* MMTests.swift */,
 			F92000000000000000000003 /* OPMLMarkdownTests.swift */,
 			F60000000000000000000003 /* LayoutTests.swift */,
+			F70000000000000000000005 /* KeyboardTests.swift */,
+			F90000000000000000000003 /* OutlineTests.swift */,
 				A10000000000000000000008 /* FlorettaTests */,
 				A10000000000000000000002 /* Products */,
 			);
@@ -253,7 +239,6 @@
 		A90000000000000000000001 /* Outline */ = {
 			isa = PBXGroup;
 			children = (
-				F90000000000000000000001 /* OutlineNavigator.swift */,
 				F90000000000000000000002 /* OutlineView.swift */,
 			);
 			path = Outline;
@@ -262,10 +247,7 @@
 		A70000000000000000000001 /* Keyboard */ = {
 			isa = PBXGroup;
 			children = (
-				F70000000000000000000001 /* KeyboardCommandMapper.swift */,
-				F70000000000000000000003 /* MindMapKeyboardSession.swift */,
 				F70000000000000000000004 /* NodeTextEditor.swift */,
-				F70000000000000000000002 /* SelectionNavigator.swift */,
 			);
 			path = Keyboard;
 			sourceTree = "<group>";
@@ -289,8 +271,6 @@
 			children = (
 				F20000000000000000000004 /* AutosaveTests.swift */,
 				F30000000000000000000005 /* CanvasTests.swift */,
-				F70000000000000000000005 /* KeyboardTests.swift */,
-				F90000000000000000000003 /* OutlineTests.swift */,
 				F93000000000000000000002 /* MapExportTests.swift */,
 				FA7100000000000000000001 /* ShellTests.swift */,
 			);
@@ -476,11 +456,7 @@
 				C40000000000000000000003 /* InfiniteCanvas.swift in Sources */,
 				C93000000000000000000001 /* MapExport.swift in Sources */,
 				C40000000000000000000004 /* CanvasScrollInput.swift in Sources */,
-				C70000000000000000000001 /* KeyboardCommandMapper.swift in Sources */,
-				C70000000000000000000002 /* SelectionNavigator.swift in Sources */,
-				C70000000000000000000003 /* MindMapKeyboardSession.swift in Sources */,
 				C70000000000000000000004 /* NodeTextEditor.swift in Sources */,
-				C90000000000000000000001 /* OutlineNavigator.swift in Sources */,
 				C90000000000000000000002 /* OutlineView.swift in Sources */,
 				CA1100000000000000000001 /* AppSettings.swift in Sources */,
 				CA2100000000000000000001 /* RecentMapsStore.swift in Sources */,
@@ -507,11 +483,7 @@
 				C40000000000000000000007 /* InfiniteCanvas.swift in Sources */,
 				C93000000000000000000002 /* MapExport.swift in Sources */,
 				C40000000000000000000008 /* CanvasScrollInput.swift in Sources */,
-				C70000000000000000000005 /* KeyboardCommandMapper.swift in Sources */,
-				C70000000000000000000006 /* SelectionNavigator.swift in Sources */,
-				C70000000000000000000007 /* MindMapKeyboardSession.swift in Sources */,
 				C70000000000000000000008 /* NodeTextEditor.swift in Sources */,
-				C90000000000000000000003 /* OutlineNavigator.swift in Sources */,
 				C90000000000000000000004 /* OutlineView.swift in Sources */,
 				CA1100000000000000000002 /* AppSettings.swift in Sources */,
 				CA2100000000000000000002 /* RecentMapsStore.swift in Sources */,
@@ -544,12 +516,8 @@
 				C4000000000000000000000D /* CanvasTests.swift in Sources */,
 				C5000000000000000000000A /* ContainerTests.swift in Sources */,
 				C60000000000000000000007 /* LayoutTests.swift in Sources */,
-				C70000000000000000000009 /* KeyboardCommandMapper.swift in Sources */,
-				C7000000000000000000000A /* SelectionNavigator.swift in Sources */,
-				C7000000000000000000000B /* MindMapKeyboardSession.swift in Sources */,
 				C7000000000000000000000C /* NodeTextEditor.swift in Sources */,
 				C7000000000000000000000D /* KeyboardTests.swift in Sources */,
-				C90000000000000000000005 /* OutlineNavigator.swift in Sources */,
 				C90000000000000000000006 /* OutlineView.swift in Sources */,
 				C90000000000000000000007 /* OutlineTests.swift in Sources */,
 				CA1100000000000000000003 /* AppSettings.swift in Sources */,

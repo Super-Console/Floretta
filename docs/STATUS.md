@@ -14,7 +14,7 @@ P0.5 已由总指挥验收（32 个测试全绿）。DocumentGroup、实验 A/B 
 
 P1-b 已由总指挥验收（46 个测试全绿，含 S 曲线曲率断言）。触控板手势这批仍不验。
 
-P1-c 键盘模型已落盘，等本机 `xcodebuild test`。没有开始大纲、DocumentGroup、`.xmind` 导入。
+P1-c 键盘模型：总指挥跑过 57 通过、1 失败。失败的是左右布局上的上下键跳到了对侧。已改为上下只在父节点同一侧的兄弟间移动。等本机再跑 `xcodebuild test`。没有开始 P1-r。
 
 Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be pasted back for fixes.
 
@@ -151,4 +151,5 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 | 2026-11-09 | P1-1 修复 | 总指挥验收通过 | 24 个测试全绿。触控板手势留到 P1-c 再人工验 |
 | 2026-11-09 | P0.5 | 已提交，云端未测试 | DocumentContainer + 只读旧 JSON + ZipContainer（原子写、稳定顺序、哈希去重、zip bomb 上限）。不覆盖旧 JSON 原文件。云端不能跑 xcodebuild |
 | 2026-11-09 | P1-b | 总指挥验收通过 | 46 个测试全绿，含 Δy ≠ 0 时 S 曲线曲率断言 |
-| 2026-11-09 | P1-c | 已提交，云端未测试 | 键盘命令/编辑分模式、组字期间不触发快捷键、纯函数映射、撤销覆盖新建/删除/文字/折叠。云端不能跑 xcodebuild |
+| 2026-11-09 | P1-c | 总指挥测试 57 通过、1 失败 | `testLayoutArrowsMoveBetweenParentAndSide`：上下键把对侧、Y 更近的兄弟当成了下一节点 |
+| 2026-11-09 | P1-c 修复 | 已提交，云端未测试 | 上下只走父节点同一侧。云端不能跑 xcodebuild |

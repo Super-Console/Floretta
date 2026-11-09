@@ -77,8 +77,10 @@ final class SnapshotRecoveryTests: XCTestCase {
         let opened = try FlorettaStreamingDocument.open(reader)
         XCTAssertEqual(opened.document.title, "带图")
         XCTAssertEqual(opened.document.formatVersion, 1)
-        try XCTAssertThrowsError(try FlorettaStreamingDocument.verifyInventory(reader, opened: opened)) { error in
-            let inventory = try XCTUnwrap(error as? AssetInventoryError)
+        XCTAssertThrowsError(try FlorettaStreamingDocument.verifyInventory(reader, opened: opened)) { error in
+            guard let inventory = error as? AssetInventoryError else {
+                return XCTFail("expected AssetInventoryError, got \(error)")
+            }
             XCTAssertEqual(inventory.promptTitle, "附件已损坏")
             XCTAssertTrue(inventory.promptMessage.contains("照片.png"))
             XCTAssertTrue(inventory.promptMessage.contains("不是整份导图读失败"))
@@ -188,8 +190,10 @@ final class SnapshotRecoveryTests: XCTestCase {
         let opened = try FlorettaStreamingDocument.open(reader)
         XCTAssertEqual(opened.document.title, "两份")
         XCTAssertEqual(opened.document.formatVersion, 1)
-        try XCTAssertThrowsError(try FlorettaStreamingDocument.verifyInventory(reader, opened: opened)) { error in
-            let inventory = try XCTUnwrap(error as? AssetInventoryError)
+        XCTAssertThrowsError(try FlorettaStreamingDocument.verifyInventory(reader, opened: opened)) { error in
+            guard let inventory = error as? AssetInventoryError else {
+                return XCTFail("expected AssetInventoryError, got \(error)")
+            }
             XCTAssertEqual(inventory.failures.count, 1)
             XCTAssertEqual(inventory.failures[0].filename, "照片.png")
             XCTAssertEqual(inventory.failures[0].sha256, photoHash.sha256)
@@ -202,8 +206,10 @@ final class SnapshotRecoveryTests: XCTestCase {
         }
         try reader.close()
 
-        try XCTAssertThrowsError(try ZipContainer().read(data: bytes)) { error in
-            let inventory = try XCTUnwrap(error as? AssetInventoryError)
+        XCTAssertThrowsError(try ZipContainer().read(data: bytes)) { error in
+            guard let inventory = error as? AssetInventoryError else {
+                return XCTFail("expected AssetInventoryError, got \(error)")
+            }
             XCTAssertTrue(inventory.promptMessage.contains(photoHash.sha256))
             XCTAssertEqual(inventory.failures.first?.reason, .declaredChecksumMismatch)
             XCTAssertTrue(inventory.promptMessage.contains("不是整份导图读失败"))
@@ -228,8 +234,10 @@ final class SnapshotRecoveryTests: XCTestCase {
         let reader = try files.openReader(at: url)
         let opened = try FlorettaStreamingDocument.open(reader)
         XCTAssertEqual(opened.document.roots[0].text, "根")
-        try XCTAssertThrowsError(try FlorettaStreamingDocument.verifyInventory(reader, opened: opened)) { error in
-            let inventory = try XCTUnwrap(error as? AssetInventoryError)
+        XCTAssertThrowsError(try FlorettaStreamingDocument.verifyInventory(reader, opened: opened)) { error in
+            guard let inventory = error as? AssetInventoryError else {
+                return XCTFail("expected AssetInventoryError, got \(error)")
+            }
             XCTAssertEqual(inventory.failures.count, 1)
             XCTAssertEqual(inventory.failures[0].filename, "照片.png")
             XCTAssertEqual(inventory.failures[0].reason, .missingFromPackage)

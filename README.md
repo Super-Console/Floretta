@@ -34,6 +34,7 @@ open Floretta.xcodeproj
 - `docs/FORMATS.md` — 支持的导入/导出格式与验收方式
 - `docs/REFERENCES.md` — 参考的开源实现与可借鉴/不可借鉴的边界
 - `docs/WORKFLOW.md` — 分步提交推送规则、验收方式
+- `docs/HANDOFF.md` — 协作交接；第 29 条是版本与安装
 - `docs/DECISIONS.md` — 决策与理由（含命名）
 - `docs/design/` — 设计素材（App 图标参考图）
 - `docs/STATUS.md` — 当前进度

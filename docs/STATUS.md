@@ -8,7 +8,9 @@ P0-2 已由总指挥验收（11 个测试，TEST SUCCEEDED）。P0-3 不再单�
 
 P0-4 已由总指挥验收（20 个测试全绿）。P0 阶段通过。
 
-P1-1 在 Pro 上编译失败：`CanvasScrollInput` 的 `deinit` 碰了非 Sendable 的 `monitor`。这一批只修这个。P1-2 及 P0.5 都没做。
+P1-1 已由总指挥验收（24 个测试全绿）。触控板手势留到 P1-c 再人工验。
+
+P0.5 容器切换已落盘：`DocumentContainer`、只读旧 JSON、`ZipContainer`。P1-2 布局、DocumentGroup、实验 A/B 都没做。
 
 Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be pasted back for fixes.
 
@@ -20,7 +22,22 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 xcodebuild test -project Floretta.xcodeproj -scheme Floretta-macOS -destination 'platform=macOS'
 ```
 
-构建或测试错误贴回再改。通过后再放行 P1-2。
+构建或测试错误贴回再改。通过后再放行下一批。
+
+## P0.5 申报
+
+`.floretta` 的用户文件分成两种容器，协议是 `DocumentContainer`（`read` / `write`）：
+
+- `LegacyJSONContainer`：现有纯 JSON，**只能读**。`write` 抛 `readOnlyLegacy`。
+- `ZipContainer`：`document.json`（现有 `MindMapDocument`）+ `metadata.json`（容器版本、创建/修改时间、应用版本、默认视图 `canvas`）+ `assets/<sha256>.<ext>`。
+
+`FlorettaDocumentFile.read` 看文件头：`PK` 走 ZIP，否则走旧 JSON。读的时候不写盘。`save` 只写 ZIP，并且是临时文件再 `replaceItemAt` / `moveItem`。目标路径如果已是旧 JSON，抛 `refusesToOverwriteLegacy`，原字节不动。另存到新路径才写出 ZIP。
+
+附件 `addAsset` 按 SHA-256 去重，同一份字节只留一条。ZIP 条目按路径名排序后写入，所以顺序稳定。读 ZIP 时限制条目数（512）、解压总大小（32MB）、单附件（16MB）、节点数（100000）。声明的解压大小或实际 inflate 超出都拒绝。坏 ZIP、缺 `document.json` 抛错，不崩溃。
+
+方法 8（raw DEFLATE）用项目内的 inflater 解，因为系统 Compression 框架给的是带 zlib 头的流，不是 ZIP 的 raw deflate，也没有加第三方包。我们自己写的包用存储法（method 0）。
+
+自动保存的 `recovery.floretta` 仍是文档 JSON，不是用户文件，这批没改。没有接 `DocumentGroup`（那是 D-12）。
 
 ## P1-1 申报
 
@@ -99,4 +116,5 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 | 2026-11-09 | P0-2 修复 | 总指挥验收通过 | 11 个测试 TEST SUCCEEDED。P0-3 跳过 |
 | 2026-11-09 | P0-4 | 总指挥验收通过 | 20 个测试全绿。P0 阶段通过 |
 | 2026-11-09 | P1-1 | Pro 编译失败 | `CanvasScrollInput.swift` deinit 访问 `monitor: Any?`，Swift 6 报 nonisolated deinit |
-| 2026-11-09 | P1-1 修复 | 已提交，云端未编译 | `monitor` 标成 `@MainActor`。注册和 `stop()` 都在主线程。`nonisolated deinit` 不再碰它。`MindMapPoint` 仍是可选。云端不能跑 xcodebuild |
+| 2026-11-09 | P1-1 修复 | 总指挥验收通过 | 24 个测试全绿。触控板手势留到 P1-c 再人工验 |
+| 2026-11-09 | P0.5 | 已提交，云端未测试 | DocumentContainer + 只读旧 JSON + ZipContainer（原子写、稳定顺序、哈希去重、zip bomb 上限）。不覆盖旧 JSON 原文件。云端不能跑 xcodebuild |

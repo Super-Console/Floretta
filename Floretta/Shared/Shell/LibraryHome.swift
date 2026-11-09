@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 struct RecentPage: View {
     @Bindable var library: LibraryModel
     @Binding var page: HomePage
-    @Binding var sidebarVisible: Bool
+    @Binding var columnVisibility: NavigationSplitViewVisibility
     @Binding var searchText: String
     var showSettings: () -> Void
 
@@ -20,14 +20,14 @@ struct RecentPage: View {
             .searchable(text: $searchText, prompt: "搜索")
             .toolbar {
                 ToolbarItemGroup(placement: .navigation) {
-                    if sidebarVisible {
+                    if sidebarOpen {
                         Button(action: showSettings) {
                             Image(systemName: "gearshape")
                         }
                         .accessibilityLabel("设置")
                     }
                     Button {
-                        sidebarVisible.toggle()
+                        columnVisibility = sidebarOpen ? .detailOnly : .all
                     } label: {
                         Image(systemName: "sidebar.left")
                     }
@@ -95,6 +95,8 @@ struct RecentPage: View {
             }
         }
     }
+
+    private var sidebarOpen: Bool { columnVisibility != .detailOnly }
 
     private var filtered: [RecentMapEntry] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -287,6 +289,59 @@ struct LocalBrowser: View {
                     Button("返回") { stack.removeLast() }
                 }
             }
+        }
+    }
+}
+
+/// Settings from TASKBOOK-004. Pickers write `AppSettings`, which stores UserDefaults.
+struct SettingsView: View {
+    @Bindable var settings: AppSettings
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Picker("语言", selection: $settings.language) {
+                        Text("跟随系统").tag(AppLanguage.system)
+                        Text("简体中文").tag(AppLanguage.simplifiedChinese)
+                        Text("English").tag(AppLanguage.english)
+                    }
+                    Picker("外观", selection: $settings.appearance) {
+                        Text("跟随系统").tag(AppAppearance.system)
+                        Text("浅色").tag(AppAppearance.light)
+                        Text("深色").tag(AppAppearance.dark)
+                    }
+                }
+                Section {
+                    Picker("新建时默认视图", selection: $settings.defaultView) {
+                        Text("地图模式").tag(DocumentViewMode.map)
+                        Text("聚焦模式").tag(DocumentViewMode.focus)
+                    }
+                    Picker("PNG 导出倍率", selection: $settings.pngScale) {
+                        Text("1x").tag(PNGScalePreference.one)
+                        Text("2x").tag(PNGScalePreference.two)
+                        Text("3x").tag(PNGScalePreference.three)
+                    }
+                    Picker("PNG 背景", selection: $settings.pngBackground) {
+                        Text("白色").tag(PNGBackgroundPreference.white)
+                        Text("透明").tag(PNGBackgroundPreference.transparent)
+                    }
+                }
+                Section("关于") {
+                    LabeledContent("版本", value: AppInfo.version)
+                    NavigationLink("NOTICE 开源致谢") {
+                        ScrollView {
+                            Text(AppInfo.notice)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .textSelection(.enabled)
+                                .padding()
+                        }
+                        .navigationTitle("NOTICE")
+                    }
+                }
+            }
+            .formStyle(.grouped)
+            .navigationTitle("设置")
         }
     }
 }

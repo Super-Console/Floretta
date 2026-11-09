@@ -6,7 +6,7 @@ struct ContentView: View {
     @Bindable var library: LibraryModel
 
     @State private var page: HomePage = .recent
-    @State private var sidebarVisible = false
+    @State private var columnVisibility: NavigationSplitViewVisibility = .detailOnly
     @State private var searchText = ""
     @State private var showSettings = false
     @State private var showImporter = false
@@ -73,7 +73,7 @@ struct ContentView: View {
                 onEdit: { recovery.noteEdit($0) }
             )
         } else {
-            NavigationSplitView {
+            NavigationSplitView(columnVisibility: $columnVisibility) {
                 HomeSidebar(
                     library: library,
                     page: $page,
@@ -88,7 +88,7 @@ struct ContentView: View {
                         RecentPage(
                             library: library,
                             page: $page,
-                            sidebarVisible: $sidebarVisible,
+                            columnVisibility: $columnVisibility,
                             searchText: $searchText,
                             showSettings: { showSettings = true }
                         )
@@ -112,7 +112,6 @@ struct ContentView: View {
                     }
                 }
             }
-            .navigationSplitViewColumnVisibility(sidebarVisible ? .all : .detailOnly)
         }
     }
 

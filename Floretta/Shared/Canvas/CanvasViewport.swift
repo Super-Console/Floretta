@@ -8,8 +8,8 @@ import SwiftFlow
 /// `SwiftFlowInstance.zoomTo`, which uses SwiftFlow's own zoom math. That method
 /// anchors the center of `viewSize`, so the view size is set to place the pointer
 /// at that center. Fit calls `getViewportForBounds`. The 1.25 fit cap is ours:
-/// one small topic should not fill the window. Interactive zoom uses SwiftFlow's
-/// 0.1…4 range.
+/// one small topic should not fill the window. Interactive zoom snaps to
+/// `ZoomStop` (50%…400%). 100% is scale 1, with no extra coefficient.
 struct CanvasViewport: Equatable, Sendable {
     var flow: Viewport = .identity
 
@@ -68,9 +68,18 @@ struct CanvasViewport: Equatable, Sendable {
         if command {
             let factor = CGFloat(exp(Double(delta.height) * 0.002))
             zoom(by: factor, around: viewPoint)
+            snapToStop(around: viewPoint)
         } else {
             pan(by: delta)
         }
+    }
+
+    /// Gesture end. The scale becomes exactly one `ZoomStop`.
+    @MainActor
+    mutating func snapToStop(around anchor: CGPoint) {
+        let stop = ZoomStop.nearest(to: scale)
+        guard abs(stop.scale - scale) > 0.000_000_1 else { return }
+        zoom(to: stop.scale, around: anchor)
     }
 
     mutating func fit(content: CGRect, in viewSize: CGSize, padding: CGFloat = 48) {

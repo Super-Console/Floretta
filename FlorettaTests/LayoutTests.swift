@@ -205,7 +205,7 @@ final class LayoutTests: XCTestCase {
 
         CanvasCommands.apply(.select(rootID), document: &document, interaction: &interaction)
         XCTAssertTrue(interaction.showsSelectionChrome)
-        XCTAssertEqual(interaction.selectionBorder, .blue)
+        XCTAssertEqual(interaction.selectionBorder, .selectionBlue)
         XCTAssertEqual(interaction.selectionBorderWidth, 1.5)
         XCTAssertEqual(interaction.resizeHandles, CanvasDirection.allCases)
         XCTAssertFalse(interaction.showsShadows)

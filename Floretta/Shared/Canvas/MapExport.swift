@@ -4,6 +4,8 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 enum MapExportScale: CGFloat, Equatable, Sendable {
+    /// 1 render pixel per logical point. No extra scale coefficient.
+    case one = 1
     case two = 2
     case three = 3
 }

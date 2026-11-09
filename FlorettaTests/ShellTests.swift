@@ -130,6 +130,7 @@ final class ShellTests: XCTestCase {
         XCTAssertEqual(settings.defaultView, .map)
         XCTAssertEqual(settings.pngScale, .two)
         XCTAssertEqual(settings.pngBackground, .white)
+        XCTAssertTrue(settings.exportIncludesStickies)
         XCTAssertNil(settings.appearance.colorScheme)
 
         settings.language = .simplifiedChinese
@@ -137,6 +138,7 @@ final class ShellTests: XCTestCase {
         settings.defaultView = .focus
         settings.pngScale = .one
         settings.pngBackground = .transparent
+        settings.exportIncludesStickies = false
 
         let again = AppSettings(defaults: defaults)
         XCTAssertEqual(again.language, .simplifiedChinese)
@@ -152,11 +154,15 @@ final class ShellTests: XCTestCase {
         XCTAssertEqual(again.defaultView, .focus)
         XCTAssertEqual(again.pngScale, .one)
         XCTAssertEqual(again.pngBackground, .transparent)
+        XCTAssertFalse(again.exportIncludesStickies)
 
         let options = MapExportOptions(settings: again)
         XCTAssertEqual(options.scale, .one)
         XCTAssertEqual(options.scale.rawValue, 1)
         XCTAssertEqual(options.background, .transparent)
+        XCTAssertFalse(options.includeStickies)
+        again.exportIncludesStickies = true
+        XCTAssertTrue(MapExportOptions(settings: again).includeStickies)
 
         let document = MindMapDocument(
             title: "export",

@@ -9,6 +9,8 @@ struct InfiniteCanvas: View {
     @Binding var document: MindMapDocument
 
     @State private var drag: RootDrag?
+    @State private var stickyDrag: StickyDrag?
+    @State private var ignoreDrag = false
     @State private var panAnchor: CGPoint?
     @State private var pinchStartScale: CGFloat?
     @State private var interaction = CanvasInteraction.standard
@@ -52,6 +54,8 @@ struct InfiniteCanvas: View {
             }
             .overlay { if !zenActive { hoverAddButtons } }
             .overlay { editField }
+            .overlay { stickyChrome }
+            .overlay { stickyEditor }
             .canvasHover { location in
                 guard let location else {
                     interaction.hoveredNodeID = nil
@@ -121,6 +125,10 @@ struct InfiniteCanvas: View {
                     isComposing: keyboard.isComposing
                 ) { return }
                 let point = camera.viewport.canvasPoint(fromView: value.location)
+                if let stickyHit = stickyHit(at: point) {
+                    applyStickyTap(stickyHit)
+                    return
+                }
                 if previewFile(at: point) { return }
                 let hit = CanvasPlacement.nodeID(at: point, in: layoutSource())
                 if zenActive, hit == nil { return }
@@ -133,6 +141,10 @@ struct InfiniteCanvas: View {
                     isComposing: keyboard.isComposing
                 ) { return }
                 let point = camera.viewport.canvasPoint(fromView: value.location)
+                if let id = stickyHit(at: point) {
+                    beginStickyEdit(id)
+                    return
+                }
                 if previewFile(at: point) { return }
                 if let hit = CanvasPlacement.nodeID(at: point, in: layoutSource()) {
                     beginEditing(hit)
@@ -167,6 +179,40 @@ struct InfiniteCanvas: View {
         interaction.selectedNodeID = hit
         onPreviewFile(hit, badge)
         return true
+    }
+
+    private func stickyHit(at point: CGPoint) -> UUID? {
+        switch StickyGeometry.hit(x: Double(point.x), y: Double(point.y), in: document.stickies) {
+        case .body(let id), .resize(let id):
+            return id
+        case nil:
+            return nil
+        }
+    }
+
+    private func applyStickyTap(_ id: UUID) {
+        if keyboard.isComposing { return }
+        if keyboard.mode == .edit {
+            if keyboard.selectedStickyID == id { return }
+            keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+            keyboard.selectedStickyID = id
+            interaction.selectedNodeID = nil
+            return
+        }
+        if keyboard.selectedStickyID == id {
+            beginStickyEdit(id)
+            return
+        }
+        keyboard.selectedStickyID = id
+        interaction.selectedNodeID = nil
+    }
+
+    private func beginStickyEdit(_ id: UUID) {
+        keyboard.selectedStickyID = id
+        interaction.selectedNodeID = nil
+        canvasFocused = false
+        guard keyboard.mode != .edit else { return }
+        keyboard.apply(.beginEdit, document: &document, frames: placedFrames())
     }
 
     private func applyNodeTap(_ hit: UUID?) {
@@ -244,6 +290,164 @@ struct InfiniteCanvas: View {
         }
     }
 
+    @ViewBuilder
+    private var stickyChrome: some View {
+        if keyboard.mode == .command,
+           let id = keyboard.selectedStickyID,
+           let sticky = document.stickies.first(where: { $0.id == id }) {
+            let rect = camera.viewport.viewRect(fromCanvas: CanvasPlacement.stickyCanvasRect(sticky))
+            HStack(spacing: 6) {
+                ForEach(StickyColor.palette, id: \.self) { color in
+                    Button {
+                        _ = keyboard.setStickyColor(color, id: id, document: &document)
+                    } label: {
+                        Circle()
+                            .fill(stickyPaper(color))
+                            .frame(width: 16, height: 16)
+                            .overlay {
+                                if sticky.color == color {
+                                    Circle().strokeBorder(Color.primary, lineWidth: 1.5)
+                                }
+                            }
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel(stickyColorName(color))
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background { Capsule().fill(.ultraThinMaterial) }
+            .position(x: rect.midX, y: max(16, rect.minY - 18))
+        }
+    }
+
+    @ViewBuilder
+    private var stickyEditor: some View {
+        if keyboard.mode == .edit,
+           let id = keyboard.selectedStickyID,
+           let sticky = document.stickies.first(where: { $0.id == id }) {
+            let rect = camera.viewport.viewRect(fromCanvas: CanvasPlacement.stickyCanvasRect(sticky))
+            NodeTextEditor(
+                text: Binding(
+                    get: { keyboard.editingText },
+                    set: { keyboard.replaceEditingText($0, document: &document) }
+                ),
+                isComposing: $keyboard.isComposing,
+                minimumWidth: $compositionWidth,
+                fontSize: CanvasTextScale.onScreenPointSize(fontSize: 15, scale: camera.viewport.scale),
+                onEvent: { handleKey($0) },
+                returnInsertsLine: true,
+                paper: stickyPaper(sticky.color),
+                ink: stickyInk(sticky.color)
+            )
+            .frame(width: max(rect.width, 32), height: max(rect.height, 32))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .position(x: rect.midX, y: rect.midY)
+        }
+    }
+
+    private func stickyChromeContains(_ viewPoint: CGPoint) -> Bool {
+        guard keyboard.mode == .command,
+              let id = keyboard.selectedStickyID,
+              let sticky = document.stickies.first(where: { $0.id == id }) else { return false }
+        let rect = camera.viewport.viewRect(fromCanvas: CanvasPlacement.stickyCanvasRect(sticky))
+        let chrome = CGRect(x: rect.midX - 70, y: max(0, rect.minY - 34), width: 140, height: 32)
+        return chrome.contains(viewPoint)
+    }
+
+    private func beginStickyDrag(at start: CGPoint) -> StickyDrag? {
+        guard let hit = StickyGeometry.hit(x: Double(start.x), y: Double(start.y), in: document.stickies),
+              let id = stickyID(hit),
+              let sticky = document.stickies.first(where: { $0.id == id }) else { return nil }
+        keyboard.beginStickyChange(document: document)
+        keyboard.selectedStickyID = id
+        interaction.selectedNodeID = nil
+        return StickyDrag(
+            id: id,
+            resizing: isResize(hit),
+            originX: sticky.origin.x,
+            originY: sticky.origin.y,
+            width: sticky.width,
+            height: sticky.height,
+            startX: Double(start.x),
+            startY: Double(start.y)
+        )
+    }
+
+    private func updateStickyDrag(_ drag: StickyDrag, to point: CGPoint) {
+        let dx = Double(point.x) - drag.startX
+        let dy = Double(point.y) - drag.startY
+        if drag.resizing {
+            _ = document.resizeSticky(drag.id, width: drag.width + dx, height: drag.height + dy)
+        } else {
+            _ = document.moveSticky(
+                drag.id,
+                to: MindMapPoint(x: drag.originX + dx, y: drag.originY + dy)
+            )
+        }
+    }
+
+    private func stickyID(_ hit: StickyHit) -> UUID? {
+        switch hit {
+        case .body(let id), .resize(let id):
+            return id
+        }
+    }
+
+    private func isResize(_ hit: StickyHit) -> Bool {
+        if case .resize = hit { return true }
+        return false
+    }
+
+    private func draw(_ sticky: StickyNote, in rect: CGRect, scale: CGFloat, context: GraphicsContext) {
+        let path = Path(roundedRect: rect, cornerRadius: min(8, rect.height / 4))
+        var shadowed = context
+        shadowed.addFilter(.shadow(color: .black.opacity(0.16), radius: 3, x: 0, y: 1))
+        shadowed.fill(path, with: .color(stickyPaper(sticky.color)))
+        let selected = keyboard.selectedStickyID == sticky.id
+        context.stroke(
+            path,
+            with: .color(selected ? color(interaction.selectionBorder) : stickyInk(sticky.color).opacity(0.45)),
+            lineWidth: selected ? 2 : 1
+        )
+        let editing = keyboard.mode == .edit && selected
+        let textRect = rect.insetBy(dx: 10 * max(scale, 0.5), dy: 8 * max(scale, 0.5))
+        let pointSize = CanvasTextScale.onScreenPointSize(fontSize: 15, scale: scale)
+        if !editing, CanvasTextLOD.level(onScreenPointSize: pointSize).drawsTitle,
+           textRect.width > 1, textRect.height > 1, !sticky.text.isEmpty {
+            var layer = context
+            layer.clip(to: Path(textRect))
+            layer.draw(
+                Text(sticky.text)
+                    .font(.system(size: pointSize))
+                    .foregroundStyle(stickyInk(sticky.color)),
+                in: textRect
+            )
+        }
+        if selected, keyboard.mode == .command {
+            let handle = CGRect(x: rect.maxX - 10, y: rect.maxY - 10, width: 7, height: 7)
+            context.fill(Path(roundedRect: handle, cornerRadius: 1.5), with: .color(stickyInk(sticky.color)))
+        }
+    }
+
+    private func stickyPaper(_ color: StickyColor) -> Color {
+        Color(red: color.fill.red, green: color.fill.green, blue: color.fill.blue)
+    }
+
+    private func stickyInk(_ color: StickyColor) -> Color {
+        Color(red: color.ink.red, green: color.ink.green, blue: color.ink.blue)
+    }
+
+    private func stickyColorName(_ color: StickyColor) -> String {
+        switch color {
+        case .yellow: "黄色"
+        case .pink: "粉色"
+        case .green: "绿色"
+        case .blue: "蓝色"
+        case .orange: "橙色"
+        }
+    }
+
     /// View rect of the system text field, including the extra width used while
     /// marked text is wider than the topic.
     private func editFieldFrame() -> CGRect? {
@@ -287,9 +491,16 @@ struct InfiniteCanvas: View {
     private var dragGesture: some Gesture {
         DragGesture(minimumDistance: 2)
             .onChanged { value in
-                if drag == nil && panAnchor == nil {
+                if drag == nil && panAnchor == nil && stickyDrag == nil && !ignoreDrag {
                     let start = camera.viewport.canvasPoint(fromView: value.startLocation)
-                    if let id = CanvasPlacement.draggableID(at: start, in: layoutSource()),
+                    let onEditedSticky = keyboard.mode == .edit
+                        && stickyHit(at: start) != nil
+                        && stickyHit(at: start) == keyboard.selectedStickyID
+                    if stickyChromeContains(value.startLocation) || onEditedSticky {
+                        ignoreDrag = true
+                    } else if keyboard.mode != .edit, let claim = beginStickyDrag(at: start) {
+                        stickyDrag = claim
+                    } else if let id = CanvasPlacement.draggableID(at: start, in: layoutSource()),
                        document.parentID(of: id) == nil,
                        let frame = placedFrames().first(where: { $0.id == id })?.frame {
                         drag = RootDrag(
@@ -301,7 +512,10 @@ struct InfiniteCanvas: View {
                         panAnchor = camera.viewport.offset
                     }
                 }
-                if let drag {
+                if let stickyDrag {
+                    let point = camera.viewport.canvasPoint(fromView: value.location)
+                    updateStickyDrag(stickyDrag, to: point)
+                } else if let drag {
                     let point = camera.viewport.canvasPoint(fromView: value.location)
                     let origin = CGPoint(x: point.x - drag.grabX, y: point.y - drag.grabY)
                     document = CanvasPlacement.movingNode(drag.id, to: origin, in: document)
@@ -313,8 +527,13 @@ struct InfiniteCanvas: View {
                 }
             }
             .onEnded { _ in
+                if stickyDrag != nil {
+                    keyboard.commitStickyChange(document: document)
+                }
                 drag = nil
+                stickyDrag = nil
                 panAnchor = nil
+                ignoreDrag = false
             }
     }
 
@@ -357,6 +576,12 @@ struct InfiniteCanvas: View {
         for node in visible {
             let onScreen = min(node.size.width, node.size.height) * scale
             draw(node, detail: CanvasDetail.level(scale: scale, onScreenHeight: onScreen), scale: scale, in: context)
+        }
+        let viewBounds = CGRect(origin: .zero, size: size).insetBy(dx: -48, dy: -48)
+        for sticky in document.stickies {
+            let rect = camera.viewport.viewRect(fromCanvas: CanvasPlacement.stickyCanvasRect(sticky))
+            guard rect.intersects(viewBounds) else { continue }
+            draw(sticky, in: rect, scale: scale, context: context)
         }
     }
 
@@ -605,6 +830,17 @@ private struct RootDrag {
     var id: UUID
     var grabX: CGFloat
     var grabY: CGFloat
+}
+
+private struct StickyDrag {
+    var id: UUID
+    var resizing: Bool
+    var originX: Double
+    var originY: Double
+    var width: Double
+    var height: Double
+    var startX: Double
+    var startY: Double
 }
 
 private extension View {

@@ -13,13 +13,28 @@ enum CanvasPlacement {
         engine.layout(document)
     }
 
-    static func contentBounds(in document: MindMapDocument) -> CGRect? {
+    static func contentBounds(in document: MindMapDocument, includingStickies: Bool = true) -> CGRect? {
         let placed = nodes(in: document)
-        guard var bounds = placed.first?.frame else { return nil }
+        var bounds = placed.first?.frame
         for node in placed.dropFirst() {
-            bounds = bounds.union(node.frame)
+            bounds = bounds?.union(node.frame) ?? node.frame
+        }
+        if includingStickies {
+            for sticky in document.stickies {
+                let rect = stickyCanvasRect(sticky)
+                bounds = bounds?.union(rect) ?? rect
+            }
         }
         return bounds
+    }
+
+    static func stickyCanvasRect(_ sticky: StickyNote) -> CGRect {
+        CGRect(
+            x: sticky.origin.x,
+            y: sticky.origin.y,
+            width: sticky.width,
+            height: sticky.height
+        )
     }
 
     static func nodeID(at canvasPoint: CGPoint, in document: MindMapDocument) -> UUID? {

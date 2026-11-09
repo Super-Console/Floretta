@@ -56,6 +56,31 @@ final class MapExportTests: XCTestCase {
         XCTAssertEqual(box, result.mediaBox)
     }
 
+    func testStickiesAreOptionalInPNGAndPDF() throws {
+        let stickyID = UUID(uuidString: "ABABABAB-ABAB-ABAB-ABAB-ABABABABABAB")!
+        var document = MindMapDocument(title: "卡", roots: [MindMapNode(text: "根")])
+        document.addSticky(text: "便签", color: .yellow, at: MindMapPoint(x: 900, y: 700), id: stickyID)
+        let included = MapExportOptions(scale: .one, background: .white, includeStickies: true)
+        let excluded = MapExportOptions(scale: .one, background: .white, includeStickies: false)
+        let withSticky = MapExporter.png(document: document, options: included)
+        let nodesOnly = MapExporter.png(document: document, options: excluded)
+        XCTAssertNil(withSticky.notice)
+        XCTAssertGreaterThan(withSticky.pointSize.width, nodesOnly.pointSize.width + 40)
+        XCTAssertGreaterThan(withSticky.pointSize.height, nodesOnly.pointSize.height + 40)
+        XCTAssertFalse(withSticky.visibleNodeIDs.contains(stickyID))
+        XCTAssertFalse(nodesOnly.visibleNodeIDs.contains(stickyID))
+        XCTAssertEqual(nodesOnly.pointSize.width, MapExporter.png(
+            document: MindMapDocument(title: "卡", roots: [MindMapNode(text: "根")]),
+            options: included
+        ).pointSize.width, accuracy: 1)
+
+        let pdf = MapExporter.pdf(document: document, options: included)
+        let pdfBare = MapExporter.pdf(document: document, options: excluded)
+        XCTAssertGreaterThan(pdf.pointSize.width, pdfBare.pointSize.width + 40)
+        XCTAssertFalse(pdf.visibleNodeIDs.contains(stickyID))
+        XCTAssertNotNil(pdf.pdf)
+    }
+
     func testCollapsedChildrenAreOmitted() {
         let hidden = UUID()
         let child = UUID()

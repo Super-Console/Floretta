@@ -59,6 +59,10 @@ struct NodeTextEditor: View {
     @Binding var minimumWidth: CGFloat
     var fontSize: CGFloat
     var onEvent: (KeyEvent) -> Bool
+    /// Stickies take Return as another line. Nodes still commit on Return.
+    var returnInsertsLine: Bool = false
+    var paper: Color? = nil
+    var ink: Color? = nil
 
     var body: some View {
         #if os(macOS)
@@ -67,7 +71,10 @@ struct NodeTextEditor: View {
             isComposing: $isComposing,
             minimumWidth: $minimumWidth,
             fontSize: fontSize,
-            onEvent: onEvent
+            onEvent: onEvent,
+            returnInsertsLine: returnInsertsLine,
+            paper: paper,
+            ink: ink
         )
         #else
         IOSNodeTextEditor(
@@ -75,7 +82,10 @@ struct NodeTextEditor: View {
             isComposing: $isComposing,
             minimumWidth: $minimumWidth,
             fontSize: fontSize,
-            onEvent: onEvent
+            onEvent: onEvent,
+            returnInsertsLine: returnInsertsLine,
+            paper: paper,
+            ink: ink
         )
         #endif
     }
@@ -88,6 +98,9 @@ private struct MacNodeTextEditor: NSViewRepresentable {
     @Binding var minimumWidth: CGFloat
     var fontSize: CGFloat
     var onEvent: (KeyEvent) -> Bool
+    var returnInsertsLine: Bool
+    var paper: Color?
+    var ink: Color?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -95,7 +108,10 @@ private struct MacNodeTextEditor: NSViewRepresentable {
             isComposing: $isComposing,
             minimumWidth: $minimumWidth,
             fontSize: fontSize,
-            onEvent: onEvent
+            onEvent: onEvent,
+            returnInsertsLine: returnInsertsLine,
+            paper: paper,
+            ink: ink
         )
     }
 
@@ -108,9 +124,13 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         view.isEditable = true
         view.isSelectable = true
         view.drawsBackground = true
-        view.backgroundColor = .textBackgroundColor
-        view.textColor = .labelColor
+        view.backgroundColor = paper.map { NSColor($0) } ?? .textBackgroundColor
+        view.textColor = ink.map { NSColor($0) } ?? .labelColor
+        view.insertionPointColor = view.textColor
         view.font = .systemFont(ofSize: max(fontSize, 1))
+        if paper != nil {
+            view.textContainerInset = NSSize(width: 8, height: 6)
+        }
         view.isAutomaticQuoteSubstitutionEnabled = false
         view.isAutomaticDashSubstitutionEnabled = false
         view.isAutomaticTextReplacementEnabled = false
@@ -130,6 +150,17 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         context.coordinator.minimumWidth = $minimumWidth
         context.coordinator.fontSize = fontSize
         context.coordinator.onEvent = onEvent
+        context.coordinator.returnInsertsLine = returnInsertsLine
+        context.coordinator.paper = paper
+        context.coordinator.ink = ink
+        if let paper {
+            nsView.drawsBackground = true
+            nsView.backgroundColor = NSColor(paper)
+        }
+        if let ink {
+            nsView.textColor = NSColor(ink)
+            nsView.insertionPointColor = NSColor(ink)
+        }
         nsView.onMarkedTextChange = { [weak nsView] in
             guard let nsView else { return }
             context.coordinator.compositionChanged(nsView)
@@ -162,6 +193,9 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         var minimumWidth: Binding<CGFloat>
         var fontSize: CGFloat
         var onEvent: (KeyEvent) -> Bool
+        var returnInsertsLine: Bool
+        var paper: Color?
+        var ink: Color?
         var didFocus = false
 
         init(
@@ -169,13 +203,19 @@ private struct MacNodeTextEditor: NSViewRepresentable {
             isComposing: Binding<Bool>,
             minimumWidth: Binding<CGFloat>,
             fontSize: CGFloat,
-            onEvent: @escaping (KeyEvent) -> Bool
+            onEvent: @escaping (KeyEvent) -> Bool,
+            returnInsertsLine: Bool,
+            paper: Color?,
+            ink: Color?
         ) {
             self.text = text
             self.isComposing = isComposing
             self.minimumWidth = minimumWidth
             self.fontSize = fontSize
             self.onEvent = onEvent
+            self.returnInsertsLine = returnInsertsLine
+            self.paper = paper
+            self.ink = ink
         }
 
         func compositionChanged(_ view: NSTextView) {
@@ -203,6 +243,14 @@ private struct MacNodeTextEditor: NSViewRepresentable {
             isComposing.wrappedValue = composing
             guard let event = KeyEvent(macCommand: commandSelector, mode: .edit, isComposing: composing) else {
                 return false
+            }
+            if returnInsertsLine, event.key == .enter, !event.modifiers.contains(.command) {
+                return false
+            }
+            if returnInsertsLine, event.key == .enter, event.modifiers.contains(.command) {
+                var commit = event
+                commit.modifiers = []
+                return onEvent(commit)
             }
             if onEvent(event) {
                 return true
@@ -274,6 +322,9 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
     @Binding var minimumWidth: CGFloat
     var fontSize: CGFloat
     var onEvent: (KeyEvent) -> Bool
+    var returnInsertsLine: Bool
+    var paper: Color?
+    var ink: Color?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -281,7 +332,8 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
             isComposing: $isComposing,
             minimumWidth: $minimumWidth,
             fontSize: fontSize,
-            onEvent: onEvent
+            onEvent: onEvent,
+            returnInsertsLine: returnInsertsLine
         )
     }
 
@@ -289,16 +341,21 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
         let view = FlorettaTextView()
         view.delegate = context.coordinator
         view.font = .systemFont(ofSize: max(fontSize, 1))
-        view.backgroundColor = .systemBackground
-        view.textColor = .label
-        view.isScrollEnabled = false
+        view.backgroundColor = paper.map { UIColor($0) } ?? .systemBackground
+        view.textColor = ink.map { UIColor($0) } ?? .label
+        view.tintColor = view.textColor
+        view.isScrollEnabled = returnInsertsLine
         view.autocorrectionType = .no
         view.spellCheckingType = .no
         view.smartQuotesType = .no
         view.smartDashesType = .no
         view.smartInsertDeleteType = .no
         view.text = text
+        view.returnInsertsLine = returnInsertsLine
         view.onEvent = onEvent
+        if paper != nil {
+            view.textContainerInset = UIEdgeInsets(top: 6, left: 8, bottom: 6, right: 8)
+        }
         view.onMarkedTextChange = { [weak view] in
             guard let view else { return }
             context.coordinator.compositionChanged(view)
@@ -312,7 +369,16 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
         context.coordinator.minimumWidth = $minimumWidth
         context.coordinator.fontSize = fontSize
         context.coordinator.onEvent = onEvent
+        context.coordinator.returnInsertsLine = returnInsertsLine
+        uiView.returnInsertsLine = returnInsertsLine
         uiView.onEvent = onEvent
+        if let paper {
+            uiView.backgroundColor = UIColor(paper)
+        }
+        if let ink {
+            uiView.textColor = UIColor(ink)
+            uiView.tintColor = UIColor(ink)
+        }
         uiView.onMarkedTextChange = { [weak uiView] in
             guard let uiView else { return }
             context.coordinator.compositionChanged(uiView)
@@ -344,6 +410,7 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
         var minimumWidth: Binding<CGFloat>
         var fontSize: CGFloat
         var onEvent: (KeyEvent) -> Bool
+        var returnInsertsLine: Bool
         var didFocus = false
 
         init(
@@ -351,13 +418,15 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
             isComposing: Binding<Bool>,
             minimumWidth: Binding<CGFloat>,
             fontSize: CGFloat,
-            onEvent: @escaping (KeyEvent) -> Bool
+            onEvent: @escaping (KeyEvent) -> Bool,
+            returnInsertsLine: Bool
         ) {
             self.text = text
             self.isComposing = isComposing
             self.minimumWidth = minimumWidth
             self.fontSize = fontSize
             self.onEvent = onEvent
+            self.returnInsertsLine = returnInsertsLine
         }
 
         func compositionChanged(_ view: UITextView) {
@@ -385,6 +454,7 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
             let composing = textView.markedTextRange != nil
             isComposing.wrappedValue = composing
             guard string == "\n" else { return true }
+            if returnInsertsLine { return true }
             let event = KeyEvent(key: .enter, modifiers: [], mode: .edit, isComposing: composing)
             return !onEvent(event)
         }
@@ -394,6 +464,7 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
 private final class FlorettaTextView: UITextView {
     var onEvent: ((KeyEvent) -> Bool)?
     var onMarkedTextChange: (() -> Void)?
+    var returnInsertsLine = false
 
     override func setMarkedText(_ markedText: String?, selectedRange: NSRange) {
         super.setMarkedText(markedText, selectedRange: selectedRange)
@@ -408,6 +479,15 @@ private final class FlorettaTextView: UITextView {
     override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
         let composing = markedTextRange != nil
         if let key = presses.first?.key, let mapped = KeyEvent(uiKey: key, isComposing: composing) {
+            if returnInsertsLine, mapped.key == .enter, !mapped.modifiers.contains(.command) {
+                super.pressesBegan(presses, with: event)
+                return
+            }
+            if returnInsertsLine, mapped.key == .enter, mapped.modifiers.contains(.command) {
+                var commit = mapped
+                commit.modifiers = []
+                if onEvent?(commit) == true { return }
+            }
             if onEvent?(mapped) == true || mapped.key == .tab {
                 return
             }

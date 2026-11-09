@@ -357,6 +357,14 @@ final class EditorSession {
         _ = keyboard.addFreeNode(at: point, document: &document)
     }
 
+    func addStickyFromToolbar() {
+        finishEditingIfNeeded()
+        guard keyboard.mode == .command, !keyboard.isComposing else { return }
+        let index = document.stickies.count
+        let point = MindMapPoint(x: -260 - Double(index) * 20, y: 72 + Double(index) * 24)
+        _ = keyboard.addSticky(at: point, document: &document)
+    }
+
     func linkSelectedFreeNode(to targetID: UUID) {
         finishEditingIfNeeded()
         guard keyboard.mode == .command, !keyboard.isComposing else { return }

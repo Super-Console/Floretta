@@ -50,6 +50,7 @@
 | 可持久化 | 全模型（产品开放范围内） | text / note / link / 结构 + front-matter |
 | 颜色等 | 可写（若开放） | 拒绝 |
 | 自由节点 | `freeNodes`，UUID，不在 `roots` 路径上 | 不写。不是 `root/<i>` |
+| 便签 | `stickies`，UUID，不是主题 | 不写。不是 `root/<i>`，也不进节点计数 |
 
 ## 6. 与规格的关系
 

@@ -372,9 +372,14 @@ final class LibraryModel {
     }
 }
 
+enum TemplateTap: Equatable, Sendable {
+    case createMindMap
+    case laterLayout
+    case comingSoon
+}
+
 struct TemplateSection: Identifiable, Equatable, Sendable {
     var title: String
-    var ai: Bool
     var cards: [TemplateCard]
     var id: String { title }
 }
@@ -382,52 +387,39 @@ struct TemplateSection: Identifiable, Equatable, Sendable {
 struct TemplateCard: Identifiable, Equatable, Sendable {
     var name: String
     var symbol: String
-    var createsDocument: Bool
+    var tap: TemplateTap
     var id: String { name }
+
+    var createsDocument: Bool { tap == .createMindMap }
 }
 
 enum TemplateCatalog {
+    static let laterLayoutNotice = "该布局将在后续版本提供"
+    static let comingSoonNotice = "即将推出"
+    static let seeAllNotice = "敬请期待"
+
     static let sections: [TemplateSection] = [
-        TemplateSection(title: "Xmind AI", ai: true, cards: [
-            TemplateCard(name: "一键生成", symbol: "wand.and.stars", createsDocument: false),
-            TemplateCard(name: "待办事项", symbol: "checklist", createsDocument: false),
-            TemplateCard(name: "工作分解", symbol: "list.bullet.indent", createsDocument: false),
-            TemplateCard(name: "图片转思维导图", symbol: "photo", createsDocument: false),
-            TemplateCard(name: "演说视频", symbol: "play.rectangle", createsDocument: false),
+        TemplateSection(title: "基本", cards: [
+            TemplateCard(name: "思维导图", symbol: "map", tap: .createMindMap),
+            TemplateCard(name: "逻辑图", symbol: "arrow.triangle.branch", tap: .laterLayout),
+            TemplateCard(name: "括号图", symbol: "curlybraces", tap: .laterLayout),
+            TemplateCard(name: "组织结构图", symbol: "rectangle.3.group", tap: .laterLayout),
+            TemplateCard(name: "树形图", symbol: "tree", tap: .laterLayout),
+            TemplateCard(name: "时间轴", symbol: "calendar", tap: .laterLayout),
         ]),
-        TemplateSection(title: "基本", ai: false, cards: [
-            TemplateCard(name: "思维导图", symbol: "map", createsDocument: true),
-            TemplateCard(name: "逻辑图", symbol: "arrow.triangle.branch", createsDocument: false),
-            TemplateCard(name: "括号图", symbol: "curlybraces", createsDocument: false),
-            TemplateCard(name: "组织结构图", symbol: "rectangle.3.group", createsDocument: false),
-            TemplateCard(name: "树形图", symbol: "tree", createsDocument: false),
-            TemplateCard(name: "时间轴", symbol: "calendar", createsDocument: false),
-        ]),
-        TemplateSection(title: "知识管理", ai: false, cards: names([
+        TemplateSection(title: "知识管理", cards: names([
             "解决问题的步骤", "GRAP 框架基础", "航天器", "建筑图示", "品牌探索", "气候变化",
         ])),
-        TemplateSection(title: "会议和计划", ai: false, cards: names([
+        TemplateSection(title: "会议和计划", cards: names([
             "商业计划", "协调即将发布的1.0版本", "工作坊", "论文计划", "活动公司夏季野餐会", "求职",
         ])),
-        TemplateSection(title: "学习和教育", ai: false, cards: names([
+        TemplateSection(title: "学习和教育", cards: names([
             "学校课程表", "如何高效做笔记", "英语口语能力", "AR 应用程序", "气候变化解决方案", "博士学位论文",
-        ])),
-        TemplateSection(title: "项目管理", ai: false, cards: names([
-            "策划大型技术会议", "BCG散点图", "组织架构", "9宫格", "资产管理", "公司",
-        ])),
-        TemplateSection(title: "娱乐和生活", ai: false, cards: names([
-            "每周时间表", "购物清单", "心情追踪", "最佳音乐流媒体服务", "游戏", "健康减肥",
-        ])),
-        TemplateSection(title: "分析和决策", ai: false, cards: names([
-            "因果关系分析", "VS", "社交媒体营销", "BCG 矩阵验证", "品牌设计", "项目简报",
-        ])),
-        TemplateSection(title: "创造力", ai: false, cards: names([
-            "早起的六大科学好处", "制作冰淇淋", "电影制作", "牛肉部位综合指南", "建筑示意图", "蝴蝶标本",
         ])),
     ]
 
     private static func names(_ values: [String]) -> [TemplateCard] {
-        values.map { TemplateCard(name: $0, symbol: "doc", createsDocument: false) }
+        values.map { TemplateCard(name: $0, symbol: "doc", tap: .comingSoon) }
     }
 }
 
@@ -437,14 +429,17 @@ enum HomePage: String, Hashable, Sendable {
     case browse
 }
 
-/// Items that are allowed to appear. Anything not in these lists is omitted.
+/// Menu rows that are allowed to appear. Disabled rows are listed separately.
 enum CanvasMenus {
-    static let more = ["ZEN", "查找", "新建画布"]
-    static let file = ["重新命名", "导出", "保存至"]
-    static let export = ["floretta", "png", "pdf", "md", "opml", "mm"]
+    static let more = ["查看模式", "新建画布", "演说", "ZEN", "查找", "反馈"]
+    static let moreDisabled = ["演说", "反馈"]
+    static let file = ["重新命名", "设置密码", "风格化分享", "导出", "保存至", "打印"]
+    static let fileDisabled = ["设置密码", "风格化分享"]
+    static let export = ["floretta", "mm", "opml", "md", "png", "pdf"]
     static let share = ["导出", "保存至"]
-    static let text = ["剪切", "拷贝", "粘贴", "选择"]
-    static let omitted = ["设置密码", "风格化分享", "查看模式", "立即升级", "投屏至图库", "演说", "方程帮助", "反馈"]
+    static let text = ["剪切", "拷贝", "粘贴", "全选", "拷贝样式", "生成想法", "AI 工作分解"]
+    static let textDisabled = ["生成想法", "AI 工作分解"]
+    static let omitted = ["立即升级", "投屏至图库", "方程帮助", "Word", "Excel", "Calendar"]
 }
 
 enum CanvasEditCommands {

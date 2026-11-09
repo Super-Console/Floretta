@@ -309,17 +309,28 @@ final class ShellTests: XCTestCase {
     }
 
     func testMenusAndTemplatesOmitDeadActions() {
-        XCTAssertEqual(CanvasMenus.more, ["ZEN", "查找", "新建画布"])
-        XCTAssertEqual(CanvasMenus.file, ["重新命名", "导出", "保存至"])
-        XCTAssertEqual(CanvasMenus.export, ["floretta", "png", "pdf", "md", "opml", "mm"])
+        XCTAssertEqual(CanvasMenus.more, ["查看模式", "新建画布", "演说", "ZEN", "查找", "反馈"])
+        XCTAssertEqual(CanvasMenus.moreDisabled, ["演说", "反馈"])
+        XCTAssertEqual(CanvasMenus.file, ["重新命名", "设置密码", "风格化分享", "导出", "保存至", "打印"])
+        XCTAssertEqual(CanvasMenus.fileDisabled, ["设置密码", "风格化分享"])
+        XCTAssertEqual(CanvasMenus.export, ["floretta", "mm", "opml", "md", "png", "pdf"])
         XCTAssertEqual(CanvasMenus.share, ["导出", "保存至"])
-        XCTAssertEqual(CanvasMenus.text, ["剪切", "拷贝", "粘贴", "选择"])
-        let visible = CanvasMenus.more + CanvasMenus.file + CanvasMenus.share + CanvasMenus.text
+        XCTAssertEqual(CanvasMenus.text, ["剪切", "拷贝", "粘贴", "全选", "拷贝样式", "生成想法", "AI 工作分解"])
+        XCTAssertEqual(CanvasMenus.textDisabled, ["生成想法", "AI 工作分解"])
+        let visible = CanvasMenus.more + CanvasMenus.file + CanvasMenus.share + CanvasMenus.text + CanvasMenus.export
         for name in CanvasMenus.omitted {
             XCTAssertFalse(visible.contains(name))
         }
+        XCTAssertEqual(
+            TemplateCatalog.sections.map(\.title),
+            ["基本", "知识管理", "会议和计划", "学习和教育"]
+        )
         let creators = TemplateCatalog.sections.flatMap(\.cards).filter(\.createsDocument)
         XCTAssertEqual(creators.map(\.name), ["思维导图"])
+        let basic = TemplateCatalog.sections[0].cards.filter { $0.tap == .laterLayout }
+        XCTAssertEqual(basic.map(\.name), ["逻辑图", "括号图", "组织结构图", "树形图", "时间轴"])
+        XCTAssertEqual(TemplateCatalog.laterLayoutNotice, "该布局将在后续版本提供")
+        XCTAssertEqual(TemplateCatalog.seeAllNotice, "敬请期待")
     }
 
     func testLocalBrowseListsOnlySupportedFilesInThatDirectory() throws {

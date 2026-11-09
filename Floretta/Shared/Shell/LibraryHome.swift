@@ -9,8 +9,6 @@ struct RecentPage: View {
     @Binding var searchText: String
     var showSettings: () -> Void
 
-    @State private var showCrown = false
-
     var body: some View {
         recentBody
             .navigationTitle("最近")
@@ -41,12 +39,6 @@ struct RecentPage: View {
                     }
                     .accessibilityLabel("新建")
                     Button {
-                        showCrown = true
-                    } label: {
-                        Image(systemName: "crown")
-                    }
-                    .accessibilityLabel("订阅")
-                    Button {
                         page = .newMap
                     } label: {
                         Image(systemName: "square.grid.2x2")
@@ -60,11 +52,6 @@ struct RecentPage: View {
                     .accessibilityLabel("更多")
                 }
             }
-            .alert("未开放", isPresented: $showCrown) {
-                Button("好", role: .cancel) {}
-            } message: {
-                Text("订阅尚未开放。")
-            }
     }
 
     @ViewBuilder
@@ -72,9 +59,9 @@ struct RecentPage: View {
         let items = filtered
         if library.recents.isEmpty {
             ContentUnavailableView {
-                Label("这里还没有导图。", systemImage: "pencil.and.list.clipboard")
+                Label("这里还没有导图。", systemImage: "pencil.and.ruler")
             } description: {
-                Text("现在是创建一个的好时机。")
+                Text("现在是创建一个好的时机。")
             } actions: {
                 Button("新建导图") { page = .newMap }
                     .buttonStyle(.borderedProminent)
@@ -83,15 +70,31 @@ struct RecentPage: View {
         } else if items.isEmpty {
             ContentUnavailableView.search(text: searchText)
         } else {
-            List(items) { entry in
-                Button {
-                    library.openRecent(entry)
-                } label: {
-                    LabeledContent(entry.filename) {
-                        Text(entry.modifiedAt, format: .dateTime.year().month().day().hour().minute())
+            ScrollView {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 16)], spacing: 16) {
+                    ForEach(items) { entry in
+                        Button {
+                            library.openRecent(entry)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 8) {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(.quaternary)
+                                    .frame(height: 110)
+                                    .overlay {
+                                        Image(systemName: "map")
+                                            .foregroundStyle(.secondary)
+                                    }
+                                Text(entry.filename)
+                                    .lineLimit(1)
+                                Text(entry.modifiedAt, format: .dateTime.year().month().day().hour().minute())
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
-                .buttonStyle(.plain)
+                .padding()
             }
         }
     }
@@ -136,6 +139,7 @@ struct HomeSidebar: View {
                 }
             }
         }
+        .listStyle(.sidebar)
         .safeAreaInset(edge: .bottom) {
             Button {} label: {
                 Label("登录", systemImage: "person.crop.circle")
@@ -150,11 +154,7 @@ struct HomeSidebar: View {
 struct NewMapPage: View {
     var onClose: () -> Void
     var onCreateMindMap: () -> Void
-    @Binding var saveLocationTitle: String
-    var chooseDocuments: () -> Void
-    var chooseICloud: () -> Void
 
-    @State private var focusedSection: String?
     @State private var closedNotice: String?
 
     private let sections = TemplateCatalog.sections
@@ -162,7 +162,7 @@ struct NewMapPage: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                ForEach(visibleSections, id: \.title) { section in
+                ForEach(sections) { section in
                     sectionView(section)
                 }
             }
@@ -180,24 +180,15 @@ struct NewMapPage: View {
                 .accessibilityLabel("关闭")
             }
             ToolbarItem(placement: .primaryAction) {
-                Menu {
-                    Button("我的iPad", action: chooseDocuments)
-                    Button("iCloud云盘", action: chooseICloud)
-                } label: {
-                    Label(saveLocationTitle, systemImage: "chevron.down")
-                }
+                Label("我的 iPad", systemImage: "ipad")
+                    .foregroundStyle(.secondary)
             }
         }
-        .alert("未开放", isPresented: noticePresented) {
+        .alert("提示", isPresented: noticePresented) {
             Button("好", role: .cancel) {}
         } message: {
             Text(closedNotice ?? "")
         }
-    }
-
-    private var visibleSections: [TemplateSection] {
-        guard let focusedSection else { return sections }
-        return sections.filter { $0.title == focusedSection }
     }
 
     private var noticePresented: Binding<Bool> {
@@ -212,26 +203,27 @@ struct NewMapPage: View {
             HStack {
                 Text(section.title).font(.title3)
                 Spacer()
-                Button(focusedSection == section.title ? "全部" : "全部") {
-                    focusedSection = focusedSection == section.title ? nil : section.title
-                }
+                Button("全部") { closedNotice = TemplateCatalog.seeAllNotice }
             }
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: 16) {
                     ForEach(section.cards) { card in
-                        cardButton(card, ai: section.ai)
+                        cardButton(card)
                     }
                 }
             }
         }
     }
 
-    private func cardButton(_ card: TemplateCard, ai: Bool) -> some View {
+    private func cardButton(_ card: TemplateCard) -> some View {
         Button {
-            if card.createsDocument {
+            switch card.tap {
+            case .createMindMap:
                 onCreateMindMap()
-            } else if ai {
-                closedNotice = "未开放"
+            case .laterLayout:
+                closedNotice = TemplateCatalog.laterLayoutNotice
+            case .comingSoon:
+                closedNotice = TemplateCatalog.comingSoonNotice
             }
         } label: {
             VStack(alignment: .leading, spacing: 8) {
@@ -243,20 +235,12 @@ struct NewMapPage: View {
                             .font(.title)
                             .foregroundStyle(.secondary)
                     }
-                    .overlay(alignment: .bottomTrailing) {
-                        if !card.createsDocument && !ai {
-                            Text("即将推出")
-                                .font(.caption2)
-                                .padding(6)
-                        }
-                    }
                 Text(card.name)
                     .font(.callout)
                     .frame(width: 180, alignment: .leading)
             }
         }
         .buttonStyle(.plain)
-        .disabled(!card.createsDocument && !ai)
     }
 }
 

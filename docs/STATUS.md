@@ -201,4 +201,4 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 | 2026-11-10 | 1.1 基础链路 | Censor通过 + Pro 115/0 | 合并 `99b5156` / PR #31。 |
 | 2026-11-10 | 1.2 附件数据模型 | Censor通过 + Pro 127/0 | 合并 `8f64c32` / PR #30。流式读写、引用计数、孤儿回收；缩略图 spill→ImageIO→视口。 |
 | 2026-11-10 | 1.3 图片插入 | 已合并 | PR #34 → main `c80d138`（tip `57af77a`）。Censor 通过；Pro macOS 138/0、iOS EXIT=0。文件选择 / 拖放 / 粘贴；等比不裁切；异步解码走 1.2 spill + 磁盘 LRU；PDF/PNG 按页面分辨率导出。打开 RSS 可重跑（Darwin phys_footprint / Linux VmRSS + `scripts/measure-open-rss.sh`）。未开 1.4。 |
-| 2026-11-10 | 1.4 任意文件附件 | 待 Censor | PSD/PDF/DMG/任意类型。UTType 识别，没有系统图标时用通用文件图标。节点上是类型图标 + 文件名 + 大小角标。点击走 QuickLook（macOS QLPreviewPanel，iOS QLPreviewController）；预览中文件消失则提示，不崩溃。零压缩零转码，沿用 1.2 流式写入和 sha256 去重。插入前确认单文件大小和放入后的文档大小。图片路径保持 1.3。未开 1.5。 |
+| 2026-11-10 | 1.4 任意文件附件 | 待 Censor | PR #35。PSD/PDF/DMG/任意类型。UTType 识别，没有系统图标时用通用文件图标。节点上是类型图标 + 文件名 + 大小角标。点击走 QuickLook（macOS QLPreviewPanel，iOS QLPreviewController）；预览中文件消失则提示，不崩溃。零压缩零转码，沿用 1.2 流式写入和 sha256 去重。插入前确认单文件大小和放入后的文档大小。图片路径保持 1.3。未开 1.5。 |

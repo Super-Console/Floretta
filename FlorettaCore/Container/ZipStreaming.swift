@@ -283,13 +283,82 @@ public enum FlorettaStreamingDocument {
         }
     }
 
+    /// Checks each `assets/` entry in chunks. A mismatch names that attachment.
+    /// Catalog `open` does not call this, so a 10GB package can still be indexed without reading the payload.
+    public static func verifyInventory(_ reader: RandomAccessReader, opened: OpenedFloretta) throws {
+        var failures: [AssetCorruption] = []
+        let stored = Set(opened.directory.attachments.compactMap(\.sha256))
+        try withChunk { chunk in
+            for entry in opened.directory.attachments {
+                let parsed = AttachmentNames.parseAsset(entry.name)
+                let sha = parsed?.sha256 ?? ""
+                let filename = sha.isEmpty
+                    ? entry.name
+                    : AssetInventory.filenames(for: sha, in: opened.document)
+                if entry.method != 0 {
+                    failures.append(AssetCorruption(
+                        filename: filename,
+                        sha256: sha,
+                        entryName: entry.name,
+                        reason: .compressed
+                    ))
+                    continue
+                }
+                guard let parsed else {
+                    failures.append(AssetCorruption(
+                        filename: filename,
+                        sha256: sha,
+                        entryName: entry.name,
+                        reason: .malformedName
+                    ))
+                    continue
+                }
+                var digest = SHA256Streaming()
+                var crc = CRC32Streaming()
+                do {
+                    try streamCopy(
+                        from: reader,
+                        offset: entry.dataOffset,
+                        count: entry.byteCount,
+                        chunk: chunk,
+                        to: nil,
+                        sha: &digest,
+                        crc: &crc
+                    )
+                } catch {
+                    failures.append(AssetCorruption(
+                        filename: filename,
+                        sha256: parsed.sha256,
+                        entryName: entry.name,
+                        reason: .unreadable
+                    ))
+                    continue
+                }
+                let actual = AssetInventory.hex(digest.finalize())
+                if actual != parsed.sha256 {
+                    failures.append(AssetCorruption(
+                        filename: filename,
+                        sha256: parsed.sha256,
+                        entryName: entry.name,
+                        reason: .hashMismatch(actual: actual)
+                    ))
+                }
+            }
+        }
+        failures.append(contentsOf: AssetInventory.missingReferences(in: opened.document, stored: stored))
+        if let error = AssetInventory.error(from: failures) {
+            throw error
+        }
+    }
+
     /// Rewrites `archive` (central directory only, then chunked payload copies) plus an optional new asset.
-    /// A sha256 that is already stored is not written again.
+    /// A sha256 that is already stored is not written again. `retaining` keeps bytes a snapshot still names.
     public static func rewrite(
         archive: RandomAccessReader?,
         document: MindMapDocument,
         metadata: FlorettaMetadata,
         source: (reader: RandomAccessReader, hashed: HashedAttachment)?,
+        retaining assetHashes: Set<String> = [],
         to writer: SequentialByteWriter
     ) throws -> ZipDirectory {
         try withChunk { chunk in
@@ -306,7 +375,7 @@ public enum FlorettaStreamingDocument {
             for entry in existing.entries {
                 if entry.name == "document.json" || entry.name == "metadata.json" { continue }
                 if let asset = AttachmentNames.parseAsset(entry.name) {
-                    if !referenced.contains(asset.sha256) { continue }
+                    if !referenced.contains(asset.sha256) && !assetHashes.contains(asset.sha256) { continue }
                 } else if entry.name.hasPrefix("assets/") {
                     throw DocumentContainerError.corrupt("Asset name \(entry.name) is not assets/<sha256>.<ext>.")
                 }
@@ -393,13 +462,32 @@ public enum FlorettaStreamingDocument {
         to url: URL,
         files: any StreamingFilePort,
         copyingAssetsFrom origin: URL? = nil,
-        appending source: (url: URL, hashed: HashedAttachment)? = nil
+        appending source: (url: URL, hashed: HashedAttachment)? = nil,
+        snapshots: SnapshotRetention = .standard
     ) throws -> ZipDirectory {
         if files.fileExists(at: url), try !files.isZip(at: url) {
             throw DocumentContainerError.refusesToOverwriteLegacy
         }
         let archiveURL = origin ?? url
+        var staged = StagedSnapshots(retainHashes: [], obsolete: [])
+        if snapshots.limit > 0, files.fileExists(at: url), try files.isZip(at: url) {
+            let previousReader = try files.openReader(at: url)
+            let previous: OpenedFloretta
+            do {
+                previous = try open(previousReader)
+                try previousReader.close()
+            } catch {
+                try? previousReader.close()
+                throw error
+            }
+            let previousJSON = try FlorettaCodec.encode(previous.document)
+            staged = try DocumentSnapshots.stage(previous: previousJSON, for: url, retention: snapshots)
+        }
         let temporary = try files.makeTemporary(nextTo: url)
+        guard temporary.lastPathComponent == AtomicFileBytes.partialURL(for: url).lastPathComponent else {
+            try? files.remove(at: temporary)
+            throw DocumentContainerError.corrupt("Temporary file is not the stable partial name.")
+        }
         var archive: RandomAccessReader?
         var sourceReader: RandomAccessReader?
         let writer = try files.openWriter(at: temporary)
@@ -422,14 +510,17 @@ public enum FlorettaStreamingDocument {
                 document: document,
                 metadata: FlorettaMetadata(document: document),
                 source: paired,
+                retaining: staged.retainHashes,
                 to: writer
             )
+            try writer.synchronize()
             try writer.close()
             try archive?.close()
             try sourceReader?.close()
             archive = nil
             sourceReader = nil
             try files.replace(destination: url, with: temporary)
+            DocumentSnapshots.discard(staged.obsolete)
             return directory
         } catch {
             try? writer.close()

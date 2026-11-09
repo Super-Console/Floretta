@@ -440,6 +440,12 @@ final class LibraryModel {
     var alertTitle = "无法打开"
     var openError: String?
     var tab: ShellTab = .home
+    var showInterruptedSave = false
+    var interruptedTitle: String { interruptedPayload?.promptTitle ?? "保存未完成" }
+    var interruptedMessage: String { interruptedPayload?.promptMessage ?? "" }
+    var interruptedCanRestore: Bool { interruptedPayload?.canRestorePrevious ?? false }
+    @ObservationIgnored private var interruptedPayload: InterruptedSave?
+    @ObservationIgnored private var interruptedAccess: SecurityScopedURL?
     @ObservationIgnored private var scope: SecurityScopedURL?
 
     init(
@@ -517,7 +523,17 @@ final class LibraryModel {
 
     func openFile(_ url: URL) {
         guard finishCurrentEditor() else { return }
+        interruptedAccess?.end()
+        interruptedAccess = nil
+        interruptedPayload = nil
+        showInterruptedSave = false
         let access = SecurityScopedURL(url: url)
+        if let interrupted = SaveRecovery.inspect(documentAt: url, files: ports.streaming) {
+            interruptedPayload = interrupted
+            interruptedAccess = access
+            showInterruptedSave = true
+            return
+        }
         do {
             let session = try openSession(at: url, access: access)
             try store.remember(url)
@@ -525,10 +541,47 @@ final class LibraryModel {
             scope = access
             openError = nil
             editor = session
+        } catch let inventory as AssetInventoryError {
+            access.end()
+            alertTitle = inventory.promptTitle
+            openError = inventory.promptMessage
         } catch {
             access.end()
             alertTitle = "无法打开"
             openError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    /// Drops the half-written sibling and opens the previous package when one exists.
+    func restoreInterruptedSave() {
+        guard let pending = interruptedPayload else { return }
+        let url = pending.documentURL
+        do {
+            _ = try SaveRecovery.restorePrevious(documentAt: url, files: ports.streaming)
+        } catch {
+            alertTitle = "无法恢复"
+            openError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            return
+        }
+        interruptedPayload = nil
+        interruptedAccess?.end()
+        interruptedAccess = nil
+        showInterruptedSave = false
+        openFile(url)
+    }
+
+    /// Removes the half-written sibling. Opens the file that is still there when recovery is possible.
+    func discardInterruptedPartial() {
+        guard let pending = interruptedPayload else { return }
+        let url = pending.documentURL
+        let canOpen = pending.canRestorePrevious
+        try? SaveRecovery.discardPartial(documentAt: url, files: ports.streaming)
+        interruptedPayload = nil
+        interruptedAccess?.end()
+        interruptedAccess = nil
+        showInterruptedSave = false
+        if canOpen {
+            openFile(url)
         }
     }
 
@@ -670,7 +723,14 @@ final class LibraryModel {
         let ext = url.pathExtension.lowercased()
         if ext == "floretta", try ports.streaming.isZip(at: url) {
             let reader = try ports.streaming.openReader(at: url)
-            let opened = try FlorettaStreamingDocument.open(reader)
+            let opened: OpenedFloretta
+            do {
+                opened = try FlorettaStreamingDocument.open(reader)
+                try FlorettaStreamingDocument.verifyInventory(reader, opened: opened)
+            } catch {
+                try? reader.close()
+                throw error
+            }
             let bytes = reader.count
             try reader.close()
             let session = EditorSession(

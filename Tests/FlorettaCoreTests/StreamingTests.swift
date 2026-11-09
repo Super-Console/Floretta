@@ -366,7 +366,12 @@ final class StreamingTests: XCTestCase {
         let orphans = AttachmentReferences.orphans(stored: withRight.attachments, document: document)
         XCTAssertEqual(orphans.count, 1)
         XCTAssertTrue(orphans[0].contains(rightHash.sha256))
-        let kept = try FlorettaStreamingDocument.save(document: document, to: archive, files: files)
+        let kept = try FlorettaStreamingDocument.save(
+            document: document,
+            to: archive,
+            files: files,
+            snapshots: .none
+        )
         XCTAssertEqual(kept.attachments.count, 1)
         XCTAssertEqual(kept.attachments[0].sha256, leftHash.sha256)
         let frame = try XCTUnwrap(LayoutEngine().layout(document).first { $0.caption.isEmpty == false })
@@ -699,6 +704,11 @@ private final class POSIXWriter: SequentialByteWriter {
         }
     }
 
+    func synchronize() throws {
+        guard fd >= 0 else { return }
+        if DarwinOrGlibc.fsync(fd) != 0 { throw POSIXError.errno }
+    }
+
     func close() throws {
         if fd >= 0 {
             _ = DarwinOrGlibc.close(fd)
@@ -793,6 +803,14 @@ private enum DarwinOrGlibc {
         Glibc.write(fd, buffer, count)
         #endif
     }
+
+    static func fsync(_ fd: Int32) -> Int32 {
+        #if canImport(Darwin)
+        Darwin.fsync(fd)
+        #else
+        Glibc.fsync(fd)
+        #endif
+    }
 }
 
 private final class TrackingReader: RandomAccessReader {
@@ -860,15 +878,11 @@ private final class POSIXStreamingFiles: StreamingFilePort {
     func makeTemporary(nextTo url: URL) throws -> URL {
         let directory = url.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        return directory.appendingPathComponent(".\(UUID().uuidString).partial")
+        return AtomicFileBytes.partialURL(for: url)
     }
 
     func replace(destination: URL, with temporary: URL) throws {
-        let fileManager = FileManager.default
-        if fileManager.fileExists(atPath: destination.path) {
-            try fileManager.removeItem(at: destination)
-        }
-        try fileManager.moveItem(at: temporary, to: destination)
+        try AtomicFileBytes.commit(temporary: temporary, replacing: destination)
     }
 
     func remove(at url: URL) throws {

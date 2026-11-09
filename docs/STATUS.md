@@ -204,3 +204,4 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 | 2026-11-10 | 1.4 任意文件附件 | 已合并 | PR #35 → main `59aa8a0`（tip `107c6b1`）。Censor 通过；Pro macOS 151/0、iOS EXIT=0。PSD/PDF/DMG/任意类型；UTType+通用图标；角标；QuickLook 删文件提示；流式+sha256；插入前确认。未开 1.5。 |
 | 2026-11-10 | 1.5 自由节点 | 已合并 | PR #36 → main `31a7740`（tip `e328a8a`）。Censor 通过；Pro macOS 163/0、iOS EXIT=0。独立 ID 与持久坐标，不进父子布局；拖动不回弹；关系只存不画；可搜索可计数；`.xmind` 的 detached floating topic。与附件、备注共存。未开 1.6。 |
 | 2026-11-10 | 1.6 便签 | 已合并 | PR #38 → main `dfd7af9`（tip `92b6f782`）。Censor 通过；Pro macOS 175/0、iOS EXIT=0。多行便签；≤5 色；不进节点计数、层级、`.xmind`；PNG/PDF 可选含；有限尺寸；与自由节点、附件共存；撤销重做。未开 1.7。 |
+| 2026-11-10 | 1.7 版本快照 | 待 Censor | PR #40。原子写入（临时文件 + fsync + rename）、打开时按附件点名 sha256 清单、`document.json` 快照（默认 8、硬顶 32）可回滚、半截写入提示恢复上一版。formatVersion 仍为 1。`swift test` 154/0。未合并。未开 1.0(6) / 4.1。 |

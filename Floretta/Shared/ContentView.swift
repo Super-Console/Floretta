@@ -34,6 +34,16 @@ struct ContentView: View {
             } message: {
                 Text(recovery.failureMessage)
             }
+            .alert(library.interruptedTitle, isPresented: $library.showInterruptedSave) {
+                if library.interruptedCanRestore {
+                    Button("恢复上一版") { library.restoreInterruptedSave() }
+                    Button("丢弃未完成的写入", role: .destructive) { library.discardInterruptedPartial() }
+                } else {
+                    Button("好", role: .cancel) { library.discardInterruptedPartial() }
+                }
+            } message: {
+                Text(library.interruptedMessage)
+            }
             .alert(library.alertTitle, isPresented: openErrorPresented) {
                 Button("好", role: .cancel) {}
             } message: {

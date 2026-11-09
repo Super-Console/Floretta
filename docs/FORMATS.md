@@ -44,12 +44,45 @@
 4. 每个格式一个独立 codec 文件 + 一组往返测试样本（放 `Tests/Fixtures/`）。
 5. 第三方格式的商标和格式说明属于各自厂商；只实现兼容读写，不在产品里使用其品牌做背书。
 
+## `.mm` 本批（P2-1）
+
+读写都进同一棵 `MindMapDocument`，不另建树。实现按公开的 FreeMind XML 形状（`map` / `node` / `TEXT` / `richcontent` / `LINK` / `FOLDED` / `POSITION`）自己写，没有复制 Freeplane 源码。
+
+`.mm` 只有一个根 `node`。文档有多个根时，导出用文档标题包一层；再导入会看到那个包装节点。单个根的文件不包、不拆。
+
+布局仍按子树高度分边。`side` 只是记下来的 `POSITION`，这一批不改 `LayoutEngine`。画布上的 `MindMapPoint` 坐标写不进 `.mm`。
+
+### 保留
+
+| `.mm` | 落到 |
+|---|---|
+| 节点顺序 | `children` 顺序 |
+| `TEXT` | `text`（非空时优先） |
+| `richcontent TYPE="NODE"` 的纯文本 | `TEXT` 为空时作为 `text`；两边都有且不同时，纯文本写入 `note`（已有备注则换行接上） |
+| `richcontent TYPE="NOTE"` 的纯文本 | `note` |
+| `LINK` | `link` |
+| `FOLDED="true"` | `isCollapsed` |
+| `POSITION="left"` / `"right"` | `side` |
+
+HTML 标签去掉，只留文字。`p` / `br` 变成换行。`richcontent` 必须是良构 XML。
+
+### 有意丢掉
+
+不静默：下面这些不进文档，也不在导出时发明。
+
+- `richcontent` 里的字体、颜色、加粗等标记；`TYPE="DETAILS"` 整段
+- `icon`、`font`、`edge`、`cloud`、`arrowlink`、`attribute`、`hook`、`encrypted_content`
+- 节点上的 `ID`、`CREATED`、`MODIFIED`、颜色和样式属性（导入时新生成 UUID，导出时写新的 `ID_`）
+- 自由坐标（`.mm` 没有 x/y）
+- 未知的 `POSITION` 值：导入直接报错，不猜
+
+`.opml` 和 Markdown 不在这一批。
+
 ## 验收表（执行者填，总指挥核）
 
 | 格式 | 方向 | 样本来源 | 保留项 | 丢失项 | 结论 | 日期 |
 |---|---|---|---|---|---|---|
-| `.mm` | 导入 | 待填 | | | | |
-| `.mm` | 导出 | 待填 | | | | |
+| `.mm` | 导入 + 导出 | 测试里的 XML 与 `MindMapDocument` 往返 | 层级、顺序、TEXT、richcontent 纯文本、NOTE、LINK、FOLDED、POSITION | 样式、图标、箭头、属性、钩子、DETAILS、自由坐标、原 ID | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-09 |
 | `.opml` | 导入/导出 | 待填 | | | | |
 | Markdown | 导入/导出 | 待填 | | | | |
 | `.xmind` | 导入 | 待填 | | | | |

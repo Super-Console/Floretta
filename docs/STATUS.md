@@ -18,7 +18,9 @@ P1-c 修复已由总指挥验收（58 个测试全绿，TEST SUCCEEDED）。
 
 P1-r 已由总指挥验收（60 个测试全绿，合并 `538b0d2`）。
 
-P1-d 大纲已合并（`b6d5bb8`）。两处编译修复在 PR #14：`EditMode` 与 Reorder/Done 只编进 iOS；iOS 小键盘回车用 `UIKeyboardHIDUsage.keypadEnter`，不是 `keyboardKeypadEnter`。Pro 已用本机补丁验证 macOS 与 iOS Simulator 构建均为 exit 0。这台云机器没有 Xcode，没有自行跑 `xcodebuild`。没有开始下一批。
+P1-d 已由总指挥验收（67 个 macOS 测试全绿；iOS Simulator BUILD SUCCEEDED）。
+
+P2-1 `.mm` 导入导出已落盘：同一棵 `MindMapDocument`，公开 XML 形状，没有复制 Freeplane。`.opml` 和 Markdown 没做。这台云机器没有 Xcode，没有跑 `xcodebuild`。
 
 Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be pasted back for fixes.
 
@@ -182,3 +184,5 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 | 2026-11-09 | P1-r | 总指挥验收通过 | 60 个测试全绿。SwiftFlow 0.3.1。合并 `538b0d2` |
 | 2026-11-09 | P1-d | 总指挥验收未过 | macOS 构建 exit 65：`EditMode` 在 macOS 不可用（`OutlineView.swift`） |
 | 2026-11-09 | P1-d 修复 | Pro 双端构建 exit 0 | `EditMode` 仅 iOS。`UIKeyboardHIDUsage.keypadEnter` 替换不存在的 `keyboardKeypadEnter`。云端未跑 xcodebuild |
+| 2026-11-09 | P1-d | 总指挥验收通过 | 67 个 macOS 测试全绿；iOS Simulator BUILD SUCCEEDED |
+| 2026-11-09 | P2-1 | 已提交，云端未测试 | `.mm` 导入导出。公开 XML，不复制 Freeplane。`.opml` / Markdown 未做 |

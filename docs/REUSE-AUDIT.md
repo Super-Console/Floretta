@@ -66,4 +66,4 @@
 
 **SimpleMindMap：** MIT，JS。字段映射以后做 `.xmind` 导入时再读，这批不搬代码，也不把 JS 打进 App。
 
-**Freeplane：** 根 `license.txt` 是 GPL-2.0。只确认了许可证。没有把 Java 源码拷进仓库，也没有把它的类改写成 Swift。`.mm` 以后若做，只按公开 XML 结构写。
+**Freeplane：** 根 `license.txt` 是 GPL-2.0。没有把 Java 源码拷进仓库。`.mm` 已按公开 XML 形状自研（`FlorettaMMCodec`），不链接 Freeplane。

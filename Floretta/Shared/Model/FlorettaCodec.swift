@@ -112,6 +112,12 @@ enum FlorettaCodec {
             try expect(point, key: "x", at: "\(path).position.x") { isJSONNumber($0) }
             try expect(point, key: "y", at: "\(path).position.y") { isJSONNumber($0) }
         }
+        if let link = object["link"], !(link is NSNull) {
+            try expect(object, key: "link", at: "\(path).link") { isJSONString($0) }
+        }
+        if let side = object["side"], !(side is NSNull) {
+            try expect(object, key: "side", at: "\(path).side") { isJSONString($0) }
+        }
         if let children = object["children"] {
             guard let array = children as? [Any] else {
                 throw FlorettaCodecError.wrongJSONType(at: "\(path).children")

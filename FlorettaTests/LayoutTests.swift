@@ -118,6 +118,33 @@ final class LayoutTests: XCTestCase {
         XCTAssertEqual(grandFrame.fill, light)
     }
 
+    /// Three equal siblings put two on one side, so those midpoints are not level with the parent.
+    /// A cubic that has been replaced by a straight segment keeps its controls on the chord and fails here.
+    /// t = 0.5 of this symmetric S lies on the chord; the quarter point is the one that bows.
+    func testSCurveBendsWhenParentAndChildDifferInY() throws {
+        let siblings = [
+            MindMapNode(text: "上"),
+            MindMapNode(text: "中"),
+            MindMapNode(text: "下"),
+        ]
+        let root = MindMapNode(text: "根", children: siblings)
+        let frames = LayoutEngine().layout(MindMapDocument(title: "bend", roots: [root]))
+        let rootFrame = try XCTUnwrap(frames.first { $0.id == root.id })
+        let children = siblings.compactMap { node in frames.first { $0.id == node.id } }
+        XCTAssertEqual(children.count, 3)
+        let bent = children.filter { abs($0.frame.midY - rootFrame.frame.midY) > 1 }
+        XCTAssertFalse(bent.isEmpty)
+
+        for child in bent {
+            let link = try XCTUnwrap(child.link)
+            XCTAssertGreaterThan(abs(link.end.y - link.start.y), 1)
+            XCTAssertGreaterThan(distanceFromChord(link.control1, link: link), 1)
+            XCTAssertGreaterThan(distanceFromChord(link.control2, link: link), 1)
+            let quarter = cubicPoint(link, t: 0.25)
+            XCTAssertGreaterThan(distanceFromChord(quarter, link: link), 1)
+        }
+    }
+
     func testCollapsedSubtreeIsExcluded() {
         let root = MindMapNode(text: "根", isCollapsed: true, children: [MindMapNode(text: "藏")])
         let frames = LayoutEngine().layout(MindMapDocument(title: "fold", roots: [root]))
@@ -237,6 +264,24 @@ final class LayoutTests: XCTestCase {
         let seconds = Date().timeIntervalSince(start)
         print("measure bilateral-layout nodes=\(frames.count) seconds=\(seconds)")
         XCTAssertEqual(frames.count, 1000)
+    }
+
+    private func cubicPoint(_ link: LinkCurve, t: CGFloat) -> CGPoint {
+        let u = 1 - t
+        let uu = u * u
+        let tt = t * t
+        return CGPoint(
+            x: uu * u * link.start.x + 3 * uu * t * link.control1.x + 3 * u * tt * link.control2.x + tt * t * link.end.x,
+            y: uu * u * link.start.y + 3 * uu * t * link.control1.y + 3 * u * tt * link.control2.y + tt * t * link.end.y
+        )
+    }
+
+    private func distanceFromChord(_ point: CGPoint, link: LinkCurve) -> CGFloat {
+        let dx = link.end.x - link.start.x
+        let dy = link.end.y - link.start.y
+        let length = hypot(dx, dy)
+        let cross = dx * (point.y - link.start.y) - dy * (point.x - link.start.x)
+        return abs(cross) / length
     }
 
     private func assertNoOverlap(_ frames: [NodeFrame], file: StaticString = #filePath, line: UInt = #line) {

@@ -1,8 +1,10 @@
-import CoreGraphics
 import Foundation
+#if canImport(CoreGraphics)
+import CoreGraphics
+#endif
 
 /// Interactive zoom stops. 100% is scale 1: one logical point is one render point.
-enum ZoomStop: Int, CaseIterable, Equatable, Sendable {
+public enum ZoomStop: Int, CaseIterable, Equatable, Sendable {
     case fifty = 50
     case seventyFive = 75
     case oneHundred = 100
@@ -12,16 +14,16 @@ enum ZoomStop: Int, CaseIterable, Equatable, Sendable {
     case threeHundred = 300
     case fourHundred = 400
 
-    var percent: Int { rawValue }
+    public var percent: Int { rawValue }
 
     /// Scale passed straight to the viewport. No extra coefficient.
-    var scale: CGFloat { CGFloat(percent) / 100 }
+    public var scale: CGFloat { CGFloat(percent) / 100 }
 
-    static var legalPercents: [Int] { allCases.map(\.percent) }
+    public static var legalPercents: [Int] { allCases.map(\.percent) }
 
     /// Nearest legal stop. Equal distance keeps the lower stop.
     /// Non-finite input snaps to 100%.
-    static func nearest(to scale: CGFloat) -> ZoomStop {
+    public static func nearest(to scale: CGFloat) -> ZoomStop {
         guard scale.isFinite else { return .oneHundred }
         var best = ZoomStop.allCases[0]
         var bestDistance = abs(best.scale - scale)
@@ -35,11 +37,11 @@ enum ZoomStop: Int, CaseIterable, Equatable, Sendable {
         return best
     }
 
-    static func displayPercent(forScale scale: CGFloat) -> Int {
+    public static func displayPercent(forScale scale: CGFloat) -> Int {
         nearest(to: scale).percent
     }
 
-    func stepped(_ direction: Int) -> ZoomStop {
+    public func stepped(_ direction: Int) -> ZoomStop {
         let stops = Self.allCases
         guard let index = stops.firstIndex(of: self) else { return self }
         let next = index + direction

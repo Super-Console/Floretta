@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import FlorettaCore
 import SwiftFlow
 
 /// Pan, zoom, and fit on top of SwiftFlow's `Viewport`.

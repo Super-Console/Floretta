@@ -7,7 +7,7 @@ import SwiftFlow
 /// Point hits go through SwiftFlow `getIntersectingNodes`. Later frames get a
 /// higher `zIndex`, which matches painting the later node on top.
 enum CanvasPlacement {
-    static let engine = LayoutEngine()
+    static let engine = LayoutEngine(cache: TextMeasurementCache(metrics: CoreTextFontMetrics()))
 
     static func nodes(in document: MindMapDocument) -> [NodeFrame] {
         engine.layout(document)

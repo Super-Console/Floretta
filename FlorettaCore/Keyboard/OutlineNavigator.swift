@@ -1,11 +1,10 @@
-import FlorettaCore
 import Foundation
 
 /// Visible outline order for the shared document tree.
 /// Collapsed nodes stay in the list; their descendants do not.
 /// Walking this list does not copy node subtrees.
-enum OutlineNavigator {
-    static func visibleIDs(in document: MindMapDocument) -> [UUID] {
+public enum OutlineNavigator {
+    public static func visibleIDs(in document: MindMapDocument) -> [UUID] {
         var ids: [UUID] = []
         func walk(_ nodes: [MindMapNode]) {
             for node in nodes {
@@ -19,7 +18,7 @@ enum OutlineNavigator {
         return ids
     }
 
-    static func destination(from id: UUID, move: SelectionMove, in document: MindMapDocument) -> UUID? {
+    public static func destination(from id: UUID, move: SelectionMove, in document: MindMapDocument) -> UUID? {
         guard document.node(id) != nil else { return nil }
         switch move {
         case .up, .down:
@@ -39,8 +38,8 @@ enum OutlineNavigator {
     }
 }
 
-extension MindMapDocument {
-    func parentID(of id: UUID) -> UUID? {
+public extension MindMapDocument {
+    public func parentID(of id: UUID) -> UUID? {
         func walk(_ nodes: [MindMapNode], parent: UUID?) -> UUID? {
             for node in nodes {
                 if node.id == id { return parent }
@@ -51,7 +50,7 @@ extension MindMapDocument {
         return walk(roots, parent: nil)
     }
 
-    func isDescendant(_ id: UUID, of ancestor: UUID) -> Bool {
+    public func isDescendant(_ id: UUID, of ancestor: UUID) -> Bool {
         guard let root = node(ancestor) else { return false }
         func walk(_ node: MindMapNode) -> Bool {
             for child in node.children {
@@ -62,7 +61,7 @@ extension MindMapDocument {
         return walk(root)
     }
 
-    func canReparent(_ id: UUID, to parentID: UUID?) -> Bool {
+    public func canReparent(_ id: UUID, to parentID: UUID?) -> Bool {
         guard node(id) != nil else { return false }
         guard let parentID else { return true }
         if parentID == id { return false }
@@ -71,7 +70,7 @@ extension MindMapDocument {
     }
 
     /// `onMove` within one parent. `parentID == nil` reorders roots.
-    mutating func moveChildren(of parentID: UUID?, from source: IndexSet, to destination: Int) {
+    public mutating func moveChildren(of parentID: UUID?, from source: IndexSet, to destination: Int) {
         func reorder(_ children: inout [MindMapNode]) {
             guard !source.isEmpty else { return }
             let moving = source.sorted().map { children[$0] }
@@ -93,7 +92,7 @@ extension MindMapDocument {
     }
 
     @discardableResult
-    mutating func reparent(_ id: UUID, to parentID: UUID?, at index: Int) -> Bool {
+    public mutating func reparent(_ id: UUID, to parentID: UUID?, at index: Int) -> Bool {
         guard canReparent(id, to: parentID) else { return false }
         guard let extracted = extractNode(id) else { return false }
         if let parentID {

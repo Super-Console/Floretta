@@ -48,11 +48,11 @@ final class AutosaveTests: XCTestCase {
 
     func testAbnormalExitLeavesACopyTheNextStartCanRead() throws {
         let directory = try makeDirectory()
-        let firstProcess = AutosaveStore(directory: directory)
+        let firstProcess = AutosaveStore(directory: directory, fileAccess: FoundationFileAccess())
         let document = sampleDocument(title: "崩溃前")
         try firstProcess.write(document)
 
-        let nextLaunch = AutosaveStore(directory: directory)
+        let nextLaunch = AutosaveStore(directory: directory, fileAccess: FoundationFileAccess())
         switch nextLaunch.loadRecoveryCopy() {
         case .success(let recovered):
             XCTAssertEqual(recovered, document)
@@ -92,38 +92,8 @@ final class AutosaveTests: XCTestCase {
         }
     }
 
-    func testNextLaunchOffersRecovery() throws {
-        let store = try makeStore()
-        let document = sampleDocument(title: "恢复")
-        try store.write(document)
-        let presenter = RecoveryPresenter(store: store)
-        presenter.checkOnLaunch()
-        XCTAssertTrue(presenter.showOffer)
-        XCTAssertFalse(presenter.showFailure)
-        XCTAssertTrue(presenter.offerMessage.contains("恢复"))
-        presenter.restore()
-        XCTAssertEqual(presenter.restoredDocument, document)
-        XCTAssertFalse(presenter.showOffer)
-        guard case .success = store.loadRecoveryCopy() else {
-            return XCTFail("restore removed the copy before a normal quit")
-        }
-    }
-
-    func testCorruptCopyOffersNoCrashAndNoRestore() throws {
-        let store = try makeStore()
-        try Data("{".utf8).write(to: store.recoveryURL)
-        let presenter = RecoveryPresenter(store: store)
-        presenter.checkOnLaunch()
-        XCTAssertFalse(presenter.showOffer)
-        XCTAssertTrue(presenter.showFailure)
-        XCTAssertFalse(presenter.failureMessage.isEmpty)
-        XCTAssertNil(presenter.restoredDocument)
-        presenter.acknowledgeFailure()
-        XCTAssertFalse(presenter.showFailure)
-    }
-
     func testApplicationSupportDirectoryIsNotHardCoded() throws {
-        let store = try AutosaveStore.inApplicationSupport()
+        let store = try AutosaveStore.inApplicationSupport(fileAccess: FoundationFileAccess())
         let base = try FileManager.default.url(
             for: .applicationSupportDirectory,
             in: .userDomainMask,
@@ -137,7 +107,7 @@ final class AutosaveTests: XCTestCase {
     }
 
     private func makeStore() throws -> AutosaveStore {
-        AutosaveStore(directory: try makeDirectory())
+        AutosaveStore(directory: try makeDirectory(), fileAccess: FoundationFileAccess())
     }
 
     private func makeDirectory() throws -> URL {

@@ -1,25 +1,24 @@
-import FlorettaCore
 import Foundation
 
 /// While a document has unsaved edits, `tick` runs every `interval` (5 seconds).
 /// The timer and `tick` share one write path. Normal quit deletes the copy.
-final class AutosaveSession: @unchecked Sendable {
-    static let defaultInterval: Duration = .seconds(5)
+public final class AutosaveSession: @unchecked Sendable {
+    public static let defaultInterval: Duration = .seconds(5)
 
-    let store: AutosaveStore
-    let interval: Duration
+    public let store: AutosaveStore
+    public let interval: Duration
 
     private let lock = NSLock()
     private var document: MindMapDocument?
     private var hasUnsavedEdits = false
     private var loop: Task<Void, Never>?
 
-    init(store: AutosaveStore, interval: Duration = AutosaveSession.defaultInterval) {
+    public init(store: AutosaveStore, interval: Duration = AutosaveSession.defaultInterval) {
         self.store = store
         self.interval = interval
     }
 
-    func noteEdit(_ document: MindMapDocument) {
+    public func noteEdit(_ document: MindMapDocument) {
         lock.lock()
         self.document = document
         hasUnsavedEdits = true
@@ -28,7 +27,7 @@ final class AutosaveSession: @unchecked Sendable {
     }
 
     /// One autosave pass. The 5-second loop calls this; tests can call it directly.
-    func tick() {
+    public func tick() {
         lock.lock()
         let dirty = hasUnsavedEdits
         let snapshot = document
@@ -46,7 +45,7 @@ final class AutosaveSession: @unchecked Sendable {
         lock.unlock()
     }
 
-    func quitNormally() {
+    public func quitNormally() {
         lock.lock()
         let task = loop
         loop = nil
@@ -90,18 +89,10 @@ final class AutosaveSession: @unchecked Sendable {
     }
 }
 
-enum AutosaveQuitHook: Sendable {
-    nonisolated(unsafe) static var handler: (@Sendable () -> Void)?
+public enum AutosaveQuitHook: Sendable {
+    nonisolated(unsafe) public static var handler: (@Sendable () -> Void)?
 
-    static func perform() {
+    public static func perform() {
         handler?()
-    }
-}
-
-final class AutosaveQuitBox: @unchecked Sendable {
-    weak var presenter: RecoveryPresenter?
-
-    func quit() {
-        presenter?.quitNormally()
     }
 }

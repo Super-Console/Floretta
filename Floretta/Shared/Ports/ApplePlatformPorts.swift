@@ -24,11 +24,12 @@ public struct FoundationFileAccess: FileAccessPort {
         let temp = directory.appendingPathComponent(".\(UUID().uuidString).partial")
         do {
             try data.write(to: temp)
+            // The replacement file is fully written before the previous file is removed.
+            // replaceItemAt on swift-corelibs-foundation deletes the destination and then throws.
             if fileManager.fileExists(atPath: url.path) {
-                _ = try fileManager.replaceItemAt(url, withItemAt: temp)
-            } else {
-                try fileManager.moveItem(at: temp, to: url)
+                try fileManager.removeItem(at: url)
             }
+            try fileManager.moveItem(at: temp, to: url)
         } catch {
             try? fileManager.removeItem(at: temp)
             throw error
@@ -37,6 +38,12 @@ public struct FoundationFileAccess: FileAccessPort {
 
     public func fileExists(at url: URL) -> Bool {
         FileManager.default.fileExists(atPath: url.path)
+    }
+
+    public func remove(at url: URL) throws {
+        let fileManager = FileManager.default
+        guard fileManager.fileExists(atPath: url.path) else { return }
+        try fileManager.removeItem(at: url)
     }
 }
 
@@ -50,21 +57,26 @@ public struct CoreTextFontMetrics: FontMetricsPort {
     public init() {}
 
     public func measure(text: String, fontName: String, fontSize: Double, maxWidth: Double?) -> FontMetrics {
-        let font = CTFontCreateWithName(fontName as CFString, CGFloat(fontSize), nil)
-        let attributes = [kCTFontAttributeName: font] as CFDictionary
+        let safeSize = max(CGFloat(fontSize), 1)
+        let safeWidth = max(CGFloat(maxWidth ?? .greatestFiniteMagnitude), 1)
+        let font = CTFontCreateWithName(fontName as CFString, safeSize, nil)
+        guard let mutable = CFAttributedStringCreateMutable(kCFAllocatorDefault, 0) else {
+            return FontMetrics(width: 72, height: 32, ascent: Double(safeSize))
+        }
         let sample = text.isEmpty ? " " : text
-        let attributed = CFAttributedStringCreate(kCFAllocatorDefault, sample as CFString, attributes)!
-        let line = CTLineCreateWithAttributedString(attributed)
-        var ascent: CGFloat = 0
-        var descent: CGFloat = 0
-        var leading: CGFloat = 0
-        let width = CTLineGetTypographicBounds(line, &ascent, &descent, &leading)
-        let measured = maxWidth.map { min(Double(width), $0) } ?? Double(width)
-        return FontMetrics(
-            width: measured,
-            height: Double(ascent + descent + leading),
-            ascent: Double(ascent)
+        CFAttributedStringReplaceString(mutable, CFRange(location: 0, length: 0), sample as CFString)
+        let range = CFRange(location: 0, length: CFAttributedStringGetLength(mutable))
+        CFAttributedStringSetAttribute(mutable, range, kCTFontAttributeName, font)
+        let framesetter = CTFramesetterCreateWithAttributedString(mutable)
+        var fit = CFRange()
+        let suggested = CTFramesetterSuggestFrameSizeWithConstraints(
+            framesetter,
+            range,
+            nil,
+            CGSize(width: safeWidth, height: CGFloat.greatestFiniteMagnitude),
+            &fit
         )
+        return FontMetrics(width: Double(suggested.width), height: Double(suggested.height), ascent: Double(safeSize))
     }
 }
 

@@ -1,7 +1,9 @@
-import CoreGraphics
 import Foundation
+#if canImport(CoreGraphics)
+import CoreGraphics
+#endif
 
-enum SelectionMove: String, Equatable, Sendable {
+public enum SelectionMove: String, Equatable, Sendable {
     case up
     case down
     case left
@@ -18,8 +20,8 @@ enum SelectionMove: String, Equatable, Sendable {
 /// by vertical distance, then horizontal distance. If there is no child on that side, the parent
 /// is used when the parent lies on that side. Otherwise the move crosses branches and picks the
 /// nearest other frame on that side with the same distance rule.
-enum SelectionNavigator {
-    static func destination(from id: UUID, move: SelectionMove, frames: [NodeFrame]) -> UUID? {
+public enum SelectionNavigator {
+    public static func destination(from id: UUID, move: SelectionMove, frames: [NodeFrame]) -> UUID? {
         guard let node = frames.first(where: { $0.id == id }) else { return nil }
         switch move {
         case .up:

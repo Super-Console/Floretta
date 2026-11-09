@@ -1,30 +1,31 @@
-import FlorettaCore
 import Foundation
 
-struct EditBuffer: Equatable, Sendable {
-    var nodeID: UUID
-    var original: String
-    var text: String
+public struct EditBuffer: Equatable, Sendable {
+    public var nodeID: UUID
+    public var original: String
+    public var text: String
 }
 
 /// Applies keyboard commands and keeps one undo step per create, delete, committed text edit,
 /// and collapse toggle. Typing inside an edit is not its own undo step; Escape restores the
 /// text from when editing began and does not push a stack entry.
-struct MindMapKeyboardSession {
-    static let newTopicText = "新主题"
+public struct MindMapKeyboardSession {
+    public static let newTopicText = "新主题"
 
-    var mode: KeyboardMode = .command
-    var isComposing = false
-    var selectedNodeID: UUID?
+    public init() {}
+
+    public var mode: KeyboardMode = .command
+    public var isComposing = false
+    public var selectedNodeID: UUID?
     private(set) var edit: EditBuffer?
     private var undoStack: [Snapshot] = []
     private var redoStack: [Snapshot] = []
     private var editOrigin: Snapshot?
 
-    var editingText: String { edit?.text ?? "" }
+    public var editingText: String { edit?.text ?? "" }
 
     @discardableResult
-    mutating func handle(
+    public mutating func handle(
         _ event: KeyEvent,
         document: inout MindMapDocument,
         frames: [NodeFrame],
@@ -35,7 +36,7 @@ struct MindMapKeyboardSession {
         return command
     }
 
-    mutating func apply(
+    public mutating func apply(
         _ command: MindMapCommand,
         document: inout MindMapDocument,
         frames: [NodeFrame],
@@ -67,7 +68,7 @@ struct MindMapKeyboardSession {
         }
     }
 
-    mutating func replaceEditingText(_ text: String, document: inout MindMapDocument) {
+    public mutating func replaceEditingText(_ text: String, document: inout MindMapDocument) {
         guard mode == .edit, var buffer = edit, buffer.text != text else { return }
         buffer.text = text
         edit = buffer
@@ -154,7 +155,7 @@ struct MindMapKeyboardSession {
         }
     }
 
-    mutating func reorderChildren(
+    public mutating func reorderChildren(
         of parentID: UUID?,
         from source: IndexSet,
         to destination: Int,
@@ -166,7 +167,7 @@ struct MindMapKeyboardSession {
     }
 
     @discardableResult
-    mutating func reparentNode(
+    public mutating func reparentNode(
         _ id: UUID,
         to parentID: UUID?,
         at index: Int,
@@ -182,7 +183,7 @@ struct MindMapKeyboardSession {
         return true
     }
 
-    mutating func setCollapsed(_ collapsed: Bool, nodeID: UUID, document: inout MindMapDocument) {
+    public mutating func setCollapsed(_ collapsed: Bool, nodeID: UUID, document: inout MindMapDocument) {
         guard mode == .command, let node = document.node(nodeID), node.isCollapsed != collapsed else { return }
         record(document)
         _ = document.mutateNode(nodeID) { $0.isCollapsed = collapsed }
@@ -238,8 +239,8 @@ private struct Snapshot: Equatable {
     var isComposing: Bool
 }
 
-extension MindMapDocument {
-    func node(_ id: UUID) -> MindMapNode? {
+public extension MindMapDocument {
+    public func node(_ id: UUID) -> MindMapNode? {
         func walk(_ nodes: [MindMapNode]) -> MindMapNode? {
             for node in nodes {
                 if node.id == id { return node }
@@ -251,7 +252,7 @@ extension MindMapDocument {
     }
 
     @discardableResult
-    mutating func mutateNode(_ id: UUID, _ body: (inout MindMapNode) -> Void) -> Bool {
+    public mutating func mutateNode(_ id: UUID, _ body: (inout MindMapNode) -> Void) -> Bool {
         func walk(_ nodes: inout [MindMapNode]) -> Bool {
             for index in nodes.indices {
                 if nodes[index].id == id {
@@ -266,12 +267,12 @@ extension MindMapDocument {
     }
 
     @discardableResult
-    mutating func insertChild(_ child: MindMapNode, under parentID: UUID) -> Bool {
+    public mutating func insertChild(_ child: MindMapNode, under parentID: UUID) -> Bool {
         mutateNode(parentID) { $0.children.append(child) }
     }
 
     @discardableResult
-    mutating func insertSibling(_ sibling: MindMapNode, after id: UUID) -> Bool {
+    public mutating func insertSibling(_ sibling: MindMapNode, after id: UUID) -> Bool {
         if let index = roots.firstIndex(where: { $0.id == id }) {
             roots.insert(sibling, at: index + 1)
             return true
@@ -290,7 +291,7 @@ extension MindMapDocument {
     }
 
     @discardableResult
-    mutating func removeNode(_ id: UUID) -> Bool {
+    public mutating func removeNode(_ id: UUID) -> Bool {
         if let index = roots.firstIndex(where: { $0.id == id }) {
             roots.remove(at: index)
             return true
@@ -308,7 +309,7 @@ extension MindMapDocument {
         return walk(&roots)
     }
 
-    func selectionAfterRemoving(_ id: UUID) -> UUID? {
+    public func selectionAfterRemoving(_ id: UUID) -> UUID? {
         if let index = roots.firstIndex(where: { $0.id == id }) {
             if index + 1 < roots.count { return roots[index + 1].id }
             if index > 0 { return roots[index - 1].id }

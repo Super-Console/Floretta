@@ -55,13 +55,27 @@ extension KeyEvent {
 struct NodeTextEditor: View {
     @Binding var text: String
     @Binding var isComposing: Bool
+    @Binding var minimumWidth: CGFloat
+    var fontSize: CGFloat
     var onEvent: (KeyEvent) -> Bool
 
     var body: some View {
         #if os(macOS)
-        MacNodeTextEditor(text: $text, isComposing: $isComposing, onEvent: onEvent)
+        MacNodeTextEditor(
+            text: $text,
+            isComposing: $isComposing,
+            minimumWidth: $minimumWidth,
+            fontSize: fontSize,
+            onEvent: onEvent
+        )
         #else
-        IOSNodeTextEditor(text: $text, isComposing: $isComposing, onEvent: onEvent)
+        IOSNodeTextEditor(
+            text: $text,
+            isComposing: $isComposing,
+            minimumWidth: $minimumWidth,
+            fontSize: fontSize,
+            onEvent: onEvent
+        )
         #endif
     }
 }
@@ -70,14 +84,22 @@ struct NodeTextEditor: View {
 private struct MacNodeTextEditor: NSViewRepresentable {
     @Binding var text: String
     @Binding var isComposing: Bool
+    @Binding var minimumWidth: CGFloat
+    var fontSize: CGFloat
     var onEvent: (KeyEvent) -> Bool
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, isComposing: $isComposing, onEvent: onEvent)
+        Coordinator(
+            text: $text,
+            isComposing: $isComposing,
+            minimumWidth: $minimumWidth,
+            fontSize: fontSize,
+            onEvent: onEvent
+        )
     }
 
-    func makeNSView(context: Context) -> NSTextView {
-        let view = NSTextView()
+    func makeNSView(context: Context) -> EditingTextView {
+        let view = EditingTextView()
         view.delegate = context.coordinator
         view.isRichText = false
         view.importsGraphics = false
@@ -87,22 +109,38 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         view.drawsBackground = true
         view.backgroundColor = .textBackgroundColor
         view.textColor = .labelColor
-        view.font = .systemFont(ofSize: NSFont.systemFontSize)
+        view.font = .systemFont(ofSize: max(fontSize, 1))
         view.isAutomaticQuoteSubstitutionEnabled = false
         view.isAutomaticDashSubstitutionEnabled = false
         view.isAutomaticTextReplacementEnabled = false
         view.isAutomaticSpellingCorrectionEnabled = false
         view.textContainer?.widthTracksTextView = true
         view.string = text
+        view.onMarkedTextChange = { [weak view] in
+            guard let view else { return }
+            context.coordinator.compositionChanged(view)
+        }
         return view
     }
 
-    func updateNSView(_ nsView: NSTextView, context: Context) {
+    func updateNSView(_ nsView: EditingTextView, context: Context) {
         context.coordinator.text = $text
         context.coordinator.isComposing = $isComposing
+        context.coordinator.minimumWidth = $minimumWidth
+        context.coordinator.fontSize = fontSize
         context.coordinator.onEvent = onEvent
-        if !nsView.hasMarkedText(), nsView.string != text {
-            nsView.string = text
+        nsView.onMarkedTextChange = { [weak nsView] in
+            guard let nsView else { return }
+            context.coordinator.compositionChanged(nsView)
+        }
+        if !nsView.hasMarkedText() {
+            let font = NSFont.systemFont(ofSize: max(fontSize, 1))
+            if nsView.font?.pointSize != font.pointSize {
+                nsView.font = font
+            }
+            if nsView.string != text {
+                nsView.string = text
+            }
         }
         if nsView.window?.firstResponder !== nsView {
             nsView.window?.makeFirstResponder(nsView)
@@ -113,18 +151,42 @@ private struct MacNodeTextEditor: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var text: Binding<String>
         var isComposing: Binding<Bool>
+        var minimumWidth: Binding<CGFloat>
+        var fontSize: CGFloat
         var onEvent: (KeyEvent) -> Bool
 
-        init(text: Binding<String>, isComposing: Binding<Bool>, onEvent: @escaping (KeyEvent) -> Bool) {
+        init(
+            text: Binding<String>,
+            isComposing: Binding<Bool>,
+            minimumWidth: Binding<CGFloat>,
+            fontSize: CGFloat,
+            onEvent: @escaping (KeyEvent) -> Bool
+        ) {
             self.text = text
             self.isComposing = isComposing
+            self.minimumWidth = minimumWidth
+            self.fontSize = fontSize
             self.onEvent = onEvent
+        }
+
+        func compositionChanged(_ view: NSTextView) {
+            let composing = view.hasMarkedText()
+            isComposing.wrappedValue = composing
+            if view.string != text.wrappedValue {
+                text.wrappedValue = view.string
+            }
+            if composing {
+                let font = view.font ?? NSFont.systemFont(ofSize: max(fontSize, 1))
+                let width = (view.string as NSString).size(withAttributes: [.font: font]).width + 24
+                minimumWidth.wrappedValue = width
+            } else {
+                minimumWidth.wrappedValue = 0
+            }
         }
 
         func textDidChange(_ notification: Notification) {
             guard let view = notification.object as? NSTextView else { return }
-            text.wrappedValue = view.string
-            isComposing.wrappedValue = view.hasMarkedText()
+            compositionChanged(view)
         }
 
         func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
@@ -138,6 +200,23 @@ private struct MacNodeTextEditor: NSViewRepresentable {
             }
             return event.key == .tab
         }
+    }
+}
+
+/// Marked text does not call `textDidChange`. Publishing it here lets the node
+/// widen before the line wraps. The hook is the same idea as Mindscape 0.7.0;
+/// this view does not include their editor.
+private final class EditingTextView: NSTextView {
+    var onMarkedTextChange: (() -> Void)?
+
+    override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
+        super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange)
+        onMarkedTextChange?()
+    }
+
+    override func unmarkText() {
+        super.unmarkText()
+        onMarkedTextChange?()
     }
 }
 
@@ -183,16 +262,24 @@ private extension KeyEvent {
 private struct IOSNodeTextEditor: UIViewRepresentable {
     @Binding var text: String
     @Binding var isComposing: Bool
+    @Binding var minimumWidth: CGFloat
+    var fontSize: CGFloat
     var onEvent: (KeyEvent) -> Bool
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, isComposing: $isComposing, onEvent: onEvent)
+        Coordinator(
+            text: $text,
+            isComposing: $isComposing,
+            minimumWidth: $minimumWidth,
+            fontSize: fontSize,
+            onEvent: onEvent
+        )
     }
 
     func makeUIView(context: Context) -> FlorettaTextView {
         let view = FlorettaTextView()
         view.delegate = context.coordinator
-        view.font = .preferredFont(forTextStyle: .body)
+        view.font = .systemFont(ofSize: max(fontSize, 1))
         view.backgroundColor = .systemBackground
         view.textColor = .label
         view.isScrollEnabled = false
@@ -203,16 +290,32 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
         view.smartInsertDeleteType = .no
         view.text = text
         view.onEvent = onEvent
+        view.onMarkedTextChange = { [weak view] in
+            guard let view else { return }
+            context.coordinator.compositionChanged(view)
+        }
         return view
     }
 
     func updateUIView(_ uiView: FlorettaTextView, context: Context) {
         context.coordinator.text = $text
         context.coordinator.isComposing = $isComposing
+        context.coordinator.minimumWidth = $minimumWidth
+        context.coordinator.fontSize = fontSize
         context.coordinator.onEvent = onEvent
         uiView.onEvent = onEvent
-        if uiView.markedTextRange == nil, uiView.text != text {
-            uiView.text = text
+        uiView.onMarkedTextChange = { [weak uiView] in
+            guard let uiView else { return }
+            context.coordinator.compositionChanged(uiView)
+        }
+        if uiView.markedTextRange == nil {
+            let font = UIFont.systemFont(ofSize: max(fontSize, 1))
+            if uiView.font?.pointSize != font.pointSize {
+                uiView.font = font
+            }
+            if uiView.text != text {
+                uiView.text = text
+            }
         }
         if !uiView.isFirstResponder {
             uiView.becomeFirstResponder()
@@ -223,17 +326,42 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
     final class Coordinator: NSObject, UITextViewDelegate {
         var text: Binding<String>
         var isComposing: Binding<Bool>
+        var minimumWidth: Binding<CGFloat>
+        var fontSize: CGFloat
         var onEvent: (KeyEvent) -> Bool
 
-        init(text: Binding<String>, isComposing: Binding<Bool>, onEvent: @escaping (KeyEvent) -> Bool) {
+        init(
+            text: Binding<String>,
+            isComposing: Binding<Bool>,
+            minimumWidth: Binding<CGFloat>,
+            fontSize: CGFloat,
+            onEvent: @escaping (KeyEvent) -> Bool
+        ) {
             self.text = text
             self.isComposing = isComposing
+            self.minimumWidth = minimumWidth
+            self.fontSize = fontSize
             self.onEvent = onEvent
         }
 
+        func compositionChanged(_ view: UITextView) {
+            let composing = view.markedTextRange != nil
+            isComposing.wrappedValue = composing
+            let value = view.text ?? ""
+            if value != text.wrappedValue {
+                text.wrappedValue = value
+            }
+            if composing {
+                let font = view.font ?? UIFont.systemFont(ofSize: max(fontSize, 1))
+                let width = (value as NSString).size(withAttributes: [.font: font]).width + 24
+                minimumWidth.wrappedValue = width
+            } else {
+                minimumWidth.wrappedValue = 0
+            }
+        }
+
         func textViewDidChange(_ textView: UITextView) {
-            text.wrappedValue = textView.text ?? ""
-            isComposing.wrappedValue = textView.markedTextRange != nil
+            compositionChanged(textView)
         }
 
         func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText string: String) -> Bool {
@@ -249,6 +377,17 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
 
 private final class FlorettaTextView: UITextView {
     var onEvent: ((KeyEvent) -> Bool)?
+    var onMarkedTextChange: (() -> Void)?
+
+    override func setMarkedText(_ markedText: String?, selectedRange: NSRange) {
+        super.setMarkedText(markedText, selectedRange: selectedRange)
+        onMarkedTextChange?()
+    }
+
+    override func unmarkText() {
+        super.unmarkText()
+        onMarkedTextChange?()
+    }
 
     override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
         let composing = markedTextRange != nil

@@ -1,59 +1,69 @@
 import CoreGraphics
 import Foundation
+import SwiftFlow
 
-/// Pan/zoom of an infinite canvas. View point = canvas point × scale + offset.
-/// The idea matches a viewport transform (SwiftFlow-style), written for this app.
+/// Pan, zoom, and fit on top of SwiftFlow's `Viewport`.
+///
+/// Screen ↔ flow conversion goes through `SwiftFlowInstance`. Pointer zoom calls
+/// `SwiftFlowInstance.zoomTo`, which uses SwiftFlow's own zoom math. That method
+/// anchors the center of `viewSize`, so the view size is set to place the pointer
+/// at that center. Fit calls `getViewportForBounds`. The 1.25 fit cap is ours:
+/// one small topic should not fill the window. Interactive zoom uses SwiftFlow's
+/// 0.1…4 range.
 struct CanvasViewport: Equatable, Sendable {
-    var offset: CGPoint = .zero
-    var scale: CGFloat = 1
+    var flow: Viewport = .identity
 
+    /// Kept for fit. SwiftFlow's own fit default is higher.
     static let minimumScale: CGFloat = 0.2
-    static let maximumScale: CGFloat = 4
-    /// Fit-all will not magnify past this, so one small node does not fill the window.
     static let maximumFitScale: CGFloat = 1.25
 
+    var offset: CGPoint {
+        get { CGPoint(x: flow.x, y: flow.y) }
+        set {
+            flow.x = newValue.x
+            flow.y = newValue.y
+        }
+    }
+
+    var scale: CGFloat { flow.zoom }
+
+    @MainActor
     func canvasPoint(fromView point: CGPoint) -> CGPoint {
-        CGPoint(
-            x: (point.x - offset.x) / scale,
-            y: (point.y - offset.y) / scale
-        )
+        bridge.screenToFlowPosition(point)
     }
 
+    @MainActor
     func viewPoint(fromCanvas point: CGPoint) -> CGPoint {
-        CGPoint(
-            x: point.x * scale + offset.x,
-            y: point.y * scale + offset.y
-        )
+        bridge.flowToScreenPosition(point)
     }
 
+    @MainActor
     func viewRect(fromCanvas rect: CGRect) -> CGRect {
         let origin = viewPoint(fromCanvas: rect.origin)
-        return CGRect(
-            origin: origin,
-            size: CGSize(width: rect.width * scale, height: rect.height * scale)
-        )
+        let far = viewPoint(fromCanvas: CGPoint(x: rect.maxX, y: rect.maxY))
+        return CGRect(x: origin.x, y: origin.y, width: far.x - origin.x, height: far.y - origin.y)
     }
 
     mutating func pan(by delta: CGSize) {
-        offset.x += delta.width
-        offset.y += delta.height
+        flow.x += delta.width
+        flow.y += delta.height
     }
 
+    @MainActor
     mutating func zoom(by factor: CGFloat, around viewPoint: CGPoint) {
         zoom(to: scale * factor, around: viewPoint)
     }
 
-    mutating func zoom(to newScale: CGFloat, around viewPoint: CGPoint) {
-        let clamped = min(max(newScale, Self.minimumScale), Self.maximumScale)
-        let canvas = canvasPoint(fromView: viewPoint)
-        scale = clamped
-        offset = CGPoint(
-            x: viewPoint.x - canvas.x * clamped,
-            y: viewPoint.y - canvas.y * clamped
-        )
+    @MainActor
+    mutating func zoom(to newScale: CGFloat, around anchor: CGPoint) {
+        let instance = bridge
+        instance.viewSize = CGSize(width: anchor.x * 2, height: anchor.y * 2)
+        instance.zoomTo(newScale, animated: false)
+        flow = instance.viewport
     }
 
     /// Scroll-wheel / trackpad. Command zooms around the pointer; otherwise pans.
+    @MainActor
     mutating func applyScroll(delta: CGSize, around viewPoint: CGPoint, command: Bool) {
         if command {
             let factor = CGFloat(exp(Double(delta.height) * 0.002))
@@ -66,18 +76,22 @@ struct CanvasViewport: Equatable, Sendable {
     mutating func fit(content: CGRect, in viewSize: CGSize, padding: CGFloat = 48) {
         guard content.width > 1, content.height > 1,
               viewSize.width > padding * 2, viewSize.height > padding * 2 else {
-            scale = 1
-            offset = CGPoint(x: viewSize.width / 2, y: viewSize.height / 2)
+            flow = Viewport(x: viewSize.width / 2, y: viewSize.height / 2, zoom: 1)
             return
         }
-        let availableWidth = viewSize.width - padding * 2
-        let availableHeight = viewSize.height - padding * 2
-        let fitted = min(availableWidth / content.width, availableHeight / content.height)
-        scale = min(max(fitted, Self.minimumScale), Self.maximumFitScale)
-        let drawn = CGSize(width: content.width * scale, height: content.height * scale)
-        offset = CGPoint(
-            x: (viewSize.width - drawn.width) / 2 - content.minX * scale,
-            y: (viewSize.height - drawn.height) / 2 - content.minY * scale
+        flow = getViewportForBounds(
+            bounds: content,
+            viewportSize: viewSize,
+            minZoom: Self.minimumScale,
+            maxZoom: Self.maximumFitScale,
+            padding: padding
         )
+    }
+
+    @MainActor
+    private var bridge: SwiftFlowInstance {
+        let instance = SwiftFlowInstance()
+        instance.viewport = flow
+        return instance
     }
 }

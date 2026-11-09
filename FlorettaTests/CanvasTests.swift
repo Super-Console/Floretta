@@ -1,5 +1,7 @@
+import SwiftFlow
 import XCTest
 
+@MainActor
 final class CanvasTests: XCTestCase {
     func testPanAndZoomKeepThePointerAnchor() {
         var viewport = CanvasViewport()
@@ -100,5 +102,42 @@ final class CanvasTests: XCTestCase {
         )
         let json = try XCTUnwrap(String(data: try FlorettaCodec.encode(without), encoding: .utf8))
         XCTAssertFalse(json.contains("\"position\""))
+    }
+
+    func testFitUsesSwiftFlowViewportForBounds() {
+        let content = CGRect(x: 10, y: 20, width: 100, height: 50)
+        let view = CGSize(width: 400, height: 300)
+        var viewport = CanvasViewport()
+        viewport.fit(content: content, in: view)
+        let fitted = getViewportForBounds(
+            bounds: content,
+            viewportSize: view,
+            minZoom: CanvasViewport.minimumScale,
+            maxZoom: CanvasViewport.maximumFitScale,
+            padding: 48
+        )
+        XCTAssertEqual(viewport.scale, fitted.zoom, accuracy: 0.001)
+        XCTAssertEqual(viewport.offset.x, fitted.x, accuracy: 0.001)
+        XCTAssertEqual(viewport.offset.y, fitted.y, accuracy: 0.001)
+    }
+
+    func testTopmostIntersectionWins() {
+        let under = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let over = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        let document = MindMapDocument(
+            title: "hit",
+            roots: [
+                MindMapNode(id: under, text: "下", position: MindMapPoint(x: 0, y: 0)),
+                MindMapNode(id: over, text: "上", position: MindMapPoint(x: 20, y: 10)),
+            ]
+        )
+        let frames = CanvasPlacement.nodes(in: document)
+        let underFrame = frames.first { $0.id == under }!
+        let overFrame = frames.first { $0.id == over }!
+        let shared = CGPoint(x: overFrame.frame.midX, y: min(underFrame.frame.midY, overFrame.frame.midY))
+        XCTAssertTrue(underFrame.frame.contains(shared))
+        XCTAssertTrue(overFrame.frame.contains(shared))
+        XCTAssertEqual(CanvasPlacement.nodeID(at: shared, in: document), over)
+        XCTAssertEqual(CanvasPlacement.rootID(at: shared, in: document), over)
     }
 }

@@ -1,0 +1,39 @@
+Floretta
+Copyright (c) 2026 Super-Console
+
+This product includes third-party software. The dependency below is what the
+Xcode project actually links. Reviewed projects that were not linked are
+described in docs/REUSE-AUDIT.md.
+
+## SwiftFlow 0.3.1
+
+- Project: https://github.com/aaurelions/SwiftFlow
+- Tag: v0.3.1
+- Commit: 98ff46633257d188f1819255df8c8453a9b72d8f
+- License: MIT (root LICENSE.md). Copyright (c) 2026 A.Aurelions
+- How it is used: Swift Package Manager, exact version 0.3.1, product
+  SwiftFlow, linked by Floretta-macOS, Floretta-iOS, and FlorettaTests.
+- What we use: Viewport, SwiftFlowInstance screen/flow conversion and zoomTo,
+  getViewportForBounds, getIntersectingNodes.
+- What we changed: nothing inside the package. Floretta keeps its own
+  LayoutEngine, canvas drawing, keyboard model, and a 1.25 cap when fitting
+  content. Pointer zoom calls SwiftFlowInstance.zoomTo after placing the
+  pointer at the view center, because that method anchors the view center.
+
+The MIT license text is the upstream LICENSE.md. It requires the copyright
+and permission notice to travel with the software. The package checkout
+carries that file; this NOTICE records the version we pin.
+
+## Mindscape — not a dependency
+
+Mindscape 0.7.0 (https://github.com/jiuxianzai/Mindscape, commit
+258dfe9eac45aba4607afd09309ada88554988b5, MIT, Copyright (c) 2026 jiuxianzai)
+was read for IME behavior. No Mindscape source file is in this repository and
+the Xcode project does not link it.
+
+Floretta's text view observes marked-text changes for the same reason theirs
+does: NSTextView does not send textDidChange while composing. EditingTextView
+and the iOS text view are written here. They publish the composing string into
+our document so the node can widen, and they leave the system candidate window
+on the text view's caret. Their editor, camera, layout, and SQLite store were
+not copied.

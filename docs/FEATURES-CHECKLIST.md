@@ -97,7 +97,7 @@
 - [x] H2 七项能力内容上线（附件/10GB/零压缩、AI 可读写、XMind 互通、自由节点便签、大纲平等、性能门槛、不登录不联网）
 - [x] H3 删除「一张会呼吸的思维导图」（标题、meta、根节点副标题、manifest 全清）
 - [x] H4 展厅卡片图标换成真 App 图标（原为 PWA 占位图）
-- [~] H5 Markdown 一等文档分支补进网站
+- [x] H5 Markdown 一等文档分支补进网站（PR #6 合并 + 已部署，页面含 Markdown×4 / .md / Obsidian）
 - [~] H6 `docs/WEB-PARITY.md` 同步表（Mac 功能 ↔ 网页状态）
 
 ## I. 流程与交付

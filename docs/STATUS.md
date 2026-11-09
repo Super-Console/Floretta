@@ -202,4 +202,4 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 | 2026-11-10 | 1.2 附件数据模型 | Censor通过 + Pro 127/0 | 合并 `8f64c32` / PR #30。流式读写、引用计数、孤儿回收；缩略图 spill→ImageIO→视口。 |
 | 2026-11-10 | 1.3 图片插入 | 已合并 | PR #34 → main `c80d138`（tip `57af77a`）。Censor 通过；Pro macOS 138/0、iOS EXIT=0。文件选择 / 拖放 / 粘贴；等比不裁切；异步解码走 1.2 spill + 磁盘 LRU；PDF/PNG 按页面分辨率导出。打开 RSS 可重跑（Darwin phys_footprint / Linux VmRSS + `scripts/measure-open-rss.sh`）。未开 1.4。 |
 | 2026-11-10 | 1.4 任意文件附件 | 已合并 | PR #35 → main `59aa8a0`（tip `107c6b1`）。Censor 通过；Pro macOS 151/0、iOS EXIT=0。PSD/PDF/DMG/任意类型；UTType+通用图标；角标；QuickLook 删文件提示；流式+sha256；插入前确认。未开 1.5。 |
-| 2026-11-10 | 1.5 自由节点 | 待 Censor | 独立 ID 与持久坐标，不进父子布局；拖动不回弹；关系只存不画；可搜索可计数；`.xmind` 的 detached floating topic。与附件、备注共存。未开 1.6。 |
+| 2026-11-10 | 1.5 自由节点 | 待 Censor | PR #36。独立 ID 与持久坐标，不进父子布局；拖动不回弹；关系只存不画；可搜索可计数；`.xmind` 的 detached floating topic。与附件、备注共存。云上 `swift test` 133/0。未跑 `xcodebuild`。未开 1.6。 |

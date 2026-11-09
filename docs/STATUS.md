@@ -20,7 +20,9 @@ P1-r 已由总指挥验收（60 个测试全绿，合并 `538b0d2`）。
 
 P1-d 已由总指挥验收（67 个 macOS 测试全绿；iOS Simulator BUILD SUCCEEDED）。
 
-P2-1 `.mm` 导入导出已落盘：同一棵 `MindMapDocument`，公开 XML 形状，没有复制 Freeplane。`.opml` 和 Markdown 没做。这台云机器没有 Xcode，没有跑 `xcodebuild`。
+P2-1 `.mm` 已由总指挥验收（macOS 74/0，iOS EXIT=0，合并 `b51b8c5`）。
+
+P2 这一批是 `.opml` 往返和 Markdown 导出，进同一棵 `MindMapDocument`。PNG / PDF 没做。这台云机器没有 Xcode，没有跑 `xcodebuild`。
 
 Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be pasted back for fixes.
 
@@ -185,4 +187,5 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 | 2026-11-09 | P1-d | 总指挥验收未过 | macOS 构建 exit 65：`EditMode` 在 macOS 不可用（`OutlineView.swift`） |
 | 2026-11-09 | P1-d 修复 | Pro 双端构建 exit 0 | `EditMode` 仅 iOS。`UIKeyboardHIDUsage.keypadEnter` 替换不存在的 `keyboardKeypadEnter`。云端未跑 xcodebuild |
 | 2026-11-09 | P1-d | 总指挥验收通过 | 67 个 macOS 测试全绿；iOS Simulator BUILD SUCCEEDED |
-| 2026-11-09 | P2-1 | 已提交，云端未测试 | `.mm` 导入导出。公开 XML，不复制 Freeplane。`.opml` / Markdown 未做 |
+| 2026-11-09 | P2-1 | 总指挥验收通过 | macOS 74/0，iOS EXIT=0。合并 `b51b8c5` |
+| 2026-11-09 | P2 OPML+MD | 已提交，云端未测试 | OPML 往返与 Markdown 导出。PNG/PDF 未做。云端不能跑 xcodebuild |

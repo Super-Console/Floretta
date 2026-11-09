@@ -4,7 +4,9 @@
 
 P0-1 已由总指挥验收（合并 `ef9e4f2`；本机 `xcodebuild` macOS 与 iOS Simulator 均为 BUILD SUCCEEDED，`UIDeviceFamily = [1, 2]`）。
 
-P0-2 文档模型与 `.floretta` codec 已落盘。总指挥在 Pro 上跑测试时，`testMissingAndMistypedVersionThrow` 失败：类型不对的 `formatVersion` 被说成「不是 .floretta JSON」。这一批只修这条错误映射。P0-4、界面、画布、图标、P4 都没做。
+P0-2 已由总指挥验收（11 个测试，TEST SUCCEEDED）。P0-3 不再单开（那些测试已随 P0-2 落地）。
+
+P0-4 自动保存与崩溃恢复已落盘，等待本机 `xcodebuild test`。画布、图标、P4 都没做。
 
 Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be pasted back for fixes.
 
@@ -17,6 +19,18 @@ xcodebuild test -project Floretta.xcodeproj -scheme Floretta-macOS -destination 
 ```
 
 构建或测试错误贴回再改。通过后再放行下一批。
+
+## P0-4 申报
+
+编辑中每 5 秒写一份临时副本。路径来自 `FileManager` 的 `applicationSupportDirectory`（`Floretta/Autosave/recovery.floretta`），没有写死绝对路径。写入先落到同目录的临时文件，再 `replaceItemAt`（文件已存在）或 `moveItem`（第一次），不把目标文件截断重写。
+
+正常退出（macOS `applicationWillTerminate` / iOS `applicationWillTerminate`）删掉这份副本。切到后台不算退出，副本留着。异常退出不会走到清理，下次启动 `loadRecoveryCopy()` 读到副本后，用系统 `alert` 问 Recover / Discard。副本损坏时返回 `.unreadable` 并弹出失败 alert，不崩溃。
+
+还没有用户文档的「另存为」。自动保存只动 Application Support 里的恢复副本，不覆盖用户的 `.floretta`。空白窗口上还没有编辑器；`noteEdit` 标记脏，5 秒循环和测试都调用同一个 `tick()`。
+
+§1.1：恢复提示是 SwiftUI `alert` 和 `Button`，没有自绘控件。
+
+测试在 `FlorettaTests`，已由 `Floretta-macOS` scheme 跑（沿用 P0-2 的接线）。覆盖：副本写成功且没有留下 `.partial`、正常清理删除副本、模拟异常退出后新的 store 能读回、损坏副本不崩溃。
 
 ## P0-2 申报
 
@@ -39,7 +53,7 @@ xcodebuild test -project Floretta.xcodeproj -scheme Floretta-macOS -destination 
 
 测试：`FlorettaTests`（macOS XCTest，不挂 host app，零第三方）。已放进共享 scheme `Floretta-macOS` 的 Test 动作。`Floretta-iOS` scheme 没有挂这个 bundle，因为 XCTest bundle 是单平台的，iOS 目的地跑不了 macOS 的 `.xctest`。模型源码仍然编进 `Floretta-iOS`。
 
-任务书里 P0-3 的「建树 → 编解码 → 结构与文字一致」和「坏文件 / 环要报错」按总指挥要求写进了这一批。没有另做 P0-3 的 1000 节点脚本。P0-4 自动保存没做。
+任务书里 P0-3 的「建树 → 编解码 → 结构与文字一致」和「坏文件 / 环要报错」按总指挥要求写进了 P0-2。P0-3 不再单开。没有另做 1000 节点脚本。
 
 ### 已验证
 
@@ -67,4 +81,5 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 | 2026-11-09 | 约束追加 | 完成 | 新增 D-8 原生控件 / D-9 复用开源 / D-10 TestFlight 交付；已写入 TASKBOOK 1.1、1.2、5.1 |
 | 2026-11-09 | P0-1 | 总指挥验收通过 | 合并 `ef9e4f2`。本机 xcodebuild macOS 与 iOS Simulator BUILD SUCCEEDED |
 | 2026-11-09 | P0-2 | 总指挥测试未过 | `testMissingAndMistypedVersionThrow`：字符串或非整数 `formatVersion` 报成「不是 .floretta JSON」，测试要「Wrong JSON type」 |
-| 2026-11-09 | P0-2 修复 | 已提交，云端未复测 | 解码前先看 JSON 类型。`formatVersion` 不是整数、以及其它必填字段类型不对，抛 `.corrupt("Wrong JSON type at …")`。语法错误仍是「不是 .floretta JSON」。云端不能跑 xcodebuild |
+| 2026-11-09 | P0-2 修复 | 总指挥验收通过 | 11 个测试 TEST SUCCEEDED。P0-3 跳过 |
+| 2026-11-09 | P0-4 | 已提交，云端未测试 | 5 秒自动保存、原子替换、正常退出删除副本、异常退出后系统 alert 恢复。损坏副本返回错误不崩溃。云端不能跑 xcodebuild |

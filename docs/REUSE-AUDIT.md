@@ -67,3 +67,7 @@
 **SimpleMindMap：** MIT，JS。字段映射以后做 `.xmind` 导入时再读，这批不搬代码，也不把 JS 打进 App。
 
 **Freeplane：** 根 `license.txt` 是 GPL-2.0。没有把 Java 源码拷进仓库。`.mm` 已按公开 XML 形状自研（`FlorettaMMCodec`），不链接 Freeplane。
+
+## OPML / Markdown
+
+**自研，没有现成 Swift 库可链。** `docs/REUSE.md` 没有 OPML 或 Markdown 的候选实现。OPML 2.0 和 Markdown 都是公开文本格式。`FlorettaOPMLCodec` 用 Foundation `XMLParser`，跟 `.mm` 一样拒绝外部实体。`FlorettaMarkdown` 只导出。不复制 Freeplane，也不引入 SimpleMindMap。

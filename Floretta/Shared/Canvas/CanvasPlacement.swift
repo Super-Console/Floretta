@@ -31,12 +31,26 @@ enum CanvasPlacement {
         hit(at: canvasPoint, in: nodes(in: document), rootsOnly: true)
     }
 
+    /// A hierarchy root, or a free node. Tree children are not draggable.
+    static func draggableID(at canvasPoint: CGPoint, in document: MindMapDocument) -> UUID? {
+        hit(at: canvasPoint, in: nodes(in: document), rootsOnly: false, draggableOnly: true)
+    }
+
     static func hit(at canvasPoint: CGPoint, in frames: [NodeFrame], rootsOnly: Bool) -> UUID? {
+        hit(at: canvasPoint, in: frames, rootsOnly: rootsOnly, draggableOnly: false)
+    }
+
+    static func hit(
+        at canvasPoint: CGPoint,
+        in frames: [NodeFrame],
+        rootsOnly: Bool,
+        draggableOnly: Bool
+    ) -> UUID? {
         let flowNodes = frames.enumerated().map { index, frame in
             Node(
                 id: frame.id.uuidString,
                 position: XYPosition(x: frame.origin.x, y: frame.origin.y),
-                data: FlowHit(id: frame.id, isRoot: frame.isRoot),
+                data: FlowHit(id: frame.id, isRoot: frame.isRoot, isFree: frame.isFree),
                 width: max(frame.size.width, 0.01),
                 height: max(frame.size.height, 0.01),
                 zIndex: index
@@ -45,14 +59,18 @@ enum CanvasPlacement {
         let probe = Node(
             id: "probe",
             position: XYPosition(x: canvasPoint.x, y: canvasPoint.y),
-            data: FlowHit(id: UUID(), isRoot: false),
+            data: FlowHit(id: UUID(), isRoot: false, isFree: false),
             width: 0.01,
             height: 0.01,
             zIndex: -1
         )
         let hits = getIntersectingNodes(node: probe, nodes: flowNodes)
         return hits
-            .filter { rootsOnly ? $0.data.isRoot : true }
+            .filter { hit in
+                if rootsOnly { return hit.data.isRoot }
+                if draggableOnly { return hit.data.isRoot || hit.data.isFree }
+                return true
+            }
             .max { $0.zIndex < $1.zIndex }?
             .data.id
     }
@@ -91,7 +109,7 @@ enum CanvasPlacement {
             Node(
                 id: box.0.uuidString,
                 position: XYPosition(x: box.1.minX, y: box.1.minY),
-                data: FlowHit(id: box.0, isRoot: false),
+                data: FlowHit(id: box.0, isRoot: false, isFree: false),
                 width: max(box.1.width, 0.01),
                 height: max(box.1.height, 0.01),
                 zIndex: index
@@ -100,7 +118,7 @@ enum CanvasPlacement {
         let probe = Node(
             id: "viewport",
             position: XYPosition(x: viewport.minX, y: viewport.minY),
-            data: FlowHit(id: UUID(), isRoot: false),
+            data: FlowHit(id: UUID(), isRoot: false, isFree: false),
             width: max(viewport.width, 0.01),
             height: max(viewport.height, 0.01),
             zIndex: -1
@@ -121,6 +139,21 @@ enum CanvasPlacement {
             return updated
         }
         return copy
+    }
+
+    /// Moves a free node by its stored point, or a root when the id is not free.
+    /// Layout reads that point back, so the frame is not snapped to a tree slot.
+    static func movingNode(
+        _ id: UUID,
+        to origin: CGPoint,
+        in document: MindMapDocument
+    ) -> MindMapDocument {
+        var copy = document
+        let point = MindMapPoint(x: Double(origin.x), y: Double(origin.y))
+        if copy.moveFreeNode(id, to: point) {
+            return copy
+        }
+        return movingRoot(id, to: origin, in: document)
     }
 }
 
@@ -188,4 +221,5 @@ enum CanvasDrawPolicy {
 private struct FlowHit: Equatable, Sendable {
     var id: UUID
     var isRoot: Bool
+    var isFree: Bool
 }

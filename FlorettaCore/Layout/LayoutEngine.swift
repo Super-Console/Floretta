@@ -146,6 +146,8 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
     public var underline: Bool = false
     public var fontDesign: String = "default"
     public var link: LinkCurve?
+    /// True when the frame is a free node. It has no parent and no hierarchy curve.
+    public var isFree: Bool = false
     /// Attachment sizes, one `filename size` line each. The canvas draws non-image lines as `fileBadges`.
     public var caption: String = ""
     /// Image attachment hashes that may have a thumbnail. Used for viewport unload.
@@ -175,6 +177,7 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
         fontDesign: String = "default",
         link: LinkCurve? = nil,
         caption: String = "",
+        isFree: Bool = false,
         thumbnailHashes: [String] = [],
         fileBadges: [FileBadge] = []
     ) {
@@ -198,6 +201,7 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
         self.underline = underline
         self.fontDesign = fontDesign
         self.link = link
+        self.isFree = isFree
         self.caption = caption
         self.thumbnailHashes = thumbnailHashes
         self.fileBadges = fileBadges
@@ -410,7 +414,32 @@ public struct LayoutEngine: Sendable {
             nextTop = centerY + blockHeight / 2 + metrics.siblingGap * 2
             placedAutoRoot = true
         }
+        // Free nodes are not measured into `levelHeights` and are not passed to `split`.
+        // Their origin is the stored point, including while that point is being dragged.
+        for node in document.freeNodes {
+            appendFree(node, into: &frames)
+        }
         return frames
+    }
+
+    private func appendFree(_ node: MindMapNode, into frames: inout [NodeFrame]) {
+        let font = resolvedFontSize(node, depth: 1)
+        let raw = cache.size(text: layoutText(node), fontSize: font, maxWidth: metrics.maxTextWidth)
+        let size = nodeSize(node, depth: 1, heights: [1: raw.height])
+        let origin = CGPoint(x: node.position?.x ?? 0, y: node.position?.y ?? 0)
+        frames.append(
+            makeFrame(
+                node: node,
+                origin: origin,
+                size: size,
+                depth: 1,
+                isRoot: false,
+                parentID: nil,
+                branch: appearance.palette.color(at: 0),
+                link: nil,
+                isFree: true
+            )
+        )
     }
 
     private func layoutText(_ node: MindMapNode) -> String {
@@ -595,7 +624,8 @@ public struct LayoutEngine: Sendable {
         isRoot: Bool,
         parentID: UUID?,
         branch: BranchColor,
-        link: LinkCurve?
+        link: LinkCurve?,
+        isFree: Bool = false
     ) -> NodeFrame {
         let palette = colors(depth: depth, branch: branch)
         let stored = node.style
@@ -624,6 +654,7 @@ public struct LayoutEngine: Sendable {
             fontDesign: stored?.fontDesign ?? "default",
             link: link,
             caption: node.attachmentSizeLabel ?? "",
+            isFree: isFree,
             thumbnailHashes: node.attachments.compactMap { attachment in
                 AttachmentKind.isImageExtension(attachment.fileExtension) ? attachment.sha256 : nil
             },

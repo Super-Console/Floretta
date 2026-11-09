@@ -49,6 +49,7 @@
 | 身份 | UUID | `root/3/1` 路径（易变） |
 | 可持久化 | 全模型（产品开放范围内） | text / note / link / 结构 + front-matter |
 | 颜色等 | 可写（若开放） | 拒绝 |
+| 自由节点 | `freeNodes`，UUID，不在 `roots` 路径上 | 不写。不是 `root/<i>` |
 
 ## 6. 与规格的关系
 

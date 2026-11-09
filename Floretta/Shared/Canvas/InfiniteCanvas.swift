@@ -143,11 +143,8 @@ struct InfiniteCanvas: View {
                 if keyboard.mode == .edit {
                     keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
                 }
-                if let id = CanvasCommands.apply(
-                    .addFloatingTopic(at: point),
-                    document: &document,
-                    interaction: &interaction
-                ) {
+                let placed = MindMapPoint(x: Double(point.x), y: Double(point.y))
+                if let id = keyboard.addFreeNode(at: placed, document: &document) {
                     keyboard.selectedNodeID = id
                     interaction.selectedNodeID = id
                 }
@@ -213,6 +210,7 @@ struct InfiniteCanvas: View {
     @ViewBuilder
     private var hoverAddButtons: some View {
         if let id = interaction.hoveredNodeID,
+           !document.isInFreeNodeTree(id),
            let frame = placedFrames().first(where: { $0.id == id }) {
             let rect = camera.viewport.viewRect(fromCanvas: frame.frame)
             addButton(.up, at: CGPoint(x: rect.midX, y: rect.minY - 18), parent: id)
@@ -291,7 +289,7 @@ struct InfiniteCanvas: View {
             .onChanged { value in
                 if drag == nil && panAnchor == nil {
                     let start = camera.viewport.canvasPoint(fromView: value.startLocation)
-                    if let id = CanvasPlacement.rootID(at: start, in: layoutSource()),
+                    if let id = CanvasPlacement.draggableID(at: start, in: layoutSource()),
                        document.parentID(of: id) == nil,
                        let frame = placedFrames().first(where: { $0.id == id })?.frame {
                         drag = RootDrag(
@@ -306,7 +304,7 @@ struct InfiniteCanvas: View {
                 if let drag {
                     let point = camera.viewport.canvasPoint(fromView: value.location)
                     let origin = CGPoint(x: point.x - drag.grabX, y: point.y - drag.grabY)
-                    document = CanvasPlacement.movingRoot(drag.id, to: origin, in: document)
+                    document = CanvasPlacement.movingNode(drag.id, to: origin, in: document)
                 } else if let panAnchor {
                     camera.viewport.offset = CGPoint(
                         x: panAnchor.x + value.translation.width,

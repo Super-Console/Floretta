@@ -155,16 +155,13 @@ public enum ImageFileName {
 
 public enum ImageAttachments {
     public static func contains(_ document: MindMapDocument) -> Bool {
-        func walk(_ nodes: [MindMapNode]) -> Bool {
-            for node in nodes {
-                if node.attachments.contains(where: { AttachmentKind.isImageExtension($0.fileExtension) }) {
-                    return true
-                }
-                if walk(node.children) { return true }
+        var found = false
+        document.walkTopics { node in
+            if node.attachments.contains(where: { AttachmentKind.isImageExtension($0.fileExtension) }) {
+                found = true
             }
-            return false
         }
-        return walk(document.roots)
+        return found
     }
 }
 

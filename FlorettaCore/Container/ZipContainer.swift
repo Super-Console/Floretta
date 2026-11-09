@@ -28,7 +28,7 @@ public struct ZipContainer: DocumentContainer {
         } catch {
             throw DocumentContainerError.corrupt("document.json could not be read.")
         }
-        let nodes = nodeCount(document.roots)
+        let nodes = document.topicCount
         if nodes > limits.maxNodes {
             throw DocumentContainerError.overLimit("Document has \(nodes) nodes; limit is \(limits.maxNodes).")
         }
@@ -64,7 +64,7 @@ public struct ZipContainer: DocumentContainer {
     }
 
     public func write(_ package: FlorettaPackage) throws -> Data {
-        let nodes = nodeCount(package.document.roots)
+        let nodes = package.document.topicCount
         if nodes > limits.maxNodes {
             throw DocumentContainerError.overLimit("Document has \(nodes) nodes; limit is \(limits.maxNodes).")
         }
@@ -99,12 +99,6 @@ public struct ZipContainer: DocumentContainer {
             throw DocumentContainerError.overLimit("Package exceeds \(limits.maxDecompressedBytes) bytes.")
         }
         return ZipArchive.write(entries)
-    }
-
-    private func nodeCount(_ nodes: [MindMapNode]) -> Int {
-        nodes.reduce(0) { partial, node in
-            partial + 1 + nodeCount(node.children)
-        }
     }
 
     private func map(_ error: ZipArchiveError) -> DocumentContainerError {

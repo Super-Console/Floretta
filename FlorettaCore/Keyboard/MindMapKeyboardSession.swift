@@ -77,6 +77,7 @@ public struct MindMapKeyboardSession {
 
     private mutating func createChild(document: inout MindMapDocument) {
         guard mode == .command, let parentID = selectedNodeID, document.node(parentID) != nil else { return }
+        guard !document.isInFreeNodeTree(parentID) else { return }
         record(document)
         let child = MindMapNode(text: Self.newTopicText)
         guard document.insertChild(child, under: parentID) else { return }
@@ -89,6 +90,7 @@ public struct MindMapKeyboardSession {
 
     private mutating func createSibling(document: inout MindMapDocument) {
         guard mode == .command, let id = selectedNodeID, document.node(id) != nil else { return }
+        guard !document.isInFreeNodeTree(id) else { return }
         record(document)
         let sibling = MindMapNode(text: Self.newTopicText)
         guard document.insertSibling(sibling, after: id) else { return }
@@ -207,6 +209,36 @@ public struct MindMapKeyboardSession {
         restore(next, document: &document)
     }
 
+    /// Places a free node and selects it. One undo step. Does not insert it into `roots`.
+    @discardableResult
+    public mutating func addFreeNode(
+        at position: MindMapPoint,
+        text: String = "自由节点",
+        document: inout MindMapDocument
+    ) -> UUID? {
+        guard mode == .command else { return nil }
+        record(document)
+        let id = document.addFreeNode(text: text, at: position)
+        selectedNodeID = id
+        return id
+    }
+
+    /// Connects the selected free node to any other topic. One undo step. Nothing is drawn.
+    @discardableResult
+    public mutating func linkFreeNode(
+        to targetID: UUID,
+        document: inout MindMapDocument,
+        title: String = ""
+    ) -> Bool {
+        guard mode == .command, let sourceID = selectedNodeID, document.isFreeNode(sourceID) else { return false }
+        record(document)
+        guard document.linkTopics(from: sourceID, to: targetID, title: title) != nil else {
+            if !undoStack.isEmpty { undoStack.removeLast() }
+            return false
+        }
+        return true
+    }
+
     private mutating func record(_ document: MindMapDocument) {
         undoStack.append(capture(document))
         redoStack.removeAll()
@@ -248,7 +280,7 @@ public extension MindMapDocument {
             }
             return nil
         }
-        return walk(roots)
+        return walk(roots) ?? walk(freeNodes)
     }
 
     @discardableResult
@@ -263,16 +295,19 @@ public extension MindMapDocument {
             }
             return false
         }
-        return walk(&roots)
+        if walk(&roots) { return true }
+        return walk(&freeNodes)
     }
 
     @discardableResult
     public mutating func insertChild(_ child: MindMapNode, under parentID: UUID) -> Bool {
-        mutateNode(parentID) { $0.children.append(child) }
+        if isInFreeNodeTree(parentID) { return false }
+        return mutateNode(parentID) { $0.children.append(child) }
     }
 
     @discardableResult
     public mutating func insertSibling(_ sibling: MindMapNode, after id: UUID) -> Bool {
+        if isInFreeNodeTree(id) { return false }
         if let index = roots.firstIndex(where: { $0.id == id }) {
             roots.insert(sibling, at: index + 1)
             return true
@@ -292,28 +327,36 @@ public extension MindMapDocument {
 
     @discardableResult
     public mutating func removeNode(_ id: UUID) -> Bool {
+        let doomed = idsInSubtree(id)
+        let removed: Bool
         if let index = roots.firstIndex(where: { $0.id == id }) {
             roots.remove(at: index)
-            return true
+            removed = true
+        } else if let index = freeNodes.firstIndex(where: { $0.id == id }) {
+            freeNodes.remove(at: index)
+            removed = true
+        } else if removeNestedTopic(id, from: &roots) {
+            removed = true
+        } else {
+            removed = removeNestedTopic(id, from: &freeNodes)
         }
-        func walk(_ nodes: inout [MindMapNode]) -> Bool {
-            for index in nodes.indices {
-                if let childIndex = nodes[index].children.firstIndex(where: { $0.id == id }) {
-                    nodes[index].children.remove(at: childIndex)
-                    return true
-                }
-                if walk(&nodes[index].children) { return true }
-            }
-            return false
+        guard removed else { return false }
+        if !doomed.isEmpty {
+            relationships.removeAll { doomed.contains($0.sourceID) || doomed.contains($0.targetID) }
         }
-        return walk(&roots)
+        return true
     }
 
     public func selectionAfterRemoving(_ id: UUID) -> UUID? {
         if let index = roots.firstIndex(where: { $0.id == id }) {
             if index + 1 < roots.count { return roots[index + 1].id }
             if index > 0 { return roots[index - 1].id }
-            return nil
+            return freeNodes.first?.id
+        }
+        if let index = freeNodes.firstIndex(where: { $0.id == id }) {
+            if index + 1 < freeNodes.count { return freeNodes[index + 1].id }
+            if index > 0 { return freeNodes[index - 1].id }
+            return roots.first?.id
         }
         func walk(_ nodes: [MindMapNode]) -> UUID? {
             for node in nodes {
@@ -326,6 +369,39 @@ public extension MindMapDocument {
             }
             return nil
         }
-        return walk(roots)
+        return walk(roots) ?? walk(freeNodes)
     }
+
+    private func idsInSubtree(_ id: UUID) -> Set<UUID> {
+        func collect(_ node: MindMapNode) -> Set<UUID>? {
+            if node.id == id {
+                var ids: Set<UUID> = []
+                func walk(_ node: MindMapNode) {
+                    ids.insert(node.id)
+                    node.children.forEach(walk)
+                }
+                walk(node)
+                return ids
+            }
+            for child in node.children {
+                if let found = collect(child) { return found }
+            }
+            return nil
+        }
+        for node in roots + freeNodes {
+            if let found = collect(node) { return found }
+        }
+        return []
+    }
+}
+
+private func removeNestedTopic(_ id: UUID, from nodes: inout [MindMapNode]) -> Bool {
+    for index in nodes.indices {
+        if let childIndex = nodes[index].children.firstIndex(where: { $0.id == id }) {
+            nodes[index].children.remove(at: childIndex)
+            return true
+        }
+        if removeNestedTopic(id, from: &nodes[index].children) { return true }
+    }
+    return false
 }

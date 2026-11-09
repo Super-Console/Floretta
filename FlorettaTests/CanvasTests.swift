@@ -78,6 +78,42 @@ final class CanvasTests: XCTestCase {
         XCTAssertEqual(movedRoot.origin.y, 40, accuracy: 0.001)
     }
 
+    func testDraggingAFreeNodeKeepsTheStoredPoint() {
+        let rootID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let freeID = UUID(uuidString: "66666666-6666-6666-6666-666666666666")!
+        var document = MindMapDocument(title: "free", roots: [MindMapNode(id: rootID, text: "根")])
+        document.addFreeNode(text: "自由", at: MindMapPoint(x: 400, y: 300), id: freeID)
+        let before = CanvasPlacement.nodes(in: document)
+        let rootBefore = before.first { $0.id == rootID }!
+        let free = before.first { $0.id == freeID }!
+        let point = CGPoint(x: free.frame.midX, y: free.frame.midY)
+        XCTAssertNil(CanvasPlacement.rootID(at: point, in: document))
+        XCTAssertEqual(CanvasPlacement.draggableID(at: point, in: document), freeID)
+        XCTAssertNil(free.link)
+        XCTAssertTrue(free.isFree)
+        XCTAssertNil(free.parentID)
+
+        var origin = free.origin
+        var moved = document
+        for _ in 0..<4 {
+            origin.x += 25
+            origin.y -= 18
+            moved = CanvasPlacement.movingNode(freeID, to: origin, in: moved)
+            let frame = CanvasPlacement.nodes(in: moved).first { $0.id == freeID }!
+            XCTAssertEqual(frame.origin.x, origin.x, accuracy: 0.001)
+            XCTAssertEqual(frame.origin.y, origin.y, accuracy: 0.001)
+            XCTAssertNil(frame.link)
+            XCTAssertTrue(frame.isFree)
+            XCTAssertNil(frame.parentID)
+        }
+        let rootAfter = CanvasPlacement.nodes(in: moved).first { $0.id == rootID }!
+        XCTAssertEqual(rootAfter.origin.x, rootBefore.origin.x, accuracy: 0.001)
+        XCTAssertEqual(rootAfter.origin.y, rootBefore.origin.y, accuracy: 0.001)
+        XCTAssertNil(moved.roots[0].position)
+        XCTAssertEqual(moved.freeNodes[0].position?.x ?? -1, origin.x, accuracy: 0.001)
+        XCTAssertEqual(moved.freeNodes[0].position?.y ?? -1, origin.y, accuracy: 0.001)
+    }
+
     func testStoredPositionRoundTripsAndIsOmittedWhenUnset() throws {
         var root = MindMapNode(
             id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!,

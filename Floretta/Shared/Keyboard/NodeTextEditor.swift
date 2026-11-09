@@ -411,7 +411,7 @@ private extension KeyEvent {
         switch uiKey.keyCode {
         case .keyboardTab:
             key = .tab
-        case .keyboardReturnOrEnter, .keyboardKeypadEnter:
+        case .keyboardReturnOrEnter, .keypadEnter:
             key = .enter
         case .keyboardEscape:
             key = .escape

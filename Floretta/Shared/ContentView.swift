@@ -3,9 +3,14 @@ import SwiftUI
 struct ContentView: View {
     @Bindable var recovery: RecoveryPresenter
     @State private var document = openingMap()
+    @State private var keyboard = MindMapKeyboardSession()
 
     var body: some View {
-        canvas
+        NavigationSplitView {
+            OutlineView(document: $document, keyboard: $keyboard)
+        } detail: {
+            canvas
+        }
             .alert("Recover unsaved mind map?", isPresented: $recovery.showOffer) {
                 Button("Recover") { recovery.restore() }
                 Button("Discard", role: .destructive) { recovery.discard() }
@@ -21,6 +26,13 @@ struct ContentView: View {
             .onChange(of: recovery.restoredDocument) { _, restored in
                 if let restored {
                     document = restored
+                    keyboard = MindMapKeyboardSession()
+                    keyboard.selectedNodeID = document.roots.first?.id
+                }
+            }
+            .onAppear {
+                if keyboard.selectedNodeID == nil {
+                    keyboard.selectedNodeID = document.roots.first?.id
                 }
             }
             .onChange(of: document) { _, updated in
@@ -31,10 +43,10 @@ struct ContentView: View {
     @ViewBuilder
     private var canvas: some View {
         #if os(macOS)
-        InfiniteCanvas(document: $document)
+        InfiniteCanvas(document: $document, keyboard: $keyboard)
             .frame(minWidth: 800, minHeight: 600)
         #else
-        InfiniteCanvas(document: $document)
+        InfiniteCanvas(document: $document, keyboard: $keyboard)
         #endif
     }
 }

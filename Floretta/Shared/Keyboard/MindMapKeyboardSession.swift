@@ -26,17 +26,19 @@ struct MindMapKeyboardSession {
     mutating func handle(
         _ event: KeyEvent,
         document: inout MindMapDocument,
-        frames: [NodeFrame]
+        frames: [NodeFrame],
+        surface: KeyboardSurface = .canvas
     ) -> MindMapCommand? {
         guard let command = KeyboardCommandMapper.map(event) else { return nil }
-        apply(command, document: &document, frames: frames)
+        apply(command, document: &document, frames: frames, surface: surface)
         return command
     }
 
     mutating func apply(
         _ command: MindMapCommand,
         document: inout MindMapDocument,
-        frames: [NodeFrame]
+        frames: [NodeFrame],
+        surface: KeyboardSurface = .canvas
     ) {
         switch command {
         case .createChild:
@@ -54,7 +56,7 @@ struct MindMapKeyboardSession {
         case .deleteSelection:
             deleteSelection(document: &document)
         case .moveSelection(let move):
-            moveSelection(move, frames: frames)
+            moveSelection(move, frames: frames, surface: surface, document: document)
         case .undo:
             undo(document: &document)
         case .redo:
@@ -132,11 +134,57 @@ struct MindMapKeyboardSession {
         selectedNodeID = next
     }
 
-    private mutating func moveSelection(_ move: SelectionMove, frames: [NodeFrame]) {
+    private mutating func moveSelection(
+        _ move: SelectionMove,
+        frames: [NodeFrame],
+        surface: KeyboardSurface,
+        document: MindMapDocument
+    ) {
         guard mode == .command, let id = selectedNodeID else { return }
-        if let next = SelectionNavigator.destination(from: id, move: move, frames: frames) {
+        let next: UUID?
+        switch surface {
+        case .canvas:
+            next = SelectionNavigator.destination(from: id, move: move, frames: frames)
+        case .outline:
+            next = OutlineNavigator.destination(from: id, move: move, in: document)
+        }
+        if let next {
             selectedNodeID = next
         }
+    }
+
+    mutating func reorderChildren(
+        of parentID: UUID?,
+        from source: IndexSet,
+        to destination: Int,
+        document: inout MindMapDocument
+    ) {
+        guard mode == .command else { return }
+        record(document)
+        document.moveChildren(of: parentID, from: source, to: destination)
+    }
+
+    @discardableResult
+    mutating func reparentNode(
+        _ id: UUID,
+        to parentID: UUID?,
+        at index: Int,
+        document: inout MindMapDocument
+    ) -> Bool {
+        guard mode == .command, document.canReparent(id, to: parentID) else { return false }
+        record(document)
+        guard document.reparent(id, to: parentID, at: index) else {
+            if !undoStack.isEmpty { undoStack.removeLast() }
+            return false
+        }
+        selectedNodeID = id
+        return true
+    }
+
+    mutating func setCollapsed(_ collapsed: Bool, nodeID: UUID, document: inout MindMapDocument) {
+        guard mode == .command, let node = document.node(nodeID), node.isCollapsed != collapsed else { return }
+        record(document)
+        _ = document.mutateNode(nodeID) { $0.isCollapsed = collapsed }
     }
 
     private mutating func toggleCollapse(document: inout MindMapDocument) {

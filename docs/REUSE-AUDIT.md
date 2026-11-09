@@ -52,6 +52,12 @@
 
 **自研。** 看过的项目没有一个提供“Application Support 里每 5 秒原子替换、正常退出删除、异常退出用系统 alert 恢复”这一套。路径和恢复语义跟 Floretta 的恢复副本绑在一起，不适合抽它们的存储层。
 
+## 大纲
+
+**自研视图，不另建一套树。** P1-r 审计里没有独立的大纲库。Mindscape 0.7.0 和 Brainstorm `59c4fe9` 的界面都是画布，没有可链接的 SwiftUI 大纲。Freeplane 有大纲，但是 GPL-2.0，不复制代码。SwiftFlow 的节点列表是图节点，不是这份有序思维导图。
+
+**做法：** `OutlineView` 用系统 `List` 和 `DisclosureGroup` 读同一份 `MindMapDocument`。行用节点 id 做身份，展开一层只取这一层的子 id，不把整棵子树再拷成另一份模型。键盘仍走 `KeyboardCommandMapper`；大纲上的方向键只在可见行之间移动选中，不改父子顺序。
+
 ## 画布装饰（缩放百分比、适配、底栏页）
 
 **不用 SwiftFlow 的 Controls / MiniMap。** 那些控件是它自己的图画布（缩放按钮、小地图、网格），不是思维导图的底栏多页，也不认识我们的 `CanvasChrome`。缩放百分比、Fit、页签状态留在 `InfiniteCanvas`。适配的数学已经走 `getViewportForBounds`。

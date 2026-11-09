@@ -203,4 +203,4 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 | 2026-11-10 | 1.3 图片插入 | 已合并 | PR #34 → main `c80d138`（tip `57af77a`）。Censor 通过；Pro macOS 138/0、iOS EXIT=0。文件选择 / 拖放 / 粘贴；等比不裁切；异步解码走 1.2 spill + 磁盘 LRU；PDF/PNG 按页面分辨率导出。打开 RSS 可重跑（Darwin phys_footprint / Linux VmRSS + `scripts/measure-open-rss.sh`）。未开 1.4。 |
 | 2026-11-10 | 1.4 任意文件附件 | 已合并 | PR #35 → main `59aa8a0`（tip `107c6b1`）。Censor 通过；Pro macOS 151/0、iOS EXIT=0。PSD/PDF/DMG/任意类型；UTType+通用图标；角标；QuickLook 删文件提示；流式+sha256；插入前确认。未开 1.5。 |
 | 2026-11-10 | 1.5 自由节点 | 已合并 | PR #36 → main `31a7740`（tip `e328a8a`）。Censor 通过；Pro macOS 163/0、iOS EXIT=0。独立 ID 与持久坐标，不进父子布局；拖动不回弹；关系只存不画；可搜索可计数；`.xmind` 的 detached floating topic。与附件、备注共存。未开 1.6。 |
-| 2026-11-10 | 1.6 便签 | 待 Censor | PR #38。独立 `stickies`，formatVersion 仍为 1，空数组不写。≤5 色，大小有上限，不进节点计数、不进层级、不进 .xmind。PNG/PDF 默认包含，设置可关。撤销覆盖新建、编辑、移动、缩放、删除、改色。云上 `swift test` 144/0。未跑 `xcodebuild`。未开 1.7。 |
+| 2026-11-10 | 1.6 便签 | 已合并 | PR #38 → main `dfd7af9`（tip `92b6f782`）。Censor 通过；Pro macOS 175/0、iOS EXIT=0。多行便签；≤5 色；不进节点计数、层级、`.xmind`；PNG/PDF 可选含；有限尺寸；与自由节点、附件共存；撤销重做。未开 1.7。 |

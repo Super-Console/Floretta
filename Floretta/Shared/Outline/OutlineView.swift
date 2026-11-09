@@ -4,33 +4,51 @@ import SwiftUI
 struct OutlineView: View {
     @Binding var document: MindMapDocument
     @Binding var keyboard: MindMapKeyboardSession
+    #if os(iOS)
     @State private var reorderMode: EditMode = .inactive
+    #endif
     @FocusState private var outlineFocused: Bool
 
     var body: some View {
-        List(selection: selection) {
+        #if os(iOS)
+        keyedList
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button(reorderMode == .active ? "Done" : "Reorder") {
+                        reorderMode = reorderMode == .active ? .inactive : .active
+                    }
+                }
+            }
+        #else
+        keyedList
+        #endif
+    }
+
+    private var keyedList: some View {
+        outlineList
+            .navigationTitle("Outline")
+            .focusable()
+            .focused($outlineFocused)
+            .onKeyPress { press in
+                guard keyboard.mode == .command else { return .ignored }
+                guard let event = KeyEvent(press: press, mode: .command, isComposing: keyboard.isComposing) else {
+                    return .ignored
+                }
+                let command = keyboard.handle(event, document: &document, frames: [], surface: .outline)
+                return command == nil ? .ignored : .handled
+            }
+    }
+
+    private var outlineList: some View {
+        let list = List(selection: selection) {
             OutlineLevel(document: $document, keyboard: $keyboard, parentID: nil)
         }
         .listStyle(.sidebar)
-        .environment(\.editMode, $reorderMode)
-        .navigationTitle("Outline")
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button(reorderMode == .active ? "Done" : "Reorder") {
-                    reorderMode = reorderMode == .active ? .inactive : .active
-                }
-            }
-        }
-        .focusable()
-        .focused($outlineFocused)
-        .onKeyPress { press in
-            guard keyboard.mode == .command else { return .ignored }
-            guard let event = KeyEvent(press: press, mode: .command, isComposing: keyboard.isComposing) else {
-                return .ignored
-            }
-            let command = keyboard.handle(event, document: &document, frames: [], surface: .outline)
-            return command == nil ? .ignored : .handled
-        }
+        #if os(iOS)
+        return list.environment(\.editMode, $reorderMode)
+        #else
+        return list
+        #endif
     }
 
     private var selection: Binding<UUID?> {

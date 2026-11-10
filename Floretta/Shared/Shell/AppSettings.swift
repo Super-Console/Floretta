@@ -94,6 +94,100 @@ enum ShellTab: Hashable, Equatable, Sendable {
     }
 }
 
+/// Width the home shell should follow. Compact is the iPhone (and a narrow iPad).
+enum HomeWidthClass: Equatable, Sendable {
+    case compact
+    case regular
+    case unspecified
+}
+
+/// Compact width shows the recent stack itself. A split view there shows the
+/// sidebar, which is outside the `NavigationStack` that owns 「最近」.
+enum HomeLibraryChrome: Equatable, Sendable {
+    case stack
+    case split
+}
+
+enum HomeLibrary {
+    static let navigationTitle = "最近"
+
+    /// Documents the UI-test launch writes into a temporary library, so the
+    /// home list does not depend on anyone's personal files.
+    static let smokeFixtureTitles = ["甲图", "乙图"]
+
+    static func chrome(width: HomeWidthClass, phoneWhenUnspecified: Bool) -> HomeLibraryChrome {
+        switch width {
+        case .compact:
+            return .stack
+        case .regular:
+            return .split
+        case .unspecified:
+            return phoneWhenUnspecified ? .stack : .split
+        }
+    }
+}
+
+/// iPad sidebar rows. There is no 「最近」 row: that button only assigned
+/// `HomePage.recent`, which is already showing, so the tap changed nothing.
+enum HomeSidebarRow: String, Hashable, Identifiable, Sendable {
+    case newMap
+    case openFiles
+    case openICloud
+    case browseLocal
+
+    var id: String { rawValue }
+
+    static let leading: [HomeSidebarRow] = [.newMap]
+    static let local: [HomeSidebarRow] = [.openFiles, .openICloud, .browseLocal]
+    static let all: [HomeSidebarRow] = leading + local
+
+    /// Page this row selects. Creating a document or presenting the file panel
+    /// does not change `HomePage`.
+    var destinationPage: HomePage? {
+        switch self {
+        case .newMap, .openFiles:
+            return nil
+        case .openICloud, .browseLocal:
+            return .browse
+        }
+    }
+
+    var accessibilityIdentifier: String { "home.sidebar.\(rawValue)" }
+
+    func title(device: LocalDeviceLabel) -> String {
+        switch self {
+        case .newMap: "新建导图"
+        case .openFiles: "从文件应用打开"
+        case .openICloud: "从iCloud云盘打开"
+        case .browseLocal: device.title
+        }
+    }
+
+    func systemImage(device: LocalDeviceLabel) -> String {
+        switch self {
+        case .newMap: "plus"
+        case .openFiles: "folder"
+        case .openICloud: "cloud"
+        case .browseLocal: device.systemImage
+        }
+    }
+
+    /// True when activating the row changes what the user sees from `page`.
+    /// Selecting the page that is already current does not.
+    static func hasVisibleEffect(_ row: HomeSidebarRow, from page: HomePage) -> Bool {
+        switch row {
+        case .newMap, .openFiles:
+            return true
+        case .openICloud, .browseLocal:
+            return page != .browse
+        }
+    }
+
+    static func selectingPageHasVisibleEffect(_ page: HomePage, from current: HomePage) -> Bool {
+        page != current
+    }
+}
+
 /// File types the open panel may offer: the four map formats, plus XML and
 /// plain text so a file the panel labels as text can still be chosen.
 enum FlorettaFileTypes {

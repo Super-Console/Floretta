@@ -9,7 +9,7 @@ on:
 jobs:
   boundaries:
     name: Core import and os guard
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Reject SwiftUI, AppKit, UIKit, SwiftData, and #if os in FlorettaCore
@@ -17,7 +17,7 @@ jobs:
 
   core:
     name: Build and test FlorettaCore
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: swift-actions/setup-swift@v2

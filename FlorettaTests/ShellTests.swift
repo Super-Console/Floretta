@@ -650,6 +650,41 @@ final class ShellTests: XCTestCase {
         XCTAssertFalse(originalMM.contains("中文"))
     }
 
+    func testCompactHomeShowsTheRecentStackAndSidebarRowsAreNotNoOps() throws {
+        XCTAssertEqual(HomeLibrary.navigationTitle, "最近")
+        XCTAssertEqual(HomeLibrary.chrome(width: .compact, phoneWhenUnspecified: false), .stack)
+        XCTAssertEqual(HomeLibrary.chrome(width: .regular, phoneWhenUnspecified: true), .split)
+        XCTAssertEqual(HomeLibrary.chrome(width: .unspecified, phoneWhenUnspecified: true), .stack)
+        XCTAssertEqual(HomeLibrary.chrome(width: .unspecified, phoneWhenUnspecified: false), .split)
+
+        XCTAssertEqual(
+            HomeSidebarRow.all.map(\.rawValue),
+            ["newMap", "openFiles", "openICloud", "browseLocal"]
+        )
+        let device = LocalDeviceLabel(title: "我的 iPhone", systemImage: "iphone")
+        for row in HomeSidebarRow.all {
+            XCTAssertNotEqual(row.title(device: device), HomeLibrary.navigationTitle)
+            XCTAssertNotEqual(row.destinationPage, .recent)
+            XCTAssertTrue(HomeSidebarRow.hasVisibleEffect(row, from: .recent))
+        }
+        XCTAssertFalse(HomeSidebarRow.selectingPageHasVisibleEffect(.recent, from: .recent))
+        XCTAssertTrue(HomeSidebarRow.selectingPageHasVisibleEffect(.browse, from: .recent))
+
+        let library = try makeLibrary(directory: try temporaryDirectory())
+        try library.installSmokeFixtures()
+        XCTAssertEqual(
+            library.recents.map(\.filename).sorted(),
+            HomeLibrary.smokeFixtureTitles.map { "\($0).floretta" }.sorted()
+        )
+        for entry in library.recents {
+            library.openRecent(entry)
+            let editor = try XCTUnwrap(library.editor)
+            XCTAssertTrue(HomeLibrary.smokeFixtureTitles.contains(editor.document.title))
+            XCTAssertTrue(library.closeEditor())
+            XCTAssertNil(library.editor)
+        }
+    }
+
     func testInterruptedSavePromptsBeforeOpening() throws {
         let directory = try temporaryDirectory()
         let library = try makeLibrary(directory: directory)

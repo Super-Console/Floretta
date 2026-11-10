@@ -12,7 +12,7 @@ struct RecentPage: View {
 
     var body: some View {
         recentBody
-            .navigationTitle("最近")
+            .navigationTitle(HomeLibrary.navigationTitle)
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -25,6 +25,7 @@ struct RecentPage: View {
                         Image(systemName: "plus")
                     }
                     .accessibilityLabel("新建导图")
+                    .accessibilityIdentifier("home.newMap")
                     Button {
                         page = .newMap
                     } label: {
@@ -56,8 +57,10 @@ struct RecentPage: View {
                     .buttonStyle(.borderedProminent)
                     .buttonBorderShape(.capsule)
             }
+            .accessibilityIdentifier("home.recent")
         } else if items.isEmpty {
             ContentUnavailableView.search(text: searchText)
+                .accessibilityIdentifier("home.recent")
         } else {
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 16)], spacing: 16) {
@@ -81,10 +84,13 @@ struct RecentPage: View {
                             }
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(entry.filename)
+                        .accessibilityIdentifier("home.recent.row")
                     }
                 }
                 .padding()
             }
+            .accessibilityIdentifier("home.recent")
         }
     }
 
@@ -97,36 +103,46 @@ struct RecentPage: View {
 
 struct HomeSidebar: View {
     @Bindable var library: LibraryModel
-    @Binding var page: HomePage
     var openFiles: () -> Void
     var openICloud: () -> Void
     var browsePad: () -> Void
 
     var body: some View {
+        let device = LocalDeviceLabel.current
         List {
-            Button {
-                page = .recent
-            } label: {
-                Label("最近", systemImage: "clock")
-            }
-            Button {
-                library.makeNew()
-            } label: {
-                Label("新建导图", systemImage: "plus")
+            ForEach(HomeSidebarRow.leading) { row in
+                sidebarButton(row, device: device)
             }
             Section("本地导图") {
-                Button(action: openFiles) {
-                    Label("从文件应用打开", systemImage: "folder")
-                }
-                Button(action: openICloud) {
-                    Label("从iCloud云盘打开", systemImage: "cloud")
-                }
-                Button(action: browsePad) {
-                    Label(LocalDeviceLabel.current.title, systemImage: LocalDeviceLabel.current.systemImage)
+                ForEach(HomeSidebarRow.local) { row in
+                    sidebarButton(row, device: device)
                 }
             }
         }
         .listStyle(.sidebar)
+        .accessibilityIdentifier("home.sidebar")
+    }
+
+    private func sidebarButton(_ row: HomeSidebarRow, device: LocalDeviceLabel) -> some View {
+        Button {
+            perform(row)
+        } label: {
+            Label(row.title(device: device), systemImage: row.systemImage(device: device))
+        }
+        .accessibilityIdentifier(row.accessibilityIdentifier)
+    }
+
+    private func perform(_ row: HomeSidebarRow) {
+        switch row {
+        case .newMap:
+            library.makeNew()
+        case .openFiles:
+            openFiles()
+        case .openICloud:
+            openICloud()
+        case .browseLocal:
+            browsePad()
+        }
     }
 }
 
@@ -197,6 +213,7 @@ struct LocalBrowser: View {
     var directory: URL
     var files: (URL) -> [URL]
     var openFile: (URL) -> Void
+    var onClose: () -> Void
 
     @State private var stack: [URL] = []
 
@@ -216,8 +233,14 @@ struct LocalBrowser: View {
         }
         .navigationTitle(title)
         .toolbar {
-            if !stack.isEmpty {
-                ToolbarItem(placement: .cancellationAction) {
+            ToolbarItem(placement: .cancellationAction) {
+                if stack.isEmpty {
+                    Button(action: onClose) {
+                        Image(systemName: "xmark")
+                    }
+                    .accessibilityLabel("关闭")
+                    .accessibilityIdentifier("home.browse.close")
+                } else {
                     Button("返回") { stack.removeLast() }
                 }
             }

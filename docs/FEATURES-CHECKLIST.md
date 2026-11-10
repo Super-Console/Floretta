@@ -115,7 +115,7 @@
 
 - [x] 3.1 分享扩展 + 快捷指令（PR #57 → main `2bf1f4a`，tip `9e4c4f6`）
 - [x] 3.2 语音输入（PR #58 → main `536f6c8`，tip `de9c20c`）
-- [x] 3.3 Markdown 大纲导入（PR #60）
+- [x] 3.3 Markdown 大纲导入（PR #60，tip `f5a1d79fec57e6f59c4d81973f3ce5681ee6ac67`）
 
 ---
 

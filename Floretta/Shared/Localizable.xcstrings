@@ -1089,6 +1089,23 @@
         }
       }
     },
+    "无法生成缩略图。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't make a thumbnail."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法生成缩略图。"
+          }
+        }
+      }
+    },
     "保存未完成": {
       "extractionState": "manual",
       "localizations": {

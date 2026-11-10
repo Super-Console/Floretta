@@ -1072,7 +1072,6 @@ struct InfiniteCanvas: View {
     }
 
     @ViewBuilder
-    @ViewBuilder
     private var audioPlaybackOverlay: some View {
         if let audioPlayer, let audioNodeID,
            let node = placedFrames().first(where: { $0.id == audioNodeID }) {

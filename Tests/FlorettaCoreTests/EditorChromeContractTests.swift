@@ -26,6 +26,32 @@ final class EditorChromeContractTests: XCTestCase {
         XCTAssertTrue(source.contains("window.titleVisibility = .hidden"))
     }
 
+    func testWordCountSitsOnTheExistingBottomBar() throws {
+        let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let bar = try slice(
+            source,
+            from: "private struct TopicStatusBar",
+            until: "private final class TopicCensusModel"
+        )
+        XCTAssertTrue(source.contains(".safeAreaInset(edge: .bottom, spacing: 0)"))
+        XCTAssertTrue(source.contains("session.zen.chrome.showsStatusBar"))
+        XCTAssertTrue(source.contains("TopicStatusBar("))
+        XCTAssertTrue(bar.contains("\"主题: %lld\""))
+        XCTAssertTrue(bar.contains("\"字数: %lld\""))
+        XCTAssertTrue(bar.contains("\"字符数: %lld\""))
+        XCTAssertTrue(bar.contains("#if os(macOS)"))
+        XCTAssertTrue(bar.contains(".trailing"))
+        XCTAssertTrue(bar.contains(".leading"))
+        XCTAssertTrue(bar.contains(".help(Text(verbatim: breakdown))"))
+        XCTAssertTrue(bar.contains("status.topicCensus"))
+        let inspector = try slice(source, from: "private var documentInfo", until: "private var relationshipLabelForm")
+        XCTAssertFalse(inspector.contains("字数"))
+        XCTAssertFalse(inspector.contains("字符数"))
+        let editor = try repoFile("Floretta/Shared/Keyboard/NodeTextEditor.swift")
+        XCTAssertFalse(editor.contains("字数"))
+        XCTAssertFalse(editor.contains("TopicStatusBar"))
+    }
+
     private func repoFile(_ relative: String) throws -> String {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

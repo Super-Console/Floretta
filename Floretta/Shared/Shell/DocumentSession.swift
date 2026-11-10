@@ -506,6 +506,23 @@ final class LibraryModel {
         recents = store.load()
     }
 
+    /// Writes the two smoke-test maps into this library and remembers them.
+    /// Used by the UI-test launch so the home list does not depend on personal files.
+    func installSmokeFixtures() throws {
+        for title in HomeLibrary.smokeFixtureTitles {
+            let document = MindMapDocument(title: title, roots: [MindMapNode(text: "中心")])
+            let url = documentsDirectory.appendingPathComponent("\(title).floretta")
+            _ = try FlorettaStreamingDocument.save(
+                document: document,
+                to: url,
+                files: ports.streaming,
+                snapshots: .none
+            )
+            try store.remember(url)
+        }
+        reload()
+    }
+
     func makeNew() {
         let document = MindMapDocument(title: "未命名", roots: [MindMapNode(text: "中心")])
         openDocument(document, preferredURL: nil, sourceExtension: "floretta")

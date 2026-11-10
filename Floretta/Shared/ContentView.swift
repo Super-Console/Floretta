@@ -8,6 +8,9 @@ struct ContentView: View {
     @State private var page: HomePage = .recent
     @State private var columnVisibility = ShellTab.preferredColumnVisibility
     @State private var searchText = ""
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    #endif
     @State private var showImporter = false
     @State private var browseRoot: URL?
     @State private var browseTitle = LocalDeviceLabel.current.title
@@ -91,7 +94,7 @@ struct ContentView: View {
     private var shell: some View {
         #if os(iOS)
         TabView(selection: $library.tab) {
-            iosLibrary
+            iosHome
                 .tabItem {
                     Label(ShellTab.home.title, systemImage: ShellTab.home.systemImage)
                 }
@@ -125,11 +128,39 @@ struct ContentView: View {
     }
 
     #if os(iOS)
+    /// The phone shows the recent stack directly. `NavigationSplitView` inside
+    /// the tab bar collapses to the sidebar, and that list is not inside the
+    /// `NavigationStack` that carries `.navigationTitle("最近")`.
+    @ViewBuilder
+    private var iosHome: some View {
+        switch homeChrome {
+        case .stack:
+            homeStack
+        case .split:
+            iosLibrary
+        }
+    }
+
+    private var homeChrome: HomeLibraryChrome {
+        let width: HomeWidthClass
+        switch horizontalSizeClass {
+        case .compact:
+            width = .compact
+        case .regular:
+            width = .regular
+        case nil:
+            width = .unspecified
+        }
+        return HomeLibrary.chrome(
+            width: width,
+            phoneWhenUnspecified: LocalDeviceLabel.currentKind == .iPhone
+        )
+    }
+
     private var iosLibrary: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             HomeSidebar(
                 library: library,
-                page: $page,
                 openFiles: { showImporter = true },
                 openICloud: openICloud,
                 browsePad: browsePad
@@ -170,7 +201,8 @@ struct ContentView: View {
                         title: browseTitle,
                         directory: browseRoot,
                         files: { library.files(in: $0) },
-                        openFile: { library.openFile($0) }
+                        openFile: { library.openFile($0) },
+                        onClose: { page = .recent }
                     )
                 }
             }

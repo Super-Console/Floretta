@@ -7,31 +7,6 @@ import UniformTypeIdentifiers
 import UIKit
 #endif
 
-enum AppLanguage: String, CaseIterable, Equatable, Sendable {
-    case system
-    case simplifiedChinese
-    case english
-
-    static let launchArgument = "-FlorettaLanguage"
-
-    /// `-FlorettaLanguage en`, `zh-Hans`, or `system`.
-    static func fromLaunchArguments(_ arguments: [String]) -> AppLanguage? {
-        guard let index = arguments.firstIndex(of: launchArgument), index + 1 < arguments.count else {
-            return nil
-        }
-        switch arguments[index + 1] {
-        case "en", "english":
-            return .english
-        case "zh-Hans", "zh", "zh_CN", "simplifiedChinese":
-            return .simplifiedChinese
-        case "system":
-            return .system
-        default:
-            return nil
-        }
-    }
-}
-
 enum AppAppearance: String, CaseIterable, Equatable, Sendable {
     case system
     case light

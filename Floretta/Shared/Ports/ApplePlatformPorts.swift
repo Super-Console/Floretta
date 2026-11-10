@@ -4,9 +4,9 @@ import Darwin
 import Foundation
 import ImageIO
 import FlorettaCore
-#if os(macOS)
+#if os(macOS) && !FLORETTA_QUICK_LOOK
 import AppKit
-#else
+#elseif !os(macOS)
 import UIKit
 #endif
 
@@ -68,6 +68,7 @@ public struct CoreTextFontMetrics: FontMetricsPort {
 }
 
 #if os(macOS)
+#if !FLORETTA_QUICK_LOOK
 public struct SystemPasteboard: PasteboardPort {
     public init() {}
 
@@ -90,6 +91,7 @@ public struct SystemDeviceInfo: DeviceInfoPort {
 
     public var modelIdentifier: String { "Mac" }
 }
+#endif
 #else
 public struct SystemPasteboard: PasteboardPort {
     public init() {}
@@ -140,6 +142,7 @@ public struct ApplePlatformPorts {
         self.backup = backup
     }
 
+    #if !FLORETTA_QUICK_LOOK
     public static func current() -> ApplePlatformPorts {
         ApplePlatformPorts(
             files: FoundationFileAccess(),
@@ -149,6 +152,7 @@ public struct ApplePlatformPorts {
             fonts: CoreTextFontMetrics()
         )
     }
+    #endif
 }
 
 public struct URLBackupExclusion: BackupExclusionPort {

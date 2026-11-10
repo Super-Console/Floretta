@@ -25,6 +25,9 @@ struct MapExportOptions: Equatable, Sendable {
     var maxPixelDimension: CGFloat = 8192
     /// User choice for PNG and PDF. On by default so the control is available and the picture matches the canvas.
     var includeStickies: Bool = true
+    /// When set, the whole padded map is drawn and the longest pixel edge stays at most this value.
+    /// Nil keeps the export clip at `maxPixelDimension`. Quick Look sets this so Finder sees the map, not a corner.
+    var fitLongestPixelEdge: CGFloat? = nil
 }
 
 struct MapExportResult: Equatable, Sendable {
@@ -120,6 +123,7 @@ enum MapExporter {
     private struct Plan {
         var renderBounds: CGRect
         var pointSize: CGSize
+        var pixelScale: CGFloat
         var truncated: Bool
         var notice: String?
         var visibleNodeIDs: [UUID]
@@ -133,10 +137,29 @@ enum MapExporter {
             includingStickies: options.includeStickies
         ),
               content.width > 0, content.height > 0 else {
-            return Plan(renderBounds: .zero, pointSize: .zero, truncated: false, notice: emptyNotice, visibleNodeIDs: ids)
+            return Plan(
+                renderBounds: .zero,
+                pointSize: .zero,
+                pixelScale: 1,
+                truncated: false,
+                notice: emptyNotice,
+                visibleNodeIDs: ids
+            )
         }
         let pad = max(options.padding, 0)
         let padded = content.insetBy(dx: -pad, dy: -pad)
+        if let fit = options.fitLongestPixelEdge, fit.isFinite, fit > 1 {
+            let longest = max(padded.width, padded.height, 1)
+            let scale = min(1, fit / longest)
+            return Plan(
+                renderBounds: padded,
+                pointSize: padded.size,
+                pixelScale: scale,
+                truncated: false,
+                notice: nil,
+                visibleNodeIDs: ids
+            )
+        }
         let scale = max(options.scale.rawValue, 1)
         let cap = max(options.maxPixelDimension, 1)
         let maxPoints = cap / scale
@@ -150,6 +173,7 @@ enum MapExporter {
         return Plan(
             renderBounds: render,
             pointSize: render.size,
+            pixelScale: scale,
             truncated: truncated,
             notice: truncated ? clippingNotice : nil,
             visibleNodeIDs: ids
@@ -175,7 +199,7 @@ enum MapExporter {
             images: images
         )
         let renderer = ImageRenderer(content: view)
-        renderer.scale = options.scale.rawValue
+        renderer.scale = plan.pixelScale
         renderer.isOpaque = options.background == .white
         renderer.proposedSize = ProposedViewSize(width: plan.pointSize.width, height: plan.pointSize.height)
         return renderer

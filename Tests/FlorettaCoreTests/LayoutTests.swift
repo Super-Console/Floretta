@@ -246,6 +246,91 @@ final class LayoutTests: XCTestCase {
         XCTAssertEqual(LayoutEngine().kind, .bilateral)
     }
 
+    func testBranchThemesStayWithinEightAndDifferInBothSchemes() {
+        XCTAssertLessThanOrEqual(MapThemeCatalog.all.count, MapThemeCatalog.limit)
+        XCTAssertEqual(MapThemeCatalog.all.count, 8)
+        let ink = MapThemeCatalog.all[0]
+        XCTAssertEqual(ink.id, MapThemeCatalog.standardID)
+        XCTAssertEqual(ink.light, .standard)
+        XCTAssertEqual(ink.light.palette, .standard)
+        for theme in MapThemeCatalog.all {
+            XCTAssertFalse(theme.nameKey.isEmpty)
+            XCTAssertGreaterThanOrEqual(theme.light.palette.colors.count, 4)
+            XCTAssertLessThanOrEqual(theme.light.palette.colors.count, 8)
+            XCTAssertEqual(theme.light.palette.colors.count, theme.dark.palette.colors.count)
+            assertDistinct(theme.light.palette.colors)
+            assertDistinct(theme.dark.palette.colors)
+            XCTAssertNotEqual(theme.light.palette.colors, theme.dark.palette.colors)
+            XCTAssertNotEqual(theme.light.centerFill, theme.dark.centerFill)
+            XCTAssertEqual(theme.light.level1Text, LayoutAppearance.standard.level1Text)
+            XCTAssertLessThan(theme.dark.level1Text.red, 0.2)
+            XCTAssertLessThan(theme.dark.centerFill.red, 0.35)
+            XCTAssertGreaterThan(theme.dark.centerText.red, 0.9)
+        }
+        for left in MapThemeCatalog.all.indices {
+            for right in MapThemeCatalog.all.indices where right > left {
+                let a = MapThemeCatalog.all[left]
+                let b = MapThemeCatalog.all[right]
+                XCTAssertNotEqual(a.id, b.id)
+                XCTAssertNotEqual(a.nameKey, b.nameKey)
+                XCTAssertNotEqual(a.light.palette.colors, b.light.palette.colors)
+                XCTAssertNotEqual(a.dark.palette.colors, b.dark.palette.colors)
+                XCTAssertNotEqual(a.dark.centerFill, b.dark.centerFill)
+            }
+        }
+    }
+
+    func testAutomaticBranchColorsFollowTheThemeAndKeepExplicitFills() throws {
+        let first = MindMapNode(text: "甲")
+        let grandchild = MindMapNode(text: "孙")
+        let second = MindMapNode(text: "乙", children: [grandchild])
+        let painted = MindMapNode(
+            text: "丙",
+            style: MindMapNodeStyle(colorHex: "#112233", fillHex: "#ED0DB8")
+        )
+        let root = MindMapNode(text: "根", children: [first, second, painted])
+        var document = MindMapDocument(title: "色", roots: [root])
+        document.themeID = "grove"
+        let theme = try XCTUnwrap(MapThemeCatalog.all.first { $0.id == "grove" })
+        let light = LayoutEngine().layout(document, scheme: .light)
+        let dark = LayoutEngine().layout(document, scheme: .dark)
+        XCTAssertEqual(light.map(\.id), dark.map(\.id))
+        XCTAssertEqual(light.map(\.origin), dark.map(\.origin))
+
+        let lightFirst = try XCTUnwrap(light.first { $0.id == first.id })
+        let lightSecond = try XCTUnwrap(light.first { $0.id == second.id })
+        let lightGrand = try XCTUnwrap(light.first { $0.id == grandchild.id })
+        let lightPainted = try XCTUnwrap(light.first { $0.id == painted.id })
+        XCTAssertEqual(lightFirst.fill, theme.light.palette.color(at: 0))
+        XCTAssertEqual(lightFirst.link?.color, lightFirst.fill)
+        XCTAssertEqual(lightSecond.fill, theme.light.palette.color(at: 1))
+        XCTAssertNotEqual(lightFirst.fill, lightSecond.fill)
+        XCTAssertEqual(lightGrand.link?.color, lightSecond.link?.color)
+        XCTAssertEqual(lightGrand.fill, lightSecond.fill.lightened(by: theme.light.deeperFillMix))
+        XCTAssertEqual(lightPainted.fill, try XCTUnwrap(BranchColor(hex: "#ED0DB8")))
+        XCTAssertEqual(document.roots[0].children[2].style?.colorHex, "#112233")
+        XCTAssertEqual(document.roots[0].children[2].style?.fillHex, "#ED0DB8")
+
+        let darkFirst = try XCTUnwrap(dark.first { $0.id == first.id })
+        let darkCenter = try XCTUnwrap(dark.first { $0.id == root.id })
+        XCTAssertEqual(darkFirst.fill, theme.dark.palette.color(at: 0))
+        XCTAssertNotEqual(darkFirst.fill, lightFirst.fill)
+        XCTAssertEqual(darkCenter.fill, theme.dark.centerFill)
+        XCTAssertNotEqual(darkCenter.fill, .white)
+        XCTAssertEqual(dark.first { $0.id == painted.id }?.fill, lightPainted.fill)
+
+        let unset = MindMapDocument(title: "色", roots: [root])
+        XCTAssertEqual(LayoutEngine().layout(unset), LayoutEngine().layout(unset, scheme: .light))
+        let standardFirst = try XCTUnwrap(LayoutEngine().layout(unset).first { $0.id == first.id })
+        XCTAssertEqual(standardFirst.fill, BranchPalette.standard.color(at: 0))
+        XCTAssertNotEqual(standardFirst.fill, lightFirst.fill)
+
+        var unknown = document
+        unknown.themeID = "future-theme"
+        let fallback = try XCTUnwrap(LayoutEngine().layout(unknown, scheme: .light).first { $0.id == first.id })
+        XCTAssertEqual(fallback.fill, standardFirst.fill)
+    }
+
     func testThousandNodeLayoutPrintsElapsedTime() {
         var children: [MindMapNode] = []
         var count = 1
@@ -283,6 +368,14 @@ final class LayoutTests: XCTestCase {
         let length = hypot(dx, dy)
         let cross = dx * (point.y - link.start.y) - dy * (point.x - link.start.x)
         return abs(cross) / length
+    }
+
+    private func assertDistinct(_ colors: [BranchColor], file: StaticString = #filePath, line: UInt = #line) {
+        for left in colors.indices {
+            for right in colors.indices where right > left {
+                XCTAssertNotEqual(colors[left], colors[right], file: file, line: line)
+            }
+        }
     }
 
     private func assertNoOverlap(_ frames: [NodeFrame], file: StaticString = #filePath, line: UInt = #line) {

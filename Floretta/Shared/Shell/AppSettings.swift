@@ -317,9 +317,10 @@ extension MapExporter {
     static func png(
         document: MindMapDocument,
         settings: AppSettings,
-        images: [String: CGImage] = [:]
+        images: [String: CGImage] = [:],
+        scheme: MapColorScheme = .light
     ) -> MapExportResult {
-        png(document: document, options: MapExportOptions(settings: settings), images: images)
+        png(document: document, options: MapExportOptions(settings: settings), images: images, scheme: scheme)
     }
 }
 

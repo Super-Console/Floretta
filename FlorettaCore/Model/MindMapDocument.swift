@@ -5,8 +5,8 @@ import Foundation
 /// `freeNodes` are outside that tree: each has its own id and a canvas point.
 /// `stickies` are canvas cards. They are not topics and are not stored in `freeNodes`.
 public struct MindMapDocument: Equatable, Sendable {
-    /// Additive keys (`freeNodes`, `relationships`, `stickies`, `summaries`, `boundaries`, `additionalCanvases`, `xmindForeign`, `opmlForeign`, `mmForeign`) stay on version 1.
-    /// A version bump would refuse every existing file. Empty arrays are omitted.
+    /// Additive keys (`freeNodes`, `relationships`, `stickies`, `summaries`, `boundaries`, `additionalCanvases`, `themeID`, `xmindForeign`, `opmlForeign`, `mmForeign`) stay on version 1.
+    /// A version bump would refuse every existing file. Empty arrays and the standard theme are omitted.
     public static let currentFormatVersion = 1
 
     public var formatVersion: Int
@@ -36,6 +36,9 @@ public struct MindMapDocument: Equatable, Sendable {
     /// FreeMind bytes and unmapped attributes/elements. Nil when the map did not come from `.mm`.
     /// Omitted from JSON when nil.
     public var mmForeign: MMForeign?
+    /// Preset id from `MapThemeCatalog`. Nil is the standard light/dark pair.
+    /// Omitted from JSON when nil. Branch colors are computed at layout time, not copied onto nodes.
+    public var themeID: String?
 
     public init(
         title: String,
@@ -50,7 +53,8 @@ public struct MindMapDocument: Equatable, Sendable {
         additionalCanvases: [MindMapCanvas] = [],
         xmindForeign: XMindForeign? = nil,
         opmlForeign: OPMLForeign? = nil,
-        mmForeign: MMForeign? = nil
+        mmForeign: MMForeign? = nil,
+        themeID: String? = nil
     ) {
         self.formatVersion = formatVersion
         self.title = title
@@ -65,6 +69,7 @@ public struct MindMapDocument: Equatable, Sendable {
         self.xmindForeign = xmindForeign
         self.opmlForeign = opmlForeign
         self.mmForeign = mmForeign
+        self.themeID = MapThemeCatalog.persistedID(themeID)
     }
 }
 
@@ -137,6 +142,7 @@ extension MindMapDocument: Codable {
         case xmindForeign
         case opmlForeign
         case mmForeign
+        case themeID
     }
 
     public init(from decoder: Decoder) throws {
@@ -164,6 +170,9 @@ extension MindMapDocument: Codable {
         let stickies = try container.decodeIfPresent([StickyNote].self, forKey: .stickies) ?? []
         let additionalCanvases = try container.decodeIfPresent([MindMapCanvas].self, forKey: .additionalCanvases) ?? []
         let xmindForeign = try container.decodeIfPresent(XMindForeign.self, forKey: .xmindForeign)
+        let themeID = MapThemeCatalog.persistedID(
+            try container.decodeIfPresent(String.self, forKey: .themeID)
+        )
         self.formatVersion = version
         self.title = title
         self.createdAt = createdAt
@@ -177,6 +186,7 @@ extension MindMapDocument: Codable {
         self.xmindForeign = xmindForeign
         self.opmlForeign = opmlForeign
         self.mmForeign = mmForeign
+        self.themeID = themeID
         promoteUnmappedTopicTags()
         try FlorettaTree.validate(self)
     }
@@ -211,6 +221,9 @@ extension MindMapDocument: Codable {
         try container.encodeIfPresent(xmindForeign, forKey: .xmindForeign)
         try container.encodeIfPresent(opmlForeign, forKey: .opmlForeign)
         try container.encodeIfPresent(mmForeign, forKey: .mmForeign)
+        if let themeID = MapThemeCatalog.persistedID(themeID) {
+            try container.encode(themeID, forKey: .themeID)
+        }
     }
 }
 

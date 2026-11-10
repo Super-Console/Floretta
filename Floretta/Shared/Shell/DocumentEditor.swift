@@ -34,6 +34,8 @@ struct DocumentEditor: View {
     @State private var showTagFilter = false
     @State private var inspectorTab = 0
     @State private var showAbout = false
+    @State private var showThemes = false
+    @Environment(\.colorScheme) private var colorScheme
     @State private var camera = CanvasCamera()
     @State private var showAttachmentImporter = false
     @State private var showImageImporter = false
@@ -169,6 +171,11 @@ struct DocumentEditor: View {
             }
             .sheet(isPresented: $showAbout) {
                 AboutSheet()
+            }
+            .sheet(isPresented: $showThemes) {
+                BranchThemeSheet(themeID: session.document.themeID, language: settings.language) { id in
+                    session.setBranchTheme(id)
+                }
             }
             .fileImporter(
                 isPresented: $showImageImporter,
@@ -351,6 +358,10 @@ struct DocumentEditor: View {
         FlorettaL10n.string(key, language: settings.language)
     }
 
+    private var branchScheme: MapColorScheme {
+        colorScheme == .dark ? .dark : .light
+    }
+
     private func beginRename() {
         renameText = session.document.title
         showRename = true
@@ -482,6 +493,13 @@ struct DocumentEditor: View {
                 .explained("打开或关闭左侧大纲")
             Button(text("样式")) { showInspector.toggle() }
                 .explained("打开样式检查器，修改选中节点的外观")
+            Button {
+                showThemes = true
+            } label: {
+                Label(text("配色"), systemImage: "paintpalette")
+            }
+            .explained("为各分支自动配色，浅色和深色各用一套")
+            .accessibilityIdentifier("theme.menu")
             Menu(text("查看模式")) {
                 Button(text("地图模式")) { session.viewMode = .map }
                     .explained("用整张地图查看导图")
@@ -511,7 +529,7 @@ struct DocumentEditor: View {
             Image(systemName: "ellipsis")
         }
         .accessibilityLabel(text("更多"))
-        .help(Text(verbatim: text("大纲、样式、标签筛选和关于")))
+        .help(Text(verbatim: text("大纲、样式、配色、标签筛选和关于")))
     }
 
     private var inspectorPresented: Binding<Bool> {
@@ -968,14 +986,14 @@ struct DocumentEditor: View {
                     return
                 }
                 if kind == "png" {
-                    let result = MapExporter.png(document: session.document, settings: settings)
+                    let result = MapExporter.png(document: session.document, settings: settings, scheme: branchScheme)
                     guard let png = result.png, !png.isEmpty else {
                         exportError = result.notice ?? "没有导出图片。"
                         return
                     }
                     data = png
                 } else {
-                    let result = MapExporter.pdf(document: session.document, options: pictureOptions(kind: "pdf"))
+                    let result = MapExporter.pdf(document: session.document, options: pictureOptions(kind: "pdf"), scheme: branchScheme)
                     guard let pdf = result.pdf, !pdf.isEmpty else {
                         exportError = result.notice ?? "没有导出 PDF。"
                         return
@@ -1025,6 +1043,7 @@ struct DocumentEditor: View {
         let cacheDirectory = thumbnailCache?.directory
         let options = pictureOptions(kind: kind)
         let scale = Double(options.scale.rawValue)
+        let scheme = branchScheme
         Task {
             let spill = ImageExportLoader.spillDirectory(cacheDirectory: cacheDirectory)
             let bitmaps = await Task.detached(priority: .userInitiated) {
@@ -1041,8 +1060,8 @@ struct DocumentEditor: View {
                 images[bitmap.hash] = bitmap.image
             }
             let result = kind == "png"
-                ? MapExporter.png(document: document, options: options, images: images)
-                : MapExporter.pdf(document: document, options: options, images: images)
+                ? MapExporter.png(document: document, options: options, images: images, scheme: scheme)
+                : MapExporter.pdf(document: document, options: options, images: images, scheme: scheme)
             let data = kind == "png" ? result.png : result.pdf
             guard let data, !data.isEmpty else {
                 exportError = result.notice ?? (kind == "png" ? "没有导出图片。" : "没有导出 PDF。")
@@ -1111,7 +1130,7 @@ struct DocumentEditor: View {
 
     private func printMap() {
         #if os(macOS)
-        let result = MapExporter.pdf(document: session.document, options: pictureOptions(kind: "pdf"))
+        let result = MapExporter.pdf(document: session.document, options: pictureOptions(kind: "pdf"), scheme: branchScheme)
         guard let data = result.pdf, let document = PDFDocument(data: data) else {
             exportError = result.notice ?? "没有可打印的内容。"
             return
@@ -1429,6 +1448,84 @@ struct ExportFile: FileDocument {
             return try FileWrapper(url: fileURL, options: [])
         }
         return FileWrapper(regularFileWithContents: data)
+    }
+}
+
+private struct BranchThemeSheet: View {
+    var themeID: String?
+    var language: AppLanguage
+    var onSelect: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(MapThemeCatalog.all) { theme in
+                        Button {
+                            onSelect(theme.id)
+                        } label: {
+                            HStack(spacing: 12) {
+                                HStack(spacing: 4) {
+                                    ForEach(Array(colors(theme).enumerated()), id: \.offset) { _, swatch in
+                                        Circle()
+                                            .fill(ink(swatch))
+                                            .frame(width: 14, height: 14)
+                                    }
+                                }
+                                .accessibilityHidden(true)
+                                Text(verbatim: text(theme.nameKey))
+                                Spacer(minLength: 8)
+                                if isSelected(theme) {
+                                    Image(systemName: "checkmark")
+                                        .accessibilityHidden(true)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(text(theme.nameKey))
+                        .accessibilityAddTraits(isSelected(theme) ? .isSelected : AccessibilityTraits())
+                        .accessibilityIdentifier("theme.\(theme.id)")
+                    }
+                } footer: {
+                    Text(verbatim: text("为各分支自动配色，浅色和深色各用一套"))
+                }
+            }
+            .navigationTitle(text("配色"))
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .accessibilityLabel(text("关闭"))
+                    .accessibilityIdentifier("theme.close")
+                }
+            }
+        }
+        .frame(minWidth: 360, idealHeight: 520)
+        .presentationDetents([.medium, .large])
+        .accessibilityIdentifier("theme.sheet")
+    }
+
+    private func text(_ key: String) -> String {
+        FlorettaL10n.string(key, language: language)
+    }
+
+    private func colors(_ theme: MapTheme) -> [BranchColor] {
+        let appearance = colorScheme == .dark ? theme.dark : theme.light
+        return appearance.palette.colors
+    }
+
+    private func ink(_ color: BranchColor) -> Color {
+        Color(red: color.red, green: color.green, blue: color.blue)
+    }
+
+    private func isSelected(_ theme: MapTheme) -> Bool {
+        MapThemeCatalog.persistedID(theme.id) == MapThemeCatalog.persistedID(themeID)
     }
 }
 

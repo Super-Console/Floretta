@@ -2,11 +2,64 @@ import FlorettaCore
 import AppKit
 import ImageIO
 import PDFKit
+import SwiftUI
 import UniformTypeIdentifiers
 import XCTest
 
 @MainActor
 final class MapExportTests: XCTestCase {
+    func testPNGAndPDFKeepBranchThemeColors() throws {
+        let first = MindMapNode(text: "甲")
+        let second = MindMapNode(text: "乙")
+        let painted = MindMapNode(
+            text: "丙",
+            style: MindMapNodeStyle(colorHex: "#112233", fillHex: "#ED0DB8")
+        )
+        var document = MindMapDocument(
+            title: "色",
+            roots: [MindMapNode(text: "根", children: [first, second, painted])]
+        )
+        document.themeID = "grove"
+        let theme = try XCTUnwrap(MapThemeCatalog.all.first { $0.id == "grove" })
+        let override = try XCTUnwrap(BranchColor(hex: "#ED0DB8"))
+        let options = MapExportOptions(scale: .two, background: .white, padding: 32)
+
+        for scheme in [MapColorScheme.light, MapColorScheme.dark] {
+            let appearance = scheme == .dark ? theme.dark : theme.light
+            let frames = MapExporter.visibleFrames(in: document, scheme: scheme)
+            let firstFrame = try XCTUnwrap(frames.first { $0.id == first.id })
+            let secondFrame = try XCTUnwrap(frames.first { $0.id == second.id })
+            let paintedFrame = try XCTUnwrap(frames.first { $0.id == painted.id })
+            XCTAssertEqual(firstFrame.fill, appearance.palette.color(at: 0))
+            XCTAssertEqual(secondFrame.fill, appearance.palette.color(at: 1))
+            XCTAssertEqual(firstFrame.link?.color, firstFrame.fill)
+            XCTAssertEqual(paintedFrame.fill, override)
+            XCTAssertNotEqual(firstFrame.fill, secondFrame.fill)
+
+            let png = MapExporter.png(document: document, options: options, scheme: scheme)
+            let pngRep = try bitmap(try XCTUnwrap(png.png))
+            try assertBranchColors(
+                in: pngRep,
+                first: firstFrame.fill,
+                second: secondFrame.fill,
+                painted: override,
+                scheme: scheme,
+                pdf: false
+            )
+
+            let pdf = MapExporter.pdf(document: document, options: options, scheme: scheme)
+            let pdfRep = try pdfBitmap(try XCTUnwrap(pdf.pdf))
+            try assertBranchColors(
+                in: pdfRep,
+                first: firstFrame.fill,
+                second: secondFrame.fill,
+                painted: override,
+                scheme: scheme,
+                pdf: true
+            )
+        }
+    }
+
     func testPNGScaleAndWhiteBackgroundAreNotBlank() throws {
         let document = sampleMap()
         for scale in [MapExportScale.two, MapExportScale.three] {
@@ -400,6 +453,130 @@ final class MapExportTests: XCTestCase {
         let slot = ImageSlot.slot(nodeWidth: Double(frame.size.width))
         let fitted = ImageAspectFit.fit(pixels: ImagePixelSize(width: 80, height: 40), in: slot)
         XCTAssertGreaterThanOrEqual(box.width, fitted.width * Double(scale) - 8)
+    }
+
+    /// ImageRenderer writes the display color space, so a PNG or PDF pixel is not the
+    /// raw sRGB fraction stored on the theme. Compare the export to a swatch painted
+    /// with the same `Color` and read back through the same decoder.
+    private func assertBranchColors(
+        in rep: NSBitmapImageRep,
+        first: BranchColor,
+        second: BranchColor,
+        painted: BranchColor,
+        scheme: MapColorScheme,
+        pdf: Bool
+    ) throws {
+        let firstRef = try renderedColor(first, pdf: pdf)
+        let secondRef = try renderedColor(second, pdf: pdf)
+        let paintedRef = try renderedColor(painted, pdf: pdf)
+        XCTAssertGreaterThan(channelGap(firstRef, secondRef), 0.18, "\(scheme) swatches collapsed")
+        XCTAssertGreaterThan(channelGap(firstRef, paintedRef), 0.18, "\(scheme) swatches collapsed")
+        XCTAssertGreaterThan(channelGap(secondRef, paintedRef), 0.18, "\(scheme) swatches collapsed")
+        let label = pdf ? "\(scheme) pdf" : "\(scheme) png"
+        XCTAssertGreaterThan(
+            pixels(in: rep, near: firstRef),
+            20,
+            "\(label) is missing the first branch color \(firstRef)"
+        )
+        XCTAssertGreaterThan(
+            pixels(in: rep, near: secondRef),
+            20,
+            "\(label) is missing the second branch color \(secondRef)"
+        )
+        XCTAssertGreaterThan(
+            pixels(in: rep, near: paintedRef),
+            20,
+            "\(label) dropped an explicit fill \(paintedRef)"
+        )
+    }
+
+    private struct SampledColor: Equatable, CustomStringConvertible {
+        var red: CGFloat
+        var green: CGFloat
+        var blue: CGFloat
+
+        var description: String {
+            String(format: "(%.3f, %.3f, %.3f)", red, green, blue)
+        }
+    }
+
+    private func renderedColor(_ color: BranchColor, pdf: Bool) throws -> SampledColor {
+        let side: CGFloat = 80
+        let swatch = Canvas { context, size in
+            context.fill(
+                Path(CGRect(origin: .zero, size: size)),
+                with: .color(Color(red: color.red, green: color.green, blue: color.blue))
+            )
+        }
+        .frame(width: side, height: side)
+        let renderer = ImageRenderer(content: swatch)
+        renderer.scale = 2
+        renderer.isOpaque = true
+        renderer.proposedSize = ProposedViewSize(width: side, height: side)
+        let rep: NSBitmapImageRep
+        if pdf {
+            let data = NSMutableData()
+            let consumer = try XCTUnwrap(CGDataConsumer(data: data as CFMutableData))
+            renderer.render { size, draw in
+                var box = CGRect(origin: .zero, size: size)
+                guard let context = CGContext(consumer: consumer, mediaBox: &box, nil) else { return }
+                context.beginPDFPage(nil)
+                draw(context)
+                context.endPDFPage()
+                context.closePDF()
+            }
+            rep = try pdfBitmap(data as Data)
+        } else {
+            let image = try XCTUnwrap(renderer.cgImage)
+            let encoded = NSMutableData()
+            let destination = try XCTUnwrap(
+                CGImageDestinationCreateWithData(encoded, UTType.png.identifier as CFString, 1, nil)
+            )
+            CGImageDestinationAddImage(destination, image, nil)
+            XCTAssertTrue(CGImageDestinationFinalize(destination))
+            rep = try bitmap(encoded as Data)
+        }
+        return try XCTUnwrap(sampledColor(atCenterOf: rep), "swatch for \(color) did not render")
+    }
+
+    private func sampledColor(atCenterOf rep: NSBitmapImageRep) -> SampledColor? {
+        guard rep.pixelsWide > 0, rep.pixelsHigh > 0 else { return nil }
+        guard let color = rep.colorAt(x: rep.pixelsWide / 2, y: rep.pixelsHigh / 2) else { return nil }
+        let sample = color.usingColorSpace(.sRGB) ?? color
+        return SampledColor(red: sample.redComponent, green: sample.greenComponent, blue: sample.blueComponent)
+    }
+
+    private func channelGap(_ left: SampledColor, _ right: SampledColor) -> CGFloat {
+        max(abs(left.red - right.red), abs(left.green - right.green), abs(left.blue - right.blue))
+    }
+
+    private func pixels(in rep: NSBitmapImageRep, near color: SampledColor, tolerance: CGFloat = 0.08) -> Int {
+        var count = 0
+        for y in stride(from: 0, to: rep.pixelsHigh, by: 2) {
+            for x in stride(from: 0, to: rep.pixelsWide, by: 2) {
+                guard let sample = rep.colorAt(x: x, y: y) else { continue }
+                let resolved = sample.usingColorSpace(.sRGB) ?? sample
+                guard resolved.alphaComponent > 0.85 else { continue }
+                let red = abs(resolved.redComponent - color.red)
+                let green = abs(resolved.greenComponent - color.green)
+                let blue = abs(resolved.blueComponent - color.blue)
+                if red <= tolerance, green <= tolerance, blue <= tolerance {
+                    count += 1
+                }
+            }
+        }
+        return count
+    }
+
+    private func pdfBitmap(_ data: Data) throws -> NSBitmapImageRep {
+        let document = try XCTUnwrap(PDFDocument(data: data))
+        let page = try XCTUnwrap(document.page(at: 0))
+        let bounds = page.bounds(for: .mediaBox)
+        let image = page.thumbnail(
+            of: NSSize(width: max(bounds.width * 2, 1), height: max(bounds.height * 2, 1)),
+            for: .mediaBox
+        )
+        return try bitmap(image)
     }
 
     private func hasPixel(in rep: NSBitmapImageRep, where match: (NSColor) -> Bool) -> Bool {

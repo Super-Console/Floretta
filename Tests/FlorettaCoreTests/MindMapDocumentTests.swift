@@ -10,6 +10,51 @@ final class MindMapDocumentTests: XCTestCase {
     private let created = Date(timeIntervalSince1970: 1_762_646_400)
     private let modified = Date(timeIntervalSince1970: 1_762_732_800)
 
+    func testThemeIDRoundTripsWithoutBumpingTheFormat() throws {
+        var document = MindMapDocument(
+            title: "色",
+            createdAt: created,
+            modifiedAt: modified,
+            roots: [MindMapNode(text: "根")]
+        )
+        let plain = try XCTUnwrap(String(data: try FlorettaCodec.encode(document), encoding: .utf8))
+        XCTAssertFalse(plain.contains("themeID"))
+        XCTAssertEqual(document.formatVersion, 1)
+        document.themeID = "ink"
+        let standard = try XCTUnwrap(String(data: try FlorettaCodec.encode(document), encoding: .utf8))
+        XCTAssertFalse(standard.contains("themeID"))
+        document.themeID = "grove"
+        let decoded = try FlorettaCodec.decode(try FlorettaCodec.encode(document))
+        XCTAssertEqual(decoded.themeID, "grove")
+        XCTAssertEqual(decoded.formatVersion, 1)
+        XCTAssertEqual(decoded.roots[0].text, "根")
+
+        let future = """
+        {
+          "formatVersion": 1,
+          "title": "t",
+          "createdAt": "2026-11-09T00:00:00Z",
+          "modifiedAt": "2026-11-09T00:00:00Z",
+          "roots": [],
+          "themeID": "future-theme"
+        }
+        """
+        let kept = try FlorettaCodec.decode(Data(future.utf8))
+        XCTAssertEqual(kept.themeID, "future-theme")
+        let again = try FlorettaCodec.decode(try FlorettaCodec.encode(kept))
+        XCTAssertEqual(again.themeID, "future-theme")
+
+        let blank = future.replacingOccurrences(of: "future-theme", with: "")
+        XCTAssertNil(try FlorettaCodec.decode(Data(blank.utf8)).themeID)
+        let namedInk = future.replacingOccurrences(of: "future-theme", with: "ink")
+        XCTAssertNil(try FlorettaCodec.decode(Data(namedInk.utf8)).themeID)
+
+        assertCorrupt(
+            Data(#"{"formatVersion":1,"title":"t","createdAt":"2026-11-09T00:00:00Z","modifiedAt":"2026-11-09T00:00:00Z","roots":[],"themeID":1}"#.utf8),
+            containing: "themeID"
+        )
+    }
+
     func testRoundTripPreservesStructureOrderAndText() throws {
         let document = sampleDocument()
         let decoded = try FlorettaCodec.decode(try FlorettaCodec.encode(document))

@@ -477,6 +477,18 @@ public struct MindMapKeyboardSession {
         return true
     }
 
+    /// One undo step. Stores the preset id only. Branch colors stay computed from that id.
+    @discardableResult
+    public mutating func setBranchTheme(_ id: String, document: inout MindMapDocument) -> Bool {
+        guard mode == .command, editOrigin == nil, pendingChange == nil else { return false }
+        guard MapThemeCatalog.all.contains(where: { $0.id == id }) else { return false }
+        let stored = MapThemeCatalog.persistedID(id)
+        if document.themeID == stored { return true }
+        record(document)
+        document.themeID = stored
+        return true
+    }
+
     @discardableResult
     public mutating func setStickyColor(
         _ color: StickyColor,

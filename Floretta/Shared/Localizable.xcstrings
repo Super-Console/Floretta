@@ -1956,6 +1956,27 @@
         }
       }
     },
+    "主题: %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Topics: %lld" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "主题: %lld" } }
+      }
+    },
+    "字数: %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Words: %lld" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "字数: %lld" } }
+      }
+    },
+    "字符数: %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Characters: %lld" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "字符数: %lld" } }
+      }
+    },
     "形状": {
       "extractionState": "manual",
       "localizations": {

@@ -34,7 +34,8 @@
 - [x] A23 `docs/DESIGN-RULES.md`（唯一入口、退出可达、图标优先、禁止重复控件、禁止占位假数据；六条规矩已在该文件，前五条与本行一致）
 - [~] A24 `docs/SMOKE.md` + XCUITest 冒烟（13 条可达性路径，打包前必跑）
 - [x] A25 模板库重做（12 个真模板，结构各不相同，禁止同树换色）（`TemplateKind` 十二个；`ShellTests.testMenusAndTemplatesOmitDeadActions` 断言名称与 `TemplateKind.shape` 均不重复）
-- [~] A26 分段容器、图标按钮、胶囊条与工具栏浮动按钮使用官方玻璃（`glassEffect` / `GlassEffectContainer` / `NSGlassEffectView`，回退 `NSVisualEffectView`：`.underWindowBackground` 或 `.sidebar`，`blendingMode: .behindWindow`）。含 iOS 检查器背景、样式/演说/导图分段、空状态画笔、标签筛选与便签颜色胶囊、多于一页时的底栏页胶囊、工具栏浮动按钮。Mac 大纲与检查器面板不在这里重做。玻璃上的字和图标用 `.foregroundStyle(.primary)`（浅色深字、深色浅字）。本机未截光/暗图。`AppleGlassChromeContractTests`
+- [x] A26 底栏字数（底栏在「主题: N」旁显示「字数: N」。Mac 在底栏右侧，悬停展开主题 / 字数 / 字符数；iPhone / iPad 把这三项放在底栏上。只计节点标题，编辑中实时更新。验收：中心主题 + 分支主题 1–4 = 主题 5、字数 24、字符数 28。`TopicTitleCensusTests`。PR #75 → main `658b0c37`，tip `c9d6eb28`。Censor 通过，CI 与 Pro 已在该 tip 上通过）
+- [~] A27 分段容器、图标按钮、胶囊条与工具栏浮动按钮使用官方玻璃（`glassEffect` / `GlassEffectContainer` / `NSGlassEffectView`，回退 `NSVisualEffectView`：`.underWindowBackground` 或 `.sidebar`，`blendingMode: .behindWindow`）。含 iOS 检查器背景、样式/演说/导图分段、空状态画笔、标签筛选与便签颜色胶囊、多于一页时的底栏页胶囊、工具栏浮动按钮。Mac 大纲与检查器面板不在这里重做。玻璃上的字和图标用 `.foregroundStyle(.primary)`（浅色深字、深色浅字）。本机未截光/暗图。`AppleGlassChromeContractTests`
 
 ## B. 附件（核心差异化）
 
@@ -130,8 +131,8 @@
 
 ## 统计
 
-- 已完成并验过：**61** 项
+- 已完成并验过：**62** 项
 - 已派未合并/未验：**7** 项
 - 未开始：**13** 项
-- 合计：**81** 项
+- 合计：**82** 项
 - 已知阻塞：**3** 项

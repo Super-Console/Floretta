@@ -54,6 +54,7 @@ struct DocumentEditor: View {
     @State private var upgradeName = "Floretta"
     @State private var askOpenUpgrade = false
     @State private var upgradedURL: URL?
+    @State private var topicCensus = TopicCensusModel()
 
     var body: some View {
         canvasStack
@@ -358,6 +359,14 @@ struct DocumentEditor: View {
                 if session.tagFilter.isActive {
                     tagFilterBanner
                 }
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if session.zen.chrome.showsStatusBar {
+                TopicStatusBar(
+                    census: topicCensus.census(of: session.document),
+                    locale: settings.resolvedLocale
+                )
             }
         }
     }
@@ -2042,6 +2051,71 @@ private struct TagFilterSheet: View {
         session.updateSelectedTopicTags { topic in
             topic.labels = TopicLabels.inserting(label, into: topic.labels)
         }
+    }
+}
+
+/// One bottom bar for the open map. Mac keeps the counts on the trailing edge.
+/// iPhone and iPad keep them on the leading edge of the same bar.
+private struct TopicStatusBar: View {
+    var census: TopicTitleCensus
+    var locale: Locale
+
+    var body: some View {
+        HStack(spacing: 16) {
+            count("主题: %lld", census.topics, identifier: "status.topics")
+            count("字数: %lld", census.words, identifier: "status.words")
+            #if os(iOS)
+            count("字符数: %lld", census.characters, identifier: "status.characters")
+            #endif
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: barAlignment)
+        .background(.bar)
+        .overlay(alignment: .top) { Divider() }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(breakdown)
+        .accessibilityIdentifier("status.topicCensus")
+        .help(Text(verbatim: breakdown))
+    }
+
+    private var barAlignment: Alignment {
+        #if os(macOS)
+        .trailing
+        #else
+        .leading
+        #endif
+    }
+
+    private var breakdown: String {
+        [
+            line("主题: %lld", census.topics),
+            line("字数: %lld", census.words),
+            line("字符数: %lld", census.characters),
+        ].joined(separator: "\n")
+    }
+
+    private func count(_ key: String, _ value: Int, identifier: String) -> some View {
+        Text(verbatim: line(key, value))
+            .monospacedDigit()
+            .accessibilityIdentifier(identifier)
+    }
+
+    private func line(_ key: String, _ value: Int) -> String {
+        FlorettaL10n.format(key, locale: locale, arguments: [Int64(value)])
+    }
+}
+
+/// Holds the title cache across keystrokes. The view reads it while drawing,
+/// and the cache only remeasures a title whose text changed.
+@MainActor
+private final class TopicCensusModel {
+    private var cache = TopicTitleCensusCache()
+
+    func census(of document: MindMapDocument) -> TopicTitleCensus {
+        cache.update(document)
     }
 }
 

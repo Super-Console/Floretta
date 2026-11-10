@@ -5,8 +5,8 @@ import Foundation
 /// `freeNodes` are outside that tree: each has its own id and a canvas point.
 /// `stickies` are canvas cards. They are not topics and are not stored in `freeNodes`.
 public struct MindMapDocument: Equatable, Sendable {
-    /// Additive keys (`freeNodes`, `relationships`, `stickies`, `summaries`, `boundaries`, `additionalCanvases`, `themeID`, `xmindForeign`, `opmlForeign`, `mmForeign`) stay on version 1.
-    /// A version bump would refuse every existing file. Empty arrays and the standard theme are omitted.
+    /// Additive keys (`freeNodes`, `relationships`, `stickies`, `summaries`, `boundaries`, `additionalCanvases`, `themeID`, `xmindForeign`, `opmlForeign`, `mmForeign`, `activeCanvasIndex`, `primaryCanvasTitle`, `primaryCanvasViewport`) stay on version 1.
+    /// A version bump would refuse every existing file. Empty arrays, the standard theme, canvas 0, and an identity camera are omitted.
     public static let currentFormatVersion = 1
 
     public var formatVersion: Int
@@ -39,6 +39,15 @@ public struct MindMapDocument: Equatable, Sendable {
     /// Preset id from `MapThemeCatalog`. Nil is the standard light/dark pair.
     /// Omitted from JSON when nil. Branch colors are computed at layout time, not copied onto nodes.
     public var themeID: String?
+    /// Which canvas the editor shows. 0 is the first sheet (`roots`). Omitted from JSON when 0.
+    /// A stored index past the last sheet is read back as 0 so an older file still opens.
+    public var activeCanvasIndex: Int
+    /// Title of the first sheet when it should differ from `title`. Nil shows `title`.
+    /// Omitted from JSON when nil. Later sheets use `MindMapCanvas.title`.
+    public var primaryCanvasTitle: String?
+    /// Zoom and pan of the first sheet. Later sheets store this on `MindMapCanvas`.
+    /// The identity camera (scale 1, no pan) is omitted from JSON.
+    public var primaryCanvasViewport: CanvasViewportState
 
     public init(
         title: String,
@@ -54,7 +63,10 @@ public struct MindMapDocument: Equatable, Sendable {
         xmindForeign: XMindForeign? = nil,
         opmlForeign: OPMLForeign? = nil,
         mmForeign: MMForeign? = nil,
-        themeID: String? = nil
+        themeID: String? = nil,
+        activeCanvasIndex: Int = 0,
+        primaryCanvasTitle: String? = nil,
+        primaryCanvasViewport: CanvasViewportState = .standard
     ) {
         self.formatVersion = formatVersion
         self.title = title
@@ -70,6 +82,11 @@ public struct MindMapDocument: Equatable, Sendable {
         self.opmlForeign = opmlForeign
         self.mmForeign = mmForeign
         self.themeID = MapThemeCatalog.persistedID(themeID)
+        self.activeCanvasIndex = activeCanvasIndex
+        let trimmedTitle = primaryCanvasTitle?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.primaryCanvasTitle = (trimmedTitle?.isEmpty == false) ? trimmedTitle : nil
+        self.primaryCanvasViewport = primaryCanvasViewport
+        clampActiveCanvasIndex()
     }
 }
 
@@ -143,6 +160,9 @@ extension MindMapDocument: Codable {
         case opmlForeign
         case mmForeign
         case themeID
+        case activeCanvasIndex
+        case primaryCanvasTitle
+        case primaryCanvasViewport
     }
 
     public init(from decoder: Decoder) throws {
@@ -173,6 +193,12 @@ extension MindMapDocument: Codable {
         let themeID = MapThemeCatalog.persistedID(
             try container.decodeIfPresent(String.self, forKey: .themeID)
         )
+        let activeCanvasIndex = try container.decodeIfPresent(Int.self, forKey: .activeCanvasIndex) ?? 0
+        let primaryCanvasTitle = try container.decodeIfPresent(String.self, forKey: .primaryCanvasTitle)
+        let primaryCanvasViewport = try container.decodeIfPresent(
+            CanvasViewportState.self,
+            forKey: .primaryCanvasViewport
+        ) ?? .standard
         self.formatVersion = version
         self.title = title
         self.createdAt = createdAt
@@ -187,6 +213,11 @@ extension MindMapDocument: Codable {
         self.opmlForeign = opmlForeign
         self.mmForeign = mmForeign
         self.themeID = themeID
+        self.activeCanvasIndex = activeCanvasIndex
+        let trimmedTitle = primaryCanvasTitle?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.primaryCanvasTitle = (trimmedTitle?.isEmpty == false) ? trimmedTitle : nil
+        self.primaryCanvasViewport = primaryCanvasViewport
+        clampActiveCanvasIndex()
         promoteUnmappedTopicTags()
         try FlorettaTree.validate(self)
     }
@@ -224,6 +255,15 @@ extension MindMapDocument: Codable {
         if let themeID = MapThemeCatalog.persistedID(themeID) {
             try container.encode(themeID, forKey: .themeID)
         }
+        if clampedCanvasIndex != 0 {
+            try container.encode(clampedCanvasIndex, forKey: .activeCanvasIndex)
+        }
+        if let primaryCanvasTitle, !primaryCanvasTitle.isEmpty {
+            try container.encode(primaryCanvasTitle, forKey: .primaryCanvasTitle)
+        }
+        if !primaryCanvasViewport.isStandard {
+            try container.encode(primaryCanvasViewport, forKey: .primaryCanvasViewport)
+        }
     }
 }
 
@@ -243,9 +283,17 @@ enum FlorettaTree {
             canvasTopics.append(try collect(canvas.roots, canvas.freeNodes, seen: &seen, stack: &stack))
         }
         var stickyIDs: Set<UUID> = []
-        for sticky in document.stickies {
+        func takeSticky(_ sticky: StickyNote) throws {
             if seen.contains(sticky.id) || !stickyIDs.insert(sticky.id).inserted {
                 throw FlorettaCodecError.duplicateID(sticky.id)
+            }
+        }
+        for sticky in document.stickies {
+            try takeSticky(sticky)
+        }
+        for canvas in document.additionalCanvases {
+            for sticky in canvas.stickies {
+                try takeSticky(sticky)
             }
         }
         var relationshipIDs: Set<UUID> = []
@@ -406,7 +454,11 @@ public extension MindMapDocument {
             }
             return false
         }
-        return walk(freeNodes)
+        if walk(freeNodes) { return true }
+        for canvas in additionalCanvases where walk(canvas.freeNodes) {
+            return true
+        }
+        return false
     }
 
     public func walkTopics(_ visit: (MindMapNode) -> Void) {
@@ -815,6 +867,7 @@ public extension MindMapDocument {
         for canvas in additionalCanvases {
             if canvas.id == id || marks(canvas.roots) || marks(canvas.freeNodes) { return true }
             if canvas.relationships.contains(where: { $0.id == id }) { return true }
+            if canvas.stickies.contains(where: { $0.id == id }) { return true }
         }
         return false
     }

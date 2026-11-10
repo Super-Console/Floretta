@@ -61,6 +61,8 @@ enum MapExporter {
         images: [String: CGImage] = [:],
         scheme: MapColorScheme = .light
     ) -> MapExportResult {
+        // PNG holds one canvas: the active sheet. Other sheets stay on the native document.
+        let document = document.singleTreeExport()
         let plan = plan(document: document, options: options, scheme: scheme)
         guard plan.pointSize.width > 1, plan.pointSize.height > 1 else {
             return empty(plan)
@@ -88,6 +90,8 @@ enum MapExporter {
         images: [String: CGImage] = [:],
         scheme: MapColorScheme = .light
     ) -> MapExportResult {
+        // PDF holds one canvas: the active sheet. Other sheets stay on the native document.
+        let document = document.singleTreeExport()
         let plan = plan(document: document, options: options, scheme: scheme)
         guard plan.pointSize.width > 1, plan.pointSize.height > 1 else {
             return empty(plan)

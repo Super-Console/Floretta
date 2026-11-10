@@ -156,7 +156,7 @@ public enum ImageFileName {
 public enum ImageAttachments {
     public static func contains(_ document: MindMapDocument) -> Bool {
         var found = false
-        document.walkTopics { node in
+        document.walkAllCanvasTopics { node in
             if node.attachments.contains(where: { AttachmentKind.isImageExtension($0.fileExtension) }) {
                 found = true
             }

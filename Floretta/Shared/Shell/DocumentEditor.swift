@@ -30,6 +30,9 @@ struct DocumentEditor: View {
     @State private var showInspector = false
     @State private var showRename = false
     @State private var renameText = ""
+    @State private var showCanvasRename = false
+    @State private var canvasRenameText = ""
+    @State private var canvasRenameIndex = 0
     @State private var showFind = false
     @State private var findQuery = ""
     @State private var showTagFilter = false
@@ -129,11 +132,24 @@ struct DocumentEditor: View {
             .onChange(of: session.viewMode) { _, mode in
                 guard mode == .focus else { return }
                 if session.focusNodeID == nil {
-                    session.focusNodeID = session.keyboard.selectedNodeID ?? session.document.roots.first?.id
+                    session.focusNodeID = session.keyboard.selectedNodeID ?? session.editingDocument.roots.first?.id
                 }
             }
-            .onChange(of: session.document) { _, updated in
-                onEdit(updated)
+            .onChange(of: session.document) { _, _ in
+                session.flushLiveViewport()
+                onEdit(session.document)
+            }
+            .onAppear {
+                camera.restore(session.document.viewport(forCanvas: session.document.clampedCanvasIndex))
+            }
+            .onChange(of: session.document.activeCanvasIndex) { _, _ in
+                camera.restore(session.document.viewport(forCanvas: session.document.clampedCanvasIndex))
+            }
+            .onChange(of: session.canvasCameraToken) { _, _ in
+                camera.restore(session.document.viewport(forCanvas: session.document.clampedCanvasIndex))
+            }
+            .onChange(of: camera.viewport) { _, viewport in
+                session.noteViewport(viewport.persisted)
             }
             .onChange(of: session.zen.isActive) { _, active in
                 syncFullScreen(active)
@@ -290,7 +306,7 @@ struct DocumentEditor: View {
             .alert(Text(verbatim: text("查找")), isPresented: $showFind) {
                 TextField(text("文字"), text: $findQuery)
                 Button(text("查找")) {
-                    if let id = CanvasEditCommands.find(in: session.document, query: findQuery) {
+                    if let id = CanvasEditCommands.find(in: session.editingDocument, query: findQuery) {
                         session.keyboard.selectedNodeID = id
                     } else {
                         exportError = "没有找到。"
@@ -303,7 +319,7 @@ struct DocumentEditor: View {
     private var canvasStack: some View {
         ZStack(alignment: .leading) {
             InfiniteCanvas(
-                document: $session.document,
+                document: session.activeCanvasDocument,
                 keyboard: $session.keyboard,
                 camera: camera,
                 focusNodeID: session.viewMode == .focus ? session.focusNodeID : nil,
@@ -325,7 +341,7 @@ struct DocumentEditor: View {
                 dictationToken: session.dictationToken,
                 dictationReplacesPlaceholder: session.dictationReplacesPlaceholder
             )
-            .ignoresSafeArea()
+            .ignoresSafeArea(edges: showsCanvasTabs ? .top.union(.horizontal) : .all)
             if showOutline, session.zen.chrome.showsSidebar {
                 outlinePanel
                     .frame(width: outlineWide ? nil : 300)
@@ -353,6 +369,67 @@ struct DocumentEditor: View {
                 }
             }
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if showsCanvasTabs { canvasTabBar }
+        }
+    }
+
+    /// One row of sheet titles. Only the visible canvas is mounted, so switching
+    /// sheets lays that sheet out once and leaves the others off the frame path.
+    private var showsCanvasTabs: Bool {
+        !session.isMarkdownDocument && !session.zen.isActive
+    }
+
+    private var canvasTabBar: some View {
+        HStack(spacing: 6) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(0..<session.document.canvasCount, id: \.self) { index in
+                        canvasTab(index)
+                    }
+                }
+            }
+            Button {
+                session.addCanvas(viewport: camera.viewport.persisted)
+            } label: {
+                Image(systemName: "plus")
+            }
+            .buttonStyle(.bordered)
+            .accessibilityLabel(text("新建画布"))
+            .accessibilityIdentifier("canvas.tab.add")
+            .help(Text(verbatim: text("在这份文档里再加一张画布")))
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.bar)
+        .accessibilityIdentifier("canvas.tabs")
+        .alert(Text(verbatim: text("重新命名")), isPresented: $showCanvasRename) {
+            TextField(text("名称"), text: $canvasRenameText)
+            Button(text("确定")) {
+                session.renameCanvas(at: canvasRenameIndex, to: canvasRenameText)
+            }
+            Button(text("取消"), role: .cancel) {}
+        }
+    }
+
+    private func canvasTab(_ index: Int) -> some View {
+        let selected = index == session.document.clampedCanvasIndex
+        return Button {
+            session.activateCanvas(index, viewport: camera.viewport.persisted)
+        } label: {
+            Text(verbatim: session.document.canvasTitle(at: index))
+                .lineLimit(1)
+        }
+        .buttonStyle(.bordered)
+        .tint(selected ? Color.accentColor : Color.secondary)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier("canvas.tab.\(index)")
+        .simultaneousGesture(TapGesture(count: 2).onEnded {
+            canvasRenameIndex = index
+            canvasRenameText = session.document.canvasTitle(at: index)
+            showCanvasRename = true
+        })
     }
 
     private var tagFilterBanner: some View {
@@ -420,7 +497,7 @@ struct DocumentEditor: View {
                     .accessibilityHint(text(MarkdownModePolicy.reason(.collapse)))
             }
             OutlineView(
-                document: $session.document,
+                document: session.activeCanvasDocument,
                 keyboard: $session.keyboard,
                 tagFilter: session.tagFilter,
                 locksCollapse: session.isMarkdownDocument
@@ -529,7 +606,7 @@ struct DocumentEditor: View {
             .accessibilityHint(text(markdownHelp(.sticky, otherwise: "在画布上放一张便签。最多五种颜色，不计入节点，可以拖动，大小有上限")))
             Menu {
                 let source = session.keyboard.selectedNodeID
-                let targets = session.document.linkTargets(excluding: source)
+                let targets = session.editingDocument.linkTargets(excluding: source)
                 if targets.isEmpty {
                     Button(text("没有其他节点")) {}
                         .disabled(true)
@@ -548,13 +625,13 @@ struct DocumentEditor: View {
             Button { session.addSummaryFromToolbar() } label: {
                 Label(text("概要"), systemImage: "curlybraces")
             }
-            .disabled(session.isMarkdownDocument || !session.document.canEnclose(session.keyboard.selectedNodeID))
+            .disabled(session.isMarkdownDocument || !session.editingDocument.canEnclose(session.keyboard.selectedNodeID))
             .help(Text(verbatim: text(markdownHelp(.summary, otherwise: "为选中的节点生成概要，并画出括住它的括号"))))
             .accessibilityHint(text(markdownHelp(.summary, otherwise: "为选中的节点生成概要，并画出括住它的括号")))
             Button { session.addBoundaryFromToolbar() } label: {
                 Label(text("边界"), systemImage: "rectangle.dashed")
             }
-            .disabled(session.isMarkdownDocument || !session.document.canEnclose(session.keyboard.selectedNodeID))
+            .disabled(session.isMarkdownDocument || !session.editingDocument.canEnclose(session.keyboard.selectedNodeID))
             .help(Text(verbatim: text(markdownHelp(.boundary, otherwise: "用边界圈住选中的节点"))))
             .accessibilityHint(text(markdownHelp(.boundary, otherwise: "用边界圈住选中的节点")))
             Button { showImageImporter = true } label: {
@@ -655,8 +732,6 @@ struct DocumentEditor: View {
                     .explained("只看当前选中的这一支")
             }
             .explained("在地图模式和聚焦模式之间切换")
-            Button(text("新建画布")) { session.addCanvas() }
-                .explained("在这份导图里再加一个中心主题")
             Button(text("查找")) {
                 findQuery = ""
                 showFind = true
@@ -726,12 +801,14 @@ struct DocumentEditor: View {
                     boundaryTitleForm
                 } else {
                     StyleInspector(
-                        document: $session.document,
+                        document: session.activeCanvasDocument,
                         nodeID: session.keyboard.selectedNodeID,
                         locksAppearance: session.isMarkdownDocument,
                         onSelectRelationship: { id in
                             if session.keyboard.mode == .edit {
-                                session.keyboard.apply(.commitEdit, document: &session.document, frames: [])
+                                session.editActive { document in
+                                    session.keyboard.apply(.commitEdit, document: &document, frames: [])
+                                }
                             }
                             session.keyboard.selectedRelationshipID = id
                         }
@@ -765,19 +842,19 @@ struct DocumentEditor: View {
                 Text(verbatim: "\(references.reduce(0) { $0 + $1.count })").monospacedDigit()
             }
             LabeledContent(text("节点")) {
-                Text(verbatim: "\(session.document.topicCount)").monospacedDigit()
+                Text(verbatim: "\(session.editingDocument.topicCount)").monospacedDigit()
             }
             LabeledContent(text("便签")) {
-                Text(verbatim: "\(session.document.stickies.count)").monospacedDigit()
+                Text(verbatim: "\(session.editingDocument.stickies.count)").monospacedDigit()
             }
             LabeledContent(text("关系")) {
-                Text(verbatim: "\(session.document.relationships.count)").monospacedDigit()
+                Text(verbatim: "\(session.editingDocument.relationships.count)").monospacedDigit()
             }
             LabeledContent(text("概要")) {
-                Text(verbatim: "\(session.document.summaryCount)").monospacedDigit()
+                Text(verbatim: "\(session.editingDocument.summaryCount)").monospacedDigit()
             }
             LabeledContent(text("边界")) {
-                Text(verbatim: "\(session.document.boundaryCount)").monospacedDigit()
+                Text(verbatim: "\(session.editingDocument.boundaryCount)").monospacedDigit()
             }
         }
         .formStyle(.grouped)
@@ -802,14 +879,16 @@ struct DocumentEditor: View {
                 if session.keyboard.editingRelationshipID == id {
                     return session.keyboard.editingText
                 }
-                return session.document.relationship(id)?.title ?? ""
+                return session.editingDocument.relationship(id)?.title ?? ""
             },
             set: { newValue in
                 guard let id = session.keyboard.selectedRelationshipID else { return }
-                if session.keyboard.editingRelationshipID != id {
-                    session.keyboard.apply(.beginEdit, document: &session.document, frames: [])
+                session.editActive { document in
+                    if session.keyboard.editingRelationshipID != id {
+                        session.keyboard.apply(.beginEdit, document: &document, frames: [])
+                    }
+                    session.keyboard.replaceEditingText(newValue, document: &document)
                 }
-                session.keyboard.replaceEditingText(newValue, document: &session.document)
             }
         )
     }
@@ -833,14 +912,16 @@ struct DocumentEditor: View {
                 if session.keyboard.editingSummaryID == id {
                     return session.keyboard.editingText
                 }
-                return session.document.summary(id)?.text ?? ""
+                return session.editingDocument.summary(id)?.text ?? ""
             },
             set: { newValue in
                 guard let id = session.keyboard.selectedSummaryID else { return }
-                if session.keyboard.editingSummaryID != id {
-                    session.keyboard.apply(.beginEdit, document: &session.document, frames: [])
+                session.editActive { document in
+                    if session.keyboard.editingSummaryID != id {
+                        session.keyboard.apply(.beginEdit, document: &document, frames: [])
+                    }
+                    session.keyboard.replaceEditingText(newValue, document: &document)
                 }
-                session.keyboard.replaceEditingText(newValue, document: &session.document)
             }
         )
     }
@@ -864,26 +945,32 @@ struct DocumentEditor: View {
                 if session.keyboard.editingBoundaryID == id {
                     return session.keyboard.editingText
                 }
-                return session.document.boundary(id)?.title ?? ""
+                return session.editingDocument.boundary(id)?.title ?? ""
             },
             set: { newValue in
                 guard let id = session.keyboard.selectedBoundaryID else { return }
-                if session.keyboard.editingBoundaryID != id {
-                    session.keyboard.apply(.beginEdit, document: &session.document, frames: [])
+                session.editActive { document in
+                    if session.keyboard.editingBoundaryID != id {
+                        session.keyboard.apply(.beginEdit, document: &document, frames: [])
+                    }
+                    session.keyboard.replaceEditingText(newValue, document: &document)
                 }
-                session.keyboard.replaceEditingText(newValue, document: &session.document)
             }
         )
     }
 
     private func commitMarkText() {
         guard session.keyboard.mode == .edit else { return }
-        session.keyboard.apply(.commitEdit, document: &session.document, frames: [])
+        session.editActive { document in
+            session.keyboard.apply(.commitEdit, document: &document, frames: [])
+        }
     }
 
     private func commitRelationshipTitle() {
         guard session.keyboard.mode == .edit else { return }
-        session.keyboard.apply(.commitEdit, document: &session.document, frames: [])
+        session.editActive { document in
+            session.keyboard.apply(.commitEdit, document: &document, frames: [])
+        }
     }
 
     private var insertDialogPresented: Binding<Bool> {
@@ -1091,7 +1178,7 @@ struct DocumentEditor: View {
             exportError = "先把导图存成文件。"
             return
         }
-        let nodeID = session.keyboard.selectedNodeID ?? session.document.roots.first?.id
+        let nodeID = session.keyboard.selectedNodeID ?? session.editingDocument.roots.first?.id
         guard let nodeID else {
             source.stopAccessingSecurityScopedResource()
             if ownsCopy { try? FileManager.default.removeItem(at: source) }
@@ -1166,6 +1253,7 @@ struct DocumentEditor: View {
     }
 
     private func export(_ kind: String) {
+        session.prepareToSave()
         let title = session.document.title.isEmpty ? "Floretta" : session.document.title
         let type = FlorettaFileTypes.contentType(forExport: kind)
         do {
@@ -1305,7 +1393,7 @@ struct DocumentEditor: View {
             session.selectCurrent()
         case "拷贝样式":
             if let id = session.keyboard.selectedNodeID,
-               let style = session.document.node(id)?.style {
+               let style = session.editingDocument.node(id)?.style {
                 writePasteboard(style.fillHex ?? style.colorHex)
             }
         default:
@@ -1904,7 +1992,7 @@ private struct TagFilterSheet: View {
 
     private var selectedNode: MindMapNode? {
         guard let id = session.keyboard.selectedNodeID else { return nil }
-        return session.document.node(id)
+        return session.editingDocument.node(id)
     }
 
     private var queryTrims: String {
@@ -1912,11 +2000,11 @@ private struct TagFilterSheet: View {
     }
 
     private var filteredLabels: [String] {
-        TopicTagIndex.labels(in: session.document).filter { TopicTagIndex.contains(query, in: $0) }
+        TopicTagIndex.labels(in: session.editingDocument).filter { TopicTagIndex.contains(query, in: $0) }
     }
 
     private var filteredMarkers: [String] {
-        TopicTagIndex.markerIDs(in: session.document).filter { markerId in
+        TopicTagIndex.markerIDs(in: session.editingDocument).filter { markerId in
             TopicTagIndex.contains(query, in: title(markerId))
         }
     }

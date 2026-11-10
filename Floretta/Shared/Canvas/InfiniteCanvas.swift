@@ -1632,6 +1632,13 @@ final class CanvasCamera {
         chrome.syncZoomPercent(toScale: viewport.scale)
     }
 
+    func restore(_ state: CanvasViewportState) {
+        var updated = viewport
+        updated.restore(state)
+        viewport = updated
+        chrome.syncZoomPercent(toScale: viewport.scale)
+    }
+
     private var center: CGPoint {
         CGPoint(x: viewSize.width / 2, y: viewSize.height / 2)
     }

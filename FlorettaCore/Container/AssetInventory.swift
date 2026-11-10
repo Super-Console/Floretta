@@ -72,7 +72,7 @@ enum AssetInventory {
 
     static func filenames(for sha256: String, in document: MindMapDocument) -> String {
         var names: [String] = []
-        document.walkTopics { node in
+        document.walkAllCanvasTopics { node in
             for attachment in node.attachments where attachment.sha256 == sha256 {
                 if !names.contains(attachment.filename) {
                     names.append(attachment.filename)
@@ -86,7 +86,7 @@ enum AssetInventory {
     static func missingReferences(in document: MindMapDocument, stored: Set<String>) -> [AssetCorruption] {
         var failures: [AssetCorruption] = []
         var reported: Set<String> = []
-        document.walkTopics { node in
+        document.walkAllCanvasTopics { node in
             for attachment in node.attachments {
                 guard stored.contains(attachment.sha256) == false else { continue }
                 guard reported.insert(attachment.sha256).inserted else { continue }

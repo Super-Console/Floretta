@@ -1,6 +1,7 @@
 import FlorettaCore
 import Foundation
 import Observation
+import SwiftUI
 
 /// Holds a security-scoped URL until the editor closes. `openFile` used to
 /// stop access as soon as the bytes were read, so writing the same URL on
@@ -329,6 +330,10 @@ final class EditorSession {
     var dictationToken = 0
     /// The new child still shows the placeholder, so the field selects it first.
     var dictationReplacesPlaceholder = false
+    /// Latest camera. Not observed: panning must not publish the document or lay out a sheet.
+    @ObservationIgnored var liveViewport: CanvasViewportState?
+    /// Bumps when a snapshot replaces the saved camera and the editor should apply it.
+    var canvasCameraToken = 0
 
     init(
         document: MindMapDocument,
@@ -344,8 +349,9 @@ final class EditorSession {
         let markdown = markdownDocument ?? MarkdownModePolicy.isDocumentExtension(sourceExtension)
         self.markdownDocument = markdown
         self.shareBase = document
-        focusNodeID = document.roots.first?.id
-        keyboard.selectedNodeID = document.roots.first?.id
+        let opened = document.isolatedCanvas(at: document.clampedCanvasIndex)
+        focusNodeID = opened.roots.first?.id
+        keyboard.selectedNodeID = focusNodeID
         if markdown {
             let projection = MarkdownPersistableProjection(document)
             savedProjection = projection
@@ -428,7 +434,9 @@ final class EditorSession {
         shareBase = document
         notePackage(catalog: catalog, bytes: bytes)
         keyboard.discardEditHistory()
-        let root = document.roots.first?.id
+        liveViewport = nil
+        canvasCameraToken += 1
+        let root = document.isolatedCanvas(at: document.clampedCanvasIndex).roots.first?.id
         keyboard.selectedNodeID = root
         focusNodeID = root
     }
@@ -461,48 +469,130 @@ final class EditorSession {
         return true
     }
 
+    /// The sheet the canvas and outline draw. Other sheets are not in this value,
+    /// so a frame that lays it out does not measure them.
+    var editingDocument: MindMapDocument {
+        document.isolatedCanvas(at: document.clampedCanvasIndex)
+    }
+
+    var activeCanvasDocument: Binding<MindMapDocument> {
+        Binding(
+            get: { self.editingDocument },
+            set: { surface in
+                self.document.replaceCanvasContent(at: self.document.clampedCanvasIndex, with: surface)
+            }
+        )
+    }
+
+    func noteViewport(_ state: CanvasViewportState) {
+        liveViewport = CanvasViewportState.clamped(state)
+    }
+
+    /// Copies the live camera onto the active sheet when it differs. Returns whether the document changed.
+    @discardableResult
+    func flushLiveViewport() -> Bool {
+        guard let liveViewport else { return false }
+        let index = document.clampedCanvasIndex
+        guard document.viewport(forCanvas: index) != liveViewport else { return false }
+        document.setViewport(liveViewport, forCanvas: index)
+        return true
+    }
+
+    @discardableResult
+    func editActive<T>(_ body: (inout MindMapDocument) -> T) -> T {
+        let index = document.clampedCanvasIndex
+        var surface = document.isolatedCanvas(at: index)
+        let result = body(&surface)
+        document.replaceCanvasContent(at: index, with: surface)
+        return result
+    }
+
+    /// Remembers this sheet's camera, then shows another sheet. Undo does not cross sheets.
+    func activateCanvas(_ index: Int, viewport: CanvasViewportState) {
+        let current = document.clampedCanvasIndex
+        guard index != current, document.canvasCount > index, index >= 0 else { return }
+        closeEditingForCanvasChange()
+        var next = document
+        next.setViewport(CanvasViewportState.clamped(viewport), forCanvas: current)
+        next.selectCanvas(index)
+        liveViewport = nil
+        document = next
+        focusSelectionOnActiveCanvas()
+    }
+
+    func addCanvas(viewport: CanvasViewportState) {
+        guard !isMarkdownDocument else { return }
+        closeEditingForCanvasChange()
+        var next = document
+        next.setViewport(CanvasViewportState.clamped(viewport), forCanvas: next.clampedCanvasIndex)
+        let index = next.addCanvas()
+        liveViewport = nil
+        document = next
+        let root = document.isolatedCanvas(at: index).roots.first?.id
+        keyboard.selectedNodeID = root
+        focusNodeID = root
+    }
+
+    func renameCanvas(at index: Int, to title: String) {
+        document.renameCanvas(at: index, to: title)
+    }
+
     @discardableResult
     func updateSelectedTopicTags(_ body: (inout MindMapNode) -> Void) -> Bool {
         guard !isMarkdownDocument else { return false }
         if keyboard.mode == .edit {
-            keyboard.apply(.commitEdit, document: &document, frames: [])
+            editActive { document in
+                keyboard.apply(.commitEdit, document: &document, frames: [])
+            }
         }
         guard let id = keyboard.selectedNodeID else { return false }
-        return keyboard.updateTopicTags(id, document: &document, body)
+        return editActive { document in
+            keyboard.updateTopicTags(id, document: &document, body)
+        }
     }
 
     func undo() {
         finishEditingIfNeeded()
         guard keyboard.mode == .command, !keyboard.isComposing else { return }
         let event = KeyEvent(key: .character("z"), modifiers: .command, mode: .command, isComposing: false)
-        _ = keyboard.handle(event, document: &document, frames: [])
+        editActive { document in
+            _ = keyboard.handle(event, document: &document, frames: [])
+        }
     }
 
     func redo() {
         finishEditingIfNeeded()
         guard keyboard.mode == .command, !keyboard.isComposing else { return }
         let event = KeyEvent(key: .character("Z"), modifiers: [.command, .shift], mode: .command, isComposing: false)
-        _ = keyboard.handle(event, document: &document, frames: [])
+        editActive { document in
+            _ = keyboard.handle(event, document: &document, frames: [])
+        }
     }
 
     func addChildFromToolbar() {
         finishEditingIfNeeded()
         guard keyboard.mode == .command, !keyboard.isComposing else { return }
         let event = KeyEvent(key: .tab, modifiers: [], mode: .command, isComposing: false)
-        _ = keyboard.handle(event, document: &document, frames: [])
+        editActive { document in
+            _ = keyboard.handle(event, document: &document, frames: [])
+        }
     }
 
     func addSiblingFromToolbar() {
         finishEditingIfNeeded()
         guard keyboard.mode == .command, !keyboard.isComposing else { return }
         let event = KeyEvent(key: .enter, modifiers: [], mode: .command, isComposing: false)
-        _ = keyboard.handle(event, document: &document, frames: [])
+        editActive { document in
+            _ = keyboard.handle(event, document: &document, frames: [])
+        }
     }
 
     /// Opens a child, or the editor already on screen, then asks for system dictation.
     /// The spoken string is written by the text view the same way typed text is.
     func beginDictation() {
-        let preparation = DictationNodeInput.prepare(session: &keyboard, document: &document)
+        let preparation = editActive { document in
+            DictationNodeInput.prepare(session: &keyboard, document: &document)
+        }
         guard preparation.target != .unavailable else { return }
         dictationReplacesPlaceholder = preparation.replacesPlaceholder
         dictationToken &+= 1
@@ -511,104 +601,141 @@ final class EditorSession {
 
     /// Writes a finished system transcript. Blank speech does not create a topic.
     func applyDictatedText(_ phrase: String) {
-        _ = DictationNodeInput.apply(phrase: phrase, session: &keyboard, document: &document)
+        editActive { document in
+            _ = DictationNodeInput.apply(phrase: phrase, session: &keyboard, document: &document)
+        }
     }
 
     func addFreeNodeFromToolbar() {
         guard !isMarkdownDocument else { return }
         finishEditingIfNeeded()
         guard keyboard.mode == .command, !keyboard.isComposing else { return }
-        let index = document.freeNodes.count
+        let index = editingDocument.freeNodes.count
         let point = MindMapPoint(x: 200 + Double(index) * 32, y: -160 - Double(index) * 28)
-        _ = keyboard.addFreeNode(at: point, document: &document)
+        editActive { document in
+            _ = keyboard.addFreeNode(at: point, document: &document)
+        }
     }
 
     func addStickyFromToolbar() {
         guard !isMarkdownDocument else { return }
         finishEditingIfNeeded()
         guard keyboard.mode == .command, !keyboard.isComposing else { return }
-        let index = document.stickies.count
+        let index = editingDocument.stickies.count
         let point = MindMapPoint(x: -260 - Double(index) * 20, y: 72 + Double(index) * 24)
-        _ = keyboard.addSticky(at: point, document: &document)
+        editActive { document in
+            _ = keyboard.addSticky(at: point, document: &document)
+        }
     }
 
     func linkSelectedTopic(to targetID: UUID) {
         guard !isMarkdownDocument else { return }
         finishEditingIfNeeded()
         guard keyboard.mode == .command, !keyboard.isComposing else { return }
-        _ = keyboard.linkSelectedTopic(to: targetID, document: &document)
+        editActive { document in
+            _ = keyboard.linkSelectedTopic(to: targetID, document: &document)
+        }
     }
 
     func addSummaryFromToolbar() {
         guard !isMarkdownDocument else { return }
         finishEditingIfNeeded()
         guard keyboard.mode == .command, !keyboard.isComposing else { return }
-        _ = keyboard.addSummaryForSelection(document: &document)
+        editActive { document in
+            _ = keyboard.addSummaryForSelection(document: &document)
+        }
     }
 
     func addBoundaryFromToolbar() {
         guard !isMarkdownDocument else { return }
         finishEditingIfNeeded()
         guard keyboard.mode == .command, !keyboard.isComposing else { return }
-        _ = keyboard.addBoundaryForSelection(document: &document)
+        editActive { document in
+            _ = keyboard.addBoundaryForSelection(document: &document)
+        }
     }
 
     func deleteSelection() {
         finishEditingIfNeeded()
         guard keyboard.mode == .command, !keyboard.isComposing else { return }
         let event = KeyEvent(key: .backspace, modifiers: [], mode: .command, isComposing: false)
-        _ = keyboard.handle(event, document: &document, frames: [])
+        editActive { document in
+            _ = keyboard.handle(event, document: &document, frames: [])
+        }
     }
 
     /// Toolbar actions arrive while a new node is still in the text view.
     /// Commit that edit first so create / delete / undo see command mode.
     private func finishEditingIfNeeded() {
         guard !keyboard.isComposing, keyboard.mode == .edit else { return }
-        keyboard.apply(.commitEdit, document: &document, frames: [])
+        editActive { document in
+            keyboard.apply(.commitEdit, document: &document, frames: [])
+        }
     }
 
-    /// Flush a finished edit into the document before it is written. Marked
-    /// Chinese text is already on the node and stays there until the system
+    /// Flush a finished edit and the live camera before the file is written.
+    /// Marked Chinese text is already on the node and stays there until the system
     /// text view confirms the candidate.
     func prepareToSave() {
         finishEditingIfNeeded()
+        flushLiveViewport()
     }
 
     /// Replace the selected node's text and commit it as one undo step.
     func commitText(_ text: String) {
-        if keyboard.mode != .edit {
-            keyboard.apply(.beginEdit, document: &document, frames: [])
+        editActive { document in
+            if keyboard.mode != .edit {
+                keyboard.apply(.beginEdit, document: &document, frames: [])
+            }
+            keyboard.replaceEditingText(text, document: &document)
+            keyboard.apply(.commitEdit, document: &document, frames: [])
         }
-        keyboard.replaceEditingText(text, document: &document)
-        keyboard.apply(.commitEdit, document: &document, frames: [])
     }
 
     func pasteClipboard(_ text: String) {
-        CanvasEditCommands.paste(text: text, document: &document, keyboard: &keyboard)
+        editActive { document in
+            CanvasEditCommands.paste(text: text, document: &document, keyboard: &keyboard)
+        }
     }
 
     func cutSelection() -> String? {
-        CanvasEditCommands.cut(document: &document, keyboard: &keyboard)
+        editActive { document in
+            CanvasEditCommands.cut(document: &document, keyboard: &keyboard)
+        }
     }
 
     func copySelection() -> String? {
-        CanvasEditCommands.copyText(document: document, nodeID: keyboard.selectedNodeID)
+        CanvasEditCommands.copyText(document: editingDocument, nodeID: keyboard.selectedNodeID)
     }
 
     func selectCurrent() {
-        CanvasEditCommands.select(document: &document, keyboard: &keyboard)
+        editActive { document in
+            CanvasEditCommands.select(document: &document, keyboard: &keyboard)
+        }
     }
 
     func setBranchTheme(_ id: String) {
         guard !isMarkdownDocument else { return }
         finishEditingIfNeeded()
         guard keyboard.mode == .command, !keyboard.isComposing else { return }
-        _ = keyboard.setBranchTheme(id, document: &document)
+        editActive { document in
+            _ = keyboard.setBranchTheme(id, document: &document)
+        }
     }
 
-    func addCanvas() {
-        let id = CanvasEditCommands.addCanvas(to: &document)
-        keyboard.selectedNodeID = id
+    private func closeEditingForCanvasChange() {
+        if keyboard.isComposing {
+            keyboard.discardEditHistory()
+        } else {
+            finishEditingIfNeeded()
+            keyboard.discardEditHistory()
+        }
+    }
+
+    private func focusSelectionOnActiveCanvas() {
+        let root = editingDocument.roots.first?.id
+        keyboard.selectedNodeID = root
+        focusNodeID = root
     }
 }
 
@@ -1484,7 +1611,7 @@ enum CanvasMenus {
     static let insert = ["子节点", "同级", "语音输入", "自由节点", "连到", "图片", "附件", "从文件导入"]
     static let share = ["PDF", "PNG", "Markdown", "保存为 Floretta", ".mm", "OPML", ".xmind", "打印"]
     static let zoom = ["50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%", "适应窗口"]
-    static let more = ["大纲", "样式", "配色", "查看模式", "新建画布", "查找", "标签筛选", "粘贴", "关于"]
+    static let more = ["大纲", "样式", "配色", "查看模式", "查找", "标签筛选", "粘贴", "关于"]
     static let moreDisabled: [String] = []
     static let file = ["重新命名"]
     static let fileDisabled: [String] = []
@@ -1538,9 +1665,8 @@ enum CanvasEditCommands {
     }
 
     static func addCanvas(to document: inout MindMapDocument) -> UUID {
-        let node = MindMapNode(text: "新画布")
-        document.roots.append(node)
-        return node.id
+        let index = document.addCanvas()
+        return document.isolatedCanvas(at: index).roots[0].id
     }
 
     static func setFill(hex: String, nodeID: UUID, document: inout MindMapDocument) -> Bool {

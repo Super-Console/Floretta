@@ -34,6 +34,7 @@
 - [x] A23 `docs/DESIGN-RULES.md`（唯一入口、退出可达、图标优先、禁止重复控件、禁止占位假数据；六条规矩已在该文件，前五条与本行一致）
 - [~] A24 `docs/SMOKE.md` + XCUITest 冒烟（13 条可达性路径，打包前必跑）
 - [x] A25 模板库重做（12 个真模板，结构各不相同，禁止同树换色）（`TemplateKind` 十二个；`ShellTests.testMenusAndTemplatesOmitDeadActions` 断言名称与 `TemplateKind.shape` 均不重复）
+- [~] A26 底栏字数（底栏在「主题: N」旁显示「字数: N」。Mac 在底栏右侧，悬停展开主题 / 字数 / 字符数；iPhone / iPad 把这三项放在底栏上。只计节点标题，编辑中实时更新。验收：中心主题 + 分支主题 1–4 = 主题 5、字数 24、字符数 28。`TopicTitleCensusTests`）
 
 ## B. 附件（核心差异化）
 
@@ -70,8 +71,8 @@
 ## E. AI 适配
 
 - [~] E1 `docs/FORMAT-FOR-AI.md`（明文 JSON、稳定 ID、字段说明）
-- [~] E2 CLI（与 MCP 同一个原生二进制，`floretta tree / node add / export`）（已派，未合并未验）
-- [~] E3 MCP stdio server（可选组件，不常驻不联网）（已派，未合并未验）
+- [x] E2 CLI（与 MCP 同一个原生二进制，`floretta tree / node add / export`）（PR #71 → main `dbde570c`，tip `af2ea145`）
+- [x] E3 MCP stdio server（可选组件，不常驻不联网）（PR #71 → main `dbde570c`，tip `af2ea145`）
 - [~] E4 体积约束：禁止引入 Node/Python 运行时；增量控制在一两 MB
 
 ## F. 平台与架构
@@ -129,8 +130,8 @@
 
 ## 统计
 
-- 已完成并验过：**59** 项
-- 已派未合并/未验：**8** 项
+- 已完成并验过：**61** 项
+- 已派未合并/未验：**7** 项
 - 未开始：**13** 项
-- 合计：**80** 项
+- 合计：**81** 项
 - 已知阻塞：**3** 项

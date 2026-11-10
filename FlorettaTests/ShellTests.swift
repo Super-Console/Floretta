@@ -344,7 +344,7 @@ final class ShellTests: XCTestCase {
 
     func testMenusAndTemplatesOmitDeadActions() {
         XCTAssertEqual(CanvasMenus.immersive, "全屏沉浸")
-        XCTAssertEqual(CanvasMenus.insert, ["子节点", "同级", "自由节点", "连到", "图片", "附件", "从文件导入"])
+        XCTAssertEqual(CanvasMenus.insert, ["子节点", "同级", "语音输入", "自由节点", "连到", "图片", "附件", "从文件导入"])
         XCTAssertEqual(
             CanvasMenus.zoom,
             ["50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%", "适应窗口"]
@@ -501,6 +501,29 @@ final class ShellTests: XCTestCase {
             NodeEditTap.action(hit: nil, selected: UUID(), mode: .edit, isComposing: true),
             .ignore
         )
+    }
+
+    func testDictationSessionCreatesAChildThenEditsIt() throws {
+        let directory = try temporaryDirectory()
+        let library = try makeLibrary(directory: directory)
+        library.makeNew()
+        let session = try XCTUnwrap(library.editor)
+        session.keyboard.selectedNodeID = session.document.roots[0].id
+        session.beginDictation()
+        XCTAssertEqual(session.dictationToken, 1)
+        XCTAssertTrue(session.dictationReplacesPlaceholder)
+        XCTAssertEqual(session.keyboard.mode, .edit)
+        XCTAssertEqual(session.document.roots[0].children.map(\.text), [MindMapKeyboardSession.newTopicText])
+        session.keyboard.replaceEditingText("中文", document: &session.document)
+        XCTAssertEqual(session.document.roots[0].children.map(\.text), ["中文"])
+        session.applyDictatedText("节点")
+        XCTAssertEqual(session.document.roots[0].children.count, 1)
+        XCTAssertEqual(session.document.roots[0].children.map(\.text), ["中文节点"])
+        session.keyboard.apply(.commitEdit, document: &session.document, frames: [])
+        session.keyboard.isComposing = true
+        session.beginDictation()
+        XCTAssertEqual(session.dictationToken, 1)
+        XCTAssertEqual(session.document.roots[0].children.count, 1)
     }
 
     func testBasicChainSaveReopenExportImportAndExit() throws {

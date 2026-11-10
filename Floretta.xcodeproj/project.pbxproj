@@ -64,6 +64,10 @@
 		C70000000000000000000008 /* NodeTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000004 /* NodeTextEditor.swift */; };
 		C7000000000000000000000C /* NodeTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000004 /* NodeTextEditor.swift */; };
 		C7000000000000000000000D /* KeyboardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000005 /* KeyboardTests.swift */; };
+		C73000000000000000000001 /* SystemDictation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F73000000000000000000001 /* SystemDictation.swift */; };
+		C73000000000000000000002 /* SystemDictation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F73000000000000000000001 /* SystemDictation.swift */; };
+		C73000000000000000000003 /* SystemDictation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F73000000000000000000001 /* SystemDictation.swift */; };
+		C73000000000000000000004 /* DictationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F73000000000000000000002 /* DictationTests.swift */; };
 		C80000000000000000000001 /* SwiftFlow in Frameworks */ = {isa = PBXBuildFile; productRef = D80000000000000000000001 /* SwiftFlow */; };
 		C80000000000000000000002 /* SwiftFlow in Frameworks */ = {isa = PBXBuildFile; productRef = D80000000000000000000002 /* SwiftFlow */; };
 		C80000000000000000000003 /* SwiftFlow in Frameworks */ = {isa = PBXBuildFile; productRef = D80000000000000000000003 /* SwiftFlow */; };
@@ -152,6 +156,8 @@
 		F63000000000000000000001 /* SnapshotRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SnapshotRecoveryTests.swift; path = Tests/FlorettaCoreTests/SnapshotRecoveryTests.swift; sourceTree = SOURCE_ROOT; };
 		F70000000000000000000004 /* NodeTextEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeTextEditor.swift; sourceTree = "<group>"; };
 		F70000000000000000000005 /* KeyboardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = KeyboardTests.swift; path = Tests/FlorettaCoreTests/KeyboardTests.swift; sourceTree = SOURCE_ROOT; };
+		F73000000000000000000001 /* SystemDictation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemDictation.swift; sourceTree = "<group>"; };
+		F73000000000000000000002 /* DictationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DictationTests.swift; path = Tests/FlorettaCoreTests/DictationTests.swift; sourceTree = SOURCE_ROOT; };
 		F90000000000000000000002 /* OutlineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutlineView.swift; sourceTree = "<group>"; };
 		F90000000000000000000003 /* OutlineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OutlineTests.swift; path = Tests/FlorettaCoreTests/OutlineTests.swift; sourceTree = SOURCE_ROOT; };
 		FA1100000000000000000001 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
@@ -236,6 +242,7 @@
 			F62000000000000000000001 /* StickyNoteTests.swift */,
 			F63000000000000000000001 /* SnapshotRecoveryTests.swift */,
 			F70000000000000000000005 /* KeyboardTests.swift */,
+			F73000000000000000000002 /* DictationTests.swift */,
 			F90000000000000000000003 /* OutlineTests.swift */,
 			F20000000000000000000004 /* AutosaveTests.swift */,
 				A10000000000000000000008 /* FlorettaTests */,
@@ -323,6 +330,7 @@
 			isa = PBXGroup;
 			children = (
 				F70000000000000000000004 /* NodeTextEditor.swift */,
+				F73000000000000000000001 /* SystemDictation.swift */,
 			);
 			path = Keyboard;
 			sourceTree = "<group>";
@@ -584,6 +592,7 @@
 				C93000000000000000000001 /* MapExport.swift in Sources */,
 				C40000000000000000000004 /* CanvasScrollInput.swift in Sources */,
 				C70000000000000000000004 /* NodeTextEditor.swift in Sources */,
+				C73000000000000000000001 /* SystemDictation.swift in Sources */,
 				C90000000000000000000002 /* OutlineView.swift in Sources */,
 				CA1100000000000000000001 /* AppSettings.swift in Sources */,
 				CA2100000000000000000001 /* RecentMapsStore.swift in Sources */,
@@ -612,6 +621,7 @@
 				C93000000000000000000002 /* MapExport.swift in Sources */,
 				C40000000000000000000008 /* CanvasScrollInput.swift in Sources */,
 				C70000000000000000000008 /* NodeTextEditor.swift in Sources */,
+				C73000000000000000000002 /* SystemDictation.swift in Sources */,
 				C90000000000000000000004 /* OutlineView.swift in Sources */,
 				CA1100000000000000000002 /* AppSettings.swift in Sources */,
 				CA2100000000000000000002 /* RecentMapsStore.swift in Sources */,
@@ -664,7 +674,9 @@
 				C62000000000000000000001 /* StickyNoteTests.swift in Sources */,
 				C63000000000000000000001 /* SnapshotRecoveryTests.swift in Sources */,
 				C7000000000000000000000C /* NodeTextEditor.swift in Sources */,
+				C73000000000000000000003 /* SystemDictation.swift in Sources */,
 				C7000000000000000000000D /* KeyboardTests.swift in Sources */,
+				C73000000000000000000004 /* DictationTests.swift in Sources */,
 				C90000000000000000000006 /* OutlineView.swift in Sources */,
 				C90000000000000000000007 /* OutlineTests.swift in Sources */,
 				CA1100000000000000000003 /* AppSettings.swift in Sources */,

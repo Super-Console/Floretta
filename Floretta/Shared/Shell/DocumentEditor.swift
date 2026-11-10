@@ -121,7 +121,6 @@ struct DocumentEditor: View {
                     ToolbarItemGroup(placement: .primaryAction) {
                         insertMenu
                         shareMenu
-                        zoomMenu
                         Button(text(CanvasMenus.immersive)) { session.enterZen() }
                             .explained("进入全屏沉浸模式，暂时只留下导图")
                         #if !os(iOS)
@@ -372,10 +371,28 @@ struct DocumentEditor: View {
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if session.zen.chrome.showsStatusBar {
-                TopicStatusBar(
-                    census: topicCensus.census(of: session.document),
-                    locale: settings.resolvedLocale
-                )
+                HStack(spacing: 8) {
+                    #if os(macOS)
+                    Spacer(minLength: 8)
+                    #endif
+                    TopicStatusBar(
+                        census: topicCensus.census(of: session.document),
+                        locale: settings.resolvedLocale
+                    )
+                    #if !os(macOS)
+                    Spacer(minLength: 8)
+                    #endif
+                    EditorStatusControls(
+                        session: session,
+                        camera: camera,
+                        language: settings.language
+                    )
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(.bar)
+                .overlay(alignment: .top) { Divider() }
+                .accessibilityIdentifier("statusBar")
             }
         }
     }
@@ -605,22 +622,6 @@ struct DocumentEditor: View {
         .help(Text(verbatim: text("插入子节点、同级、语音输入、自由节点、便签、概要、边界、图片、附件，或从文件导入")))
     }
 
-    private var zoomMenu: some View {
-        Menu {
-            ForEach(ZoomStop.allCases, id: \.self) { stop in
-                Button("\(stop.percent)%") { camera.zoom(to: stop) }
-                    .explained(FlorettaL10n.format("把画布缩放到 %lld%%", locale: settings.resolvedLocale, arguments: [Int64(stop.percent)]))
-            }
-            Button(text("适应窗口")) { camera.fitToContent() }
-                .explained("让整张导图缩进窗口里")
-                .keyboardShortcut("0", modifiers: .command)
-        } label: {
-            Text("\(camera.chrome.zoomPercent)%")
-                .monospacedDigit()
-        }
-        .explained("选择缩放比例，或让导图适应窗口")
-    }
-
     private var shareMenu: some View {
         Menu {
             Button("PDF") { export("pdf") }
@@ -674,13 +675,6 @@ struct DocumentEditor: View {
             .help(Text(verbatim: text(markdownHelp(.themeColor, otherwise: "为各分支自动配色，浅色和深色各用一套"))))
             .accessibilityHint(text(markdownHelp(.themeColor, otherwise: "为各分支自动配色，浅色和深色各用一套")))
             .accessibilityIdentifier("theme.menu")
-            Menu(text("查看模式")) {
-                Button(text("地图模式")) { session.viewMode = .map }
-                    .explained("用整张地图查看导图")
-                Button(text("聚焦模式")) { session.viewMode = .focus }
-                    .explained("只看当前选中的这一支")
-            }
-            .explained("在地图模式和聚焦模式之间切换")
             Button(text("新建画布")) { session.addCanvas() }
                 .explained("在这份导图里再加一个中心主题")
             Button(text("查找")) {
@@ -2084,8 +2078,8 @@ private struct TagFilterSheet: View {
     }
 }
 
-/// One bottom bar for the open map. Mac keeps the counts on the trailing edge.
-/// iPhone and iPad keep them on the leading edge of the same bar.
+/// Topic and word counts for the bottom bar. Mac keeps them on the trailing
+/// edge, beside the zoom menu. iPhone and iPad keep them on the leading edge.
 private struct TopicStatusBar: View {
     var census: TopicTitleCensus
     var locale: Locale
@@ -2100,11 +2094,7 @@ private struct TopicStatusBar: View {
         }
         .font(.caption)
         .foregroundStyle(.secondary)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, alignment: barAlignment)
-        .background(.bar)
-        .overlay(alignment: .top) { Divider() }
+        .frame(alignment: barAlignment)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(breakdown)
         .accessibilityIdentifier("status.topicCensus")

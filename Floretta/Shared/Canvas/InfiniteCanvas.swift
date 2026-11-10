@@ -73,6 +73,10 @@ struct InfiniteCanvas: View {
     }
 
     private func canvasOverlaySurface<V: View>(_ view: V) -> some View {
+        canvasSecondaryOverlays(canvasPrimaryOverlays(view))
+    }
+
+    private func canvasPrimaryOverlays<V: View>(_ view: V) -> some View {
         view
         .overlay {
             CanvasScrollCatcher { delta, location, command in
@@ -84,6 +88,10 @@ struct InfiniteCanvas: View {
         .overlay { editField }
         .overlay { nodeChromeProbe }
         .overlay { stickyChrome }
+    }
+
+    private func canvasSecondaryOverlays<V: View>(_ view: V) -> some View {
+        view
         .overlay { stickyEditor }
         .overlay { regionToolbar }
         .overlay { regionEditor }

@@ -47,6 +47,7 @@ struct InfiniteCanvas: View {
                 Rectangle()
                     .fill(.background)
                     .contentShape(Rectangle())
+                    .accessibilityIdentifier("editor.canvas")
                 Canvas { context, size in
                     draw(in: context, size: size)
                 }

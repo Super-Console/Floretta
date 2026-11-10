@@ -28,6 +28,8 @@ struct DocumentEditor: View {
     @State private var showOutline = false
     @State private var outlineWide = false
     @State private var showInspector = false
+    /// One shot. A later dismissal must stay dismissed; appearing again must not force the sheet back open.
+    @State private var didAutoOpenInspector = false
     @State private var showRename = false
     @State private var renameText = ""
     @State private var showFind = false
@@ -38,6 +40,9 @@ struct DocumentEditor: View {
     @State private var showThemes = false
     @State private var showHistory = false
     @Environment(\.colorScheme) private var colorScheme
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    #endif
     @State private var camera = CanvasCamera()
     @State private var showAttachmentImporter = false
     @State private var showImageImporter = false
@@ -75,6 +80,7 @@ struct DocumentEditor: View {
                 inspectorBody
                     .inspectorColumnWidth(min: 280, ideal: 320, max: 440)
             }
+            .onAppear(perform: openInspectorForUITest)
             .toolbar {
                 if session.zen.chrome.showsToolbar {
                     ToolbarItem(placement: .cancellationAction) {
@@ -118,8 +124,18 @@ struct DocumentEditor: View {
                         zoomMenu
                         Button(text(CanvasMenus.immersive)) { session.enterZen() }
                             .explained("进入全屏沉浸模式，暂时只留下导图")
+                        #if !os(iOS)
+                        moreMenu
+                        #endif
+                    }
+                    #if os(iOS)
+                    // A primary-action group collapses into TopOverflowBarButtonItem on a
+                    // compact phone, which hides editor.more. confirmationAction stays
+                    // on screen as its own button.
+                    ToolbarItem(placement: .confirmationAction) {
                         moreMenu
                     }
+                    #endif
                 }
             }
             #if os(macOS)
@@ -648,6 +664,7 @@ struct DocumentEditor: View {
                 .disabled(session.isMarkdownDocument)
                 .help(Text(verbatim: text(markdownHelp(.nodeColor, otherwise: "打开样式检查器，修改选中节点的外观"))))
                 .accessibilityHint(text(markdownHelp(.nodeColor, otherwise: "打开样式检查器，修改选中节点的外观")))
+                .accessibilityIdentifier("inspector.open")
             Button {
                 showThemes = true
             } label: {
@@ -697,6 +714,7 @@ struct DocumentEditor: View {
             Image(systemName: "ellipsis")
         }
         .accessibilityLabel(text("更多"))
+        .accessibilityIdentifier("editor.more")
         .help(Text(verbatim: text("大纲、样式、配色、标签筛选、版本历史和关于")))
     }
 
@@ -717,46 +735,118 @@ struct DocumentEditor: View {
         )
     }
 
+    /// Compact width shows `.inspector` as a sheet. That sheet does not present
+    /// when the binding is already true on the editor's first appearance, which
+    /// is how a new map arrives. Flip it after this turn so the sheet runs.
+    /// Only once: dismissing the sheet must not open it again.
+    private func openInspectorForUITest() {
+        guard AppLaunch.opensInspector, !didAutoOpenInspector else { return }
+        didAutoOpenInspector = true
+        Task { @MainActor in
+            await Task.yield()
+            showInspector = true
+        }
+    }
+
     private var inspectorBody: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Picker(text("检查器"), selection: $inspectorTab) {
-                Text(verbatim: text("样式")).tag(0)
-                Text(verbatim: text("演说")).tag(1)
-                Text(verbatim: text("导图")).tag(2)
+        // The header is an inset, not a sibling of the page. A short page
+        // (演说, or 样式 with nothing selected) used to shrink the stack and
+        // the column centered it, so 「检查器」 and the segments left the top
+        // with the placeholder. The inset keeps a fixed-height header on the
+        // top edge. Only the page below is flexible, and it is what scrolls.
+        inspectorTabPage
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .safeAreaInset(edge: .top, spacing: 12) {
+                inspectorHeader
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
-            if inspectorTab == 0 {
-                if session.keyboard.selectedRelationshipID != nil {
-                    relationshipLabelForm
-                } else if session.keyboard.selectedSummaryID != nil {
-                    summaryTextForm
-                } else if session.keyboard.selectedBoundaryID != nil {
-                    boundaryTitleForm
-                } else {
-                    StyleInspector(
-                        document: $session.document,
-                        nodeID: session.keyboard.selectedNodeID,
-                        locksAppearance: session.isMarkdownDocument,
-                        onSelectRelationship: { id in
-                            if session.keyboard.mode == .edit {
-                                session.keyboard.apply(.commitEdit, document: &session.document, frames: [])
-                            }
-                            session.keyboard.selectedRelationshipID = id
-                        }
-                    )
-                }
-            } else if inspectorTab == 2 {
-                documentInfo
-            } else {
-                ContentUnavailableView {
-                    Label(text("尚未实现"), systemImage: "clock")
-                } description: {
-                    Text(verbatim: text("演说"))
-                }
+            .containerRelativeFrame(.vertical, alignment: .top) { length, _ in length }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var inspectorHeader: some View {
+        VStack(spacing: 8) {
+            if showsSheetDismissHandle {
+                // Taller than the segmented control, so the header's center is this
+                // handle. A downward drag here dismisses the compact sheet. The same
+                // drag on the segments selects 演说 instead, because that control
+                // takes the touch on contact.
+                Capsule()
+                    .fill(.secondary)
+                    .frame(width: 36, height: 5)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 96)
+                    .contentShape(Rectangle())
+                    .accessibilityLabel("关闭检查器")
+                    .highPriorityGesture(sheetDismissDrag)
             }
+            inspectorTabPicker
+                .padding(.horizontal)
         }
         .padding(.top, 12)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("inspector.header")
+    }
+
+    private var showsSheetDismissHandle: Bool {
+        #if os(iOS)
+        horizontalSizeClass != .regular
+        #else
+        false
+        #endif
+    }
+
+    private var sheetDismissDrag: some Gesture {
+        DragGesture(minimumDistance: 8)
+            .onEnded { value in
+                guard value.translation.height > 24, abs(value.translation.height) > abs(value.translation.width) else { return }
+                showInspector = false
+            }
+    }
+
+    private var inspectorTabPicker: some View {
+        Picker(text("检查器"), selection: $inspectorTab) {
+            Text(verbatim: text("样式")).tag(0)
+            Text(verbatim: text("演说")).tag(1)
+            Text(verbatim: text("导图")).tag(2)
+        }
+        .pickerStyle(.segmented)
+        .accessibilityIdentifier("inspector.tabs")
+    }
+
+    @ViewBuilder
+    private var inspectorTabPage: some View {
+        if inspectorTab == 0 {
+            if session.keyboard.selectedRelationshipID != nil {
+                relationshipLabelForm
+            } else if session.keyboard.selectedSummaryID != nil {
+                summaryTextForm
+            } else if session.keyboard.selectedBoundaryID != nil {
+                boundaryTitleForm
+            } else {
+                StyleInspector(
+                    document: $session.document,
+                    nodeID: session.keyboard.selectedNodeID,
+                    locksAppearance: session.isMarkdownDocument,
+                    onSelectRelationship: { id in
+                        if session.keyboard.mode == .edit {
+                            session.keyboard.apply(.commitEdit, document: &session.document, frames: [])
+                        }
+                        session.keyboard.selectedRelationshipID = id
+                    }
+                )
+            }
+        } else if inspectorTab == 2 {
+            documentInfo
+        } else {
+            ContentUnavailableView {
+                Label(text("尚未实现"), systemImage: "clock")
+            } description: {
+                Text(verbatim: text("演说"))
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
     }
 
     private var documentInfo: some View {
@@ -1384,6 +1474,8 @@ private struct StyleInspector: View {
             } description: {
                 Text(verbatim: text(locksAppearance ? MarkdownModePolicy.reason(.nodeColor) : "样式会写进导图文件。"))
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityIdentifier("inspector.empty")
         }
     }
 

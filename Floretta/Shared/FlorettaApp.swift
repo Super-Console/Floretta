@@ -133,6 +133,14 @@ private final class SameDocumentWindowHost: SameDocumentWindowOpening {
 
 enum AppLaunch {
     static let uiTestArgument = "-FlorettaUITest"
+    /// UI tests pass this so the editor opens with the inspector already up.
+    /// The 样式 item sits in the toolbar menu, which a phone may overflow.
+    static let openInspectorArgument = "-FlorettaOpenInspector"
+
+    static var opensInspector: Bool {
+        ProcessInfo.processInfo.arguments.contains(openInspectorArgument)
+    }
+
     static let editChromeArgument = "-FlorettaEditChrome"
 
     struct Session {

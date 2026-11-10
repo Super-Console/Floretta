@@ -130,60 +130,71 @@ struct DocumentEditor: View {
                     .sharedBackgroundVisibility(.hidden)
                     #else
                     ToolbarItem(placement: .cancellationAction) {
-                        HStack(spacing: 8) {
-                            Button(action: onClose) {
-                                Image(systemName: "chevron.backward")
-                            }
-                            .accessibilityLabel(text("返回"))
-                            .accessibilityIdentifier("basicChain.back")
-                            .help(Text(verbatim: text("返回导图列表")))
-                            Button(action: beginRename) {
-                                Text(verbatim: documentTitle)
-                                    .lineLimit(1)
-                            }
-                            .help(Text(verbatim: text("为这份导图重新命名")))
-                            .accessibilityLabel(documentTitle)
-                            .accessibilityHint(text("为这份导图重新命名"))
-                            .accessibilityIdentifier("document.title")
-                        }
+                        leadingDocumentChrome
                     }
                     #endif
+                    #if !os(macOS)
                     ToolbarItemGroup(placement: .principal) {
-                        Button { session.undo() } label: {
-                            Image(systemName: "arrow.uturn.backward")
-                        }
-                        .accessibilityLabel(text("撤销"))
-                        .help(Text(verbatim: text("撤销上一步编辑")))
-                        Button { session.redo() } label: {
-                            Image(systemName: "arrow.uturn.forward")
-                        }
-                        .accessibilityLabel(text("重做"))
-                        .help(Text(verbatim: text("恢复刚刚撤销的编辑")))
-                        Button { session.deleteSelection() } label: {
-                            Image(systemName: "trash")
-                        }
-                        .accessibilityLabel(text("删除"))
-                        .help(Text(verbatim: text("删除选中的节点、便签、关系、概要、边界或专区")))
+                        toolbarControl(.undo)
+                        toolbarControl(.redo)
+                        toolbarControl(.delete)
                     }
                     ToolbarItemGroup(placement: .primaryAction) {
-                        insertMenu
-                        shareMenu
-                        Button(text(CanvasMenus.immersive)) { session.enterZen() }
-                            .explained("进入全屏沉浸模式，暂时只留下导图")
-                        #if !os(iOS)
-                        moreMenu
-                        #endif
+                        toolbarControl(.insert)
+                        toolbarControl(.share)
+                        toolbarControl(.zoom)
+                        toolbarControl(.immersive)
                     }
                     #if os(iOS)
                     // A primary-action group collapses into TopOverflowBarButtonItem on a
                     // compact phone, which hides editor.more. confirmationAction stays
                     // on screen as its own button.
                     ToolbarItem(placement: .confirmationAction) {
-                        moreMenu
+                        toolbarControl(.more)
                     }
+                    #endif
                     #endif
                 }
             }
+            #if os(macOS)
+            .toolbar(id: "floretta.editor") {
+                if session.zen.chrome.showsToolbar {
+                    macItem(.undo)
+                    macItem(.redo)
+                    macItem(.delete)
+                    macItem(.insert)
+                    macItem(.share)
+                    macItem(.zoom)
+                    macItem(.immersive)
+                    macItem(.more)
+                    macItem(.child)
+                    macItem(.sibling)
+                    macItem(.dictation)
+                    macItem(.freeNode)
+                    macItem(.sticky)
+                    macItem(.link)
+                    macItem(.summary)
+                    macItem(.boundary)
+                    macItem(.region)
+                    macItem(.image)
+                    macItem(.attachment)
+                    macItem(.importFile)
+                    macItem(.outline)
+                    macItem(.style)
+                    macItem(.theme)
+                    macItem(.viewMode)
+                    macItem(.newCanvas)
+                    macItem(.find)
+                    macItem(.tagFilter)
+                    macItem(.history)
+                    macItem(.paste)
+                    macItem(.about)
+                    macItem(.mapMode)
+                    macItem(.focusMode)
+                    macItem(.fit)
+                }
+            }
+            #endif
             #if os(macOS)
             .toolbarBackground(.hidden, for: .windowToolbar)
             #else
@@ -629,10 +640,6 @@ struct DocumentEditor: View {
         .padding(.horizontal, 12)
     }
 
-    private func markdownHelp(_ control: MarkdownBlockedControl, otherwise sentence: String) -> String {
-        session.isMarkdownDocument ? MarkdownModePolicy.reason(control) : sentence
-    }
-
     private var documentTitle: String {
         session.document.title.isEmpty ? "未命名" : session.document.title
     }
@@ -663,181 +670,349 @@ struct DocumentEditor: View {
         .accessibilityIdentifier("zen.exit")
     }
 
+    private var leadingDocumentChrome: some View {
+        HStack(spacing: 8) {
+            Button(action: onClose) {
+                Image(systemName: "chevron.backward")
+            }
+            .accessibilityLabel(text("返回"))
+            .accessibilityIdentifier("basicChain.back")
+            .help(Text(verbatim: text("返回导图列表")))
+            Button(action: beginRename) {
+                Text(verbatim: documentTitle)
+                    .lineLimit(1)
+            }
+            .help(Text(verbatim: text("为这份导图重新命名")))
+            .accessibilityLabel(documentTitle)
+            .accessibilityHint(text("为这份导图重新命名"))
+            .accessibilityIdentifier("document.title")
+        }
+    }
+
+    private var toolbarContext: EditorToolbarContext {
+        EditorToolbarContext(
+            isMarkdownDocument: session.isMarkdownDocument,
+            isComposing: session.keyboard.isComposing,
+            hasSelectedTopic: session.keyboard.selectedNodeID != nil,
+            canEncloseSelection: session.editingDocument.canEnclose(session.keyboard.selectedNodeID),
+            canOpenSnapshotHistory: session.canOpenSnapshotHistory
+        )
+    }
+
+    private func commandLabel(_ id: EditorToolbarCommandID, surface: EditorCommandSurface) -> EditorCommandLabel {
+        let command = EditorToolbarCatalog.command(id)
+        return EditorCommandLabel(
+            title: text(command.title),
+            symbol: command.symbol,
+            display: EditorToolbarCatalog.display(on: surface)
+        )
+    }
+
+    private func commandHelp(_ id: EditorToolbarCommandID) -> String {
+        if id == .history {
+            return snapshotHistoryHelp
+        }
+        if session.isMarkdownDocument, let control = markdownBlockedControl(id) {
+            return MarkdownModePolicy.reason(control)
+        }
+        return EditorToolbarCatalog.command(id).help
+    }
+
+    private func markdownBlockedControl(_ id: EditorToolbarCommandID) -> MarkdownBlockedControl? {
+        switch id {
+        case .freeNode: return .freeNode
+        case .sticky: return .sticky
+        case .link: return .relationship
+        case .summary: return .summary
+        case .boundary: return .boundary
+        case .region: return .region
+        case .image: return .insertImage
+        case .attachment: return .insertAttachment
+        case .style: return .nodeColor
+        case .theme: return .themeColor
+        case .tagFilter: return .tags
+        default: return nil
+        }
+    }
+
+    private func accessibilityIdentifier(for id: EditorToolbarCommandID) -> String? {
+        switch id {
+        case .dictation: return "insert.dictation"
+        case .region: return "insert.region"
+        case .style: return "inspector.open"
+        case .theme: return "theme.menu"
+        case .tagFilter: return "tagFilter.open"
+        case .history: return "snapshotHistory.menu"
+        case .upgrade: return "markdown.upgrade"
+        case .more: return "editor.more"
+        default: return nil
+        }
+    }
+
+    private func commandMenuButton(_ id: EditorToolbarCommandID, action: @escaping () -> Void) -> some View {
+        let helpText = commandHelp(id)
+        return Button(action: action) {
+            commandLabel(id, surface: .expandedMenu)
+        }
+        .disabled(!EditorToolbarCatalog.isEnabled(id, in: toolbarContext))
+        .help(Text(verbatim: text(helpText)))
+        .accessibilityHint(text(helpText))
+        .modifier(CommandAccessibilityIdentifier(identifier: accessibilityIdentifier(for: id)))
+    }
+
+    private func commandToolbarButton(_ id: EditorToolbarCommandID, action: @escaping () -> Void) -> some View {
+        let helpText = commandHelp(id)
+        return Button(action: action) {
+            commandLabel(id, surface: .toolbar)
+        }
+        .disabled(!EditorToolbarCatalog.isEnabled(id, in: toolbarContext))
+        .help(Text(verbatim: text(helpText)))
+        .accessibilityLabel(text(EditorToolbarCatalog.command(id).title))
+        .modifier(CommandAccessibilityIdentifier(identifier: accessibilityIdentifier(for: id)))
+    }
+
+    @ViewBuilder
+    private func toolbarControl(_ id: EditorToolbarCommandID) -> some View {
+        switch EditorToolbarCatalog.command(id).kind {
+        case .pulldown:
+            switch id {
+            case .insert: insertMenu
+            case .share: shareMenu
+            case .more: moreMenu
+            case .zoom: zoomMenu
+            default: EmptyView()
+            }
+        case .submenu:
+            switch id {
+            case .link: linkCommandMenu(surface: .toolbar)
+            case .viewMode: viewModeCommandMenu(surface: .toolbar)
+            default: EmptyView()
+            }
+        case .button:
+            commandToolbarButton(id) { perform(id) }
+        }
+    }
+
+    #if os(macOS)
+    private func macItem(_ id: EditorToolbarCommandID) -> some CustomizableToolbarContent {
+        let command = EditorToolbarCatalog.command(id)
+        let placement: ToolbarItemPlacement = command.placement == EditorToolbarPlacement.principal ? .principal : .primaryAction
+        let visibility: Visibility = command.customization == EditorCommandCustomization.visible ? .visible : .hidden
+        return ToolbarItem(id: id.rawValue, placement: placement) {
+            toolbarControl(id)
+        }
+        .defaultCustomization(visibility)
+    }
+    #endif
+
     private var insertMenu: some View {
         Menu {
-            Button { session.addChildFromToolbar() } label: {
-                Label(text("子节点"), systemImage: "plus.square")
+            ForEach(EditorToolbarCatalog.menu(.insert), id: \.self) { id in
+                insertRow(id)
             }
-            .help(Text(verbatim: text("在选中的节点下新建一个子节点")))
-            Button { session.addSiblingFromToolbar() } label: {
-                Label(text("同级"), systemImage: "square.on.square")
-            }
-            .help(Text(verbatim: text("在选中的节点旁新建一个同级节点")))
-            Button { session.beginDictation() } label: {
-                Label(text("语音输入"), systemImage: "mic")
-            }
-            .help(Text(verbatim: text("用系统听写新建子节点。正在编辑或选中自由节点时，听写写进当前文字。")))
-            .accessibilityIdentifier("insert.dictation")
-            .disabled(session.keyboard.isComposing)
-            Button { session.addFreeNodeFromToolbar() } label: {
-                Label(text("自由节点"), systemImage: "arrow.up.left.and.arrow.down.right")
-            }
-            .disabled(session.isMarkdownDocument)
-            .help(Text(verbatim: text(markdownHelp(.freeNode, otherwise: "在画布上放一个不进层级的节点，位置会保存"))))
-            .accessibilityHint(text(markdownHelp(.freeNode, otherwise: "在画布上放一个不进层级的节点，位置会保存")))
-            Button { session.addStickyFromToolbar() } label: {
-                Label(text("便签"), systemImage: "note.text")
-            }
-            .disabled(session.isMarkdownDocument)
-            .help(Text(verbatim: text(markdownHelp(.sticky, otherwise: "在画布上放一张便签。最多五种颜色，不计入节点，可以拖动，大小有上限"))))
-            .accessibilityHint(text(markdownHelp(.sticky, otherwise: "在画布上放一张便签。最多五种颜色，不计入节点，可以拖动，大小有上限")))
-            Menu {
-                let source = session.keyboard.selectedNodeID
-                let targets = session.editingDocument.linkTargets(excluding: source)
-                if targets.isEmpty {
-                    Button(text("没有其他节点")) {}
-                        .disabled(true)
-                }
-                ForEach(targets) { target in
-                    Button(target.text.isEmpty ? "未命名" : target.text) {
-                        session.linkSelectedTopic(to: target.id)
-                    }
-                }
-            } label: {
-                Label(text("连到"), systemImage: "point.topleft.down.to.point.bottomright.curvepath")
-            }
-            .disabled(session.isMarkdownDocument || session.keyboard.selectedNodeID == nil)
-            .help(Text(verbatim: text(markdownHelp(.relationship, otherwise: "把选中的节点连到另一个节点，画布上会画出这条线。"))))
-            .accessibilityHint(text(markdownHelp(.relationship, otherwise: "把选中的节点连到另一个节点，画布上会画出这条线。")))
-            Button { session.addSummaryFromToolbar() } label: {
-                Label(text("概要"), systemImage: "curlybraces")
-            }
-            .disabled(session.isMarkdownDocument || !session.editingDocument.canEnclose(session.keyboard.selectedNodeID))
-            .help(Text(verbatim: text(markdownHelp(.summary, otherwise: "为选中的节点生成概要，并画出括住它的括号"))))
-            .accessibilityHint(text(markdownHelp(.summary, otherwise: "为选中的节点生成概要，并画出括住它的括号")))
-            Button { session.addBoundaryFromToolbar() } label: {
-                Label(text("边界"), systemImage: "rectangle.dashed")
-            }
-            .disabled(session.isMarkdownDocument || !session.editingDocument.canEnclose(session.keyboard.selectedNodeID))
-            .help(Text(verbatim: text(markdownHelp(.boundary, otherwise: "用边界圈住选中的节点"))))
-            .accessibilityHint(text(markdownHelp(.boundary, otherwise: "用边界圈住选中的节点")))
-            Button { session.addRegionFromToolbar() } label: {
-                Label(text("专区"), systemImage: "rectangle")
-            }
-            .disabled(session.isMarkdownDocument)
-            .help(Text(verbatim: text(markdownHelp(.region, otherwise: "在画布上放一个矩形区域。它可以圈住节点，但不会改变节点层级。"))))
-            .accessibilityHint(text(markdownHelp(.region, otherwise: "在画布上放一个矩形区域。它可以圈住节点，但不会改变节点层级。")))
-            .accessibilityIdentifier("insert.region")
-            Button { showImageImporter = true } label: {
-                Label(text("图片"), systemImage: "photo")
-            }
-            .disabled(session.isMarkdownDocument)
-            .help(Text(verbatim: text(markdownHelp(.insertImage, otherwise: "从文件选择一张图片放进选中的节点"))))
-            .accessibilityHint(text(markdownHelp(.insertImage, otherwise: "从文件选择一张图片放进选中的节点")))
-            Button { showAttachmentImporter = true } label: {
-                Label(text("附件"), systemImage: "paperclip")
-            }
-            .disabled(session.isMarkdownDocument)
-            .help(Text(verbatim: text(markdownHelp(.insertAttachment, otherwise: "把一个文件原样放进选中的节点"))))
-            .accessibilityHint(text(markdownHelp(.insertAttachment, otherwise: "把一个文件原样放进选中的节点")))
-            Button { onImport() } label: {
-                Label(text("从文件导入"), systemImage: "folder")
-            }
-            .help(Text(verbatim: text("从文件打开另一份导图")))
         } label: {
-            Image(systemName: "plus")
+            commandLabel(.insert, surface: .toolbar)
         }
-        .accessibilityLabel(text("插入"))
-        .help(Text(verbatim: text("插入子节点、同级、语音输入、自由节点、便签、概要、边界、专区、图片、附件，或从文件导入")))
+        .accessibilityLabel(text(EditorToolbarCatalog.command(.insert).title))
+        .help(Text(verbatim: text(EditorToolbarCatalog.command(.insert).help)))
+    }
+
+    @ViewBuilder
+    private func insertRow(_ id: EditorToolbarCommandID) -> some View {
+        if id == .link {
+            linkCommandMenu(surface: .expandedMenu)
+        } else {
+            commandMenuButton(id) { perform(id) }
+        }
+    }
+
+    private func linkCommandMenu(surface: EditorCommandSurface) -> some View {
+        Menu {
+            let source = session.keyboard.selectedNodeID
+            let targets = session.editingDocument.linkTargets(excluding: source)
+            if targets.isEmpty {
+                Button(text("没有其他节点")) {}
+                    .disabled(true)
+            }
+            ForEach(targets) { target in
+                Button(target.text.isEmpty ? "未命名" : target.text) {
+                    session.linkSelectedTopic(to: target.id)
+                }
+            }
+        } label: {
+            commandLabel(.link, surface: surface)
+        }
+        .disabled(!EditorToolbarCatalog.isEnabled(.link, in: toolbarContext))
+        .help(Text(verbatim: text(commandHelp(.link))))
+        .accessibilityHint(text(commandHelp(.link)))
+    }
+
+    private var zoomMenu: some View {
+        Menu {
+            ForEach(ZoomStop.allCases, id: \.self) { stop in
+                Button("\(stop.percent)%") { camera.zoom(to: stop) }
+                    .explained(FlorettaL10n.format("把画布缩放到 %lld%%", locale: settings.resolvedLocale, arguments: [Int64(stop.percent)]))
+            }
+            commandMenuButton(.fit) { perform(.fit) }
+                .keyboardShortcut("0", modifiers: .command)
+        } label: {
+            switch EditorToolbarCatalog.command(.zoom).toolbarFace {
+            case .zoomPercent:
+                Text("\(camera.chrome.zoomPercent)%")
+                    .monospacedDigit()
+            case .symbol:
+                commandLabel(.zoom, surface: .toolbar)
+            }
+        }
+        .explained(EditorToolbarCatalog.command(.zoom).help)
     }
 
     private var shareMenu: some View {
         Menu {
-            Button("PDF") { export("pdf") }
-                .explained("把这份导图导出为 PDF")
-            Button("PNG") { export("png") }
-                .explained("把这份导图导出为 PNG 图片")
-            Button("Markdown") { export("md") }
-                .explained("把这份导图导出为 Markdown")
-            if session.isMarkdownDocument {
-                Button { beginUpgrade() } label: {
-                    Label(text(MarkdownUpgrade.actionTitle), systemImage: "arrow.up.document")
-                }
-                .help(Text(verbatim: text("把当前导图另存为 Floretta 工程。原来的 Markdown 文件不会被改掉。")))
-                .accessibilityIdentifier("markdown.upgrade")
-            } else {
-                Button(text("保存为 Floretta")) { export("floretta") }
-                    .explained("把这份导图保存为 Floretta 文件")
+            ForEach(EditorToolbarCatalog.menu(.share), id: \.self) { id in
+                shareRow(id)
             }
-            Button(".mm") { export("mm") }
-                .explained("把这份导图导出为 FreeMind .mm")
-            Button("OPML") { export("opml") }
-                .explained("把这份导图导出为 OPML")
-            Button(".xmind") { export("xmind") }
-                .explained("导出为 XMind，自由节点写成浮动主题")
-            #if os(macOS)
-            Button(text("打印")) { printMap() }
-                .explained("打印这份导图")
-            #endif
         } label: {
-            Image(systemName: "square.and.arrow.up")
+            commandLabel(.share, surface: .toolbar)
         }
-        .accessibilityLabel(text("分享"))
-        .help(Text(verbatim: text("把导图导出为 PDF、PNG、Markdown，或保存为已支持的文件")))
+        .accessibilityLabel(text(EditorToolbarCatalog.command(.share).title))
+        .help(Text(verbatim: text(EditorToolbarCatalog.command(.share).help)))
+    }
+
+    @ViewBuilder
+    private func shareRow(_ id: EditorToolbarCommandID) -> some View {
+        switch id {
+        case .upgrade:
+            if session.isMarkdownDocument {
+                commandMenuButton(id) { perform(id) }
+            }
+        case .saveFloretta:
+            if !session.isMarkdownDocument {
+                commandMenuButton(id) { perform(id) }
+            }
+        case .printMap:
+            #if os(macOS)
+            commandMenuButton(id) { perform(id) }
+            #else
+            EmptyView()
+            #endif
+        default:
+            commandMenuButton(id) { perform(id) }
+        }
     }
 
     private var moreMenu: some View {
         Menu {
-            Button(text("大纲")) { showOutline.toggle() }
-                .explained("打开或关闭左侧大纲")
-            Button(text("样式")) { showInspector.toggle() }
-                .disabled(session.isMarkdownDocument)
-                .help(Text(verbatim: text(markdownHelp(.nodeColor, otherwise: "打开样式检查器，修改选中节点的外观"))))
-                .accessibilityHint(text(markdownHelp(.nodeColor, otherwise: "打开样式检查器，修改选中节点的外观")))
-                .accessibilityIdentifier("inspector.open")
-            Button {
-                showThemes = true
-            } label: {
-                Label(text("配色"), systemImage: "paintpalette")
+            ForEach(EditorToolbarCatalog.menu(.more), id: \.self) { id in
+                moreRow(id)
             }
-            .disabled(session.isMarkdownDocument)
-            .help(Text(verbatim: text(markdownHelp(.themeColor, otherwise: "为各分支自动配色，浅色和深色各用一套"))))
-            .accessibilityHint(text(markdownHelp(.themeColor, otherwise: "为各分支自动配色，浅色和深色各用一套")))
-            .accessibilityIdentifier("theme.menu")
-
-            Button(text("查找")) {
-                findQuery = ""
-                showFind = true
-            }
-            .explained("按文字或标签查找节点")
-            Button {
-                showTagFilter = true
-            } label: {
-                Label(text("标签筛选"), systemImage: "tag")
-            }
-            .disabled(session.isMarkdownDocument)
-            .help(Text(verbatim: text(markdownHelp(.tags, otherwise: "给选中的主题加上优先级、进度、旗帜或标签，并按标签高亮"))))
-            .accessibilityHint(text(markdownHelp(.tags, otherwise: "给选中的主题加上优先级、进度、旗帜或标签，并按标签高亮")))
-            .accessibilityIdentifier("tagFilter.open")
-            Button {
-                showHistory = true
-            } label: {
-                Label(text("版本历史"), systemImage: "clock.arrow.circlepath")
-            }
-            .disabled(!session.canOpenSnapshotHistory)
-            .help(Text(verbatim: text(snapshotHistoryHelp)))
-            .accessibilityHint(text(snapshotHistoryHelp))
-            .accessibilityIdentifier("snapshotHistory.menu")
-            Button(text("粘贴")) { pasteFromClipboard() }
-                .explained("把剪贴板里的图片放进节点；没有图片时粘贴文字")
-            Button(text("关于")) { showAbout = true }
-                .explained("查看版本号和开源致谢")
         } label: {
-            Image(systemName: "ellipsis")
+            commandLabel(.more, surface: .toolbar)
         }
-        .accessibilityLabel(text("更多"))
+        .accessibilityLabel(text(EditorToolbarCatalog.command(.more).title))
         .accessibilityIdentifier("editor.more")
-        .help(Text(verbatim: text("大纲、样式、配色、标签筛选、版本历史和关于")))
+        .help(Text(verbatim: text(EditorToolbarCatalog.command(.more).help)))
+    }
+
+    @ViewBuilder
+    private func moreRow(_ id: EditorToolbarCommandID) -> some View {
+        if id == .viewMode {
+            viewModeCommandMenu(surface: .expandedMenu)
+        } else {
+            commandMenuButton(id) { perform(id) }
+        }
+    }
+
+    private func viewModeCommandMenu(surface: EditorCommandSurface) -> some View {
+        Menu {
+            ForEach(EditorToolbarCatalog.menu(.viewMode), id: \.self) { id in
+                commandMenuButton(id) { perform(id) }
+            }
+        } label: {
+            commandLabel(.viewMode, surface: surface)
+        }
+        .disabled(!EditorToolbarCatalog.isEnabled(.viewMode, in: toolbarContext))
+        .help(Text(verbatim: text(commandHelp(.viewMode))))
+    }
+
+    private func perform(_ id: EditorToolbarCommandID) {
+        switch id {
+        case .undo:
+            session.undo()
+        case .redo:
+            session.redo()
+        case .delete:
+            session.deleteSelection()
+        case .immersive:
+            session.enterZen()
+        case .child:
+            session.addChildFromToolbar()
+        case .sibling:
+            session.addSiblingFromToolbar()
+        case .dictation:
+            session.beginDictation()
+        case .freeNode:
+            session.addFreeNodeFromToolbar()
+        case .sticky:
+            session.addStickyFromToolbar()
+        case .summary:
+            session.addSummaryFromToolbar()
+        case .boundary:
+            session.addBoundaryFromToolbar()
+        case .region:
+            session.addRegionFromToolbar()
+        case .image:
+            showImageImporter = true
+        case .attachment:
+            showAttachmentImporter = true
+        case .importFile:
+            onImport()
+        case .outline:
+            showOutline.toggle()
+        case .style:
+            showInspector.toggle()
+        case .theme:
+            showThemes = true
+        case .mapMode:
+            session.viewMode = .map
+        case .focusMode:
+            session.viewMode = .focus
+        case .newCanvas:
+            session.addCanvas(viewport: camera.viewport.persisted)
+        case .find:
+            findQuery = ""
+            showFind = true
+        case .tagFilter:
+            showTagFilter = true
+        case .history:
+            showHistory = true
+        case .paste:
+            pasteFromClipboard()
+        case .about:
+            showAbout = true
+        case .fit:
+            camera.fitToContent()
+        case .pdf:
+            export("pdf")
+        case .png:
+            export("png")
+        case .markdownExport:
+            export("md")
+        case .saveFloretta:
+            export("floretta")
+        case .upgrade:
+            beginUpgrade()
+        case .mm:
+            export("mm")
+        case .opml:
+            export("opml")
+        case .xmind:
+            export("xmind")
+        case .printMap:
+            printMap()
+        case .insert, .share, .zoom, .more, .link, .viewMode:
+            break
+        }
     }
 
     private var snapshotHistoryHelp: String {
@@ -2590,7 +2765,7 @@ private struct MacWindowTitleHider: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: MacWindowTitleView, context: Context) {
-        nsView.hideDocumentTitle()
+        nsView.applyEditorChrome()
     }
 
     static func dismantleNSView(_ nsView: MacWindowTitleView, coordinator: ()) {
@@ -2605,17 +2780,25 @@ private final class MacWindowTitleView: NSView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        hideDocumentTitle()
+        applyEditorChrome()
     }
 
     override func layout() {
         super.layout()
-        hideDocumentTitle()
+        applyEditorChrome()
     }
 
-    func hideDocumentTitle() {
-        guard let window, window.titleVisibility != .hidden else { return }
-        window.titleVisibility = .hidden
+    /// The window title stays hidden so the filename lives in the toolbar.
+    /// Icon-only is the editor toolbar's display mode. Each item's `Label`
+    /// still carries its title for the overflow menu and the customization panel.
+    func applyEditorChrome() {
+        guard let window else { return }
+        if window.titleVisibility != .hidden {
+            window.titleVisibility = .hidden
+        }
+        if let toolbar = window.toolbar, toolbar.displayMode != .iconOnly {
+            toolbar.displayMode = .iconOnly
+        }
     }
 }
 #endif

@@ -7,10 +7,12 @@ import XCTest
 final class EditorChromeContractTests: XCTestCase {
     func testBackButtonPrecedesTheFilenameInTheLeadingToolbar() throws {
         let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        XCTAssertTrue(source.contains("ToolbarItem(placement: .cancellationAction)"))
+        XCTAssertTrue(source.contains("leadingDocumentChrome"))
         let leading = try slice(
             source,
-            from: "ToolbarItem(placement: .cancellationAction)",
-            until: "ToolbarItemGroup(placement: .principal)"
+            from: "private var leadingDocumentChrome",
+            until: "private var toolbarContext"
         )
         let back = try XCTUnwrap(leading.range(of: "\"basicChain.back\""))
         let title = try XCTUnwrap(leading.range(of: "\"document.title\""))
@@ -45,10 +47,7 @@ final class EditorChromeContractTests: XCTestCase {
         XCTAssertFalse(backItem.contains("Circle()"))
         XCTAssertFalse(backItem.contains(".frame("))
         XCTAssertTrue(ios.contains(".sharedBackgroundVisibility(.hidden)"))
-        XCTAssertTrue(mac.contains("HStack(spacing: 8)"))
-        XCTAssertTrue(mac.contains("chevron.backward"))
-        XCTAssertTrue(mac.contains("\"basicChain.back\""))
-        XCTAssertTrue(mac.contains("\"document.title\""))
+        XCTAssertTrue(mac.contains("leadingDocumentChrome"))
     }
 
     func testToolbarFilenameIsNotRepeatedInTheWindowTitle() throws {

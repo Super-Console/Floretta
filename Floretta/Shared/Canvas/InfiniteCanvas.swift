@@ -63,9 +63,17 @@ struct InfiniteCanvas: View {
     }
 
     private func canvasSurface(size: CGSize) -> some View {
+        canvasFocusSurface(canvasHoverSurface(canvasOverlaySurface(canvasGestureSurface(size: size))))
+    }
+
+    private func canvasGestureSurface(size: CGSize) -> some View {
         canvasVisuals
-        .gesture(dragGesture)
-        .simultaneousGesture(pinchGesture(in: size))
+            .gesture(dragGesture)
+            .simultaneousGesture(pinchGesture(in: size))
+    }
+
+    private func canvasOverlaySurface<V: View>(_ view: V) -> some View {
+        view
         .overlay {
             CanvasScrollCatcher { delta, location, command in
                 camera.viewport.applyScroll(delta: delta, around: location, command: command)
@@ -83,6 +91,10 @@ struct InfiniteCanvas: View {
         .overlay { summaryEditor }
         .overlay { boundaryEditor }
         .overlay { audioPlaybackOverlay }
+    }
+
+    private func canvasHoverSurface<V: View>(_ view: V) -> some View {
+        view
         .canvasHover { location in
             guard let location else {
                 interaction.hoveredNodeID = nil
@@ -91,6 +103,10 @@ struct InfiniteCanvas: View {
             let point = camera.viewport.canvasPoint(fromView: location)
             interaction.hoveredNodeID = CanvasPlacement.nodeID(at: point, in: layoutSource())
         }
+    }
+
+    private func canvasFocusSurface<V: View>(_ view: V) -> some View {
+        view
         .focusable(keyboard.mode == .command)
         .focusEffectDisabled(true)
         .background { CanvasFocusRingSuppressor() }

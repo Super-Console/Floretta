@@ -247,18 +247,18 @@ public enum ShareDraftBuilder {
         let pageTitle = displayTitle(title: title, text: text)
         switch origin {
         case .photos:
-            return ShareDraft(origin: origin, kind: .file(try fileKind(file)))
+            return ShareDraft(origin: origin, kind: try filePayload(file))
         case .safari:
             if let web {
                 return ShareDraft(origin: origin, kind: .webPage(url: web, title: pageTitle))
             }
             if file != nil {
-                return ShareDraft(origin: origin, kind: .file(try fileKind(file)))
+                return ShareDraft(origin: origin, kind: try filePayload(file))
             }
             return ShareDraft(origin: origin, kind: .plainText(try plain(text)))
         case .shortcuts:
             if file != nil {
-                return ShareDraft(origin: origin, kind: .file(try fileKind(file)))
+                return ShareDraft(origin: origin, kind: try filePayload(file))
             }
             if let web {
                 return ShareDraft(origin: origin, kind: .webPage(url: web, title: pageTitle))
@@ -267,7 +267,8 @@ public enum ShareDraftBuilder {
         }
     }
 
-    private static func fileKind(_ file: ShareFileFact?) throws -> (filename: String, byteCount: Int64) {
+    /// Two labeled arguments. A single tuple does not match `file(filename:byteCount:)`.
+    private static func filePayload(_ file: ShareFileFact?) throws -> SharePayloadKind {
         guard let file else { throw ShareIngressError.emptyPayload }
         if file.isDirectory { throw ShareIngressError.directory }
         if file.byteCount < 0 { throw ShareIngressError.notAFile }
@@ -275,7 +276,7 @@ public enum ShareDraftBuilder {
         guard FileAttachmentRoute.accepts(filename: name, isDirectory: false) else {
             throw ShareIngressError.notAFile
         }
-        return (name, file.byteCount)
+        return .file(filename: name, byteCount: file.byteCount)
     }
 
     private static func plain(_ text: String?) throws -> String {

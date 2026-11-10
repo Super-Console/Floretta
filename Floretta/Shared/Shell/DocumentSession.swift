@@ -2,6 +2,75 @@ import FlorettaCore
 import Foundation
 import Observation
 import SwiftUI
+import ImageIO
+import QuickLookThumbnailing
+import UniformTypeIdentifiers
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
+
+#if os(macOS)
+typealias PlatformThumbnailImage = NSImage
+#else
+typealias PlatformThumbnailImage = UIImage
+#endif
+
+enum RecentThumbnailFallback {
+    static func image(_ data: Data?) -> PlatformThumbnailImage? {
+        guard let data else { return nil }
+        return PlatformThumbnailImage(data: data)
+    }
+}
+
+enum RecentThumbnailRenderer {
+    static let byteLimit = 200 * 1024 * 1024
+
+    static func cacheKey(for url: URL) -> String {
+        var hash = SHA256Streaming()
+        let path = Data(url.standardizedFileURL.path.utf8)
+        path.withUnsafeBytes { hash.update($0) }
+        return hash.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Cache I/O and Quick Look generation are always performed on a utility
+    /// executor, never synchronously on the main actor used by SwiftUI rows.
+    static func load(url: URL, cache: ThumbnailFileCache) async -> Data? {
+        let key = cacheKey(for: url)
+        if let cached = await Task.detached(priority: .utility, operation: { () -> Data? in
+            let file = cache.fileURL(for: key)
+            guard let data = try? Data(contentsOf: file), !data.isEmpty else { return nil }
+            try? cache.touch(key)
+            return data
+        }).value {
+            return cached
+        }
+
+        return await Task.detached(priority: .utility) {
+            precondition(!Thread.isMainThread, "Quick Look thumbnail generation must not run on the main thread.")
+            let request = QLThumbnailGenerator.Request(
+                fileAt: url,
+                size: CGSize(width: 320, height: 220),
+                scale: 1,
+                representationTypes: .thumbnail
+            )
+            guard let representation = try? await QLThumbnailGenerator.shared.generateBestRepresentation(for: request) else {
+                return nil
+            }
+            let output = NSMutableData()
+            guard let destination = CGImageDestinationCreateWithData(output, UTType.png.identifier as CFString, 1, nil) else {
+                return nil
+            }
+            CGImageDestinationAddImage(destination, representation.cgImage, nil)
+            guard CGImageDestinationFinalize(destination) else { return nil }
+            let data = output as Data
+            guard Int64(data.count) <= Int64(byteLimit) else { return data }
+            try? cache.store(data, for: key)
+            return data
+        }.value
+    }
+}
 
 /// Holds a security-scoped URL until the editor closes. `openFile` used to
 /// stop access as soon as the bytes were read, so writing the same URL on
@@ -886,13 +955,43 @@ final class LibraryModel {
             thumbnailCache = ThumbnailFileCache(
                 directory: AttachmentDirectory.thumbnails(applicationSupport: support)
             )
+            let recentDirectory = support
+                .appendingPathComponent("Floretta", isDirectory: true)
+                .appendingPathComponent("RecentThumbnails", isDirectory: true)
+            try? FileManager.default.createDirectory(at: recentDirectory, withIntermediateDirectories: true)
+            try? ports.backup.excludeFromBackup(recentDirectory)
+            recentThumbnailCache = ThumbnailFileCache(
+                directory: recentDirectory,
+                maxBytes: Int64(RecentThumbnailRenderer.byteLimit)
+            )
         } else {
             thumbnailCache = nil
+            recentThumbnailCache = nil
         }
         reload()
     }
 
     let thumbnailCache: ThumbnailFileCache?
+    @ObservationIgnored private let recentThumbnailCache: ThumbnailFileCache?
+
+    func resolveRecentURL(_ entry: RecentMapEntry) -> URL? {
+        store.resolve(entry)
+    }
+
+    func recentThumbnail(for entry: RecentMapEntry) async -> Data? {
+        guard let url = resolveRecentURL(entry),
+              url.pathExtension.lowercased() == "floretta",
+              let cache = recentThumbnailCache else { return nil }
+        let accessed = url.startAccessingSecurityScopedResource()
+        let result = await RecentThumbnailRenderer.load(url: url, cache: cache)
+        if accessed { url.stopAccessingSecurityScopedResource() }
+        return result
+    }
+
+    private func invalidateRecentThumbnail(for url: URL?) {
+        guard let url, let cache = recentThumbnailCache else { return }
+        try? FileManager.default.removeItem(at: cache.fileURL(for: RecentThumbnailRenderer.cacheKey(for: url)))
+    }
 
     func useDocumentsForNewFiles() {
         saveDirectory = documentsDirectory
@@ -1074,6 +1173,7 @@ final class LibraryModel {
         scope = nil
         if let url = current.url {
             try? store.remember(url)
+            invalidateRecentThumbnail(for: url)
         }
         reload()
         dismissOpenError()
@@ -1124,6 +1224,7 @@ final class LibraryModel {
         current.prepareToSave()
         do {
             try persist(current)
+            invalidateRecentThumbnail(for: current.url)
             dismissOpenError()
         } catch {
             inventoryError = nil
@@ -1203,6 +1304,7 @@ final class LibraryModel {
         if let url = session.url {
             do {
                 let catalog = try write(session.document, to: url)
+                invalidateRecentThumbnail(for: url)
                 session.notePackage(catalog: catalog, bytes: (try? ports.streaming.byteCount(at: url)) ?? 0)
                 session.shareBase = session.document
                 return

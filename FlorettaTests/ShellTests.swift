@@ -5,6 +5,22 @@ import XCTest
 
 @MainActor
 final class ShellTests: XCTestCase {
+    func testRecentThumbnailCacheHitAndFailureFallback() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("recent-thumbnail-test-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = ThumbnailFileCache(directory: directory, maxBytes: 200 * 1024 * 1024)
+        let url = directory.appendingPathComponent("map.floretta")
+        let expected = Data("cached-thumbnail".utf8)
+        let key = RecentThumbnailRenderer.cacheKey(for: url)
+        try cache.store(expected, for: key)
+
+        let actual = await RecentThumbnailRenderer.load(url: url, cache: cache)
+        XCTAssertEqual(actual, expected, "A cache hit should avoid Quick Look and return the stored bytes.")
+        XCTAssertNil(RecentThumbnailFallback.image(nil))
+        XCTAssertNil(RecentThumbnailFallback.image(Data("not an image".utf8)))
+    }
+
     func testZoomStopsAreTheIntegerPercents() {
         XCTAssertEqual(
             ZoomStop.legalPercents,

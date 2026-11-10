@@ -1,4 +1,3 @@
-#if os(macOS)
 import Foundation
 
 /// Custom menu accelerators only. System-owned shortcuts are never reassigned.
@@ -40,4 +39,3 @@ public enum MacMenuShortcutCatalog {
         }
     }
 }
-#endif

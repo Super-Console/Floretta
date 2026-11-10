@@ -106,6 +106,9 @@
 		CA5100000000000000000001 /* DocumentEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5100000000000000000001 /* DocumentEditor.swift */; };
 		CA5100000000000000000002 /* DocumentEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5100000000000000000001 /* DocumentEditor.swift */; };
 		CA7100000000000000000001 /* ShellTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7100000000000000000001 /* ShellTests.swift */; };
+		CA4500000000000000000001 /* AppleGlassPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4500000000000000000001 /* AppleGlassPanel.swift */; };
+		CA4500000000000000000002 /* AppleGlassPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4500000000000000000001 /* AppleGlassPanel.swift */; };
+		CA4500000000000000000003 /* AppleGlassPanelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4500000000000000000002 /* AppleGlassPanelTests.swift */; };
 		CA8100000000000000000001 /* NOTICE in Resources */ = {isa = PBXBuildFile; fileRef = FA8100000000000000000001 /* NOTICE */; };
 		CA8100000000000000000002 /* NOTICE in Resources */ = {isa = PBXBuildFile; fileRef = FA8100000000000000000001 /* NOTICE */; };
 		CA4400000000000000000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = FA4400000000000000000001 /* Localizable.xcstrings */; };
@@ -236,6 +239,8 @@
 		FA4200000000000000000001 /* LocalDeviceLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDeviceLabel.swift; sourceTree = "<group>"; };
 		FA4300000000000000000001 /* TemplateThumbnail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateThumbnail.swift; sourceTree = "<group>"; };
 		FA5100000000000000000001 /* DocumentEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentEditor.swift; sourceTree = "<group>"; };
+		FA4500000000000000000001 /* AppleGlassPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleGlassPanel.swift; sourceTree = "<group>"; };
+		FA4500000000000000000002 /* AppleGlassPanelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleGlassPanelTests.swift; sourceTree = "<group>"; };
 		FA7100000000000000000001 /* ShellTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellTests.swift; sourceTree = "<group>"; };
 		FA7200000000000000000001 /* MarkdownDocumentUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownDocumentUITests.swift; sourceTree = "<group>"; };
 		FA8100000000000000000001 /* NOTICE */ = {isa = PBXFileReference; lastKnownFileType = text; path = NOTICE; sourceTree = SOURCE_ROOT; };
@@ -495,6 +500,7 @@
 			isa = PBXGroup;
 			children = (
 				FA1100000000000000000001 /* AppSettings.swift */,
+				FA4500000000000000000001 /* AppleGlassPanel.swift */,
 				FA5100000000000000000001 /* DocumentEditor.swift */,
 				FA3100000000000000000001 /* DocumentSession.swift */,
 				FB2100000000000000000001 /* SnapshotHistory.swift */,
@@ -558,6 +564,7 @@
 				F93000000000000000000002 /* MapExportTests.swift */,
 				F42000000000000000000008 /* QuickLookThumbnailTests.swift */,
 				FA7100000000000000000001 /* ShellTests.swift */,
+				FA4500000000000000000002 /* AppleGlassPanelTests.swift */,
 				FB2200000000000000000001 /* SnapshotHistoryTests.swift */,
 				FA7200000000000000000001 /* MarkdownDocumentUITests.swift */,
 				F20000000000000000000005 /* RecoveryPresenterTests.swift */,
@@ -1029,6 +1036,7 @@
 				CA4200000000000000000001 /* LocalDeviceLabel.swift in Sources */,
 				CA4300000000000000000001 /* TemplateThumbnail.swift in Sources */,
 				CA5100000000000000000001 /* DocumentEditor.swift in Sources */,
+				CA4500000000000000000001 /* AppleGlassPanel.swift in Sources */,
 				CB2100000000000000000001 /* SnapshotHistory.swift in Sources */,
 				C52100000000000000000001 /* FileTypeIcon.swift in Sources */,
 				C52100000000000000000004 /* FileQuickLook.swift in Sources */,
@@ -1129,6 +1137,8 @@
 				CA7200000000000000000001 /* MarkdownDocumentUITests.swift in Sources */,
 				CA4400000000000000000006 /* FlorettaL10n.swift in Sources */,
 				CA7100000000000000000001 /* ShellTests.swift in Sources */,
+				CA4500000000000000000002 /* AppleGlassPanel.swift in Sources */,
+				CA4500000000000000000003 /* AppleGlassPanelTests.swift in Sources */,
 				CB2100000000000000000003 /* SnapshotHistory.swift in Sources */,
 				CB2200000000000000000001 /* SnapshotHistoryTests.swift in Sources */,
 				C31000000000000000000014 /* ShareCatalogStore.swift in Sources */,

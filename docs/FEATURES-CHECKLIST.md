@@ -36,6 +36,7 @@
 - [x] A25 模板库重做（12 个真模板，结构各不相同，禁止同树换色）（`TemplateKind` 十二个；`ShellTests.testMenusAndTemplatesOmitDeadActions` 断言名称与 `TemplateKind.shape` 均不重复）
 - [x] A26 底栏字数（底栏在「主题: N」旁显示「字数: N」。Mac 在底栏右侧，悬停展开主题 / 字数 / 字符数；iPhone / iPad 把这三项放在底栏上。只计节点标题，编辑中实时更新。验收：中心主题 + 分支主题 1–4 = 主题 5、字数 24、字符数 28。`TopicTitleCensusTests`。PR #75 → main `658b0c37`，tip `c9d6eb28`。Censor 与独立确认的 CI、Pro 已通过该 tip）
 - [~] A27 检查器顶栏钉住（「检查器」和样式/演说/导图分段高度固定，停在列顶。短页和未选中空态只在顶栏下面的区域里居中或滚动，不带动顶栏。`InspectorTabPinUITests`。Mac 截图未拍）
+- [~] A28 macOS 大纲与检查器改为系统玻璃（`glassEffect` / `GlassEffectContainer`，圆角 16pt continuous）。本机未截光/暗图。`AppleGlassPanelTests`
 
 ## B. 附件（核心差异化）
 
@@ -132,7 +133,7 @@
 ## 统计
 
 - 已完成并验过：**62** 项
-- 已派未合并/未验：**7** 项
+- 已派未合并/未验：**8** 项
 - 未开始：**13** 项
-- 合计：**82** 项
+- 合计：**83** 项
 - 已知阻塞：**3** 项

@@ -3,6 +3,8 @@ import Observation
 import SwiftUI
 #if os(macOS)
 import AppKit
+#else
+import UIKit
 #endif
 
 struct InfiniteCanvas: View {
@@ -61,6 +63,7 @@ struct InfiniteCanvas: View {
             }
             .overlay { if !zenActive { hoverAddButtons } }
             .overlay { editField }
+            .overlay { nodeChromeProbe }
             .overlay { stickyChrome }
             .overlay { stickyEditor }
             .overlay { relationshipEditor }
@@ -402,6 +405,11 @@ struct InfiniteCanvas: View {
            let id = keyboard.selectedNodeID,
            let frame = placedFrames().first(where: { $0.id == id }) {
             let rect = camera.viewport.viewRect(fromCanvas: frame.frame)
+            let editor = NodeEditChrome.editorFrame(node: rect, compositionWidth: compositionWidth)
+            let pointSize = CanvasTextScale.onScreenPointSize(
+                fontSize: frame.fontSize,
+                scale: camera.viewport.scale
+            )
             NodeTextEditor(
                 text: Binding(
                     get: { keyboard.editingText },
@@ -409,16 +417,53 @@ struct InfiniteCanvas: View {
                 ),
                 isComposing: $keyboard.isComposing,
                 minimumWidth: $compositionWidth,
-                fontSize: CanvasTextScale.onScreenPointSize(
-                    fontSize: frame.fontSize,
-                    scale: camera.viewport.scale
-                ),
+                fontSize: pointSize,
                 onEvent: { handleKey($0) },
                 dictationToken: dictationToken,
-                dictationReplacesPlaceholder: dictationReplacesPlaceholder
+                dictationReplacesPlaceholder: dictationReplacesPlaceholder,
+                nodeChrome: NodeEditSurface(
+                    fill: frame.fill,
+                    textColor: frame.textColor,
+                    hidesFill: frame.hidesFill,
+                    cornerRadius: frame.cornerRadius,
+                    fontSize: pointSize,
+                    fontDesign: frame.fontDesign,
+                    bold: frame.bold,
+                    italic: frame.italic,
+                    strikethrough: frame.strikethrough,
+                    underline: frame.underline
+                )
             )
-            .frame(width: max(rect.width, compositionWidth, 88), height: max(rect.height, 36))
+            .frame(width: editor.width, height: editor.height)
+            .clipShape(RoundedRectangle(cornerRadius: frame.cornerRadius, style: .circular))
+            .overlay {
+                if frame.borderWidth > 0 {
+                    RoundedRectangle(cornerRadius: frame.cornerRadius, style: .circular)
+                        .strokeBorder(color(frame.border), lineWidth: frame.borderWidth)
+                }
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: frame.cornerRadius, style: .circular)
+                    .stroke(Color.accentColor, lineWidth: NodeEditChrome.selectionStrokeWidth)
+            }
+            .position(x: editor.midX, y: editor.midY)
+        }
+    }
+
+    /// Idle read-out of the selected node's painted frame and fill.
+    /// Editing publishes the same identifier from the text view's real background.
+    @ViewBuilder
+    private var nodeChromeProbe: some View {
+        if keyboard.mode != .edit,
+           let id = keyboard.selectedNodeID,
+           let frame = placedFrames().first(where: { $0.id == id }) {
+            let rect = camera.viewport.viewRect(fromCanvas: frame.frame)
+            NodeChromeProbeBox(
+                value: NodeEditChrome.accessibilityValue(editing: false, fill: frame.fill, size: rect.size)
+            )
+            .frame(width: rect.width, height: rect.height)
             .position(x: rect.midX, y: rect.midY)
+            .allowsHitTesting(false)
         }
     }
 
@@ -681,9 +726,7 @@ struct InfiniteCanvas: View {
               let id = keyboard.selectedNodeID,
               let frame = placedFrames().first(where: { $0.id == id }) else { return nil }
         let rect = camera.viewport.viewRect(fromCanvas: frame.frame)
-        let width = max(rect.width, compositionWidth, 88)
-        let height = max(rect.height, 36)
-        return CGRect(x: rect.midX - width / 2, y: rect.midY - height / 2, width: width, height: height)
+        return NodeEditChrome.editorFrame(node: rect, compositionWidth: compositionWidth)
     }
 
     private func summaryEditFrame() -> CGRect? {
@@ -1083,6 +1126,7 @@ struct InfiniteCanvas: View {
         let selected = interaction.selectedNodeID == node.id
         var layer = context
         if dimmed { layer.opacity = TopicTagCanvas.dimOpacity }
+        let editing = keyboard.mode == .edit && selected
         if !node.hidesFill {
             if detail.drawsShadow {
                 var shadowed = layer
@@ -1092,13 +1136,13 @@ struct InfiniteCanvas: View {
                 layer.fill(path, with: .color(color(node.fill)))
             }
         }
-        if detail != .far, selected {
+        if !editing, detail != .far, selected {
             layer.stroke(
                 path,
                 with: .color(color(interaction.selectionBorder)),
                 lineWidth: interaction.selectionBorderWidth
             )
-        } else if detail.drawsFineBorder || (detail == .mid && node.borderWidth >= 2.5) {
+        } else if !editing, detail.drawsFineBorder || (detail == .mid && node.borderWidth >= 2.5) {
             if node.borderWidth > 0 {
                 layer.stroke(path, with: .color(color(node.border)), lineWidth: node.borderWidth)
             }
@@ -1106,7 +1150,7 @@ struct InfiniteCanvas: View {
         if highlighted, detail != .far {
             context.stroke(path, with: .color(color(TopicTagCanvas.highlight)), lineWidth: 2.5)
         }
-        if selected, detail.drawsSelectionHandles {
+        if selected, detail.drawsSelectionHandles, NodeEditChrome.showsSelectionHandles(editing: editing) {
             drawHandles(around: rect, in: context)
         }
         var textRect = rect.insetBy(dx: 6, dy: 4)
@@ -1136,7 +1180,7 @@ struct InfiniteCanvas: View {
             textRect.size.height = max(0, min(textRect.maxY, tagY - 2) - textRect.minY)
         }
         let pointSize = CanvasTextScale.onScreenPointSize(fontSize: node.fontSize, scale: scale)
-        if CanvasTextLOD.level(onScreenPointSize: pointSize).drawsTitle, textRect.height > 1, textRect.width > 1 {
+        if !editing, CanvasTextLOD.level(onScreenPointSize: pointSize).drawsTitle, textRect.height > 1, textRect.width > 1 {
             let text = styledText(node, pointSize: pointSize)
             var textLayer = layer
             textLayer.clip(to: Path(textRect))
@@ -1274,9 +1318,208 @@ struct InfiniteCanvas: View {
 
 }
 
+/// Full-size accessibility box for the idle topic. A text glyph collapses to one pixel,
+/// so XCUI would compare that sliver with the editing field.
+private struct NodeChromeProbeBox: View {
+    var value: String
+
+    var body: some View {
+        #if os(macOS)
+        MacNodeChromeProbe(value: value)
+        #else
+        IOSNodeChromeProbe(value: value)
+        #endif
+    }
+}
+
+#if os(macOS)
+private struct MacNodeChromeProbe: NSViewRepresentable {
+    var value: String
+
+    func makeNSView(context: Context) -> NodeChromeProbeNSView {
+        let view = NodeChromeProbeNSView()
+        view.probeValue = value
+        return view
+    }
+
+    func updateNSView(_ nsView: NodeChromeProbeNSView, context: Context) {
+        nsView.probeValue = value
+        nsView.publish()
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NodeChromeProbeNSView, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? nsView.bounds.width, height: proposal.height ?? nsView.bounds.height)
+    }
+}
+
+private final class NodeChromeProbeNSView: NSView {
+    var probeValue = "" {
+        didSet { publish() }
+    }
+
+    override var isFlipped: Bool { true }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func layout() {
+        super.layout()
+        publish()
+    }
+
+    func publish() {
+        guard bounds.width > 1, bounds.height > 1 else { return }
+        setAccessibilityElement(true)
+        setAccessibilityIdentifier(NodeEditChrome.accessibilityIdentifier)
+        setAccessibilityLabel("node")
+        if accessibilityValue() as? String != probeValue {
+            setAccessibilityValue(probeValue)
+        }
+        guard let window else { return }
+        setAccessibilityFrame(window.convertToScreen(convert(bounds, to: nil)))
+    }
+}
+#else
+private struct IOSNodeChromeProbe: UIViewRepresentable {
+    var value: String
+
+    func makeUIView(context: Context) -> NodeChromeProbeUIView {
+        let view = NodeChromeProbeUIView()
+        view.probeValue = value
+        view.isUserInteractionEnabled = false
+        view.backgroundColor = .clear
+        view.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        view.setContentHuggingPriority(.defaultLow, for: .vertical)
+        view.setContentCompressionResistancePriority(.required, for: .horizontal)
+        view.setContentCompressionResistancePriority(.required, for: .vertical)
+        return view
+    }
+
+    func updateUIView(_ uiView: NodeChromeProbeUIView, context: Context) {
+        uiView.probeValue = value
+        uiView.publish()
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: NodeChromeProbeUIView, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? uiView.bounds.width, height: proposal.height ?? uiView.bounds.height)
+    }
+}
+
+private final class NodeChromeProbeUIView: UIView {
+    var probeValue = "" {
+        didSet { publish() }
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        publish()
+    }
+
+    func publish() {
+        guard bounds.width > 1, bounds.height > 1 else { return }
+        isAccessibilityElement = true
+        accessibilityIdentifier = NodeEditChrome.accessibilityIdentifier
+        accessibilityLabel = "node"
+        if (accessibilityValue as? String) != probeValue {
+            accessibilityValue = probeValue
+        }
+        accessibilityFrame = UIAccessibility.convertToScreenCoordinates(bounds, in: self)
+    }
+}
+#endif
+
+/// How a topic looks while its text field is open.
+/// The field keeps the node's fill, type, and frame. One accent stroke is added.
+/// Marked text may widen the field; a line that already fits does not.
+enum NodeEditChrome {
+    static let accessibilityIdentifier = "canvas.node.chrome"
+    /// Solid selection stroke. System accent, same corner radius as the node.
+    static let selectionStrokeWidth: CGFloat = 2
+    /// Matches the canvas title clip (`insetBy(dx: 6, dy: 4)`) so glyphs do not jump.
+    static let textInset = CGSize(width: 6, height: 4)
+
+    static func showsSelectionHandles(editing: Bool) -> Bool {
+        !editing
+    }
+
+    /// Same origin and size as `node` until marked text is wider than the topic.
+    static func editorFrame(node: CGRect, compositionWidth: CGFloat) -> CGRect {
+        let extra = compositionWidth.isFinite ? compositionWidth : 0
+        let width = extra > node.width ? extra : node.width
+        return CGRect(x: node.midX - width / 2, y: node.minY, width: width, height: node.height)
+    }
+
+    static func hex(_ color: BranchColor) -> String {
+        func byte(_ channel: Double) -> Int {
+            Int((min(max(channel, 0), 1) * 255).rounded())
+        }
+        return String(format: "#%02X%02X%02X", byte(color.red), byte(color.green), byte(color.blue))
+    }
+
+    static func accessibilityValue(editing: Bool, fill: BranchColor, size: CGSize) -> String {
+        let mode = editing ? "edit" : "idle"
+        let width = String(format: "%.2f", Double(size.width))
+        let height = String(format: "%.2f", Double(size.height))
+        return "mode=\(mode);fill=\(hex(fill));w=\(width);h=\(height)"
+    }
+
+    static func fillHex(in value: String) -> String? {
+        token("fill", in: value)
+    }
+
+    static func mode(in value: String) -> String? {
+        token("mode", in: value)
+    }
+
+    static func size(in value: String) -> CGSize? {
+        guard let width = token("w", in: value).flatMap(Double.init),
+              let height = token("h", in: value).flatMap(Double.init) else { return nil }
+        return CGSize(width: width, height: height)
+    }
+
+    private static func token(_ key: String, in value: String) -> String? {
+        for part in value.split(separator: ";") {
+            let pieces = part.split(separator: "=", maxSplits: 1).map(String.init)
+            if pieces.count == 2, pieces[0] == key { return pieces[1] }
+        }
+        return nil
+    }
+
+    /// One burgundy topic, short enough that the old 88×36 edit field would grow it.
+    static func sampleDocument() -> MindMapDocument {
+        let node = MindMapNode(
+            text: "样式",
+            style: MindMapNodeStyle(
+                colorHex: "#800020",
+                fillHex: "#800020",
+                borderHex: "#4A1020",
+                textHex: "#FFFFFF",
+                fontSize: 20,
+                borderWidth: 2,
+                cornerRadius: 12,
+                fontDesign: "rounded"
+            ),
+            position: MindMapPoint(x: 64, y: 96)
+        )
+        return MindMapDocument(title: "样式", roots: [node])
+    }
+}
+
+/// Colors and type the editing text view paints. The canvas still owns the shape.
+struct NodeEditSurface: Equatable {
+    var fill: BranchColor
+    var textColor: BranchColor
+    var hidesFill: Bool
+    var cornerRadius: CGFloat
+    var fontSize: CGFloat
+    var fontDesign: String
+    var bold: Bool
+    var italic: Bool
+    var strikethrough: Bool
+    var underline: Bool
+}
+
 /// Taps that land on the system text field must not commit or close it.
-/// The field is at least 88 points wide, so a short Chinese topic leaves a
-/// margin that the node hit-test misses. Marked text makes that margin larger.
+/// Marked text can make the field wider than the topic. The node hit-test misses that margin.
 enum EditFieldGuard {
     static func ignoresCanvasTap(at location: CGPoint, editFrame: CGRect?, isComposing: Bool) -> Bool {
         if isComposing { return true }

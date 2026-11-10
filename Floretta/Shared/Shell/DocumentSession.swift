@@ -809,6 +809,12 @@ final class LibraryModel {
         openDocument(document, preferredURL: nil, sourceExtension: "floretta")
     }
 
+    /// Opens one styled topic on the map. UI tests use it to compare idle and edit chrome.
+    func openEditChromeSample() {
+        settings.defaultView = .map
+        openDocument(NodeEditChrome.sampleDocument(), preferredURL: nil, sourceExtension: "floretta")
+    }
+
     func makeTemplate(_ kind: TemplateKind) {
         openDocument(kind.document(), preferredURL: nil, sourceExtension: "floretta")
     }

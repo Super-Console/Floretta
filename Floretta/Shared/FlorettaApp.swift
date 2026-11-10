@@ -141,6 +141,8 @@ enum AppLaunch {
         ProcessInfo.processInfo.arguments.contains(openInspectorArgument)
     }
 
+    static let editChromeArgument = "-FlorettaEditChrome"
+
     struct Session {
         var recovery: RecoveryPresenter
         var settings: AppSettings
@@ -184,6 +186,9 @@ enum AppLaunch {
             try library.installSmokeFixtures()
         } catch {
             preconditionFailure("UI test fixtures failed: \(error)")
+        }
+        if arguments.contains(editChromeArgument) {
+            library.openEditChromeSample()
         }
         let recovery = RecoveryPresenter(
             store: AutosaveStore(directory: autosave, fileAccess: FoundationFileAccess())

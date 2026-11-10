@@ -35,3 +35,20 @@ xcodebuild build -project Floretta.xcodeproj -scheme Floretta-iOS -destination '
 ```
 
 点通一条，把表里那一行改成「已通」，并写上设备和日期。没点过的保持「未通」。
+
+## 打包门禁（缺了不许上传）
+
+冒烟点通不等于可以上传。Archive 并 export 之后，必须 grep **iOS App 包**里的 `Info.plist`。产物是 `Floretta-iOS.app`。查的是包内那份，不是仓库里的 `Floretta/iOS/Info.plist`，也不是 macOS 包。
+
+- Archive：`<archive>.xcarchive/Products/Applications/Floretta-iOS.app/Info.plist`
+- IPA：解开后的 `Payload/Floretta-iOS.app/Info.plist`
+
+包内 plist 默认是二进制。先转 XML，再确认 `LSSupportsOpeningDocumentsInPlace` 为 `true` / `YES`。键缺失就禁止上传；值不是 true/YES 同样禁止。
+
+```bash
+plutil -convert xml1 -o - "$IOS_APP/Info.plist" \
+  | grep -A1 '<key>LSSupportsOpeningDocumentsInPlace</key>' \
+  | grep -Eq '<true[[:space:]]*/>|>YES<'
+```
+
+`$IOS_APP` 是 `Floretta-iOS.app`。退出码不是 0 就停，不许交给 Transporter、`altool` 或 App Store Connect。不要加 `UISupportsDocumentBrowser`。

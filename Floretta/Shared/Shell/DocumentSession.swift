@@ -274,6 +274,8 @@ final class EditorSession {
     var zenEnteredFullScreen = false
     var attachmentCatalog = ZipDirectory(entries: [])
     var archiveByteCount: Int64 = 0
+    /// Document at the last load or save. Used to tell a share on disk from an unsaved edit.
+    var shareBase: MindMapDocument
 
     init(
         document: MindMapDocument,
@@ -285,6 +287,7 @@ final class EditorSession {
         self.url = url
         self.sourceExtension = sourceExtension
         self.viewMode = viewMode
+        self.shareBase = document
         focusNodeID = document.roots.first?.id
         keyboard.selectedNodeID = document.roots.first?.id
     }
@@ -719,10 +722,12 @@ final class LibraryModel {
     }
 
     private func persistFloretta(_ session: EditorSession) throws {
+        absorbExternalShare()
         if let url = session.url {
             do {
                 let catalog = try write(session.document, to: url)
                 session.notePackage(catalog: catalog, bytes: (try? ports.streaming.byteCount(at: url)) ?? 0)
+                session.shareBase = session.document
                 return
             } catch DocumentContainerError.refusesToOverwriteLegacy {
                 // The original JSON bytes stay put. The edited map goes to a new ZIP.
@@ -733,6 +738,7 @@ final class LibraryModel {
         session.url = created
         session.sourceExtension = "floretta"
         session.notePackage(catalog: catalog, bytes: (try? ports.streaming.byteCount(at: created)) ?? 0)
+        session.shareBase = session.document
     }
 
     private func saveFailureMessage(_ error: Error) -> String {
@@ -774,7 +780,92 @@ final class LibraryModel {
 
     @discardableResult
     private func write(_ document: MindMapDocument, to url: URL) throws -> ZipDirectory {
-        try FlorettaStreamingDocument.save(document: document, to: url, files: ports.streaming)
+        let directory = try FlorettaStreamingDocument.save(document: document, to: url, files: ports.streaming)
+        ShareCatalogStore.publish(url: url, document: document)
+        return directory
+    }
+
+    /// Pulls a share that landed on disk while this editor was open.
+    /// Unsaved topics stay. A topic deleted here is not put back.
+    func absorbExternalShare() {
+        guard let session = editor, let url = session.url, session.sourceExtension == "floretta" else { return }
+        guard (try? ports.streaming.isZip(at: url)) == true else { return }
+        let reader: RandomAccessReader
+        do {
+            reader = try ports.streaming.openReader(at: url)
+        } catch {
+            return
+        }
+        let opened: OpenedFloretta
+        do {
+            opened = try FlorettaStreamingDocument.open(reader)
+            try reader.close()
+        } catch {
+            try? reader.close()
+            return
+        }
+        let merged = ShareAbsorb.absorb(base: session.shareBase, mine: session.document, theirs: opened.document)
+        guard merged != session.document else { return }
+        session.document = merged
+        session.shareBase = merged
+        session.notePackage(
+            catalog: opened.directory,
+            bytes: (try? ports.streaming.byteCount(at: url)) ?? session.archiveByteCount
+        )
+    }
+
+    /// Shortcuts entry. An open editor on the same file is updated in memory so a later save
+    /// does not drop the topic or the unsaved edits around it.
+    func saveShared(
+        draft: ShareDraft,
+        onto query: String,
+        archive: URL,
+        fileURL: URL?
+    ) async throws -> ShareResult {
+        absorbExternalShare()
+        let files = ports.streaming
+        let reader = try files.openReader(at: archive)
+        let opened: OpenedFloretta
+        do {
+            opened = try FlorettaStreamingDocument.open(reader)
+            try reader.close()
+        } catch {
+            try? reader.close()
+            throw error
+        }
+        let sameEditor = editor?.url?.standardizedFileURL.path == archive.standardizedFileURL.path
+        let memory = sameEditor ? editor?.document : nil
+        let basis = memory ?? opened.document
+        let nodeID: UUID
+        switch ShareIngress.match(query, in: basis) {
+        case .found(let id):
+            nodeID = id
+        case .none:
+            throw ShareIngressError.unknownNode
+        case .ambiguous:
+            throw ShareIngressError.ambiguousNode
+        }
+        let result = try await Task.detached {
+            try ShareCommit.commit(
+                draft,
+                onto: nodeID,
+                archive: archive,
+                fileURL: fileURL,
+                files: FoundationStreamingFiles(),
+                memory: memory,
+                snapshots: .standard
+            )
+        }.value
+        if sameEditor, let session = editor {
+            session.document = result.document
+            session.shareBase = result.document
+            session.notePackage(
+                catalog: result.directory,
+                bytes: (try? files.byteCount(at: archive)) ?? session.archiveByteCount
+            )
+        }
+        ShareCatalogStore.publish(url: archive, document: result.document)
+        return result
     }
 
     private func openSession(at url: URL, access: SecurityScopedURL) throws -> EditorSession {
@@ -791,6 +882,7 @@ final class LibraryModel {
             }
             let bytes = reader.count
             try reader.close()
+            ShareCatalogStore.publish(url: url, document: opened.document)
             let session = EditorSession(
                 document: opened.document,
                 url: url,

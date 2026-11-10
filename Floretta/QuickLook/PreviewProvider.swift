@@ -3,7 +3,7 @@ import QuickLookUI
 import UniformTypeIdentifiers
 
 /// Spacebar preview for `.floretta`. Same picture as the Finder thumbnail, at a larger edge.
-final class FlorettaPreviewProvider: NSObject, QLPreviewProvider {
+final class FlorettaPreviewProvider: QLPreviewProvider {
     func providePreview(
         for request: QLFilePreviewRequest,
         completionHandler handler: @escaping (QLPreviewReply?, Error?) -> Void

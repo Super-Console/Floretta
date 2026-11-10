@@ -112,6 +112,26 @@
 		CB1000000000000000000003 /* ApplePlatformPorts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000000000000000000001 /* ApplePlatformPorts.swift */; };
 		C3000000000000000000000B /* RecoveryPresenterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000005 /* RecoveryPresenterTests.swift */; };
 		C72000000000000000000001 /* HomeSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72000000000000000000001 /* HomeSmokeTests.swift */; };
+		C31000000000000000000011 /* ShareIngressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F31000000000000000000001 /* ShareIngressTests.swift */; };
+		C31000000000000000000012 /* ShareCatalogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F31000000000000000000002 /* ShareCatalogStore.swift */; };
+		C31000000000000000000013 /* ShareCatalogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F31000000000000000000002 /* ShareCatalogStore.swift */; };
+		C31000000000000000000014 /* ShareCatalogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F31000000000000000000002 /* ShareCatalogStore.swift */; };
+		C31000000000000000000015 /* SaveIntoNodeIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F31000000000000000000003 /* SaveIntoNodeIntent.swift */; };
+		C31000000000000000000016 /* SaveIntoNodeIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F31000000000000000000003 /* SaveIntoNodeIntent.swift */; };
+		C31000000000000000000021 /* ShareCatalogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F31000000000000000000002 /* ShareCatalogStore.swift */; };
+		C31000000000000000000022 /* ShareItemLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = F31000000000000000000004 /* ShareItemLoader.swift */; };
+		C31000000000000000000023 /* ShareComposeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F31000000000000000000005 /* ShareComposeView.swift */; };
+		C31000000000000000000024 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F31000000000000000000006 /* ShareViewController.swift */; };
+		C31000000000000000000025 /* ApplePlatformPorts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000000000000000000001 /* ApplePlatformPorts.swift */; };
+		C31000000000000000000031 /* ShareCatalogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F31000000000000000000002 /* ShareCatalogStore.swift */; };
+		C31000000000000000000032 /* ShareItemLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = F31000000000000000000004 /* ShareItemLoader.swift */; };
+		C31000000000000000000033 /* ShareComposeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F31000000000000000000005 /* ShareComposeView.swift */; };
+		C31000000000000000000034 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F31000000000000000000006 /* ShareViewController.swift */; };
+		C31000000000000000000035 /* ApplePlatformPorts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000000000000000000001 /* ApplePlatformPorts.swift */; };
+		C31000000000000000000041 /* FlorettaShare-iOS.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F3100000000000000000000B /* FlorettaShare-iOS.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C31000000000000000000042 /* FlorettaShare-macOS.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F3100000000000000000000C /* FlorettaShare-macOS.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		C31000000000000000000051 /* FlorettaCore in Frameworks */ = {isa = PBXBuildFile; productRef = D81000000000000000000006 /* FlorettaCore */; };
+		C31000000000000000000052 /* FlorettaCore in Frameworks */ = {isa = PBXBuildFile; productRef = D81000000000000000000007 /* FlorettaCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -178,6 +198,17 @@
 		F20000000000000000000005 /* RecoveryPresenterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryPresenterTests.swift; sourceTree = "<group>"; };
 		F72000000000000000000001 /* HomeSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeSmokeTests.swift; sourceTree = "<group>"; };
 		F72000000000000000000002 /* FlorettaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FlorettaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F31000000000000000000001 /* ShareIngressTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ShareIngressTests.swift; path = Tests/FlorettaCoreTests/ShareIngressTests.swift; sourceTree = SOURCE_ROOT; };
+		F31000000000000000000002 /* ShareCatalogStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCatalogStore.swift; sourceTree = "<group>"; };
+		F31000000000000000000003 /* SaveIntoNodeIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveIntoNodeIntent.swift; sourceTree = "<group>"; };
+		F31000000000000000000004 /* ShareItemLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareItemLoader.swift; sourceTree = "<group>"; };
+		F31000000000000000000005 /* ShareComposeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareComposeView.swift; sourceTree = "<group>"; };
+		F31000000000000000000006 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		F31000000000000000000007 /* Info-iOS.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-iOS.plist"; sourceTree = "<group>"; };
+		F31000000000000000000008 /* Info-macOS.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-macOS.plist"; sourceTree = "<group>"; };
+		F31000000000000000000009 /* FlorettaShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FlorettaShare.entitlements; sourceTree = "<group>"; };
+		F3100000000000000000000B /* FlorettaShare-iOS.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "FlorettaShare-iOS.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F3100000000000000000000C /* FlorettaShare-macOS.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "FlorettaShare-macOS.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -217,6 +248,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B31000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C31000000000000000000051 /* FlorettaCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B31000000000000000000004 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C31000000000000000000052 /* FlorettaCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -248,6 +295,7 @@
 			F73000000000000000000002 /* DictationTests.swift */,
 			F90000000000000000000003 /* OutlineTests.swift */,
 			F20000000000000000000004 /* AutosaveTests.swift */,
+			F31000000000000000000001 /* ShareIngressTests.swift */,
 				A10000000000000000000008 /* FlorettaTests */,
 				A72000000000000000000001 /* FlorettaUITests */,
 				A10000000000000000000002 /* Products */,
@@ -259,6 +307,8 @@
 			children = (
 				F10000000000000000000007 /* Floretta-macOS.app */,
 				F10000000000000000000008 /* Floretta-iOS.app */,
+				F3100000000000000000000B /* FlorettaShare-iOS.appex */,
+				F3100000000000000000000C /* FlorettaShare-macOS.appex */,
 				F1000000000000000000000D /* FlorettaTests.xctest */,
 				F72000000000000000000002 /* FlorettaUITests.xctest */,
 			);
@@ -269,6 +319,7 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000004 /* Shared */,
+				A31000000000000000000001 /* Share */,
 				A10000000000000000000005 /* macOS */,
 				A10000000000000000000006 /* iOS */,
 			);
@@ -288,6 +339,7 @@
 				A52100000000000000000001 /* Attachments */,
 				AB1000000000000000000001 /* Ports */,
 				AA1000000000000000000001 /* Shell */,
+				A31000000000000000000002 /* Share */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -353,6 +405,28 @@
 			path = Shell;
 			sourceTree = "<group>";
 		};
+		A31000000000000000000002 /* Share */ = {
+			isa = PBXGroup;
+			children = (
+				F31000000000000000000003 /* SaveIntoNodeIntent.swift */,
+				F31000000000000000000002 /* ShareCatalogStore.swift */,
+			);
+			path = Share;
+			sourceTree = "<group>";
+		};
+		A31000000000000000000001 /* Share */ = {
+			isa = PBXGroup;
+			children = (
+				F31000000000000000000009 /* FlorettaShare.entitlements */,
+				F31000000000000000000007 /* Info-iOS.plist */,
+				F31000000000000000000008 /* Info-macOS.plist */,
+				F31000000000000000000005 /* ShareComposeView.swift */,
+				F31000000000000000000004 /* ShareItemLoader.swift */,
+				F31000000000000000000006 /* ShareViewController.swift */,
+			);
+			path = Share;
+			sourceTree = "<group>";
+		};
 		A10000000000000000000008 /* FlorettaTests */ = {
 			isa = PBXGroup;
 			children = (
@@ -410,10 +484,12 @@
 				B10000000000000000000005 /* Sources */,
 				B10000000000000000000001 /* Frameworks */,
 				B10000000000000000000003 /* Resources */,
+				B31000000000000000000006 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				E31000000000000000000014 /* PBXTargetDependency */,
 			);
 			name = "Floretta-macOS";
 			packageProductDependencies = (
@@ -432,10 +508,12 @@
 				B10000000000000000000006 /* Sources */,
 				B10000000000000000000002 /* Frameworks */,
 				B10000000000000000000004 /* Resources */,
+				B31000000000000000000005 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				E31000000000000000000012 /* PBXTargetDependency */,
 			);
 			name = "Floretta-iOS";
 			packageProductDependencies = (
@@ -484,6 +562,44 @@
 			productReference = F72000000000000000000002 /* FlorettaUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		E31000000000000000000001 /* FlorettaShare-iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 840000000000000000000001 /* Build configuration list for PBXNativeTarget "FlorettaShare-iOS" */;
+			buildPhases = (
+				B31000000000000000000001 /* Sources */,
+				B31000000000000000000002 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "FlorettaShare-iOS";
+			packageProductDependencies = (
+				D81000000000000000000006 /* FlorettaCore */,
+			);
+			productName = "FlorettaShare-iOS";
+			productReference = F3100000000000000000000B /* FlorettaShare-iOS.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		E31000000000000000000002 /* FlorettaShare-macOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 840000000000000000000002 /* Build configuration list for PBXNativeTarget "FlorettaShare-macOS" */;
+			buildPhases = (
+				B31000000000000000000003 /* Sources */,
+				B31000000000000000000004 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "FlorettaShare-macOS";
+			packageProductDependencies = (
+				D81000000000000000000007 /* FlorettaCore */,
+			);
+			productName = "FlorettaShare-macOS";
+			productReference = F3100000000000000000000C /* FlorettaShare-macOS.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -510,6 +626,14 @@
 						ProvisioningStyle = Automatic;
 						TestTargetID = E10000000000000000000002;
 					};
+					E31000000000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+						ProvisioningStyle = Automatic;
+					};
+					E31000000000000000000002 = {
+						CreatedOnToolsVersion = 16.0;
+						ProvisioningStyle = Automatic;
+					};
 				};
 			};
 			buildConfigurationList = 810000000000000000000001 /* Build configuration list for PBXProject "Floretta" */;
@@ -533,6 +657,8 @@
 			targets = (
 				E10000000000000000000001 /* Floretta-macOS */,
 				E10000000000000000000002 /* Floretta-iOS */,
+				E31000000000000000000002 /* FlorettaShare-macOS */,
+				E31000000000000000000001 /* FlorettaShare-iOS */,
 				E20000000000000000000001 /* FlorettaTests */,
 				E30000000000000000000001 /* FlorettaUITests */,
 			);
@@ -547,6 +673,20 @@
 			remoteGlobalIDString = E10000000000000000000002;
 			remoteInfo = "Floretta-iOS";
 		};
+		E31000000000000000000011 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 910000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E31000000000000000000001;
+			remoteInfo = "FlorettaShare-iOS";
+		};
+		E31000000000000000000013 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 910000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E31000000000000000000002;
+			remoteInfo = "FlorettaShare-macOS";
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXTargetDependency section */
@@ -555,7 +695,42 @@
 			target = E10000000000000000000002 /* Floretta-iOS */;
 			targetProxy = E30000000000000000000003 /* PBXContainerItemProxy */;
 		};
+		E31000000000000000000012 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E31000000000000000000001 /* FlorettaShare-iOS */;
+			targetProxy = E31000000000000000000011 /* PBXContainerItemProxy */;
+		};
+		E31000000000000000000014 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E31000000000000000000002 /* FlorettaShare-macOS */;
+			targetProxy = E31000000000000000000013 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		B31000000000000000000005 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				C31000000000000000000041 /* FlorettaShare-iOS.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B31000000000000000000006 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				C31000000000000000000042 /* FlorettaShare-macOS.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXResourcesBuildPhase section */
 		B10000000000000000000003 /* Resources */ = {
@@ -607,6 +782,8 @@
 				C52100000000000000000001 /* FileTypeIcon.swift in Sources */,
 				C52100000000000000000004 /* FileQuickLook.swift in Sources */,
 				CA4400000000000000000004 /* FlorettaL10n.swift in Sources */,
+				C31000000000000000000012 /* ShareCatalogStore.swift in Sources */,
+				C31000000000000000000015 /* SaveIntoNodeIntent.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -636,6 +813,8 @@
 				C52100000000000000000002 /* FileTypeIcon.swift in Sources */,
 				C52100000000000000000005 /* FileQuickLook.swift in Sources */,
 				CA4400000000000000000005 /* FlorettaL10n.swift in Sources */,
+				C31000000000000000000013 /* ShareCatalogStore.swift in Sources */,
+				C31000000000000000000016 /* SaveIntoNodeIntent.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -689,6 +868,8 @@
 				CA3100000000000000000003 /* DocumentSession.swift in Sources */,
 				CA4400000000000000000006 /* FlorettaL10n.swift in Sources */,
 				CA7100000000000000000001 /* ShellTests.swift in Sources */,
+				C31000000000000000000014 /* ShareCatalogStore.swift in Sources */,
+				C31000000000000000000011 /* ShareIngressTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -697,6 +878,30 @@
 			buildActionMask = 2147483647;
 			files = (
 				C72000000000000000000001 /* HomeSmokeTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B31000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C31000000000000000000025 /* ApplePlatformPorts.swift in Sources */,
+				C31000000000000000000021 /* ShareCatalogStore.swift in Sources */,
+				C31000000000000000000023 /* ShareComposeView.swift in Sources */,
+				C31000000000000000000022 /* ShareItemLoader.swift in Sources */,
+				C31000000000000000000024 /* ShareViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B31000000000000000000003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C31000000000000000000035 /* ApplePlatformPorts.swift in Sources */,
+				C31000000000000000000031 /* ShareCatalogStore.swift in Sources */,
+				C31000000000000000000033 /* ShareComposeView.swift in Sources */,
+				C31000000000000000000032 /* ShareItemLoader.swift in Sources */,
+				C31000000000000000000034 /* ShareViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1069,6 +1274,136 @@
 			};
 			name = Release;
 		};
+		D31000000000000000000011 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = "Floretta/Share/FlorettaShare.entitlements";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				"CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]" = NO;
+				"CODE_SIGNING_REQUIRED[sdk=iphonesimulator*]" = NO;
+				CURRENT_PROJECT_VERSION = 8;
+				DEVELOPMENT_TEAM = JY5U4D6JD3;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Floretta/Share/Info-iOS.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Floretta;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = net.timhuang.floretta.share;
+				PRODUCT_MODULE_NAME = FlorettaShare;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D31000000000000000000012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = "Floretta/Share/FlorettaShare.entitlements";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				"CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]" = NO;
+				"CODE_SIGNING_REQUIRED[sdk=iphonesimulator*]" = NO;
+				CURRENT_PROJECT_VERSION = 8;
+				DEVELOPMENT_TEAM = JY5U4D6JD3;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Floretta/Share/Info-iOS.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Floretta;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = net.timhuang.floretta.share;
+				PRODUCT_MODULE_NAME = FlorettaShare;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		D31000000000000000000013 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 8;
+				DEVELOPMENT_TEAM = JY5U4D6JD3;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Floretta/Share/Info-macOS.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Floretta;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = net.timhuang.floretta.share;
+				PRODUCT_MODULE_NAME = FlorettaShare;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		D31000000000000000000014 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = "Floretta/Share/FlorettaShare.entitlements";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 8;
+				DEVELOPMENT_TEAM = JY5U4D6JD3;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Floretta/Share/Info-macOS.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Floretta;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = net.timhuang.floretta.share;
+				PRODUCT_MODULE_NAME = FlorettaShare;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1113,6 +1448,24 @@
 			buildConfigurations = (
 				D30000000000000000000001 /* Debug */,
 				D30000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		840000000000000000000001 /* Build configuration list for PBXNativeTarget "FlorettaShare-iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D31000000000000000000011 /* Debug */,
+				D31000000000000000000012 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		840000000000000000000002 /* Build configuration list for PBXNativeTarget "FlorettaShare-macOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D31000000000000000000013 /* Debug */,
+				D31000000000000000000014 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -1177,6 +1530,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A81000000000000000000001 /* XCLocalSwiftPackageReference "." */;
 			productName = FlorettaUI;
+		};
+		D81000000000000000000006 /* FlorettaCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A81000000000000000000001 /* XCLocalSwiftPackageReference "." */;
+			productName = FlorettaCore;
+		};
+		D81000000000000000000007 /* FlorettaCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A81000000000000000000001 /* XCLocalSwiftPackageReference "." */;
+			productName = FlorettaCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

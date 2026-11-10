@@ -31,6 +31,7 @@ struct InfiniteCanvas: View {
     @State private var dotTiles = DotTileCache()
     @State private var laidOut = LaidOutFrames()
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.locale) private var locale
     @FocusState private var canvasFocused: Bool
 
     var body: some View {
@@ -439,13 +440,15 @@ struct InfiniteCanvas: View {
     }
 
     private func stickyColorName(_ color: StickyColor) -> String {
+        let key: String
         switch color {
-        case .yellow: "黄色"
-        case .pink: "粉色"
-        case .green: "绿色"
-        case .blue: "蓝色"
-        case .orange: "橙色"
+        case .yellow: key = "黄色"
+        case .pink: key = "粉色"
+        case .green: key = "绿色"
+        case .blue: key = "蓝色"
+        case .orange: key = "橙色"
         }
+        return FlorettaL10n.string(key, locale: locale)
     }
 
     /// View rect of the system text field, including the extra width used while

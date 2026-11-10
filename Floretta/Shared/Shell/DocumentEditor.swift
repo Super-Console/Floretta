@@ -71,16 +71,16 @@ struct DocumentEditor: View {
                             Button(action: onClose) {
                                 Image(systemName: "chevron.backward")
                             }
-                            .accessibilityLabel("返回")
+                            .accessibilityLabel(text("返回"))
                             .accessibilityIdentifier("basicChain.back")
-                            .help("返回导图列表")
+                            .help(Text(verbatim: text("返回导图列表")))
                             Button(action: beginRename) {
-                                Text(documentTitle)
+                                Text(verbatim: documentTitle)
                                     .lineLimit(1)
                             }
-                            .help("为这份导图重新命名")
+                            .help(Text(verbatim: text("为这份导图重新命名")))
                             .accessibilityLabel(documentTitle)
-                            .accessibilityHint("为这份导图重新命名")
+                            .accessibilityHint(text("为这份导图重新命名"))
                             .accessibilityIdentifier("document.title")
                         }
                     }
@@ -88,24 +88,24 @@ struct DocumentEditor: View {
                         Button { session.undo() } label: {
                             Image(systemName: "arrow.uturn.backward")
                         }
-                        .accessibilityLabel("撤销")
-                        .help("撤销上一步编辑")
+                        .accessibilityLabel(text("撤销"))
+                        .help(Text(verbatim: text("撤销上一步编辑")))
                         Button { session.redo() } label: {
                             Image(systemName: "arrow.uturn.forward")
                         }
-                        .accessibilityLabel("重做")
-                        .help("恢复刚刚撤销的编辑")
+                        .accessibilityLabel(text("重做"))
+                        .help(Text(verbatim: text("恢复刚刚撤销的编辑")))
                         Button { session.deleteSelection() } label: {
                             Image(systemName: "trash")
                         }
-                        .accessibilityLabel("删除")
-                        .help("删除选中的节点")
+                        .accessibilityLabel(text("删除"))
+                        .help(Text(verbatim: text("删除选中的节点")))
                     }
                     ToolbarItemGroup(placement: .primaryAction) {
                         insertMenu
                         shareMenu
                         zoomMenu
-                        Button(CanvasMenus.immersive) { session.enterZen() }
+                        Button(text(CanvasMenus.immersive)) { session.enterZen() }
                             .explained("进入全屏沉浸模式，暂时只留下导图")
                         moreMenu
                     }
@@ -133,7 +133,7 @@ struct DocumentEditor: View {
             }
             .contextMenu {
                 ForEach(CanvasMenus.text, id: \.self) { item in
-                    Button(item) { runTextCommand(item) }
+                    Button(text(item)) { runTextCommand(item) }
                         .explained(textHelp(item))
                         .disabled(CanvasMenus.textDisabled.contains(item))
                 }
@@ -153,18 +153,18 @@ struct DocumentEditor: View {
                     exportError = error.localizedDescription
                 }
             }
-            .alert("无法导出", isPresented: exportErrorPresented) {
-                Button("好", role: .cancel) {}
+            .alert(Text(verbatim: text("无法导出")), isPresented: exportErrorPresented) {
+                Button(text("好"), role: .cancel) {}
             } message: {
-                Text(exportError ?? "")
+                Text(verbatim: FlorettaL10n.present(exportError ?? "", locale: settings.resolvedLocale))
             }
-            .alert("重新命名", isPresented: $showRename) {
-                TextField("名称", text: $renameText)
-                Button("确定") {
+            .alert(Text(verbatim: text("重新命名")), isPresented: $showRename) {
+                TextField(text("名称"), text: $renameText)
+                Button(text("确定")) {
                     let title = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
                     if !title.isEmpty { session.document.title = title }
                 }
-                Button("取消", role: .cancel) {}
+                Button(text("取消"), role: .cancel) {}
             }
             .sheet(isPresented: $showAbout) {
                 AboutSheet()
@@ -188,16 +188,16 @@ struct DocumentEditor: View {
                 stageAttachment(item.url, ownsCopy: item.ownsCopy)
                 return true
             }
-            .confirmationDialog("放入附件？", isPresented: insertDialogPresented, titleVisibility: .visible) {
-                Button("放入") { beginInsert() }
-                Button("取消", role: .cancel) { cancelInsert() }
+            .confirmationDialog(text("放入附件？"), isPresented: insertDialogPresented, titleVisibility: .visible) {
+                Button(text("放入")) { beginInsert() }
+                Button(text("取消"), role: .cancel) { cancelInsert() }
             } message: {
-                Text(insertProposal?.confirmationMessage ?? "")
+                Text(verbatim: insertProposal.map { FlorettaL10n.attachmentConfirmation($0, locale: settings.resolvedLocale) } ?? "")
             }
-            .alert("无法预览", isPresented: previewAlertPresented) {
-                Button("好", role: .cancel) {}
+            .alert(Text(verbatim: text("无法预览")), isPresented: previewAlertPresented) {
+                Button(text("好"), role: .cancel) {}
             } message: {
-                Text(previewPhase.alertMessage ?? "")
+                Text(verbatim: FlorettaL10n.present(previewPhase.alertMessage ?? "", locale: settings.resolvedLocale))
             }
             .background {
                 #if os(macOS)
@@ -224,16 +224,16 @@ struct DocumentEditor: View {
                 }
             }
             #endif
-            .alert("查找", isPresented: $showFind) {
-                TextField("文字", text: $findQuery)
-                Button("查找") {
+            .alert(Text(verbatim: text("查找")), isPresented: $showFind) {
+                TextField(text("文字"), text: $findQuery)
+                Button(text("查找")) {
                     if let id = CanvasEditCommands.find(in: session.document, query: findQuery) {
                         session.keyboard.selectedNodeID = id
                     } else {
                         exportError = "没有找到。"
                     }
                 }
-                Button("取消", role: .cancel) {}
+                Button(text("取消"), role: .cancel) {}
             }
     }
 
@@ -271,7 +271,7 @@ struct DocumentEditor: View {
     private var outlinePanel: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("大纲").font(.headline)
+                Text(verbatim: text("大纲")).font(.headline)
                 Spacer()
                 Button {
                     outlineWide.toggle()
@@ -295,6 +295,10 @@ struct DocumentEditor: View {
         session.document.title.isEmpty ? "未命名" : session.document.title
     }
 
+    private func text(_ key: String) -> String {
+        FlorettaL10n.string(key, language: settings.language)
+    }
+
     private func beginRename() {
         renameText = session.document.title
         showRename = true
@@ -310,31 +314,32 @@ struct DocumentEditor: View {
         .padding(10)
         .background { Circle().fill(.ultraThinMaterial) }
         .explained("退出沉浸模式，恢复工具栏")
+        .accessibilityIdentifier("zen.exit")
     }
 
     private var insertMenu: some View {
         Menu {
             Button { session.addChildFromToolbar() } label: {
-                Label("子节点", systemImage: "plus.square")
+                Label(text("子节点"), systemImage: "plus.square")
             }
-            .help("在选中的节点下新建一个子节点")
+            .help(Text(verbatim: text("在选中的节点下新建一个子节点")))
             Button { session.addSiblingFromToolbar() } label: {
-                Label("同级", systemImage: "square.on.square")
+                Label(text("同级"), systemImage: "square.on.square")
             }
-            .help("在选中的节点旁新建一个同级节点")
+            .help(Text(verbatim: text("在选中的节点旁新建一个同级节点")))
             Button { session.addFreeNodeFromToolbar() } label: {
-                Label("自由节点", systemImage: "arrow.up.left.and.arrow.down.right")
+                Label(text("自由节点"), systemImage: "arrow.up.left.and.arrow.down.right")
             }
-            .help("在画布上放一个不进层级的节点，位置会保存")
+            .help(Text(verbatim: text("在画布上放一个不进层级的节点，位置会保存")))
             Button { session.addStickyFromToolbar() } label: {
-                Label("便签", systemImage: "note.text")
+                Label(text("便签"), systemImage: "note.text")
             }
-            .help("在画布上放一张便签。最多五种颜色，不计入节点，可以拖动，大小有上限")
+            .help(Text(verbatim: text("在画布上放一张便签。最多五种颜色，不计入节点，可以拖动，大小有上限")))
             Menu {
                 let source = session.keyboard.selectedNodeID
                 let targets = session.document.linkTargets(excluding: source)
                 if targets.isEmpty {
-                    Button("没有其他节点") {}
+                    Button(text("没有其他节点")) {}
                         .disabled(true)
                 }
                 ForEach(targets) { target in
@@ -343,36 +348,36 @@ struct DocumentEditor: View {
                     }
                 }
             } label: {
-                Label("连到", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                Label(text("连到"), systemImage: "point.topleft.down.to.point.bottomright.curvepath")
             }
             .disabled(session.keyboard.selectedNodeID.map { session.document.isFreeNode($0) } != true)
-            .help("把选中的自由节点连到另一个节点。只记下关系，不画线。")
+            .help(Text(verbatim: text("把选中的自由节点连到另一个节点。只记下关系，不画线。")))
             Button { showImageImporter = true } label: {
-                Label("图片", systemImage: "photo")
+                Label(text("图片"), systemImage: "photo")
             }
-            .help("从文件选择一张图片放进选中的节点")
+            .help(Text(verbatim: text("从文件选择一张图片放进选中的节点")))
             Button { showAttachmentImporter = true } label: {
-                Label("附件", systemImage: "paperclip")
+                Label(text("附件"), systemImage: "paperclip")
             }
-            .help("把一个文件原样放进选中的节点")
+            .help(Text(verbatim: text("把一个文件原样放进选中的节点")))
             Button { onImport() } label: {
-                Label("从文件导入", systemImage: "folder")
+                Label(text("从文件导入"), systemImage: "folder")
             }
-            .help("从文件打开另一份导图")
+            .help(Text(verbatim: text("从文件打开另一份导图")))
         } label: {
             Image(systemName: "plus")
         }
-        .accessibilityLabel("插入")
-        .help("插入子节点、同级、自由节点、便签、图片、附件，或从文件导入")
+        .accessibilityLabel(text("插入"))
+        .help(Text(verbatim: text("插入子节点、同级、自由节点、便签、图片、附件，或从文件导入")))
     }
 
     private var zoomMenu: some View {
         Menu {
             ForEach(ZoomStop.allCases, id: \.self) { stop in
                 Button("\(stop.percent)%") { camera.zoom(to: stop) }
-                    .explained("把画布缩放到 \(stop.percent)%")
+                    .explained(FlorettaL10n.format("把画布缩放到 %lld%%", locale: settings.resolvedLocale, arguments: [Int64(stop.percent)]))
             }
-            Button("适应窗口") { camera.fitToContent() }
+            Button(text("适应窗口")) { camera.fitToContent() }
                 .explained("让整张导图缩进窗口里")
                 .keyboardShortcut("0", modifiers: .command)
         } label: {
@@ -390,7 +395,7 @@ struct DocumentEditor: View {
                 .explained("把这份导图导出为 PNG 图片")
             Button("Markdown") { export("md") }
                 .explained("把这份导图导出为 Markdown")
-            Button("保存为 Floretta") { export("floretta") }
+            Button(text("保存为 Floretta")) { export("floretta") }
                 .explained("把这份导图保存为 Floretta 文件")
             Button(".mm") { export("mm") }
                 .explained("把这份导图导出为 FreeMind .mm")
@@ -399,45 +404,45 @@ struct DocumentEditor: View {
             Button(".xmind") { export("xmind") }
                 .explained("导出为 XMind，自由节点写成浮动主题")
             #if os(macOS)
-            Button("打印") { printMap() }
+            Button(text("打印")) { printMap() }
                 .explained("打印这份导图")
             #endif
         } label: {
             Image(systemName: "square.and.arrow.up")
         }
-        .accessibilityLabel("分享")
-        .help("把导图导出为 PDF、PNG、Markdown，或保存为已支持的文件")
+        .accessibilityLabel(text("分享"))
+        .help(Text(verbatim: text("把导图导出为 PDF、PNG、Markdown，或保存为已支持的文件")))
     }
 
     private var moreMenu: some View {
         Menu {
-            Button("大纲") { showOutline.toggle() }
+            Button(text("大纲")) { showOutline.toggle() }
                 .explained("打开或关闭左侧大纲")
-            Button("样式") { showInspector.toggle() }
+            Button(text("样式")) { showInspector.toggle() }
                 .explained("打开样式检查器，修改选中节点的外观")
-            Menu("查看模式") {
-                Button("地图模式") { session.viewMode = .map }
+            Menu(text("查看模式")) {
+                Button(text("地图模式")) { session.viewMode = .map }
                     .explained("用整张地图查看导图")
-                Button("聚焦模式") { session.viewMode = .focus }
+                Button(text("聚焦模式")) { session.viewMode = .focus }
                     .explained("只看当前选中的这一支")
             }
             .explained("在地图模式和聚焦模式之间切换")
-            Button("新建画布") { session.addCanvas() }
+            Button(text("新建画布")) { session.addCanvas() }
                 .explained("在这份导图里再加一个中心主题")
-            Button("查找") {
+            Button(text("查找")) {
                 findQuery = ""
                 showFind = true
             }
             .explained("按文字查找节点")
-            Button("粘贴") { pasteFromClipboard() }
+            Button(text("粘贴")) { pasteFromClipboard() }
                 .explained("把剪贴板里的图片放进节点；没有图片时粘贴文字")
-            Button("关于") { showAbout = true }
+            Button(text("关于")) { showAbout = true }
                 .explained("查看版本号和开源致谢")
         } label: {
             Image(systemName: "ellipsis")
         }
-        .accessibilityLabel("更多")
-        .help("大纲、样式和关于")
+        .accessibilityLabel(text("更多"))
+        .help(Text(verbatim: text("大纲、样式和关于")))
     }
 
     private var inspectorPresented: Binding<Bool> {
@@ -449,10 +454,10 @@ struct DocumentEditor: View {
 
     private var inspectorBody: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Picker("检查器", selection: $inspectorTab) {
-                Text("样式").tag(0)
-                Text("演说").tag(1)
-                Text("导图").tag(2)
+            Picker(text("检查器"), selection: $inspectorTab) {
+                Text(verbatim: text("样式")).tag(0)
+                Text(verbatim: text("演说")).tag(1)
+                Text(verbatim: text("导图")).tag(2)
             }
             .pickerStyle(.segmented)
             .padding(.horizontal)
@@ -462,9 +467,9 @@ struct DocumentEditor: View {
                 documentInfo
             } else {
                 ContentUnavailableView {
-                    Label("尚未实现", systemImage: "clock")
+                    Label(text("尚未实现"), systemImage: "clock")
                 } description: {
-                    Text("演说")
+                    Text(verbatim: text("演说"))
                 }
             }
         }
@@ -476,23 +481,23 @@ struct DocumentEditor: View {
         let stored = session.attachmentCatalog.storedAttachmentBytes
         let total = stored > 0 ? stored : references.reduce(Int64(0)) { $0 + $1.byteCount }
         return Form {
-            LabeledContent("附件合计") {
-                Text(AttachmentByteFormat.label(total)).monospacedDigit()
+            LabeledContent(text("附件合计")) {
+                Text(verbatim: AttachmentByteFormat.label(total)).monospacedDigit()
             }
-            LabeledContent("文档大小") {
-                Text(AttachmentByteFormat.label(session.archiveByteCount)).monospacedDigit()
+            LabeledContent(text("文档大小")) {
+                Text(verbatim: AttachmentByteFormat.label(session.archiveByteCount)).monospacedDigit()
             }
-            LabeledContent("引用") {
-                Text("\(references.reduce(0) { $0 + $1.count })").monospacedDigit()
+            LabeledContent(text("引用")) {
+                Text(verbatim: "\(references.reduce(0) { $0 + $1.count })").monospacedDigit()
             }
-            LabeledContent("节点") {
-                Text("\(session.document.topicCount)").monospacedDigit()
+            LabeledContent(text("节点")) {
+                Text(verbatim: "\(session.document.topicCount)").monospacedDigit()
             }
-            LabeledContent("便签") {
-                Text("\(session.document.stickies.count)").monospacedDigit()
+            LabeledContent(text("便签")) {
+                Text(verbatim: "\(session.document.stickies.count)").monospacedDigit()
             }
-            LabeledContent("关系") {
-                Text("\(session.document.relationships.count)").monospacedDigit()
+            LabeledContent(text("关系")) {
+                Text(verbatim: "\(session.document.relationships.count)").monospacedDigit()
             }
         }
         .formStyle(.grouped)
@@ -938,46 +943,51 @@ struct DocumentEditor: View {
 private struct StyleInspector: View {
     @Binding var document: MindMapDocument
     var nodeID: UUID?
+    @Environment(\.locale) private var locale
 
     var body: some View {
         if let nodeID, document.node(nodeID) != nil {
             Form {
-                Section("主题") {
-                    Picker("形状", selection: shape) {
-                        Text("矩形").tag("rectangle")
-                        Text("圆角").tag("rounded")
-                        Text("胶囊").tag("capsule")
-                        Text("无边框").tag("none")
+                Section(text("主题")) {
+                    Picker(text("形状"), selection: shape) {
+                        Text(verbatim: text("矩形")).tag("rectangle")
+                        Text(verbatim: text("圆角")).tag("rounded")
+                        Text(verbatim: text("胶囊")).tag("capsule")
+                        Text(verbatim: text("无边框")).tag("none")
                     }
-                    Picker("填充样式", selection: fillStyle) {
-                        Text("实心").tag("solid")
-                        Text("无").tag("none")
+                    Picker(text("填充样式"), selection: fillStyle) {
+                        Text(verbatim: text("实心")).tag("solid")
+                        Text(verbatim: text("无")).tag("none")
                     }
-                    ColorPicker("填充颜色", selection: fillColor, supportsOpacity: false)
+                    ColorPicker(selection: fillColor, supportsOpacity: false) {
+                        Text(verbatim: text("填充颜色"))
+                    }
                     HStack {
-                        Text("长度")
+                        Text(verbatim: text("长度"))
                         Slider(value: topicWidth, in: 40...480)
                         Text("\(Int(topicWidth.wrappedValue))px")
                             .monospacedDigit()
                     }
                 }
-                Section("边框") {
-                    Picker("样式", selection: borderStyle) {
-                        Text("实线").tag("solid")
-                        Text("无").tag("none")
+                Section(text("边框")) {
+                    Picker(text("样式"), selection: borderStyle) {
+                        Text(verbatim: text("实线")).tag("solid")
+                        Text(verbatim: text("无")).tag("none")
                     }
                     HStack {
-                        Text("宽度")
+                        Text(verbatim: text("宽度"))
                         Slider(value: borderWidth, in: 0...8)
                     }
-                    ColorPicker("颜色", selection: borderColor, supportsOpacity: false)
+                    ColorPicker(selection: borderColor, supportsOpacity: false) {
+                        Text(verbatim: text("颜色"))
+                    }
                 }
-                Section("文本") {
-                    Picker("字体", selection: fontDesign) {
-                        Text("系统").tag("default")
-                        Text("衬线").tag("serif")
-                        Text("圆体").tag("rounded")
-                        Text("等宽").tag("monospaced")
+                Section(text("文本")) {
+                    Picker(text("字体"), selection: fontDesign) {
+                        Text(verbatim: text("系统")).tag("default")
+                        Text(verbatim: text("衬线")).tag("serif")
+                        Text(verbatim: text("圆体")).tag("rounded")
+                        Text(verbatim: text("等宽")).tag("monospaced")
                     }
                     HStack {
                         Toggle("B", isOn: boolFlag("bold"))
@@ -987,23 +997,25 @@ private struct StyleInspector: View {
                     }
                     .toggleStyle(.button)
                     HStack {
-                        Text("大小")
+                        Text(verbatim: text("大小"))
                         Slider(value: fontSize, in: 10...64, step: 1)
                         Text("\(Int(fontSize.wrappedValue))pt")
                             .monospacedDigit()
                     }
-                    ColorPicker("颜色", selection: textColor, supportsOpacity: false)
+                    ColorPicker(selection: textColor, supportsOpacity: false) {
+                        Text(verbatim: text("颜色"))
+                    }
                 }
                 if document.isFreeNode(nodeID) {
-                    Section("连到") {
+                    Section(text("连到")) {
                         let links = document.relationships.filter {
                             $0.sourceID == nodeID || $0.targetID == nodeID
                         }
                         if links.isEmpty {
-                            Text("还没有连到其他节点。只保存关系，不画线。")
+                            Text(verbatim: text("还没有连到其他节点。只保存关系，不画线。"))
                         } else {
                             ForEach(links) { link in
-                                Text(document.relationshipSummary(link, seenFrom: nodeID))
+                                Text(verbatim: relationshipLine(link, seenFrom: nodeID))
                             }
                         }
                     }
@@ -1012,9 +1024,9 @@ private struct StyleInspector: View {
             .formStyle(.grouped)
         } else {
             ContentUnavailableView {
-                Label("选择一个主题", systemImage: "paintbrush")
+                Label(text("选择一个主题"), systemImage: "paintbrush")
             } description: {
-                Text("样式会写进导图文件。")
+                Text(verbatim: text("样式会写进导图文件。"))
             }
         }
     }
@@ -1045,6 +1057,18 @@ private struct StyleInspector: View {
         if radius >= 24 { return "capsule" }
         if radius <= 3 { return "rectangle" }
         return "rounded"
+    }
+
+    private func text(_ key: String) -> String {
+        FlorettaL10n.string(key, locale: locale)
+    }
+
+    /// Node text and relationship titles stay as stored. Only the missing-topic fallback is chrome.
+    private func relationshipLine(_ link: TopicRelationship, seenFrom id: UUID) -> String {
+        let otherID = link.sourceID == id ? link.targetID : link.sourceID
+        let name = document.node(otherID)?.text ?? text("缺失的节点")
+        if link.title.isEmpty { return name }
+        return "\(name) · \(link.title)"
     }
 
     private var fillStyle: Binding<String> {
@@ -1209,11 +1233,13 @@ struct ExportFile: FileDocument {
 }
 
 private struct AboutSheet: View {
+    @Environment(\.locale) private var locale
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("版本 \(AppInfo.version)")
+                    Text(verbatim: FlorettaL10n.format("版本 %@", locale: locale, arguments: [AppInfo.version]))
                         .font(.headline)
                     Text(AppInfo.notice)
                         .textSelection(.enabled)
@@ -1221,14 +1247,24 @@ private struct AboutSheet: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
             }
-            .navigationTitle("关于")
+            .navigationTitle(FlorettaL10n.string("关于", locale: locale))
         }
+    }
+}
+
+private struct ExplainedChrome: ViewModifier {
+    var sentence: String
+    @Environment(\.locale) private var locale
+
+    func body(content: Content) -> some View {
+        let resolved = FlorettaL10n.string(sentence, locale: locale)
+        content.help(Text(verbatim: resolved)).accessibilityLabel(resolved)
     }
 }
 
 private extension View {
     func explained(_ sentence: String) -> some View {
-        help(sentence).accessibilityLabel(sentence)
+        modifier(ExplainedChrome(sentence: sentence))
     }
 }
 

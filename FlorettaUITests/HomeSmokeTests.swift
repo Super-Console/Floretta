@@ -10,7 +10,14 @@ final class HomeSmokeTests: XCTestCase {
     @MainActor
     func testHomeTitleSettingsNewMapAndRows() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-FlorettaUITest"]
+        // Pin the smoke suite to Simplified Chinese. The language setting can
+        // switch these labels; the assertions below still check the source strings.
+        app.launchArguments = [
+            "-FlorettaUITest",
+            "-FlorettaLanguage", "zh-Hans",
+            "-AppleLanguages", "(zh-Hans)",
+            "-AppleLocale", "zh_CN",
+        ]
         app.launch()
 
         let titleBar = homeTitle(app)

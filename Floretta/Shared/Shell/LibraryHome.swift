@@ -9,14 +9,15 @@ struct RecentPage: View {
     var openFiles: () -> Void
     var openICloud: () -> Void
     var browseLocal: () -> Void
+    @Environment(\.locale) private var locale
 
     var body: some View {
         recentBody
-            .navigationTitle(HomeLibrary.navigationTitle)
+            .navigationTitle(text(HomeLibrary.navigationTitle))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
-            .searchable(text: $searchText, prompt: "搜索")
+            .searchable(text: $searchText, prompt: Text(verbatim: text("搜索")))
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
                     Button {
@@ -24,24 +25,29 @@ struct RecentPage: View {
                     } label: {
                         Image(systemName: "plus")
                     }
-                    .accessibilityLabel("新建导图")
+                    .accessibilityLabel(text("新建导图"))
                     .accessibilityIdentifier("home.newMap")
                     Button {
                         page = .newMap
                     } label: {
                         Image(systemName: "square.grid.2x2")
                     }
-                    .accessibilityLabel("模板库")
+                    .accessibilityLabel(text("模板库"))
+                    .accessibilityIdentifier("home.templates")
                     Menu {
-                        Button("从文件应用打开", action: openFiles)
-                        Button("从 iCloud 云盘打开", action: openICloud)
-                        Button(LocalDeviceLabel.current.title, action: browseLocal)
+                        Button(text("从文件应用打开"), action: openFiles)
+                        Button(text("从 iCloud 云盘打开"), action: openICloud)
+                        Button(text(LocalDeviceLabel.current.title), action: browseLocal)
                     } label: {
                         Image(systemName: "folder")
                     }
-                    .accessibilityLabel("打开")
+                    .accessibilityLabel(text("打开"))
                 }
             }
+    }
+
+    private func text(_ key: String) -> String {
+        FlorettaL10n.string(key, locale: locale)
     }
 
     @ViewBuilder
@@ -49,11 +55,11 @@ struct RecentPage: View {
         let items = filtered
         if library.recents.isEmpty {
             ContentUnavailableView {
-                Label("这里还没有导图。", systemImage: "pencil.and.ruler")
+                Label(text("这里还没有导图。"), systemImage: "pencil.and.ruler")
             } description: {
-                Text("现在是创建一个好的时机。")
+                Text(verbatim: text("现在是创建一个好的时机。"))
             } actions: {
-                Button("新建导图") { library.makeNew() }
+                Button(text("新建导图")) { library.makeNew() }
                     .buttonStyle(.borderedProminent)
                     .buttonBorderShape(.capsule)
             }
@@ -106,6 +112,7 @@ struct HomeSidebar: View {
     var openFiles: () -> Void
     var openICloud: () -> Void
     var browsePad: () -> Void
+    @Environment(\.locale) private var locale
 
     var body: some View {
         let device = LocalDeviceLabel.current
@@ -113,7 +120,7 @@ struct HomeSidebar: View {
             ForEach(HomeSidebarRow.leading) { row in
                 sidebarButton(row, device: device)
             }
-            Section("本地导图") {
+            Section(text("本地导图")) {
                 ForEach(HomeSidebarRow.local) { row in
                     sidebarButton(row, device: device)
                 }
@@ -127,7 +134,7 @@ struct HomeSidebar: View {
         Button {
             perform(row)
         } label: {
-            Label(row.title(device: device), systemImage: row.systemImage(device: device))
+            Label(text(row.title(device: device)), systemImage: row.systemImage(device: device))
         }
         .accessibilityIdentifier(row.accessibilityIdentifier)
     }
@@ -144,11 +151,16 @@ struct HomeSidebar: View {
             browsePad()
         }
     }
+
+    private func text(_ key: String) -> String {
+        FlorettaL10n.string(key, locale: locale)
+    }
 }
 
 struct NewMapPage: View {
     var onClose: () -> Void
     var onCreate: (TemplateKind) -> Void
+    @Environment(\.locale) private var locale
 
     private let sections = TemplateCatalog.sections
 
@@ -161,7 +173,7 @@ struct NewMapPage: View {
             }
             .padding()
         }
-        .navigationTitle("新建")
+        .navigationTitle(text("模板库"))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.large)
         #endif
@@ -170,18 +182,22 @@ struct NewMapPage: View {
                 Button(action: onClose) {
                     Image(systemName: "xmark")
                 }
-                .accessibilityLabel("关闭")
+                .accessibilityLabel(text("关闭"))
             }
             ToolbarItem(placement: .primaryAction) {
-                Label(LocalDeviceLabel.current.title, systemImage: LocalDeviceLabel.current.systemImage)
+                Label(text(LocalDeviceLabel.current.title), systemImage: LocalDeviceLabel.current.systemImage)
                     .foregroundStyle(.secondary)
             }
         }
     }
 
+    private func text(_ key: String) -> String {
+        FlorettaL10n.string(key, locale: locale)
+    }
+
     private func sectionView(_ section: TemplateSection) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(section.title).font(.title3)
+            Text(verbatim: text(section.title)).font(.title3)
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: 16) {
                     ForEach(section.cards) { card in
@@ -198,13 +214,13 @@ struct NewMapPage: View {
         } label: {
             VStack(alignment: .leading, spacing: 8) {
                 TemplateThumbnail(kind: card.kind)
-                Text(card.name)
+                Text(verbatim: text(card.name))
                     .font(.callout)
                     .frame(width: TemplateThumbnail.width, alignment: .leading)
             }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(card.name)
+        .accessibilityLabel(text(card.name))
     }
 }
 
@@ -214,6 +230,7 @@ struct LocalBrowser: View {
     var files: (URL) -> [URL]
     var openFile: (URL) -> Void
     var onClose: () -> Void
+    @Environment(\.locale) private var locale
 
     @State private var stack: [URL] = []
 
@@ -231,17 +248,17 @@ struct LocalBrowser: View {
                 Label(url.lastPathComponent, systemImage: isDirectory ? "folder" : "doc")
             }
         }
-        .navigationTitle(title)
+        .navigationTitle(FlorettaL10n.string(title, locale: locale))
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 if stack.isEmpty {
                     Button(action: onClose) {
                         Image(systemName: "xmark")
                     }
-                    .accessibilityLabel("关闭")
+                    .accessibilityLabel(FlorettaL10n.string("关闭", locale: locale))
                     .accessibilityIdentifier("home.browse.close")
                 } else {
-                    Button("返回") { stack.removeLast() }
+                    Button(FlorettaL10n.string("返回", locale: locale)) { stack.removeLast() }
                 }
             }
         }
@@ -256,37 +273,38 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    Picker("语言", selection: $settings.language) {
-                        Text("跟随系统").tag(AppLanguage.system)
-                        Text("简体中文").tag(AppLanguage.simplifiedChinese)
-                        Text("English").tag(AppLanguage.english)
+                    Picker(text("语言"), selection: $settings.language) {
+                        Text(verbatim: text("跟随系统")).tag(AppLanguage.system)
+                        Text(verbatim: text("简体中文")).tag(AppLanguage.simplifiedChinese)
+                        Text(verbatim: "English").tag(AppLanguage.english)
                     }
-                    Picker("外观", selection: $settings.appearance) {
-                        Text("跟随系统").tag(AppAppearance.system)
-                        Text("浅色").tag(AppAppearance.light)
-                        Text("深色").tag(AppAppearance.dark)
+                    .accessibilityIdentifier("settings.language")
+                    Picker(text("外观"), selection: $settings.appearance) {
+                        Text(verbatim: text("跟随系统")).tag(AppAppearance.system)
+                        Text(verbatim: text("浅色")).tag(AppAppearance.light)
+                        Text(verbatim: text("深色")).tag(AppAppearance.dark)
                     }
                 }
                 Section {
-                    Picker("新建时默认视图", selection: $settings.defaultView) {
-                        Text("地图模式").tag(DocumentViewMode.map)
-                        Text("聚焦模式").tag(DocumentViewMode.focus)
+                    Picker(text("新建时默认视图"), selection: $settings.defaultView) {
+                        Text(verbatim: text("地图模式")).tag(DocumentViewMode.map)
+                        Text(verbatim: text("聚焦模式")).tag(DocumentViewMode.focus)
                     }
-                    Picker("PNG 导出倍率", selection: $settings.pngScale) {
-                        Text("1x").tag(PNGScalePreference.one)
-                        Text("2x").tag(PNGScalePreference.two)
-                        Text("3x").tag(PNGScalePreference.three)
+                    Picker(text("PNG 导出倍率"), selection: $settings.pngScale) {
+                        Text(verbatim: "1x").tag(PNGScalePreference.one)
+                        Text(verbatim: "2x").tag(PNGScalePreference.two)
+                        Text(verbatim: "3x").tag(PNGScalePreference.three)
                     }
-                    Picker("PNG 背景", selection: $settings.pngBackground) {
-                        Text("白色").tag(PNGBackgroundPreference.white)
-                        Text("透明").tag(PNGBackgroundPreference.transparent)
+                    Picker(text("PNG 背景"), selection: $settings.pngBackground) {
+                        Text(verbatim: text("白色")).tag(PNGBackgroundPreference.white)
+                        Text(verbatim: text("透明")).tag(PNGBackgroundPreference.transparent)
                     }
-                    Toggle("导出包含便签", isOn: $settings.exportIncludesStickies)
-                        .help("PNG 和 PDF 可以带上便签。关掉后便签还在导图里，只是不画进图片。")
+                    Toggle(text("导出包含便签"), isOn: $settings.exportIncludesStickies)
+                        .help(Text(verbatim: text("PNG 和 PDF 可以带上便签。关掉后便签还在导图里，只是不画进图片。")))
                 }
-                Section("关于") {
-                    LabeledContent("版本", value: AppInfo.version)
-                    NavigationLink("NOTICE 开源致谢") {
+                Section(text("关于")) {
+                    LabeledContent(text("版本"), value: AppInfo.version)
+                    NavigationLink(text("NOTICE 开源致谢")) {
                         ScrollView {
                             Text(AppInfo.notice)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -298,8 +316,12 @@ struct SettingsView: View {
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle("设置")
+            .navigationTitle(text("设置"))
         }
+    }
+
+    private func text(_ key: String) -> String {
+        FlorettaL10n.string(key, language: settings.language)
     }
 }
 

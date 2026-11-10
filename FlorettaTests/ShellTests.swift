@@ -707,6 +707,159 @@ final class ShellTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: partial.path))
     }
 
+    func testEnglishSettingTranslatesChromeAndLeavesDocumentText() throws {
+        let defaults = try freshDefaults()
+        let settings = AppSettings(defaults: defaults)
+        let library = LibraryModel(
+            settings: settings,
+            store: RecentMapsStore(defaults: defaults),
+            documentsDirectory: try temporaryDirectory()
+        )
+        library.makeNew()
+        let editor = try XCTUnwrap(library.editor)
+        editor.document.stickies.append(StickyNote(text: "便签正文", origin: MindMapPoint(x: 4, y: 8)))
+        let template = TemplateKind.reading.document()
+        XCTAssertEqual(editor.document.title, "未命名")
+        XCTAssertEqual(editor.document.roots.first?.text, "中心")
+        XCTAssertEqual(template.title, "读书笔记")
+        XCTAssertEqual(template.roots.first?.text, "动物园长的故事")
+
+        settings.language = .english
+        let chrome = [
+            HomeLibrary.navigationTitle: "Recent",
+            "新建导图": "New Map",
+            "本地导图": "On This Device",
+            "从文件应用打开": "Open from the Files App",
+            "从 iCloud 云盘打开": "Open from iCloud Drive",
+            "从iCloud云盘打开": "Open from iCloud Drive",
+            "我的 iPhone": "My iPhone",
+            "我的 iPad": "My iPad",
+            "我的 Mac": "My Mac",
+            "首页": "Home",
+            "设置": "Settings",
+            "语言": "Language",
+            "跟随系统": "Follow System",
+            "简体中文": "Simplified Chinese",
+            "外观": "Appearance",
+            "浅色": "Light",
+            "深色": "Dark",
+            "新建时默认视图": "Default View for New Maps",
+            "地图模式": "Map",
+            "聚焦模式": "Focus",
+            "PNG 导出倍率": "PNG Export Scale",
+            "PNG 背景": "PNG Background",
+            "白色": "White",
+            "透明": "Transparent",
+            "导出包含便签": "Include Stickies in Export",
+            "关于": "About",
+            "模板库": "Templates",
+            "退出沉浸模式，恢复工具栏": "Exit zen mode and restore the toolbar",
+            "全屏沉浸": "Zen",
+            "无法打开": "Couldn't Open",
+            "保存未完成": "Save Didn't Finish",
+        ]
+        for (key, english) in chrome {
+            XCTAssertEqual(FlorettaL10n.string(key, language: settings.language), english, key)
+        }
+        XCTAssertEqual(
+            FlorettaL10n.format("把画布缩放到 %lld%%", language: .english, arguments: [Int64(125)]),
+            "Zoom the canvas to 125%"
+        )
+        XCTAssertEqual(
+            FlorettaL10n.recoveryMessage(title: "未命名", locale: Locale(identifier: "en")),
+            "Recover \"未命名\"?"
+        )
+        let damaged = AssetInventoryError(failures: [
+            AssetCorruption(
+                filename: "未命名.png",
+                sha256: String(repeating: "a", count: 64),
+                entryName: "assets/\(String(repeating: "a", count: 64)).png",
+                reason: .missingFromPackage
+            ),
+        ])
+        let inventory = FlorettaL10n.inventoryMessage(damaged, locale: Locale(identifier: "en"))
+        XCTAssertTrue(inventory.contains("未命名.png"))
+        XCTAssertTrue(inventory.contains("not in the package"))
+
+        XCTAssertEqual(editor.document.title, "未命名")
+        XCTAssertEqual(editor.document.roots.first?.text, "中心")
+        XCTAssertEqual(editor.document.stickies.first?.text, "便签正文")
+        XCTAssertEqual(template.title, "读书笔记")
+        XCTAssertEqual(template.roots.first?.text, "动物园长的故事")
+        XCTAssertTrue(library.editor?.url?.lastPathComponent.hasPrefix("未命名") == true)
+
+        settings.language = .simplifiedChinese
+        XCTAssertEqual(FlorettaL10n.string("最近", language: settings.language), "最近")
+        XCTAssertEqual(FlorettaL10n.string("语言", language: .simplifiedChinese), "语言")
+        XCTAssertEqual(editor.document.title, "未命名")
+        XCTAssertEqual(editor.document.roots.first?.text, "中心")
+    }
+
+    func testFollowSystemUsesPreferredLanguages() {
+        let samples = [
+            ["en"],
+            ["en-US", "zh-Hans"],
+            ["zh-Hans"],
+            ["zh-CN", "en"],
+            ["fr-FR"],
+            ["fr-FR", "zh-Hans"],
+            Locale.preferredLanguages,
+        ]
+        for preferences in samples {
+            let identifier = FlorettaL10n.localizationIdentifier(for: .system, preferences: preferences)
+            let expected = Bundle.preferredLocalizations(
+                from: FlorettaL10n.availableLocalizations,
+                forPreferences: preferences
+            ).first
+            XCTAssertEqual(identifier, expected, preferences.joined(separator: ","))
+            let title = FlorettaL10n.string("最近", language: .system, preferences: preferences)
+            if identifier == "en" {
+                XCTAssertEqual(title, "Recent", preferences.joined(separator: ","))
+            } else {
+                XCTAssertEqual(title, "最近", preferences.joined(separator: ","))
+            }
+        }
+        XCTAssertEqual(FlorettaL10n.string("最近", language: .english, preferences: ["zh-Hans"]), "Recent")
+        XCTAssertEqual(FlorettaL10n.string("最近", language: .simplifiedChinese, preferences: ["en"]), "最近")
+        XCTAssertEqual(AppLanguage.fromLaunchArguments(["-FlorettaLanguage", "en"]), .english)
+        XCTAssertEqual(AppLanguage.fromLaunchArguments(["-FlorettaUITest", "-FlorettaLanguage", "zh-Hans"]), .simplifiedChinese)
+        XCTAssertEqual(AppLanguage.fromLaunchArguments(["-FlorettaLanguage", "system"]), .system)
+        XCTAssertNil(AppLanguage.fromLaunchArguments(["-FlorettaUITest"]))
+    }
+
+    func testStringCatalogMatchesTheRuntimeTableAndSkipsDocumentText() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let catalogURL = root.appendingPathComponent("Floretta/Shared/Localizable.xcstrings")
+        let data = try Data(contentsOf: catalogURL)
+        let json = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(json["sourceLanguage"] as? String, "zh-Hans")
+        XCTAssertEqual(json["version"] as? String, "1.0")
+        let strings = try XCTUnwrap(json["strings"] as? [String: Any])
+        XCTAssertEqual(Set(strings.keys), Set(FlorettaL10n.english.keys))
+        for (key, english) in FlorettaL10n.english {
+            let entry = try XCTUnwrap(strings[key] as? [String: Any])
+            let localizations = try XCTUnwrap(entry["localizations"] as? [String: Any])
+            let zh = try XCTUnwrap(localizations["zh-Hans"] as? [String: Any])
+            let en = try XCTUnwrap(localizations["en"] as? [String: Any])
+            let zhUnit = try XCTUnwrap(zh["stringUnit"] as? [String: Any])
+            let enUnit = try XCTUnwrap(en["stringUnit"] as? [String: Any])
+            XCTAssertEqual(zhUnit["value"] as? String, key)
+            XCTAssertEqual(enUnit["value"] as? String, english)
+        }
+        for kept in ["未命名", "中心", "新画布", "甲图", "乙图", "周末出行", "便签正文"] {
+            XCTAssertNil(strings[kept], kept)
+            XCTAssertNil(FlorettaL10n.english[kept], kept)
+            XCTAssertEqual(FlorettaL10n.string(kept, language: .english), kept)
+        }
+        let project = try String(contentsOf: root.appendingPathComponent("Floretta.xcodeproj/project.pbxproj"), encoding: .utf8)
+        // Each target mentions the file twice: the build-file record and the phase entry.
+        XCTAssertEqual(project.components(separatedBy: "Localizable.xcstrings in Resources").count - 1, 4)
+        XCTAssertEqual(project.components(separatedBy: "FlorettaL10n.swift in Sources").count - 1, 6)
+        XCTAssertTrue(project.contains("\"zh-Hans\""))
+    }
+
     private func declaredExportType(_ kind: String) -> UTType? {
         switch kind {
         case "png": return .png

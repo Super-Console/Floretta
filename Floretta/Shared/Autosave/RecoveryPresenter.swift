@@ -9,6 +9,8 @@ final class RecoveryPresenter {
     var showFailure = false
     var offerMessage = "An unsaved mind map was found."
     var failureMessage = ""
+    /// Document title inside the recovery prompt. Empty titles stay nil so the chrome does not invent one.
+    private(set) var offeredTitle: String?
     private(set) var restoredDocument: MindMapDocument?
 
     let session: AutosaveSession
@@ -37,6 +39,7 @@ final class RecoveryPresenter {
         switch session.store.loadRecoveryCopy() {
         case .success(let document):
             pending = document
+            offeredTitle = document.title.isEmpty ? nil : document.title
             offerMessage = document.title.isEmpty
                 ? "An unsaved mind map was found."
                 : "Recover \"\(document.title)\"?"
@@ -44,7 +47,7 @@ final class RecoveryPresenter {
         case .failure(.noCopy):
             break
         case .failure(.unreadable(let message)):
-            failureMessage = message.isEmpty ? "The autosave could not be read." : message
+            failureMessage = message.isEmpty ? "自动保存读不出来。" : message
             showFailure = true
         }
     }

@@ -230,6 +230,7 @@ struct IOSQuickLook: UIViewControllerRepresentable {
     var title: String
     var onMissing: () -> Void
     var onClose: () -> Void
+    @Environment(\.locale) private var locale
 
     func makeCoordinator() -> IOSQuickLookCoordinator {
         IOSQuickLookCoordinator(url: url, title: title, onMissing: onMissing, onClose: onClose)
@@ -240,7 +241,7 @@ struct IOSQuickLook: UIViewControllerRepresentable {
         preview.dataSource = context.coordinator
         let navigation = UINavigationController(rootViewController: preview)
         preview.navigationItem.leftBarButtonItem = UIBarButtonItem(
-            title: "关闭",
+            title: FlorettaL10n.string("关闭", locale: locale),
             style: .done,
             target: context.coordinator,
             action: #selector(IOSQuickLookCoordinator.closeTapped)
@@ -252,6 +253,9 @@ struct IOSQuickLook: UIViewControllerRepresentable {
     func updateUIViewController(_ controller: UINavigationController, context: Context) {
         context.coordinator.onMissing = onMissing
         context.coordinator.onClose = onClose
+        if let preview = controller.viewControllers.first as? QLPreviewController {
+            preview.navigationItem.leftBarButtonItem?.title = FlorettaL10n.string("关闭", locale: locale)
+        }
         context.coordinator.item = PreviewFileItem(url: url, title: title)
         if !context.coordinator.item.isReadable {
             context.coordinator.reportMissing()

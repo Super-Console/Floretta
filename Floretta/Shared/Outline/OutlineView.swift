@@ -9,13 +9,14 @@ struct OutlineView: View {
     @State private var reorderMode: EditMode = .inactive
     #endif
     @FocusState private var outlineFocused: Bool
+    @Environment(\.locale) private var locale
 
     var body: some View {
         #if os(iOS)
         keyedList
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button(reorderMode == .active ? "Done" : "Reorder") {
+                    Button(reorderMode == .active ? text("完成") : text("排序")) {
                         reorderMode = reorderMode == .active ? .inactive : .active
                     }
                 }
@@ -27,7 +28,7 @@ struct OutlineView: View {
 
     private var keyedList: some View {
         outlineList
-            .navigationTitle("Outline")
+            .navigationTitle(text("大纲"))
             .focusable()
             .focused($outlineFocused)
             .onKeyPress { press in
@@ -44,7 +45,7 @@ struct OutlineView: View {
         let list = List(selection: selection) {
             OutlineLevel(document: $document, keyboard: $keyboard, parentID: nil)
             if !document.freeNodes.isEmpty {
-                Section("自由节点") {
+                Section(text("自由节点")) {
                     ForEach(document.freeNodes.map(\.id), id: \.self) { id in
                         OutlineRow(document: $document, keyboard: $keyboard, id: id)
                             .tag(id)
@@ -65,6 +66,10 @@ struct OutlineView: View {
             get: { keyboard.selectedNodeID },
             set: { keyboard.selectedNodeID = $0 }
         )
+    }
+
+    private func text(_ key: String) -> String {
+        FlorettaL10n.string(key, locale: locale)
     }
 }
 

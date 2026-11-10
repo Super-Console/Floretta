@@ -1,0 +1,432 @@
+import FlorettaCore
+import Foundation
+
+/// Chrome strings for the in-app language setting.
+///
+/// Keys are the Simplified Chinese source strings. `Localizable.xcstrings` is the
+/// catalog that ships in both app bundles. Lookup uses that catalog when the
+/// bundle has the compiled `.lproj`, and the table below otherwise. The table is
+/// the same list, so a language change applies on the next view refresh without
+/// restarting the process.
+///
+/// Document titles, node text, sticky text, and the default map title「未命名」
+/// are not keys. Callers must not pass user document strings through `string`.
+enum FlorettaL10n {
+    /// English is first so `Bundle.preferredLocalizations` treats it as the
+    /// development language, matching the Xcode project.
+    static let availableLocalizations = ["en", "zh-Hans"]
+
+    static let english: [String: String] = [
+        "最近": "Recent",
+        "新建导图": "New Map",
+        "本地导图": "On This Device",
+        "从文件应用打开": "Open from the Files App",
+        "从iCloud云盘打开": "Open from iCloud Drive",
+        "从 iCloud 云盘打开": "Open from iCloud Drive",
+        "我的 iPhone": "My iPhone",
+        "我的 iPad": "My iPad",
+        "我的 Mac": "My Mac",
+        "首页": "Home",
+        "设置": "Settings",
+        "语言": "Language",
+        "跟随系统": "Follow System",
+        "简体中文": "Simplified Chinese",
+        "外观": "Appearance",
+        "浅色": "Light",
+        "深色": "Dark",
+        "新建时默认视图": "Default View for New Maps",
+        "地图模式": "Map",
+        "聚焦模式": "Focus",
+        "PNG 导出倍率": "PNG Export Scale",
+        "PNG 背景": "PNG Background",
+        "白色": "White",
+        "透明": "Transparent",
+        "导出包含便签": "Include Stickies in Export",
+        "PNG 和 PDF 可以带上便签。关掉后便签还在导图里，只是不画进图片。": "PNG and PDF can include stickies. Turning this off leaves them in the map and omits them from the picture.",
+        "关于": "About",
+        "版本": "Version",
+        "版本 %@": "Version %@",
+        "NOTICE 开源致谢": "NOTICE Acknowledgments",
+        "搜索": "Search",
+        "模板库": "Templates",
+        "打开": "Open",
+        "这里还没有导图。": "No maps here yet.",
+        "现在是创建一个好的时机。": "This is a good time to make one.",
+        "新建": "New",
+        "关闭": "Close",
+        "返回": "Back",
+        "iCloud 云盘不可用。": "iCloud Drive isn't available.",
+        "iCloud云盘": "iCloud Drive",
+        "提示": "Notice",
+        "好": "OK",
+        "确定": "OK",
+        "取消": "Cancel",
+        "恢复上一版": "Restore Previous",
+        "丢弃未完成的写入": "Discard Incomplete Write",
+        "恢复": "Recover",
+        "丢弃": "Discard",
+        "要恢复未保存的导图吗？": "Recover unsaved mind map?",
+        "发现了一份未保存的导图。": "An unsaved mind map was found.",
+        "要恢复「%@」吗？": "Recover \"%@\"?",
+        "无法恢复自动保存": "Couldn't Recover Autosave",
+        "自动保存读不出来。": "The autosave could not be read.",
+        "重新命名": "Rename",
+        "名称": "Name",
+        "为这份导图重新命名": "Rename this map",
+        "返回导图列表": "Back to maps",
+        "无法导出": "Couldn't Export",
+        "无法打开": "Couldn't Open",
+        "无法保存": "Couldn't Save",
+        "无法恢复": "Couldn't Restore",
+        "无法预览": "Couldn't Preview",
+        "保存未完成": "Save Didn't Finish",
+        "放入附件？": "Add Attachment?",
+        "放入": "Add",
+        "查找": "Find",
+        "文字": "Text",
+        "没有找到。": "No matches.",
+        "大纲": "Outline",
+        "子节点": "Child",
+        "同级": "Sibling",
+        "自由节点": "Free Topic",
+        "便签": "Sticky Note",
+        "连到": "Link To",
+        "图片": "Image",
+        "附件": "Attachment",
+        "从文件导入": "Import from File",
+        "插入": "Insert",
+        "适应窗口": "Fit Window",
+        "分享": "Share",
+        "更多": "More",
+        "样式": "Style",
+        "查看模式": "View Mode",
+        "新建画布": "New Canvas",
+        "粘贴": "Paste",
+        "打印": "Print",
+        "全屏沉浸": "Zen",
+        "撤销": "Undo",
+        "重做": "Redo",
+        "删除": "Delete",
+        "剪切": "Cut",
+        "拷贝": "Copy",
+        "全选": "Select All",
+        "拷贝样式": "Copy Style",
+        "完成": "Done",
+        "排序": "Reorder",
+        "检查器": "Inspector",
+        "演说": "Presentation",
+        "导图": "Map",
+        "尚未实现": "Not Available Yet",
+        "附件合计": "Attachments",
+        "文档大小": "Document Size",
+        "引用": "References",
+        "节点": "Topics",
+        "关系": "Relationships",
+        "主题": "Topic",
+        "形状": "Shape",
+        "矩形": "Rectangle",
+        "圆角": "Rounded",
+        "胶囊": "Capsule",
+        "无边框": "No Border",
+        "填充样式": "Fill",
+        "实心": "Solid",
+        "无": "None",
+        "填充颜色": "Fill Color",
+        "长度": "Length",
+        "边框": "Border",
+        "实线": "Solid Line",
+        "宽度": "Width",
+        "颜色": "Color",
+        "文本": "Text",
+        "字体": "Font",
+        "系统": "System",
+        "衬线": "Serif",
+        "圆体": "Rounded",
+        "等宽": "Monospaced",
+        "大小": "Size",
+        "选择一个主题": "Select a Topic",
+        "样式会写进导图文件。": "Styles are saved in the map file.",
+        "还没有连到其他节点。只保存关系，不画线。": "Not linked to another topic yet. Only the relationship is saved, not a line.",
+        "没有其他节点": "No other topics",
+        "黄色": "Yellow",
+        "粉色": "Pink",
+        "绿色": "Green",
+        "蓝色": "Blue",
+        "橙色": "Orange",
+        "缺失的节点": "Missing Topic",
+        "保存为 Floretta": "Save as Floretta",
+        "进入全屏沉浸模式，暂时只留下导图": "Enter zen mode and leave only the map",
+        "退出沉浸模式，恢复工具栏": "Exit zen mode and restore the toolbar",
+        "撤销上一步编辑": "Undo the last edit",
+        "恢复刚刚撤销的编辑": "Redo the edit that was just undone",
+        "删除选中的节点": "Delete the selected topic",
+        "在选中的节点下新建一个子节点": "Add a child under the selected topic",
+        "在选中的节点旁新建一个同级节点": "Add a sibling beside the selected topic",
+        "在画布上放一个不进层级的节点，位置会保存": "Place a topic on the canvas outside the hierarchy. Its position is saved.",
+        "在画布上放一张便签。最多五种颜色，不计入节点，可以拖动，大小有上限": "Place a sticky on the canvas. Up to five colors. It is not a topic, it can be dragged, and its size is limited.",
+        "把选中的自由节点连到另一个节点。只记下关系，不画线。": "Link the selected free topic to another topic. Only the relationship is saved, not a line.",
+        "从文件选择一张图片放进选中的节点": "Choose an image file to put in the selected topic",
+        "把一个文件原样放进选中的节点": "Put a file into the selected topic as-is",
+        "从文件打开另一份导图": "Open another map from a file",
+        "插入子节点、同级、自由节点、便签、图片、附件，或从文件导入": "Insert a child, sibling, free topic, sticky, image, or attachment, or import from a file",
+        "把画布缩放到 %lld%%": "Zoom the canvas to %lld%%",
+        "让整张导图缩进窗口里": "Fit the whole map in the window",
+        "选择缩放比例，或让导图适应窗口": "Choose a zoom level, or fit the map in the window",
+        "把这份导图导出为 PDF": "Export this map as PDF",
+        "把这份导图导出为 PNG 图片": "Export this map as a PNG image",
+        "把这份导图导出为 Markdown": "Export this map as Markdown",
+        "把这份导图保存为 Floretta 文件": "Save this map as a Floretta file",
+        "把这份导图导出为 FreeMind .mm": "Export this map as FreeMind .mm",
+        "把这份导图导出为 OPML": "Export this map as OPML",
+        "导出为 XMind，自由节点写成浮动主题": "Export as XMind. Free topics become floating topics.",
+        "打印这份导图": "Print this map",
+        "把导图导出为 PDF、PNG、Markdown，或保存为已支持的文件": "Export the map as PDF, PNG, or Markdown, or save it as a supported file",
+        "打开或关闭左侧大纲": "Show or hide the outline",
+        "打开样式检查器，修改选中节点的外观": "Open the style inspector and change the selected topic",
+        "用整张地图查看导图": "Show the whole map",
+        "只看当前选中的这一支": "Show only the selected branch",
+        "在地图模式和聚焦模式之间切换": "Switch between map and focus",
+        "在这份导图里再加一个中心主题": "Add another central topic to this map",
+        "按文字查找节点": "Find a topic by its text",
+        "把剪贴板里的图片放进节点；没有图片时粘贴文字": "Put a clipboard image into a topic. If there is no image, paste text.",
+        "查看版本号和开源致谢": "Show the version and open-source notices",
+        "大纲、样式和关于": "Outline, style, and about",
+        "让大纲占满或恢复原来的宽度": "Make the outline fill the window, or restore its width",
+        "关闭大纲": "Close the outline",
+        "剪下选中节点的文字": "Cut the selected topic's text",
+        "复制选中节点的文字": "Copy the selected topic's text",
+        "选中当前节点里的全部文字": "Select all text in the current topic",
+        "复制选中节点的填充颜色": "Copy the selected topic's fill color",
+        "不能放入文件夹。": "Folders can't be added.",
+        "没有可以放入的文件。": "There is no file to add.",
+        "先把导图存成文件。": "Save the map as a file first.",
+        "没有可以放入附件的节点。": "There is no topic that can hold an attachment.",
+        "没有导出图片。": "No image was exported.",
+        "没有导出 PDF。": "No PDF was exported.",
+        "没有可打印的内容。": "There is nothing to print.",
+        "无法打开最近文件。": "The recent file couldn't be opened.",
+        "不支持的文件类型 %@。": "Unsupported file type %@.",
+        "这份还是旧的 JSON 文件，不能直接覆盖。请用「保存为 Floretta」另存。": "This is still an old JSON file and can't be overwritten. Use Save as Floretta.",
+        "导出已按最大尺寸裁切，超出的内容没有画进文件。": "The export was clipped to the maximum size. Content past that edge is not in the file.",
+        "没有可导出的节点。": "There are no topics to export.",
+        "这个文件已经不在，预览已关闭。": "This file is gone, so the preview was closed.",
+        "无法打开预览。": "The preview couldn't be opened.",
+        "上次写入中断了，没有替换已经保存的导图。恢复上一版会丢掉未完成的半截文件，留下上一个完整版本。": "The last write was interrupted and did not replace the saved map. Restoring the previous version discards the incomplete file and keeps the last complete one.",
+        "上次写入中断了，当前文件打不开。可以恢复快照里的上一版。只存在于损坏文件里的附件，打开时会按文件名指出。": "The last write was interrupted and the current file won't open. You can restore the previous snapshot. Attachments that exist only in the damaged file are named when it opens.",
+        "上次写入中断了，没有可恢复的上一版。未完成的半截文件会被丢掉。": "The last write was interrupted and there is no previous version to restore. The incomplete file will be discarded.",
+        "附件已损坏": "Attachment Damaged",
+        "有 1 个附件和 sha256 清单不一致。这不是整份导图读失败。": "1 attachment does not match the sha256 inventory. The map itself was read.",
+        "有 %lld 个附件和 sha256 清单不一致。这不是整份导图读失败。": "%lld attachments do not match the sha256 inventory. The map itself was read.",
+        "内容与 sha256 不符（实际 %@）。": "The contents do not match sha256 (actual %@).",
+        "包内没有这个附件。": "This attachment is not in the package.",
+        "读取中断，没能算完 sha256。": "The read was interrupted before sha256 finished.",
+        "被压缩了，不能按原字节核对 sha256。": "It is compressed, so sha256 can't be checked against the original bytes.",
+        "条目名不是 assets/<sha256>.<ext>。": "The entry name is not assets/<sha256>.<ext>.",
+        "内容和包内声明的校验不符。": "The contents do not match the checksum declared in the package.",
+        "文件大小：%@": "File size: %@",
+        "放入后文档大约：%@": "Document size after adding: %@",
+        "字节原样放进当前项目，不压缩、不转码。": "The bytes are stored as-is. Nothing is compressed or transcoded.",
+        "超过 10GB 软上限。": "This is over the 10GB soft limit.",
+        "结构": "Structure",
+        "分析": "Analysis",
+        "记录": "Notes",
+        "左右思维导图": "Mind Map",
+        "逻辑分解": "Logic Tree",
+        "括号图": "Brace Map",
+        "组织架构": "Org Chart",
+        "里程碑": "Timeline",
+        "鱼骨图": "Fishbone",
+        "优劣势四象限": "SWOT",
+        "方案对照": "Comparison",
+        "目标树": "OKR Tree",
+        "七何分析": "Seven Questions",
+        "会议记录": "Meeting Notes",
+        "读书笔记": "Reading Notes",
+    ]
+
+    private final class BundleToken {}
+    static let bundle = Bundle(for: BundleToken.self)
+
+    static func localizationIdentifier(
+        for language: AppLanguage,
+        preferences: [String] = Locale.preferredLanguages
+    ) -> String {
+        switch language {
+        case .english:
+            return "en"
+        case .simplifiedChinese:
+            return "zh-Hans"
+        case .system:
+            return Bundle.preferredLocalizations(
+                from: availableLocalizations,
+                forPreferences: preferences
+            ).first ?? "en"
+        }
+    }
+
+    static func catalogID(
+        for locale: Locale,
+        preferences: [String] = Locale.preferredLanguages
+    ) -> String {
+        let code = locale.language.languageCode?.identifier ?? ""
+        if code == "en" { return "en" }
+        if code == "zh" {
+            if locale.language.script?.identifier == "Hant" {
+                let prefs = [locale.identifier] + preferences
+                return Bundle.preferredLocalizations(
+                    from: availableLocalizations,
+                    forPreferences: prefs
+                ).first ?? "zh-Hans"
+            }
+            return "zh-Hans"
+        }
+        return Bundle.preferredLocalizations(
+            from: availableLocalizations,
+            forPreferences: preferences
+        ).first ?? "en"
+    }
+
+    static func string(
+        _ key: String,
+        language: AppLanguage,
+        preferences: [String] = Locale.preferredLanguages,
+        bundle: Bundle = FlorettaL10n.bundle
+    ) -> String {
+        resolve(
+            key,
+            localization: localizationIdentifier(for: language, preferences: preferences),
+            bundle: bundle
+        )
+    }
+
+    static func string(
+        _ key: String,
+        locale: Locale,
+        preferences: [String] = Locale.preferredLanguages,
+        bundle: Bundle = FlorettaL10n.bundle
+    ) -> String {
+        resolve(
+            key,
+            localization: catalogID(for: locale, preferences: preferences),
+            bundle: bundle
+        )
+    }
+
+    static func format(
+        _ key: String,
+        language: AppLanguage,
+        preferences: [String] = Locale.preferredLanguages,
+        arguments: [CVarArg]
+    ) -> String {
+        let id = localizationIdentifier(for: language, preferences: preferences)
+        let template = resolve(key, localization: id, bundle: bundle)
+        return String(format: template, locale: Locale(identifier: id), arguments: arguments)
+    }
+
+    static func format(
+        _ key: String,
+        locale: Locale,
+        preferences: [String] = Locale.preferredLanguages,
+        arguments: [CVarArg]
+    ) -> String {
+        let id = catalogID(for: locale, preferences: preferences)
+        let template = resolve(key, localization: id, bundle: bundle)
+        return String(format: template, locale: Locale(identifier: id), arguments: arguments)
+    }
+
+    /// Translates a stored alert when it is a catalog key. User filenames inside
+    /// the unsupported-type sentence stay as they were. Unknown text is returned
+    /// unchanged so a system error or a document title is not rewritten.
+    static func present(_ message: String, locale: Locale) -> String {
+        if message.isEmpty { return "" }
+        let prefix = "不支持的文件类型 "
+        let suffix = "。"
+        if message.hasPrefix(prefix), message.hasSuffix(suffix), message.count > prefix.count + suffix.count {
+            let name = String(message.dropFirst(prefix.count).dropLast(suffix.count))
+            return format("不支持的文件类型 %@。", locale: locale, arguments: [name])
+        }
+        if message.contains("\n") {
+            return message.split(separator: "\n", omittingEmptySubsequences: false).map { line in
+                string(String(line), locale: locale)
+            }.joined(separator: "\n")
+        }
+        return string(message, locale: locale)
+    }
+
+    static func attachmentConfirmation(_ proposal: AttachmentInsertProposal, locale: Locale) -> String {
+        var lines = [
+            format("文件大小：%@", locale: locale, arguments: [AttachmentByteFormat.label(proposal.fileByteCount)]),
+            format("放入后文档大约：%@", locale: locale, arguments: [AttachmentByteFormat.label(proposal.projectedDocumentByteCount)]),
+            string("字节原样放进当前项目，不压缩、不转码。", locale: locale),
+        ]
+        if proposal.exceedsSoftCap {
+            lines.append(string("超过 10GB 软上限。", locale: locale))
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    static func inventoryMessage(_ error: AssetInventoryError, locale: Locale) -> String {
+        let header: String
+        if error.failures.count == 1 {
+            header = string("有 1 个附件和 sha256 清单不一致。这不是整份导图读失败。", locale: locale)
+        } else {
+            header = format(
+                "有 %lld 个附件和 sha256 清单不一致。这不是整份导图读失败。",
+                locale: locale,
+                arguments: [Int64(error.failures.count)]
+            )
+        }
+        let lines = error.failures.map { failure in
+            "· \(failure.filename)（\(failure.entryName)）\(reasonText(failure, locale: locale))"
+        }
+        return ([header] + lines).joined(separator: "\n")
+    }
+
+    static func reasonText(_ failure: AssetCorruption, locale: Locale) -> String {
+        switch failure.reason {
+        case .hashMismatch(let actual):
+            return format("内容与 sha256 不符（实际 %@）。", locale: locale, arguments: [actual])
+        case .missingFromPackage:
+            return string("包内没有这个附件。", locale: locale)
+        case .unreadable:
+            return string("读取中断，没能算完 sha256。", locale: locale)
+        case .compressed:
+            return string("被压缩了，不能按原字节核对 sha256。", locale: locale)
+        case .malformedName:
+            return string("条目名不是 assets/<sha256>.<ext>。", locale: locale)
+        case .declaredChecksumMismatch:
+            return string("内容和包内声明的校验不符。", locale: locale)
+        }
+    }
+
+    static func recoveryMessage(title: String?, locale: Locale) -> String {
+        if let title, !title.isEmpty {
+            return format("要恢复「%@」吗？", locale: locale, arguments: [title])
+        }
+        return string("发现了一份未保存的导图。", locale: locale)
+    }
+
+    private static func resolve(_ key: String, localization: String, bundle: Bundle) -> String {
+        if let bundled = bundledString(key, localization: localization, bundle: bundle) {
+            return bundled
+        }
+        if localization == "en", let translated = english[key] {
+            return translated
+        }
+        return key
+    }
+
+    /// Same table `String(localized:locale:)` reads from the compiled catalog.
+    /// A missing English entry falls through to the in-memory copy so the setting still applies.
+    private static func bundledString(_ key: String, localization: String, bundle: Bundle) -> String? {
+        guard let path = bundle.path(forResource: localization, ofType: "lproj"),
+              let table = Bundle(path: path) else { return nil }
+        let missing = "\u{0}"
+        let value = table.localizedString(forKey: key, value: missing, table: "Localizable")
+        if value == missing { return nil }
+        if localization == "en", value == key, let translated = english[key], translated != key {
+            return nil
+        }
+        return value
+    }
+}

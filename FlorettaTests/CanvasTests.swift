@@ -330,6 +330,28 @@ final class CanvasTests: XCTestCase {
         XCTAssertFalse(CanvasPlacement.nodes(in: document).contains { $0.id == link })
     }
 
+    func testLayoutCacheStaysPutWhileAPetalWouldBeSampling() {
+        let root = MindMapNode(text: "根", children: [MindMapNode(text: "甲"), MindMapNode(text: "乙")])
+        let document = MindMapDocument(title: "cache", roots: [root])
+        let cache = LaidOutFrames()
+        let first = cache.frames(for: document, scheme: .light)
+        XCTAssertEqual(cache.layoutPassCount, 1)
+        for _ in 0..<60 {
+            let again = cache.frames(for: document, scheme: .light)
+            XCTAssertEqual(again.map(\.id), first.map(\.id))
+        }
+        XCTAssertEqual(cache.layoutPassCount, 1, "petal frames must reuse the layout, not measure every sample")
+
+        var folded = document
+        folded.mutateNode(root.id) { $0.isCollapsed = true }
+        _ = cache.frames(for: folded, scheme: .light)
+        XCTAssertEqual(cache.layoutPassCount, 2)
+        for _ in 0..<60 {
+            _ = cache.frames(for: folded, scheme: .light)
+        }
+        XCTAssertEqual(cache.layoutPassCount, 2)
+    }
+
     private func sampleFrame(id: UUID, origin: CGPoint) -> NodeFrame {
         NodeFrame(
             id: id,

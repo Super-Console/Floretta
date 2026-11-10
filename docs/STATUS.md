@@ -172,6 +172,16 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 - ISO-8601 往返、pretty-print 的冒号空格、`sortedKeys` 的实际字节，都没在 Apple 的 `JSONEncoder` 上见过
 - 空 App Icon、签名、部署目标 26.0 这次没有复测
 
+## 花瓣展开
+
+缓动用 CSS **easeOutBack**（`c1 = 1.70158`），不用弹簧。打开导图，或只翻转一个节点的折叠时，分支从父节点中心的小圆沿射线逐层长出，不旋转。播完用布局帧。系统「减弱动态」直接落到布局，不起时钟。macOS 与 iOS 共用 `InfiniteCanvas`。
+
+同时只保留一条动画。超过 48 个节点的尾巴在播放期间不画，结束时出现在已算好的位置。播放帧不调用 `LayoutEngine`。`LaidOutFrames.layoutPassCount` 只在缓存未命中时加一；播放中这个数若上涨，`layoutPassesDuringPlayback` 会记下来。
+
+Linux（Swift 6.2）`swift test`：276/0，含 `PetalExpandTests` 11/0。41 个节点、60 次姿态和曲线采样：这一棵树的时长 **0.40s**（最深两级；三级上限是 `0.06×3+0.28 = 0.46s`），播放期布局 **0** 次，姿态计算 **16867 ns/帧**。55 fps 的帧预算是 1/55 s ≈ **18.18 ms**。没有画布帧率：这台机器不能跑 SwiftUI。Mac 上再量。
+
+`MARKETING_VERSION` 仍是 1.0。没有改 `CURRENT_PROJECT_VERSION`。
+
 ## 记录
 
 | 日期 | 批次 | 结果 | 备注 |
@@ -225,3 +235,4 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 | 2026-11-10 | Phase 4.2 Quick Look 插件 | 已合并 | PR #67 → main `a9ad9b92`（full `a9ad9b9218905cac4d75f7f3c13de9a82fba1445`），tip `1b900f4`（full `1b900f4ceea078d25be77d8e2ddba8a23cbccecc`）。merge（parents `9043e670ee85c217455849763f7c1aec24a76061` + `1b900f4ceea078d25be77d8e2ddba8a23cbccecc`，不是 squash / rebase），merged_at 2026-11-10T13:26:30Z / 21:26:30 Asia/Shanghai，merged_by TimmySheep。该 tip 本身是把当时的 main（docs PR #68）合并进 Quick Look 分支（parents `d6a36dc1871a65023562e09678ce06780f714681` + `9043e670ee85c217455849763f7c1aec24a76061`，不是 rebase）。Censor 通过该 tip `1b900f4`（不是 `eac4453`、`d6a36dc` 或更早的 SHA）。FlorettaCore CI run `42823200539` 在该 tip 上全绿：Guard「Core import and os guard」成功 13:17:50Z（21:17:50 Asia/Shanghai）；Build and test FlorettaCore 成功 13:19:58Z（21:19:58 Asia/Shanghai）。这一确切 tip 上新鲜 Pro 双验（每次 xcodebuild 前后 HEAD 确认为 `1b900f4`）：macOS 单元测试 321/0（含 `ShellTests` 34/0，其中 `testStringCatalogMatchesTheRuntimeTableAndSkipsDocumentText` 与两个多窗口用例 `testOpeningASecondWindowUsesTheSameDocumentSession` / `testEditInOneWindowIsVisibleInTheOther`；`QuickLookThumbnailTests` 通过；`SnapshotHistoryTests` 10/0；`MarkdownDocumentUITests` 7/0；`DictationTests` 12/0；`ShareIngressTests` 8/0），iOS Simulator 构建 EXIT=0，FlorettaUITests 1/0（`HomeSmokeTests` 的 `testHomeTitleSettingsNewMapAndRows`）。xcresults Asia/Shanghai：macOS `2026.11.10_21-20-23-+0800`，UITests `2026.11.10_21-22-14-+0800`。 |
 | 2026-11-10 | 检查单已派项核对 | 见本变更 | 对照 main `3e2dd3b` 把能用现有或新增单测证明的 `[~]` 改为 `[x]`，仓库里没有实现的改为 `[ ]`。当时仍为 `[~]` 的是 A24、B7、C7、E1、F3。当时 E2/E3 未改（PR #71 尚未合并），E4 仍为 `[ ]`。其后 PR #73 合入 main `1c7cc3d7`，E4 在 main 上为 `[~]`（Linux 的 Packaged app size 只证明脚本自测和 Linux 替身低于预算，未证明已签名 .app 低于预算；Core/Size CI 仍不编译 app/appex）。PR #71 现已合并。不宣称那次核对完成了新 Phase。 |
 | 2026-11-10 | Phase 5.1 原生 CLI 与 MCP | 已合并 | PR #71 → main `dbde570c`（tip `af2ea145`）。merge（parents `1c7cc3d7` + `af2ea145`，不是 squash / rebase），merged_at 2026-11-10T14:59:28Z（22:59:28 Asia/Shanghai）。树与 tip 相同。Censor 通过该 tip；同一 tip 上 Pro 双验：macOS 332/0，iOS 构建成功，UITests `HomeSmokeTests` 1/0。该 tip 上 Linux CI 265/0。E2 与 E3 为 `[x]`。E4 仍为 `[~]`。 |
+| 2026-11-10 | 花瓣展开 | 已提交，Linux 测了 Core | 缓动 easeOutBack。只在打开导图和单节点展开/折叠时播放。Linux Swift 6.2 `swift test` 276/0（含 `PetalExpandTests` 11/0）。41 节点、60 次采样：时长 0.40s，播放期布局 0 次，姿态 16867 ns/帧。未跑 Mac 画布 fps。 |

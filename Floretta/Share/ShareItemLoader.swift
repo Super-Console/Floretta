@@ -42,15 +42,15 @@ enum ShareItemLoader {
 
     private static func firstWebURL(in providers: [NSItemProvider]) async throws -> String {
         for provider in providers where provider.hasItemConformingToTypeIdentifier("public.url") {
-            let value = try await loadItem(provider, type: "public.url")
-            if let url = value as? URL, let web = ShareLinks.webURL(url.absoluteString) {
-                return web
-            }
-            if let text = value as? String, let web = ShareLinks.webURL(text) {
-                return web
-            }
-            if let data = value as? Data, let text = String(data: data, encoding: .utf8), let web = ShareLinks.webURL(text) {
-                return web
+            switch try await loadItem(provider, type: "public.url") {
+            case .url(let url):
+                if let web = ShareLinks.webURL(url.absoluteString) { return web }
+            case .text(let text):
+                if let web = ShareLinks.webURL(text) { return web }
+            case .bytes(let data):
+                if let text = String(data: data, encoding: .utf8), let web = ShareLinks.webURL(text) { return web }
+            case .none:
+                break
             }
         }
         throw ShareIngressError.emptyPayload
@@ -67,13 +67,13 @@ enum ShareItemLoader {
                 type = nil
             }
             guard let type else { continue }
-            let value = try await loadItem(provider, type: type)
             let text: String?
-            if let string = value as? String {
+            switch try await loadItem(provider, type: type) {
+            case .text(let string):
                 text = string
-            } else if let data = value as? Data {
+            case .bytes(let data):
                 text = String(data: data, encoding: .utf8)
-            } else {
+            case .url, .none:
                 text = nil
             }
             if let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -115,7 +115,8 @@ enum ShareItemLoader {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                 provider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { url, error in
                     if let error {
-                        continuation.resume(throwing: error)
+                        let message = error.localizedDescription
+                        continuation.resume(throwing: ShareProviderError(message: message))
                         return
                     }
                     guard let url else {
@@ -126,7 +127,8 @@ enum ShareItemLoader {
                         try FileManager.default.copyItem(at: url, to: destination)
                         continuation.resume()
                     } catch {
-                        continuation.resume(throwing: error)
+                        let message = error.localizedDescription
+                        continuation.resume(throwing: ShareProviderError(message: message))
                     }
                 }
             }
@@ -134,7 +136,7 @@ enum ShareItemLoader {
         } catch {
             guard typeIdentifier == "public.file-url" || typeIdentifier == "public.data" else { throw error }
             let value = try await loadItem(provider, type: typeIdentifier)
-            guard let url = value as? URL else { throw error }
+            guard case .url(let url) = value else { throw error }
             let accessed = url.startAccessingSecurityScopedResource()
             defer {
                 if accessed { url.stopAccessingSecurityScopedResource() }
@@ -144,15 +146,42 @@ enum ShareItemLoader {
         }
     }
 
-    private static func loadItem(_ provider: NSItemProvider, type: String) async throws -> NSSecureCoding? {
+    /// Copies the provider object into a value before leaving the callback.
+    /// `NSSecureCoding` is not `Sendable`, so the original `item` stays in the callback.
+    private static func loadItem(_ provider: NSItemProvider, type: String) async throws -> LoadedShareValue {
         try await withCheckedThrowingContinuation { continuation in
             provider.loadItem(forTypeIdentifier: type, options: nil) { item, error in
                 if let error {
-                    continuation.resume(throwing: error)
+                    let message = error.localizedDescription
+                    continuation.resume(throwing: ShareProviderError(message: message))
                     return
                 }
-                continuation.resume(returning: item)
+                // Copy here. `item` is not Sendable and must not be the resumed value.
+                let value: LoadedShareValue
+                if let found = item as? URL, let copy = URL(string: found.absoluteString) {
+                    value = .url(copy)
+                } else if let text = item as? String {
+                    value = .text(String(text))
+                } else if let data = item as? Data {
+                    value = .bytes(Data(data))
+                } else {
+                    value = .none
+                }
+                continuation.resume(returning: value)
             }
         }
     }
+}
+
+/// Value copied out of an `NSItemProvider` callback. The provider object itself is not sent across the continuation.
+private enum LoadedShareValue: Sendable {
+    case url(URL)
+    case text(String)
+    case bytes(Data)
+    case none
+}
+
+private struct ShareProviderError: Error, LocalizedError, Sendable {
+    var message: String
+    var errorDescription: String? { message }
 }

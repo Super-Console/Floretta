@@ -199,7 +199,6 @@
 		F31000000000000000000007 /* Info-iOS.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-iOS.plist"; sourceTree = "<group>"; };
 		F31000000000000000000008 /* Info-macOS.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-macOS.plist"; sourceTree = "<group>"; };
 		F31000000000000000000009 /* FlorettaShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FlorettaShare.entitlements; sourceTree = "<group>"; };
-		F3100000000000000000000A /* Floretta-iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Floretta-iOS.entitlements"; sourceTree = "<group>"; };
 		F3100000000000000000000B /* FlorettaShare-iOS.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "FlorettaShare-iOS.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		F3100000000000000000000C /* FlorettaShare-macOS.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "FlorettaShare-macOS.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -451,7 +450,6 @@
 			isa = PBXGroup;
 			children = (
 				F10000000000000000000005 /* Assets.xcassets */,
-				F3100000000000000000000A /* Floretta-iOS.entitlements */,
 				F10000000000000000000004 /* Info.plist */,
 			);
 			path = iOS;
@@ -1088,7 +1086,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "Floretta/iOS/Floretta-iOS.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
@@ -1125,7 +1122,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "Floretta/iOS/Floretta-iOS.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
@@ -1336,10 +1332,10 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = "Floretta/Share/FlorettaShare.entitlements";
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				CODE_SIGNING_REQUIRED = NO;
 				CURRENT_PROJECT_VERSION = 8;
-				DEVELOPMENT_TEAM = JY5U4D6JD3;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Floretta/Share/Info-macOS.plist";

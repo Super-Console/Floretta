@@ -33,7 +33,7 @@ struct DocumentEditor: View {
     @State private var showFind = false
     @State private var findQuery = ""
     @State private var showTagFilter = false
-    @State private var inspectorTab = 0
+    @State private var inspectorTab = InspectorTab.style
     @State private var showAbout = false
     @State private var showThemes = false
     @State private var showHistory = false
@@ -709,78 +709,87 @@ struct DocumentEditor: View {
     }
 
     private var inspectorBody: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Picker(text("检查器"), selection: $inspectorTab) {
-                Text(verbatim: text("样式")).tag(0)
-                Text(verbatim: text("演说")).tag(1)
-                Text(verbatim: text("导图")).tag(2)
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
-            if inspectorTab == 0 {
-                if session.keyboard.selectedRelationshipID != nil {
-                    relationshipLabelForm
-                } else if session.keyboard.selectedSummaryID != nil {
-                    summaryTextForm
-                } else if session.keyboard.selectedBoundaryID != nil {
-                    boundaryTitleForm
-                } else {
-                    StyleInspector(
-                        document: $session.document,
-                        nodeID: session.keyboard.selectedNodeID,
-                        locksAppearance: session.isMarkdownDocument,
-                        onSelectRelationship: { id in
-                            if session.keyboard.mode == .edit {
-                                session.keyboard.apply(.commitEdit, document: &session.document, frames: [])
-                            }
-                            session.keyboard.selectedRelationshipID = id
-                        }
-                    )
-                }
-            } else if inspectorTab == 2 {
-                documentInfo
-            } else {
-                ContentUnavailableView {
-                    Label(text("尚未实现"), systemImage: "clock")
-                } description: {
-                    Text(verbatim: text("演说"))
-                }
+        VStack(spacing: 0) {
+            inspectorTabPicker
+            inspectorPage
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+
+    private var inspectorTabPicker: some View {
+        Picker(text("检查器"), selection: $inspectorTab) {
+            ForEach(InspectorTab.allCases) { tab in
+                Text(verbatim: text(tab.titleKey)).tag(tab)
             }
         }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .accessibilityLabel(text("检查器"))
+        .accessibilityIdentifier("inspector.tabs")
+        .padding(.horizontal, 16)
         .padding(.top, 12)
+        .padding(.bottom, 8)
+    }
+
+    @ViewBuilder
+    private var inspectorPage: some View {
+        switch inspectorTab {
+        case .style:
+            stylePage
+        case .presentation:
+            presentationPage
+        case .map:
+            documentInfo
+        }
+    }
+
+    @ViewBuilder
+    private var stylePage: some View {
+        if session.keyboard.selectedRelationshipID != nil {
+            relationshipLabelForm
+        } else if session.keyboard.selectedSummaryID != nil {
+            summaryTextForm
+        } else if session.keyboard.selectedBoundaryID != nil {
+            boundaryTitleForm
+        } else {
+            StyleInspector(
+                document: $session.document,
+                nodeID: session.keyboard.selectedNodeID,
+                locksAppearance: session.isMarkdownDocument,
+                onSelectRelationship: { id in
+                    InspectorStyle.selectLink(id, document: &session.document, keyboard: &session.keyboard)
+                }
+            )
+        }
+    }
+
+    private var presentationPage: some View {
+        ContentUnavailableView {
+            Label(text("尚未实现"), systemImage: "clock")
+        } description: {
+            Text(verbatim: text("演说"))
+        }
+        .accessibilityIdentifier("inspector.presentation")
     }
 
     private var documentInfo: some View {
-        let references = AttachmentReferences.counts(in: session.document)
-        let stored = session.attachmentCatalog.storedAttachmentBytes
-        let total = stored > 0 ? stored : references.reduce(Int64(0)) { $0 + $1.byteCount }
+        let facts = InspectorStyle.mapFacts(
+            document: session.document,
+            storedAttachmentBytes: session.attachmentCatalog.storedAttachmentBytes,
+            archiveByteCount: session.archiveByteCount
+        )
         return Form {
-            LabeledContent(text("附件合计")) {
-                Text(verbatim: AttachmentByteFormat.label(total)).monospacedDigit()
-            }
-            LabeledContent(text("文档大小")) {
-                Text(verbatim: AttachmentByteFormat.label(session.archiveByteCount)).monospacedDigit()
-            }
-            LabeledContent(text("引用")) {
-                Text(verbatim: "\(references.reduce(0) { $0 + $1.count })").monospacedDigit()
-            }
-            LabeledContent(text("节点")) {
-                Text(verbatim: "\(session.document.topicCount)").monospacedDigit()
-            }
-            LabeledContent(text("便签")) {
-                Text(verbatim: "\(session.document.stickies.count)").monospacedDigit()
-            }
-            LabeledContent(text("关系")) {
-                Text(verbatim: "\(session.document.relationships.count)").monospacedDigit()
-            }
-            LabeledContent(text("概要")) {
-                Text(verbatim: "\(session.document.summaryCount)").monospacedDigit()
-            }
-            LabeledContent(text("边界")) {
-                Text(verbatim: "\(session.document.boundaryCount)").monospacedDigit()
+            Section {
+                ForEach(InspectorStyle.mapRowTitleKeys, id: \.self) { key in
+                    LabeledContent(text(key)) {
+                        Text(verbatim: InspectorStyle.mapValue(key, facts: facts))
+                            .monospacedDigit()
+                    }
+                }
             }
         }
         .formStyle(.grouped)
+        .accessibilityIdentifier("inspector.map")
     }
 
     private var relationshipLabelForm: some View {
@@ -798,18 +807,21 @@ struct DocumentEditor: View {
     private var relationshipTitle: Binding<String> {
         Binding(
             get: {
-                guard let id = session.keyboard.selectedRelationshipID else { return "" }
-                if session.keyboard.editingRelationshipID == id {
-                    return session.keyboard.editingText
-                }
-                return session.document.relationship(id)?.title ?? ""
+                InspectorMarkField.text(
+                    .relationship,
+                    id: session.keyboard.selectedRelationshipID,
+                    document: session.document,
+                    keyboard: session.keyboard
+                )
             },
             set: { newValue in
-                guard let id = session.keyboard.selectedRelationshipID else { return }
-                if session.keyboard.editingRelationshipID != id {
-                    session.keyboard.apply(.beginEdit, document: &session.document, frames: [])
-                }
-                session.keyboard.replaceEditingText(newValue, document: &session.document)
+                InspectorMarkField.replace(
+                    newValue,
+                    kind: .relationship,
+                    id: session.keyboard.selectedRelationshipID,
+                    document: &session.document,
+                    keyboard: &session.keyboard
+                )
             }
         )
     }
@@ -829,18 +841,21 @@ struct DocumentEditor: View {
     private var summaryText: Binding<String> {
         Binding(
             get: {
-                guard let id = session.keyboard.selectedSummaryID else { return "" }
-                if session.keyboard.editingSummaryID == id {
-                    return session.keyboard.editingText
-                }
-                return session.document.summary(id)?.text ?? ""
+                InspectorMarkField.text(
+                    .summary,
+                    id: session.keyboard.selectedSummaryID,
+                    document: session.document,
+                    keyboard: session.keyboard
+                )
             },
             set: { newValue in
-                guard let id = session.keyboard.selectedSummaryID else { return }
-                if session.keyboard.editingSummaryID != id {
-                    session.keyboard.apply(.beginEdit, document: &session.document, frames: [])
-                }
-                session.keyboard.replaceEditingText(newValue, document: &session.document)
+                InspectorMarkField.replace(
+                    newValue,
+                    kind: .summary,
+                    id: session.keyboard.selectedSummaryID,
+                    document: &session.document,
+                    keyboard: &session.keyboard
+                )
             }
         )
     }
@@ -860,30 +875,31 @@ struct DocumentEditor: View {
     private var boundaryTitle: Binding<String> {
         Binding(
             get: {
-                guard let id = session.keyboard.selectedBoundaryID else { return "" }
-                if session.keyboard.editingBoundaryID == id {
-                    return session.keyboard.editingText
-                }
-                return session.document.boundary(id)?.title ?? ""
+                InspectorMarkField.text(
+                    .boundary,
+                    id: session.keyboard.selectedBoundaryID,
+                    document: session.document,
+                    keyboard: session.keyboard
+                )
             },
             set: { newValue in
-                guard let id = session.keyboard.selectedBoundaryID else { return }
-                if session.keyboard.editingBoundaryID != id {
-                    session.keyboard.apply(.beginEdit, document: &session.document, frames: [])
-                }
-                session.keyboard.replaceEditingText(newValue, document: &session.document)
+                InspectorMarkField.replace(
+                    newValue,
+                    kind: .boundary,
+                    id: session.keyboard.selectedBoundaryID,
+                    document: &session.document,
+                    keyboard: &session.keyboard
+                )
             }
         )
     }
 
     private func commitMarkText() {
-        guard session.keyboard.mode == .edit else { return }
-        session.keyboard.apply(.commitEdit, document: &session.document, frames: [])
+        InspectorMarkField.commit(document: &session.document, keyboard: &session.keyboard)
     }
 
     private func commitRelationshipTitle() {
-        guard session.keyboard.mode == .edit else { return }
-        session.keyboard.apply(.commitEdit, document: &session.document, frames: [])
+        InspectorMarkField.commit(document: &session.document, keyboard: &session.keyboard)
     }
 
     private var insertDialogPresented: Binding<Bool> {
@@ -1359,12 +1375,13 @@ private struct StyleInspector: View {
 
     var body: some View {
         if let nodeID, document.node(nodeID) != nil {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 0) {
                 if locksAppearance {
                     Text(verbatim: text(MarkdownModePolicy.reason(.nodeColor)))
                         .font(.callout)
                         .foregroundStyle(.secondary)
-                        .padding(.horizontal)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 4)
                         .accessibilityHint(text(MarkdownModePolicy.reason(.nodeColor)))
                 }
                 appearanceForm
@@ -1380,226 +1397,281 @@ private struct StyleInspector: View {
 
     private var appearanceForm: some View {
         Form {
-                Section(text("主题")) {
-                    Picker(text("形状"), selection: shape) {
-                        Text(verbatim: text("矩形")).tag("rectangle")
-                        Text(verbatim: text("圆角")).tag("rounded")
-                        Text(verbatim: text("胶囊")).tag("capsule")
-                        Text(verbatim: text("无边框")).tag("none")
-                    }
-                    Picker(text("填充样式"), selection: fillStyle) {
-                        Text(verbatim: text("实心")).tag("solid")
-                        Text(verbatim: text("无")).tag("none")
-                    }
-                    ColorPicker(selection: fillColor, supportsOpacity: false) {
-                        Text(verbatim: text("填充颜色"))
-                    }
-                    HStack {
-                        Text(verbatim: text("长度"))
-                        Slider(value: topicWidth, in: 40...480)
-                        Text("\(Int(topicWidth.wrappedValue))px")
-                            .monospacedDigit()
+            Section(text(InspectorStyleSection.topic.titleKey)) {
+                Picker(text("形状"), selection: shape) {
+                    ForEach(InspectorTopicShape.allCases) { item in
+                        Text(verbatim: text(item.titleKey)).tag(item)
                     }
                 }
-                Section(text("边框")) {
-                    Picker(text("样式"), selection: borderStyle) {
-                        Text(verbatim: text("实线")).tag("solid")
-                        Text(verbatim: text("无")).tag("none")
-                    }
-                    HStack {
-                        Text(verbatim: text("宽度"))
-                        Slider(value: borderWidth, in: 0...8)
-                    }
-                    ColorPicker(selection: borderColor, supportsOpacity: false) {
-                        Text(verbatim: text("颜色"))
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("inspector.style.shape")
+                Picker(text("填充样式"), selection: fillStyle) {
+                    ForEach(fillStyleTags, id: \.self) { tag in
+                        Text(verbatim: fillStyleTitle(tag)).tag(tag)
                     }
                 }
-                Section(text("文本")) {
-                    Picker(text("字体"), selection: fontDesign) {
-                        Text(verbatim: text("系统")).tag("default")
-                        Text(verbatim: text("衬线")).tag("serif")
-                        Text(verbatim: text("圆体")).tag("rounded")
-                        Text(verbatim: text("等宽")).tag("monospaced")
-                    }
-                    HStack {
-                        Toggle("B", isOn: boolFlag("bold"))
-                        Toggle("I", isOn: boolFlag("italic"))
-                        Toggle("S", isOn: boolFlag("strikethrough"))
-                        Toggle("U", isOn: boolFlag("underline"))
-                    }
-                    .toggleStyle(.button)
-                    HStack {
-                        Text(verbatim: text("大小"))
-                        Slider(value: fontSize, in: 10...64, step: 1)
-                        Text("\(Int(fontSize.wrappedValue))pt")
-                            .monospacedDigit()
-                    }
-                    ColorPicker(selection: textColor, supportsOpacity: false) {
-                        Text(verbatim: text("颜色"))
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("inspector.style.fillStyle")
+                ColorPicker(selection: fillColor, supportsOpacity: false) {
+                    Text(verbatim: text("填充颜色"))
+                }
+                .accessibilityIdentifier("inspector.style.fillColor")
+                LabeledContent(text("长度")) {
+                    Text(verbatim: "\(Int(InspectorStyle.topicWidthValue(of: style)))px")
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+                Slider(value: topicWidth, in: InspectorStyle.topicWidthRange)
+                    .accessibilityLabel(text("长度"))
+                    .accessibilityIdentifier("inspector.style.topicWidth")
+            }
+            Section(text(InspectorStyleSection.border.titleKey)) {
+                Picker(text("样式"), selection: borderStyle) {
+                    ForEach(borderStyleTags, id: \.self) { tag in
+                        Text(verbatim: borderStyleTitle(tag)).tag(tag)
                     }
                 }
-                Section(text("连到")) {
-                    if locksAppearance {
-                        Text(verbatim: text(MarkdownModePolicy.reason(.relationship)))
-                    } else if let nodeID {
-                        let links = document.relationships.filter {
-                            $0.sourceID == nodeID || $0.targetID == nodeID
-                        }
-                        if links.isEmpty {
-                            Text(verbatim: text("还没有连到其他节点。"))
-                        } else {
-                            ForEach(links) { link in
-                                Button {
-                                    onSelectRelationship(link.id)
-                                } label: {
-                                    Text(verbatim: relationshipLine(link, seenFrom: nodeID))
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                                .buttonStyle(.plain)
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("inspector.style.borderStyle")
+                LabeledContent(text("宽度")) {
+                    Text(verbatim: borderWidthText)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+                Slider(value: borderWidth, in: InspectorStyle.borderWidthRange)
+                    .accessibilityLabel(text("宽度"))
+                    .accessibilityIdentifier("inspector.style.borderWidth")
+                ColorPicker(selection: borderColor, supportsOpacity: false) {
+                    Text(verbatim: text("颜色"))
+                }
+                .accessibilityIdentifier("inspector.style.borderColor")
+            }
+            Section(text(InspectorStyleSection.text.titleKey)) {
+                Picker(text("字体"), selection: fontDesign) {
+                    ForEach(fontDesignTags, id: \.self) { tag in
+                        Text(verbatim: fontDesignTitle(tag)).tag(tag)
+                    }
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("inspector.style.font")
+                HStack(spacing: 8) {
+                    textFlagToggle(.bold)
+                    textFlagToggle(.italic)
+                    textFlagToggle(.strikethrough)
+                    textFlagToggle(.underline)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                LabeledContent(text("大小")) {
+                    Text(verbatim: "\(Int(InspectorStyle.fontSizeValue(of: style)))pt")
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+                Slider(value: fontSize, in: InspectorStyle.fontSizeRange, step: InspectorStyle.fontSizeStep)
+                    .accessibilityLabel(text("大小"))
+                    .accessibilityIdentifier("inspector.style.fontSize")
+                ColorPicker(selection: textColor, supportsOpacity: false) {
+                    Text(verbatim: text("颜色"))
+                }
+                .accessibilityIdentifier("inspector.style.textColor")
+            }
+            Section(text(InspectorStyleSection.links.titleKey)) {
+                if locksAppearance {
+                    Text(verbatim: text(MarkdownModePolicy.reason(.relationship)))
+                } else if let nodeID {
+                    if linkedRelationships.isEmpty {
+                        Text(verbatim: text("还没有连到其他节点。"))
+                    } else {
+                        ForEach(linkedRelationships) { link in
+                            Button {
+                                onSelectRelationship(link.id)
+                            } label: {
+                                Text(verbatim: InspectorStyle.relationshipLine(
+                                    link,
+                                    seenFrom: nodeID,
+                                    document: document,
+                                    missingTopic: text("缺失的节点")
+                                ))
+                                .frame(maxWidth: .infinity, alignment: .leading)
                             }
+                            .buttonStyle(.borderless)
+                            .accessibilityIdentifier("inspector.link.\(link.id.uuidString)")
                         }
                     }
                 }
             }
-            .formStyle(.grouped)
-            .disabled(locksAppearance)
+        }
+        .formStyle(.grouped)
+        .disabled(locksAppearance)
+        .accessibilityIdentifier("inspector.style")
     }
 
-    private var shape: Binding<String> {
-        Binding(
-            get: { shapeName },
-            set: { name in
-                let radius: Double
-                let width: Double?
-                switch name {
-                case "rectangle": radius = 2; width = nil
-                case "capsule": radius = 40; width = nil
-                case "none": radius = 0; width = 0
-                default: radius = 8; width = nil
-                }
-                update { style in
-                    style.cornerRadius = radius
-                    if let width { style.borderWidth = width; style.borderStyle = "none" }
-                }
-            }
+    private var linkedRelationships: [TopicRelationship] {
+        guard let nodeID else { return [] }
+        return InspectorStyle.links(in: document, nodeID: nodeID)
+    }
+
+    private var fillStyleTags: [String] {
+        InspectorStyle.choiceTags(
+            known: InspectorFillStyle.allCases.map(\.rawValue),
+            current: InspectorStyle.fillStyleValue(of: style)
         )
     }
 
-    private var shapeName: String {
-        guard let radius = style?.cornerRadius else { return "rounded" }
-        if style?.borderStyle == "none" || style?.borderWidth == 0 { return "none" }
-        if radius >= 24 { return "capsule" }
-        if radius <= 3 { return "rectangle" }
-        return "rounded"
+    private var borderStyleTags: [String] {
+        InspectorStyle.choiceTags(
+            known: InspectorBorderStyle.allCases.map(\.rawValue),
+            current: InspectorStyle.borderStyleValue(of: style)
+        )
+    }
+
+    private var fontDesignTags: [String] {
+        InspectorStyle.choiceTags(
+            known: InspectorFontDesign.allCases.map(\.rawValue),
+            current: InspectorStyle.fontDesignValue(of: style)
+        )
+    }
+
+    private func fillStyleTitle(_ tag: String) -> String {
+        if let known = InspectorFillStyle(rawValue: tag) { return text(known.titleKey) }
+        return tag
+    }
+
+    private func borderStyleTitle(_ tag: String) -> String {
+        if let known = InspectorBorderStyle(rawValue: tag) { return text(known.titleKey) }
+        return tag
+    }
+
+    private func fontDesignTitle(_ tag: String) -> String {
+        if let known = InspectorFontDesign(rawValue: tag) { return text(known.titleKey) }
+        return tag
+    }
+
+    private var borderWidthText: String {
+        switch InspectorStyle.borderWidthReadout(of: style) {
+        case .none:
+            return text("无")
+        case .points(let width):
+            if width.rounded() == width { return "\(Int(width))" }
+            return String(format: "%.1f", width)
+        }
+    }
+
+    private func textFlagToggle(_ flag: InspectorTextFlag) -> some View {
+        Toggle(isOn: textFlag(flag)) {
+            flagLabel(flag)
+        }
+        .toggleStyle(.button)
+        .buttonBorderShape(.capsule)
+        .accessibilityLabel(text(flag.titleKey))
+        .accessibilityIdentifier(textFlagIdentifier(flag))
+    }
+
+    private func textFlagIdentifier(_ flag: InspectorTextFlag) -> String {
+        switch flag {
+        case .bold: "inspector.style.bold"
+        case .italic: "inspector.style.italic"
+        case .strikethrough: "inspector.style.strikethrough"
+        case .underline: "inspector.style.underline"
+        }
+    }
+
+    private func flagLabel(_ flag: InspectorTextFlag) -> Text {
+        let mark = Text(verbatim: flag.mark)
+        switch flag {
+        case .bold: return mark.bold()
+        case .italic: return mark.italic()
+        case .strikethrough: return mark.strikethrough()
+        case .underline: return mark.underline()
+        }
     }
 
     private func text(_ key: String) -> String {
         FlorettaL10n.string(key, locale: locale)
     }
 
-    /// Node text and relationship titles stay as stored. Only the missing-topic fallback is chrome.
-    private func relationshipLine(_ link: TopicRelationship, seenFrom id: UUID) -> String {
-        let otherID = link.sourceID == id ? link.targetID : link.sourceID
-        let name = document.node(otherID)?.text ?? text("缺失的节点")
-        if link.title.isEmpty { return name }
-        return "\(name) · \(link.title)"
+    private var shape: Binding<InspectorTopicShape> {
+        Binding(
+            get: { InspectorStyle.shape(of: style) },
+            set: { apply(.shape($0)) }
+        )
     }
 
     private var fillStyle: Binding<String> {
         Binding(
-            get: { style?.fillStyle ?? "solid" },
-            set: { value in update { $0.fillStyle = value } }
+            get: { InspectorStyle.fillStyleValue(of: style) },
+            set: { value in
+                guard let parsed = InspectorFillStyle(rawValue: value) else { return }
+                apply(.fillStyle(parsed))
+            }
         )
     }
 
     private var fillColor: Binding<Color> {
         Binding(
-            get: { StyleColor.color(hex: style?.fillHex ?? style?.colorHex ?? "#FFFFFF") },
-            set: { color in
-                guard !locksAppearance else { return }
-                let hex = StyleColor.hex(color)
-                guard let nodeID else { return }
-                _ = CanvasEditCommands.setFill(hex: hex, nodeID: nodeID, document: &document)
-            }
+            get: { StyleColor.color(hex: style?.fillHex ?? style?.colorHex ?? InspectorStyle.fallbackFillHex) },
+            set: { apply(.fillHex(StyleColor.hex($0))) }
         )
     }
 
     private var topicWidth: Binding<Double> {
         Binding(
-            get: { style?.topicWidth ?? 120 },
-            set: { value in update { $0.topicWidth = value } }
+            get: { InspectorStyle.topicWidthValue(of: style) },
+            set: { apply(.topicWidth($0)) }
         )
     }
 
     private var borderStyle: Binding<String> {
         Binding(
-            get: { style?.borderStyle ?? "solid" },
+            get: { InspectorStyle.borderStyleValue(of: style) },
             set: { value in
-                update {
-                    $0.borderStyle = value
-                    if value == "none" { $0.borderWidth = 0 }
-                }
+                guard let parsed = InspectorBorderStyle(rawValue: value) else { return }
+                apply(.borderStyle(parsed))
             }
         )
     }
 
     private var borderWidth: Binding<Double> {
         Binding(
-            get: { style?.borderWidth ?? 1.5 },
-            set: { value in update { $0.borderWidth = value; $0.borderStyle = value == 0 ? "none" : "solid" } }
+            get: { InspectorStyle.borderWidthValue(of: style) },
+            set: { apply(.borderWidth($0)) }
         )
     }
 
     private var borderColor: Binding<Color> {
         Binding(
-            get: { StyleColor.color(hex: style?.borderHex ?? "#000000") },
-            set: { color in update { $0.borderHex = StyleColor.hex(color) } }
+            get: { StyleColor.color(hex: style?.borderHex ?? InspectorStyle.fallbackColorHex) },
+            set: { apply(.borderHex(StyleColor.hex($0))) }
         )
     }
 
     private var fontDesign: Binding<String> {
         Binding(
-            get: { style?.fontDesign ?? "default" },
-            set: { value in update { $0.fontDesign = value } }
+            get: { InspectorStyle.fontDesignValue(of: style) },
+            set: { value in
+                guard let parsed = InspectorFontDesign(rawValue: value) else { return }
+                apply(.fontDesign(parsed))
+            }
         )
     }
 
     private var fontSize: Binding<Double> {
         Binding(
-            get: { style?.fontSize ?? 18 },
-            set: { value in update { $0.fontSize = value } }
+            get: { InspectorStyle.fontSizeValue(of: style) },
+            set: { apply(.fontSize($0)) }
         )
     }
 
     private var textColor: Binding<Color> {
         Binding(
-            get: { StyleColor.color(hex: style?.textHex ?? "#000000") },
-            set: { color in update { $0.textHex = StyleColor.hex(color) } }
+            get: { StyleColor.color(hex: style?.textHex ?? InspectorStyle.fallbackColorHex) },
+            set: { apply(.textHex(StyleColor.hex($0))) }
         )
     }
 
-    private func boolFlag(_ key: String) -> Binding<Bool> {
+    private func textFlag(_ flag: InspectorTextFlag) -> Binding<Bool> {
         Binding(
-            get: {
-                switch key {
-                case "bold": return style?.bold ?? false
-                case "italic": return style?.italic ?? false
-                case "strikethrough": return style?.strikethrough ?? false
-                case "underline": return style?.underline ?? false
-                default: return false
-                }
-            },
-            set: { value in
-                update { style in
-                    switch key {
-                    case "bold": style.bold = value
-                    case "italic": style.italic = value
-                    case "strikethrough": style.strikethrough = value
-                    case "underline": style.underline = value
-                    default: break
-                    }
-                }
-            }
+            get: { InspectorStyle.isOn(flag, style: style) },
+            set: { apply(.flag(flag, $0)) }
         )
     }
 
@@ -1608,13 +1680,14 @@ private struct StyleInspector: View {
         return document.node(nodeID)?.style
     }
 
-    private func update(_ body: (inout MindMapNodeStyle) -> Void) {
-        guard !locksAppearance, let nodeID else { return }
-        _ = document.mutateNode(nodeID) { node in
-            var style = node.style ?? MindMapNodeStyle(colorHex: "#000000")
-            body(&style)
-            node.style = style
-        }
+    private func apply(_ edit: InspectorStyleEdit) {
+        guard let nodeID else { return }
+        _ = InspectorStyle.apply(
+            edit,
+            nodeID: nodeID,
+            document: &document,
+            allowsAppearanceWrites: !locksAppearance
+        )
     }
 }
 

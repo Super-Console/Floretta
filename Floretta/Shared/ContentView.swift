@@ -142,13 +142,14 @@ struct ContentView: View {
     }
 
     private var homeChrome: HomeLibraryChrome {
+        // `UserInterfaceSizeClass` is not frozen. Compare the known cases;
+        // nil and any future case stay unspecified so an iPhone still uses the stack.
         let width: HomeWidthClass
-        switch horizontalSizeClass {
-        case .compact:
+        if horizontalSizeClass == .compact {
             width = .compact
-        case .regular:
+        } else if horizontalSizeClass == .regular {
             width = .regular
-        case nil:
+        } else {
             width = .unspecified
         }
         return HomeLibrary.chrome(

@@ -2,6 +2,51 @@ import FlorettaCore
 import XCTest
 
 final class FileAttachmentTests: XCTestCase {
+    func testNodeMediaInsertAcceptsCommonAudioAndVideoExtensions() {
+        for filename in ["voice.mp3", "voice.m4a", "voice.wav", "clip.mp4", "clip.mov"] {
+            XCTAssertTrue(NodeMediaInsertRoute.accepts(filename: filename), filename)
+        }
+        XCTAssertFalse(NodeMediaInsertRoute.accepts(filename: "notes.pdf"))
+        XCTAssertEqual(NodeMediaKind.classify(filename: "MOVIE.MOV"), .video)
+        XCTAssertEqual(NodeMediaKind.classify(filename: "voice.m4a"), .audio)
+    }
+
+    func testNodeMediaInsertProposalUsesOrdinaryAttachmentBudget() {
+        let proposal = NodeMediaInsertRoute.proposal(
+            filename: "clip.mp4",
+            byteCount: 123,
+            currentDocumentByteCount: 456
+        )
+        XCTAssertEqual(proposal?.projectedDocumentByteCount, 579)
+        XCTAssertNil(NodeMediaInsertRoute.proposal(
+            filename: "cover.png",
+            byteCount: 123,
+            currentDocumentByteCount: 456
+        ))
+    }
+
+    func testMissingAndUnreadableMediaUseNonfatalFallbackStates() {
+        XCTAssertEqual(MediaFileAvailability.state(fileExists: false, isReadable: false), .missing)
+        XCTAssertEqual(MediaFileAvailability.state(fileExists: true, isReadable: false), .unreadable)
+        XCTAssertEqual(MediaFileAvailability.state(fileExists: true, isReadable: true), .available)
+    }
+
+    @MainActor
+    func testPlaybackRegistryStopsPreviousPlayerAndReleasesOnlyCurrentLease() {
+        let registry = MediaPlaybackRegistry()
+        var firstStops = 0
+        var secondStops = 0
+        let first = registry.acquire { firstStops += 1 }
+        let second = registry.acquire { secondStops += 1 }
+        XCTAssertEqual(firstStops, 1)
+        XCTAssertTrue(registry.hasActivePlayer)
+        registry.release(first)
+        XCTAssertTrue(registry.hasActivePlayer)
+        registry.release(second)
+        XCTAssertEqual(secondStops, 1)
+        XCTAssertFalse(registry.hasActivePlayer)
+    }
+
     private let stamped = Date(timeIntervalSince1970: 1_762_646_400)
 
     func testAnyFileIsAcceptedAndImagesStayOnTheImageRoute() {

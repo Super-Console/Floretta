@@ -800,7 +800,9 @@ public struct LayoutEngine: Sendable {
             caption: node.attachmentSizeLabel ?? "",
             isFree: isFree,
             thumbnailHashes: node.attachments.compactMap { attachment in
-                AttachmentKind.isImageExtension(attachment.fileExtension) ? attachment.sha256 : nil
+                AttachmentKind.isImageExtension(attachment.fileExtension)
+                    || NodeMediaKind.classify(filename: attachment.filename) == .video
+                    ? attachment.sha256 : nil
             },
             fileBadges: FileBadgeLayout.badges(
                 attachments: node.attachments,

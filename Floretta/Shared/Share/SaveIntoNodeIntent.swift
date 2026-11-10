@@ -5,9 +5,17 @@ import UniformTypeIdentifiers
 
 /// Shortcuts action. Safari links, text, and photo files all land on one named topic.
 struct SaveIntoNodeIntent: AppIntent {
-    static var title: LocalizedStringResource = "存入节点"
-    static var description = IntentDescription("把链接、文字或图片存进指定主题。")
-    static var openAppWhenRun = false
+    static var title: LocalizedStringResource {
+        "存入节点"
+    }
+
+    static var description: IntentDescription {
+        IntentDescription("把链接、文字或图片存进指定主题。")
+    }
+
+    static var openAppWhenRun: Bool {
+        false
+    }
 
     @Parameter(title: "导图")
     var document: IntentFile

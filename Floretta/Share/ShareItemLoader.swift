@@ -9,6 +9,9 @@ struct ShareLoadedItem: Equatable, Sendable {
     var fileURL: URL?
 }
 
+/// Main-actor isolated because `NSExtensionItem` is not `Sendable`.
+/// A nonisolated async `load` is `@concurrent` and would have to send the items off the main actor.
+@MainActor
 enum ShareItemLoader {
     static func load(_ items: [NSExtensionItem]) async throws -> ShareLoadedItem {
         let providers = items.flatMap { $0.attachments ?? [] }

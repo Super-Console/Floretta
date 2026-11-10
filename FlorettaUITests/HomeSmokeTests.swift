@@ -49,7 +49,9 @@ final class HomeSmokeTests: XCTestCase {
         app.buttons["home.newMap"].tap()
         let back = app.buttons["basicChain.back"]
         XCTAssertTrue(back.waitForExistence(timeout: 8), "新建导图没有进入画布")
-        XCTAssertTrue(app.buttons["未命名"].waitForExistence(timeout: 5))
+        let documentTitle = app.buttons["document.title"]
+        XCTAssertTrue(documentTitle.waitForExistence(timeout: 5))
+        XCTAssertEqual(documentTitle.label, "未命名")
         back.tap()
         XCTAssertTrue(homeTitle(app).waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["home.newMap"].waitForExistence(timeout: 5))

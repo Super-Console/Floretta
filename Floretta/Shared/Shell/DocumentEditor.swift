@@ -78,7 +78,10 @@ struct DocumentEditor: View {
                                 Text(documentTitle)
                                     .lineLimit(1)
                             }
-                            .explained("为这份导图重新命名")
+                            .help("为这份导图重新命名")
+                            .accessibilityLabel(documentTitle)
+                            .accessibilityHint("为这份导图重新命名")
+                            .accessibilityIdentifier("document.title")
                         }
                     }
                     ToolbarItemGroup(placement: .principal) {

@@ -1,6 +1,31 @@
 import FlorettaCore
 import Foundation
 
+enum AppLanguage: String, CaseIterable, Equatable, Sendable {
+    case system
+    case simplifiedChinese
+    case english
+
+    static let launchArgument = "-FlorettaLanguage"
+
+    /// `-FlorettaLanguage en`, `zh-Hans`, or `system`.
+    static func fromLaunchArguments(_ arguments: [String]) -> AppLanguage? {
+        guard let index = arguments.firstIndex(of: launchArgument), index + 1 < arguments.count else {
+            return nil
+        }
+        switch arguments[index + 1] {
+        case "en", "english":
+            return .english
+        case "zh-Hans", "zh", "zh_CN", "simplifiedChinese":
+            return .simplifiedChinese
+        case "system":
+            return .system
+        default:
+            return nil
+        }
+    }
+}
+
 /// Chrome strings for the in-app language setting.
 ///
 /// Keys are the Simplified Chinese source strings. `Localizable.xcstrings` is the
@@ -81,6 +106,7 @@ enum FlorettaL10n {
         "无法保存": "Couldn't Save",
         "无法恢复": "Couldn't Restore",
         "无法预览": "Couldn't Preview",
+        "无法生成缩略图。": "Couldn't make a thumbnail.",
         "保存未完成": "Save Didn't Finish",
         "放入附件？": "Add Attachment?",
         "放入": "Add",

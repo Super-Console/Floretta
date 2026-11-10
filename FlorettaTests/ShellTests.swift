@@ -910,8 +910,10 @@ final class ShellTests: XCTestCase {
         }
         let project = try String(contentsOf: root.appendingPathComponent("Floretta.xcodeproj/project.pbxproj"), encoding: .utf8)
         // Each target mentions the file twice: the build-file record and the phase entry.
-        XCTAssertEqual(project.components(separatedBy: "Localizable.xcstrings in Resources").count - 1, 4)
-        XCTAssertEqual(project.components(separatedBy: "FlorettaL10n.swift in Sources").count - 1, 6)
+        // The catalog is in both apps and both Quick Look appexes (4 × 2 = 8).
+        // The runtime table is in those four plus FlorettaTests (5 × 2 = 10).
+        XCTAssertEqual(project.components(separatedBy: "Localizable.xcstrings in Resources").count - 1, 8)
+        XCTAssertEqual(project.components(separatedBy: "FlorettaL10n.swift in Sources").count - 1, 10)
         XCTAssertTrue(project.contains("\"zh-Hans\""))
     }
 

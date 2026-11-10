@@ -3,7 +3,7 @@
 两条路径，不要混：
 
 - **文档**是 `FlorettaMarkdownDocumentCodec`：打开 / 保存 `.md`。规则在 [MD-AS-DOCUMENT.md](./MD-AS-DOCUMENT.md)。这一轮没有改这个 codec。结构只到层级、文字、备注、单一链接和 front matter，是定死的边界，不是漏做。
-- **纯标题**是 `FlorettaMarkdown`：「导出为…」里的可选预设。主层级是 `#` 的深度。认不出的行直接失败，不把多余内容原样留下。
+- **纯标题**是 `FlorettaMarkdown`：「导出为…」里的可选预设。写出时主层级是 `#` 的深度。导入同时读标题和列表：列表按缩进挂到当前标题下，没有标题时自己成树；再导出仍是标题，层级、文字、备注和单一链接往返。认不出的行直接失败，不把多余内容原样留下。
 
 两边都不把颜色、附件、关系线、坐标、折叠或 UUID 写进文件。禁止用 HTML 注释或旁路文件假装保真。
 
@@ -54,7 +54,9 @@
 | `heading text` | mapped | 标题文字是 text |
 | `heading note` | mapped | > 引用是 note |
 | `heading single link` | mapped | 整段标题恰好一个 [text](url) 时写入 link |
-| `heading unsupported line` | gap | 不是标题也不是引用就失败，不把多余行原样留下 |
+| `heading list` | mapped | 标题下或单独的 - * + 与有序标记按缩进成层级；写出仍是标题 |
+| `heading list marker` | gap | 原来的列表标记不写回 |
+| `heading unsupported line` | gap | 不是标题、列表或引用就失败，不把多余行原样留下 |
 | `heading front matter` | gap | 纯标题预设不读 front matter；那是文档 codec 的事 |
 | `heading id style position` | gap | 不写 UUID、颜色、坐标、左右侧、折叠 |
 | `heading freeNodes` | gap | 自由节点不写 |

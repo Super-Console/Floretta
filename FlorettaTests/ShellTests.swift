@@ -263,6 +263,23 @@ final class ShellTests: XCTestCase {
         XCTAssertThrowsError(try DocumentOpener.open(data: Data("nope".utf8), filename: "map.txt"))
     }
 
+    func testMarkdownListOutlineOpensAsAMap() throws {
+        let text = """
+        # 根
+        - 甲
+          - 孙
+        - 乙
+        """
+        let opened = try DocumentOpener.open(data: Data(text.utf8), filename: "outline.md")
+        XCTAssertEqual(opened.title, "根")
+        XCTAssertEqual(opened.roots.map(\.text), ["根"])
+        XCTAssertEqual(opened.roots[0].children.map(\.text), ["甲", "乙"])
+        XCTAssertEqual(opened.roots[0].children[0].children.map(\.text), ["孙"])
+        XCTAssertFalse(opened.roots[0].isMarkdownSectionHeading)
+        XCTAssertNil(opened.markdownFrontMatter)
+        XCTAssertThrowsError(try DocumentOpener.open(data: Data("这不是大纲".utf8), filename: "outline.markdown"))
+    }
+
     func testMapFilesAreNotImportedAsMarkdown() throws {
         let map = MindMapDocument(title: "图", roots: [MindMapNode(text: "根", children: [MindMapNode(text: "子")])])
         let mm = try DocumentOpener.open(data: try FlorettaMMCodec.export(map), filename: "notes.md")

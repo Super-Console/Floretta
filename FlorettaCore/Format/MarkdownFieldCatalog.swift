@@ -33,6 +33,7 @@ public struct MarkdownFixtureClass: Equatable, Sendable {
 /// Field comparison for Markdown.
 /// Document rows are `FlorettaMarkdownDocumentCodec` (open/save `.md`).
 /// Heading rows are `FlorettaMarkdown`, the optional 「导出为…」preset.
+/// Import also reads lists into that same tree. Export still writes headings only.
 /// `docs/MARKDOWN-FIELDS.md` mirrors these rows.
 /// The document codec's structure-only rules are intentional; this catalog does not widen them.
 public enum MarkdownFieldCatalog {
@@ -74,7 +75,9 @@ public enum MarkdownFieldCatalog {
         MarkdownFieldRow(field: "heading text", disposition: .mapped, detail: "标题文字是 text"),
         MarkdownFieldRow(field: "heading note", disposition: .mapped, detail: "> 引用是 note"),
         MarkdownFieldRow(field: "heading single link", disposition: .mapped, detail: "整段标题恰好一个 [text](url) 时写入 link"),
-        MarkdownFieldRow(field: "heading unsupported line", disposition: .gap, detail: "不是标题也不是引用就失败，不把多余行原样留下"),
+        MarkdownFieldRow(field: "heading list", disposition: .mapped, detail: "标题下或单独的 - * + 与有序标记按缩进成层级；写出仍是标题"),
+        MarkdownFieldRow(field: "heading list marker", disposition: .gap, detail: "原来的列表标记不写回"),
+        MarkdownFieldRow(field: "heading unsupported line", disposition: .gap, detail: "不是标题、列表或引用就失败，不把多余行原样留下"),
         MarkdownFieldRow(field: "heading front matter", disposition: .gap, detail: "纯标题预设不读 front matter；那是文档 codec 的事"),
         MarkdownFieldRow(field: "heading id style position", disposition: .gap, detail: "不写 UUID、颜色、坐标、左右侧、折叠"),
         MarkdownFieldRow(field: "heading freeNodes", disposition: .gap, detail: "自由节点不写"),

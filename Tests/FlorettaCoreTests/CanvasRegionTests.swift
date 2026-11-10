@@ -265,7 +265,9 @@ final class CanvasRegionTests: XCTestCase {
         XCTAssertTrue(toolbar.contains("accessibilityIdentifier(\"region.circle\")"))
         XCTAssertTrue(canvas.contains("updateRegionDrag"))
         XCTAssertTrue(canvas.contains("DragGesture(minimumDistance: 2)"))
-        XCTAssertFalse(canvas.contains("TimelineView"))
+        // Petal expand (#84) uses a paused TimelineView for playback. Region
+        // drag and the selection toolbar must not hitch a ride on that clock.
+        XCTAssertFalse(toolbar.contains("TimelineView"))
 
         let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         XCTAssertTrue(editor.contains("accessibilityIdentifier(\"region.width\")"))

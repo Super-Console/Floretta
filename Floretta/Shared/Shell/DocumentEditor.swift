@@ -156,9 +156,19 @@ struct DocumentEditor: View {
                             .appleGlassChrome(.toolbarFloatingButton)
                     }
                     #if os(iOS)
-                    // confirmationAction can still disappear once the trailing group
-                    // includes a percent-width zoom chip. topBarTrailing plus an icon
-                    // zoom control keeps editor.more on a compact phone.
+                    // A compact inspector is a sheet. After it is dismissed, the
+                    // user needs a one-tap way back in; the more menu can be
+                    // absorbed by the system overflow and is not always findable.
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            showInspector = true
+                        } label: {
+                            Image(systemName: "paintbrush")
+                        }
+                        .accessibilityLabel(text("样式"))
+                        .help(Text(verbatim: text("打开样式检查器，修改选中节点的外观")))
+                        .accessibilityIdentifier("inspector.open")
+                    }
                     ToolbarItem(placement: .topBarTrailing) {
                         toolbarControl(.more)
                     }

@@ -169,13 +169,15 @@ final class InspectorTabPinUITests: XCTestCase {
            marker(app, "选择一个主题").exists {
             return
         }
-        let more = app.descendants(matching: .any)["editor.more"]
-        let moreByTitle = app.descendants(matching: .any)["更多"]
-        let found = more.waitForExistence(timeout: 5) || moreByTitle.waitForExistence(timeout: 2)
-        XCTAssertTrue(found, "更多菜单没有出现")
-        (more.exists ? more : moreByTitle).tap()
-        let open = app.buttons["inspector.open"]
-        XCTAssertTrue(open.waitForExistence(timeout: 5), "打不开检查器")
+        let open = app.descendants(matching: .any)["inspector.open"]
+        if !open.waitForExistence(timeout: 5) {
+            let tree = app.debugDescription
+            try? tree.write(toFile: "/tmp/floretta-uitest-tree.txt", atomically: true, encoding: String.Encoding.utf8)
+            let more = app.descendants(matching: .any)["editor.more"]
+            XCTAssertTrue(more.waitForExistence(timeout: 2), "打不开检查器（更多菜单也没有出现）")
+            more.tap()
+            XCTAssertTrue(open.waitForExistence(timeout: 5), "打不开检查器")
+        }
         open.tap()
     }
 

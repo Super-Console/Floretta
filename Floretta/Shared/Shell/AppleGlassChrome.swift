@@ -23,6 +23,12 @@ import AppKit
 /// 4. On iOS before Liquid Glass, the system control stays as it is. This
 ///    file does not invent a blur, a frosted fill, or a shadow.
 ///
+/// On iOS, `toolbarFloatingButton` is a no-op. Those controls are already
+/// system toolbar items, which supply official glass and a circular hit
+/// target. Wrapping them in `GlassEffectContainer` turns the bar into custom
+/// content: the back button's accessibility frame shrinks to the chevron
+/// (~20pt), and `editor.more` can drop out of the bar.
+///
 /// Contrast. Chrome labels and SF Symbols use `.foregroundStyle(.primary)`.
 /// In the light appearance that ink is dark. In the dark appearance it is
 /// light. The same call is used for both. This file does not branch on the
@@ -40,6 +46,7 @@ enum AppleGlassChromeRole: String, Equatable {
     /// Capsule bars, including the bottom sheet capsules.
     case bottomBarCapsule
     /// Toolbar buttons that float over the canvas. Not the back button.
+    /// On iOS this is a no-op; the system toolbar item already has official glass.
     case toolbarFloatingButton
 }
 
@@ -105,7 +112,11 @@ private struct AppleGlassChromePlate<Content: View>: View {
             hosted(content)
         }
         #else
-        hosted(content)
+        if role == .toolbarFloatingButton {
+            content
+        } else {
+            hosted(content)
+        }
         #endif
     }
 

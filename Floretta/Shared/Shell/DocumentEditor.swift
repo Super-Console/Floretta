@@ -114,6 +114,9 @@ struct DocumentEditor: View {
                         .accessibilityLabel(text("返回"))
                         .accessibilityIdentifier("basicChain.back")
                         .help(Text(verbatim: text("返回导图列表")))
+                        .frame(width: 44, height: 44)
+                        .contentShape(Circle())
+                        .appleGlassChrome(.iconButton)
                     }
                     ToolbarSpacer(.fixed, placement: .cancellationAction)
                     ToolbarItem(placement: .cancellationAction) {
@@ -153,10 +156,20 @@ struct DocumentEditor: View {
                             .appleGlassChrome(.toolbarFloatingButton)
                     }
                     #if os(iOS)
-                    // A primary-action group collapses into TopOverflowBarButtonItem on a
-                    // compact phone, which hides editor.more. confirmationAction stays
-                    // on screen as its own button.
-                    ToolbarItem(placement: .confirmationAction) {
+                    // A compact inspector is a sheet. After it is dismissed, the
+                    // user needs a one-tap way back in; the more menu can be
+                    // absorbed by the system overflow and is not always findable.
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            showInspector = true
+                        } label: {
+                            Image(systemName: "paintbrush")
+                        }
+                        .accessibilityLabel(text("样式"))
+                        .help(Text(verbatim: text("打开样式检查器，修改选中节点的外观")))
+                        .accessibilityIdentifier("inspector.open")
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
                         toolbarControl(.more)
                     }
                     #endif
@@ -870,6 +883,11 @@ struct DocumentEditor: View {
             commandMenuButton(.fit) { perform(.fit) }
                 .keyboardShortcut("0", modifiers: .command)
         } label: {
+            #if os(iOS)
+            // The bottom status bar already hosts the zoom percent. An icon
+            // here leaves room for editor.more on a compact phone.
+            commandLabel(.zoom, surface: .toolbar)
+            #else
             switch EditorToolbarCatalog.command(.zoom).toolbarFace {
             case .zoomPercent:
                 Text("\(camera.chrome.zoomPercent)%")
@@ -877,6 +895,7 @@ struct DocumentEditor: View {
             case .symbol:
                 commandLabel(.zoom, surface: .toolbar)
             }
+            #endif
         }
         .explained(EditorToolbarCatalog.command(.zoom).help)
         .appleGlassChrome(.toolbarFloatingButton)
@@ -924,6 +943,7 @@ struct DocumentEditor: View {
             }
         } label: {
             commandLabel(.more, surface: .toolbar)
+                .accessibilityIdentifier("editor.more")
         }
         .accessibilityLabel(text(EditorToolbarCatalog.command(.more).title))
         .accessibilityIdentifier("editor.more")
@@ -1084,16 +1104,22 @@ struct DocumentEditor: View {
                 // Taller than the segmented control, so the header's center is this
                 // handle. A downward drag here dismisses the compact sheet. The same
                 // drag on the segments selects 演说 instead, because that control
-                // takes the touch on contact.
-                Capsule()
-                    .fill(.secondary)
-                    .frame(width: 36, height: 5)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 96)
-                    .contentShape(Rectangle())
-                    .accessibilityLabel("关闭检查器")
-                    .highPriorityGesture(sheetDismissDrag)
-
+                // takes the touch on contact. A tap also dismisses, because a UI
+                // test swipeDown often misses the DragGesture.
+                Button {
+                    showInspector = false
+                } label: {
+                    Capsule()
+                        .fill(.secondary)
+                        .frame(width: 36, height: 5)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 96)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("关闭检查器")
+                .accessibilityIdentifier("inspector.dismiss")
+                .highPriorityGesture(sheetDismissDrag)
             }
             inspectorTabPicker
                 .padding(.horizontal)
@@ -1992,6 +2018,7 @@ private struct StyleInspector: View {
                 Text(verbatim: text(locksAppearance ? MarkdownModePolicy.reason(.nodeColor) : "样式会写进导图文件。"))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("inspector.empty")
         }
     }

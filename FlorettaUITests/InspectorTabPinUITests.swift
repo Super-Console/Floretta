@@ -154,7 +154,12 @@ final class InspectorTabPinUITests: XCTestCase {
             }
         }
 
-        app.descendants(matching: .any)["inspector.header"].swipeDown()
+        let dismiss = app.descendants(matching: .any)["inspector.dismiss"]
+        if dismiss.waitForExistence(timeout: 1) {
+            dismiss.tap()
+        } else {
+            app.descendants(matching: .any)["inspector.header"].swipeDown()
+        }
         for offset in [CGVector(dx: 0.07, dy: 0.16), CGVector(dx: 0.5, dy: 0.12)] {
             guard canvas.isHittable else { break }
             canvas.coordinate(withNormalizedOffset: offset).tap()
@@ -164,11 +169,15 @@ final class InspectorTabPinUITests: XCTestCase {
            marker(app, "选择一个主题").exists {
             return
         }
-        let more = app.buttons["editor.more"]
-        XCTAssertTrue(more.waitForExistence(timeout: 5), "更多菜单没有出现")
-        more.tap()
-        let open = app.buttons["inspector.open"]
-        XCTAssertTrue(open.waitForExistence(timeout: 5), "打不开检查器")
+        let open = app.descendants(matching: .any)["inspector.open"]
+        if !open.waitForExistence(timeout: 5) {
+            let tree = app.debugDescription
+            try? tree.write(toFile: "/tmp/floretta-uitest-tree.txt", atomically: true, encoding: String.Encoding.utf8)
+            let more = app.descendants(matching: .any)["editor.more"]
+            XCTAssertTrue(more.waitForExistence(timeout: 2), "打不开检查器（更多菜单也没有出现）")
+            more.tap()
+            XCTAssertTrue(open.waitForExistence(timeout: 5), "打不开检查器")
+        }
         open.tap()
     }
 

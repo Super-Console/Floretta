@@ -41,6 +41,7 @@ final class AppleGlassChromeContractTests: XCTestCase {
         let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
         let plate = try slice(glass, from: "var body: some View", until: "private func hosted")
         XCTAssertTrue(plate.contains("role == .inspectorPanel"))
+        XCTAssertTrue(plate.contains("role == .toolbarFloatingButton"))
         XCTAssertTrue(plate.contains("content"))
         XCTAssertTrue(glass.contains("inspector.panel.glass"))
         XCTAssertFalse(glass.contains("struct AppleGlassPanel"))
@@ -65,7 +66,7 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertTrue(tabs.contains("case .presentation: \"演说\""))
         XCTAssertTrue(tabs.contains("case .map: \"导图\""))
 
-        let empty = try slice(editor, from: "systemName: \"paintbrush\"", until: "description:")
+        let empty = try slice(editor, from: "text(\"选择一个主题\")", until: "accessibilityIdentifier(\"inspector.empty\")")
         XCTAssertTrue(empty.contains(".appleGlassChrome(.iconButton)"))
         XCTAssertTrue(empty.contains("inspector.empty.brush"))
 
@@ -116,7 +117,10 @@ final class AppleGlassChromeContractTests: XCTestCase {
         )
         XCTAssertTrue(leading.contains("chevron.backward"))
         XCTAssertTrue(leading.contains("basicChain.back"))
-        XCTAssertFalse(leading.contains("appleGlassChrome"))
+        XCTAssertTrue(leading.contains(".frame(width: 44, height: 44)"))
+        XCTAssertTrue(leading.contains("contentShape(Circle())"))
+        XCTAssertTrue(leading.contains(".appleGlassChrome(.iconButton)"))
+        XCTAssertFalse(leading.contains("ultraThinMaterial"))
     }
 
     func testInspectorFormsKeepNativeControls() throws {

@@ -49,7 +49,7 @@ final class EditorStatusBarTests: XCTestCase {
         )
 
         XCTAssertTrue(inset.contains("TopicStatusBar("))
-        XCTAssertTrue(inset.contains("topicCensus.census(of: session.document)"))
+        XCTAssertTrue(inset.contains("topicCensus.census(of: session.editingDocument)"))
         XCTAssertTrue(inset.contains("EditorStatusControls("))
         XCTAssertTrue(inset.contains("accessibilityIdentifier(\"statusBar\")"))
         XCTAssertTrue(editor.contains("session.zen.chrome.showsStatusBar"))

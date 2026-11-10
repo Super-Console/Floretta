@@ -124,7 +124,7 @@
 		C31000000000000000000034 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F31000000000000000000006 /* ShareViewController.swift */; };
 		C31000000000000000000035 /* ApplePlatformPorts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000000000000000000001 /* ApplePlatformPorts.swift */; };
 		C31000000000000000000041 /* FlorettaShare-iOS.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F3100000000000000000000B /* FlorettaShare-iOS.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		C31000000000000000000042 /* FlorettaShare-macOS.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F3100000000000000000000C /* FlorettaShare-macOS.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C31000000000000000000042 /* FlorettaShare-macOS.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F3100000000000000000000C /* FlorettaShare-macOS.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		C31000000000000000000051 /* FlorettaCore in Frameworks */ = {isa = PBXBuildFile; productRef = D81000000000000000000006 /* FlorettaCore */; };
 		C31000000000000000000052 /* FlorettaCore in Frameworks */ = {isa = PBXBuildFile; productRef = D81000000000000000000007 /* FlorettaCore */; };
 /* End PBXBuildFile section */
@@ -1331,10 +1331,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Manual;
-				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 8;
+				DEVELOPMENT_TEAM = JY5U4D6JD3;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Floretta/Share/Info-macOS.plist";

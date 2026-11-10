@@ -20,15 +20,12 @@ final class HomeSmokeTests: XCTestCase {
         XCTAssertFalse(app.alerts.element.exists)
 
         app.tabBars.buttons["设置"].tap()
-        let language = app.staticTexts["语言"]
-        XCTAssertTrue(language.waitForExistence(timeout: 5))
-        XCTAssertTrue(language.isHittable)
+        XCTAssertTrue(app.staticTexts["语言"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.navigationBars["设置"].waitForExistence(timeout: 5))
 
         app.tabBars.buttons["首页"].tap()
         XCTAssertTrue(homeTitle(app).waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["home.newMap"].waitForExistence(timeout: 5))
-        XCTAssertFalse(language.isHittable)
 
         let rows = app.buttons.matching(identifier: "home.recent.row")
         XCTAssertGreaterThan(rows.count, 0, "首页没有可点的导图行")

@@ -619,6 +619,19 @@ public struct MindMapKeyboardSession {
         return true
     }
 
+    /// Drops edit undo and redo. A snapshot rollback replaces the whole document.
+    /// Those stacks cannot represent that, and undoing them would restore the
+    /// pre-rollback map in memory only. The previous map stays in the sidecar.
+    public mutating func discardEditHistory() {
+        undoStack.removeAll()
+        redoStack.removeAll()
+        edit = nil
+        editOrigin = nil
+        pendingChange = nil
+        mode = .command
+        isComposing = false
+    }
+
     private mutating func record(_ document: MindMapDocument) {
         undoStack.append(capture(document))
         redoStack.removeAll()

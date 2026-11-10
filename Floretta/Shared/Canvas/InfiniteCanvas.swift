@@ -3,6 +3,8 @@ import Observation
 import SwiftUI
 #if os(macOS)
 import AppKit
+#elseif os(iOS)
+import UIKit
 #endif
 
 struct InfiniteCanvas: View {
@@ -42,9 +44,7 @@ struct InfiniteCanvas: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                Rectangle()
-                    .fill(.background)
-                    .contentShape(Rectangle())
+                canvasBackdrop
                 Canvas { context, size in
                     draw(in: context, size: size)
                 }
@@ -918,20 +918,15 @@ struct InfiniteCanvas: View {
     }
 
     private func stroke(_ link: LinkCurve, straight: Bool, in context: GraphicsContext) {
-        var path = Path()
-        let start = camera.viewport.viewPoint(fromCanvas: link.start)
-        let end = camera.viewport.viewPoint(fromCanvas: link.end)
-        path.move(to: start)
-        if straight {
-            path.addLine(to: end)
-        } else {
-            path.addCurve(
-                to: end,
-                control1: camera.viewport.viewPoint(fromCanvas: link.control1),
-                control2: camera.viewport.viewPoint(fromCanvas: link.control2)
-            )
+        let drawn = ThemeCurvePath.make(link: link, straight: straight) { point in
+            camera.viewport.viewPoint(fromCanvas: point)
         }
-        context.stroke(path, with: .color(color(link.color)), lineWidth: link.lineWidth)
+        let ink = color(link.color)
+        if drawn.tapered {
+            context.fill(drawn.path, with: .color(ink))
+        } else {
+            context.stroke(drawn.path, with: .color(ink), lineWidth: link.lineWidth)
+        }
     }
 
     private func stroke(_ line: RelationshipLine, straight: Bool, selected: Bool, in context: GraphicsContext) {
@@ -1135,6 +1130,7 @@ struct InfiniteCanvas: View {
             textRect.size.height = max(0, min(textRect.maxY, tagY - 2) - textRect.minY)
         }
         let pointSize = CanvasTextScale.onScreenPointSize(fontSize: node.fontSize, scale: scale)
+        textRect = excludingChildBadge(textRect, node: node, scale: scale)
         if CanvasTextLOD.level(onScreenPointSize: pointSize).drawsTitle, textRect.height > 1, textRect.width > 1 {
             let text = styledText(node, pointSize: pointSize)
             var textLayer = layer
@@ -1235,7 +1231,7 @@ struct InfiniteCanvas: View {
             fileBadges: node.fileBadges
         )
         var text = Text(shown)
-            .font(.system(size: pointSize, design: fontDesign(node.fontDesign)))
+            .font(FlorettaTitleFont.font(design: node.fontDesign, size: pointSize))
             .foregroundStyle(color(node.textColor))
         if node.bold { text = text.bold() }
         if node.italic { text = text.italic() }
@@ -1244,12 +1240,31 @@ struct InfiniteCanvas: View {
         return text
     }
 
-    private func fontDesign(_ name: String) -> Font.Design {
-        switch name {
-        case "serif": return .serif
-        case "rounded": return .rounded
-        case "monospaced": return .monospaced
-        default: return .default
+    private func excludingChildBadge(_ textRect: CGRect, node: NodeFrame, scale: CGFloat) -> CGRect {
+        let badge = node.childBadgeInset * scale
+        guard badge > 0, textRect.width > 0 else { return textRect }
+        var rect = textRect
+        if node.childBadgeOnMinX {
+            rect.origin.x += badge
+        }
+        rect.size.width = max(0, rect.width - badge)
+        return rect
+    }
+
+    private var themeAppearance: LayoutAppearance {
+        MapThemeCatalog.appearance(themeID: document.themeID, scheme: branchScheme, fallback: .standard)
+    }
+
+    @ViewBuilder
+    private var canvasBackdrop: some View {
+        if let paper = themeAppearance.canvasBackground {
+            Rectangle()
+                .fill(color(paper))
+                .contentShape(Rectangle())
+        } else {
+            Rectangle()
+                .fill(.background)
+                .contentShape(Rectangle())
         }
     }
 
@@ -1271,6 +1286,94 @@ struct InfiniteCanvas: View {
         )
     }
 
+}
+
+/// The hierarchy curve already stored on the frame.
+/// A taper fills the outline of that cubic. A constant width strokes it.
+enum ThemeCurvePath {
+    static func make(link: LinkCurve, straight: Bool, map: (CGPoint) -> CGPoint) -> (path: Path, tapered: Bool) {
+        if !straight, link.isTapered {
+            let placed = LinkCurve(
+                start: map(link.start),
+                control1: map(link.control1),
+                control2: map(link.control2),
+                end: map(link.end),
+                lineWidth: link.lineWidth,
+                endWidth: link.endWidth,
+                color: link.color
+            )
+            var path = Path()
+            let outline = placed.taperedOutline()
+            guard let first = outline.first else { return (path, true) }
+            path.move(to: first)
+            for point in outline.dropFirst() {
+                path.addLine(to: point)
+            }
+            path.closeSubpath()
+            return (path, true)
+        }
+        var path = Path()
+        path.move(to: map(link.start))
+        if straight {
+            path.addLine(to: map(link.end))
+        } else {
+            path.addCurve(
+                to: map(link.end),
+                control1: map(link.control1),
+                control2: map(link.control2)
+            )
+        }
+        return (path, false)
+    }
+}
+
+/// Root serif is New York through the system serif design. Georgia is the named face
+/// when that design cannot be built. Every other design stays on the system font.
+enum FlorettaTitleFont {
+    static func font(design: String, size: CGFloat) -> Font {
+        switch design {
+        case "serif":
+            return serif(size: size)
+        case "rounded":
+            return .system(size: size, design: .rounded)
+        case "monospaced":
+            return .system(size: size, design: .monospaced)
+        default:
+            return .system(size: size, design: .default)
+        }
+    }
+
+    private static func serif(size: CGFloat) -> Font {
+        let point = max(size, 1)
+        #if os(macOS)
+        if let font = newYork(size: point, base: NSFont.systemFont(ofSize: point)) {
+            return Font(font)
+        }
+        if let georgia = NSFont(name: "Georgia", size: point) {
+            return Font(georgia)
+        }
+        #else
+        if let font = newYork(size: point, base: UIFont.systemFont(ofSize: point)) {
+            return Font(font)
+        }
+        if let georgia = UIFont(name: "Georgia", size: point) {
+            return Font(georgia)
+        }
+        #endif
+        return .system(size: point, design: .serif)
+    }
+
+    #if os(macOS)
+    private static func newYork(size: CGFloat, base: NSFont) -> NSFont? {
+        guard let descriptor = base.fontDescriptor.withDesign(.serif) else { return nil }
+        return NSFont(descriptor: descriptor, size: size)
+    }
+    #else
+    private static func newYork(size: CGFloat, base: UIFont) -> UIFont? {
+        guard let descriptor = base.fontDescriptor.withDesign(.serif) else { return nil }
+        return UIFont(descriptor: descriptor, size: size)
+    }
+    #endif
 }
 
 /// Taps that land on the system text field must not commit or close it.

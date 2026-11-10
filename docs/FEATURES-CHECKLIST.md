@@ -56,6 +56,7 @@
 - [x] C4 概要 + 边界（选区生成概要节点；边界视觉圈定；PR #51 合入 main `37a97aa`，tip `571746f`；Censor 通过；Pro 双验绿）
 - [x] C5 标签 / 标记（优先级、进度、旗帜）+ 按标签筛选（PR #53 合入 main `fd97255`，tip `942f46b`；Censor 通过；Pro 双验绿，macOS 258/0 含 `TagFilterTests`）
 - [x] C6 分支配色 / 主题预设（≤8 套，深浅色各一套；PR #55 合入 main `88d50e9`，tip `4b6bc5b`；Censor 通过；FlorettaCore CI 绿；Pro 双验绿，macOS 263/0 含 `testPNGAndPDFKeepBranchThemeColors`）
+- [~] C8 官方 Floretta 主题（新建默认。画布 #F5EBDA、节点 #F7EFE1、描边 #C87756 / 1px、圆角 12pt、根节点系统 serif、连线 #BFA893。打开已有文档保留其 themeID 与节点样式）
 - [~] C7 多画布（Sheet）
 
 ## D. 格式与互通（T0）
@@ -130,7 +131,7 @@
 ## 统计
 
 - 已完成并验过：**61** 项
-- 已派未合并/未验：**6** 项
+- 已派未合并/未验：**7** 项
 - 未开始：**13** 项
-- 合计：**80** 项
+- 合计：**81** 项
 - 已知阻塞：**3** 项

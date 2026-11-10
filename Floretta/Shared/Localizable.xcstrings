@@ -3401,6 +3401,23 @@
         }
       }
     },
+    "Floretta 主题": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Floretta"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Floretta 主题"
+          }
+        }
+      }
+    },
     "岩色": {
       "extractionState": "manual",
       "localizations": {

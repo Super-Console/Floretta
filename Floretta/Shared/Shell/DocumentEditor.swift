@@ -76,10 +76,12 @@ struct DocumentEditor: View {
         #endif
         .modifier(MacEditorWindowTitle())
         .zenChrome(session.zen.chrome)
+            #if os(iOS)
             .inspector(isPresented: inspectorPresented) {
                 inspectorBody
                     .inspectorColumnWidth(min: 280, ideal: 320, max: 440)
             }
+            #endif
             .onAppear(perform: openInspectorForUITest)
             .toolbar {
                 if session.zen.chrome.showsToolbar {
@@ -343,13 +345,43 @@ struct DocumentEditor: View {
                 dictationReplacesPlaceholder: session.dictationReplacesPlaceholder
             )
             .ignoresSafeArea()
+            #if !os(macOS)
             if showOutline, session.zen.chrome.showsSidebar {
                 outlinePanel
                     .frame(width: outlineWide ? nil : 300)
                     .frame(maxWidth: outlineWide ? .infinity : 300, maxHeight: .infinity)
                     .background(.regularMaterial)
             }
+            #endif
         }
+        #if os(macOS)
+        .overlay(alignment: .leading) {
+            if showOutline, session.zen.chrome.showsSidebar {
+                AppleGlassPanel {
+                    outlinePanel
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                }
+                .frame(width: outlineWide ? nil : AppleGlassMetrics.outlineWidth)
+                .frame(maxWidth: outlineWide ? .infinity : AppleGlassMetrics.outlineWidth, maxHeight: .infinity)
+                .padding(AppleGlassMetrics.panelInset)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("editor.outline.glass")
+            }
+        }
+        .overlay(alignment: .trailing) {
+            if inspectorPresented.wrappedValue {
+                AppleGlassPanel {
+                    inspectorBody
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                }
+                .frame(width: AppleGlassMetrics.inspectorWidth)
+                .frame(maxHeight: .infinity, alignment: .top)
+                .padding(AppleGlassMetrics.panelInset)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("editor.inspector.glass")
+            }
+        }
+        #endif
         .overlay(alignment: .top) {
             VStack(spacing: 8) {
                 if session.markdownBannerVisible {
@@ -880,6 +912,7 @@ struct DocumentEditor: View {
             }
         }
         .formStyle(.grouped)
+        .macGlassScrollSurface()
     }
 
     private var relationshipLabelForm: some View {
@@ -892,6 +925,7 @@ struct DocumentEditor: View {
             }
         }
         .formStyle(.grouped)
+        .macGlassScrollSurface()
     }
 
     private var relationshipTitle: Binding<String> {
@@ -923,6 +957,7 @@ struct DocumentEditor: View {
             }
         }
         .formStyle(.grouped)
+        .macGlassScrollSurface()
     }
 
     private var summaryText: Binding<String> {
@@ -954,6 +989,7 @@ struct DocumentEditor: View {
             }
         }
         .formStyle(.grouped)
+        .macGlassScrollSurface()
     }
 
     private var boundaryTitle: Binding<String> {
@@ -1563,6 +1599,7 @@ private struct StyleInspector: View {
                 }
             }
             .formStyle(.grouped)
+            .macGlassScrollSurface()
             .disabled(locksAppearance)
     }
 
@@ -2162,6 +2199,17 @@ private struct ExplainedChrome: ViewModifier {
 private extension View {
     func explained(_ sentence: String) -> some View {
         modifier(ExplainedChrome(sentence: sentence))
+    }
+
+    /// Drops the form's own opaque scroll plate on the Mac so the glass shows.
+    /// iOS keeps the system inspector background.
+    @ViewBuilder
+    func macGlassScrollSurface() -> some View {
+        #if os(macOS)
+        self.scrollContentBackground(.hidden)
+        #else
+        self
+        #endif
     }
 }
 

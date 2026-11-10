@@ -63,6 +63,11 @@ struct OutlineView: View {
             }
         }
         .listStyle(.sidebar)
+        #if os(macOS)
+        // The sidebar list paints its own opaque material. Hide it so the
+        // official glass behind this outline is the only plate.
+        .scrollContentBackground(.hidden)
+        #endif
         #if os(iOS)
         return list.environment(\.editMode, $reorderMode)
         #else

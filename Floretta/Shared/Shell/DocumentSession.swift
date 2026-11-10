@@ -276,6 +276,10 @@ final class EditorSession {
     var archiveByteCount: Int64 = 0
     /// Document at the last load or save. Used to tell a share on disk from an unsaved edit.
     var shareBase: MindMapDocument
+    /// Bumps when the insert menu asks the focused field to start system dictation.
+    var dictationToken = 0
+    /// The new child still shows the placeholder, so the field selects it first.
+    var dictationReplacesPlaceholder = false
 
     init(
         document: MindMapDocument,
@@ -360,6 +364,21 @@ final class EditorSession {
         guard keyboard.mode == .command, !keyboard.isComposing else { return }
         let event = KeyEvent(key: .enter, modifiers: [], mode: .command, isComposing: false)
         _ = keyboard.handle(event, document: &document, frames: [])
+    }
+
+    /// Opens a child, or the editor already on screen, then asks for system dictation.
+    /// The spoken string is written by the text view the same way typed text is.
+    func beginDictation() {
+        let preparation = DictationNodeInput.prepare(session: &keyboard, document: &document)
+        guard preparation.target != .unavailable else { return }
+        dictationReplacesPlaceholder = preparation.replacesPlaceholder
+        dictationToken &+= 1
+        if dictationToken == 0 { dictationToken = 1 }
+    }
+
+    /// Writes a finished system transcript. Blank speech does not create a topic.
+    func applyDictatedText(_ phrase: String) {
+        _ = DictationNodeInput.apply(phrase: phrase, session: &keyboard, document: &document)
     }
 
     func addFreeNodeFromToolbar() {
@@ -1144,7 +1163,7 @@ enum HomePage: String, Hashable, Sendable {
 /// Menu rows that are allowed to appear. Disabled rows are listed separately.
 enum CanvasMenus {
     static let immersive = "全屏沉浸"
-    static let insert = ["子节点", "同级", "自由节点", "连到", "图片", "附件", "从文件导入"]
+    static let insert = ["子节点", "同级", "语音输入", "自由节点", "连到", "图片", "附件", "从文件导入"]
     static let share = ["PDF", "PNG", "Markdown", "保存为 Floretta", ".mm", "OPML", ".xmind", "打印"]
     static let zoom = ["50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%", "适应窗口"]
     static let more = ["大纲", "样式", "配色", "查看模式", "新建画布", "查找", "标签筛选", "粘贴", "关于"]

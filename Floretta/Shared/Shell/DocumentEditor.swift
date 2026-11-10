@@ -269,7 +269,9 @@ struct DocumentEditor: View {
                 onPreviewFile: { nodeID, badge in
                     previewFile(nodeID: nodeID, badge: badge)
                 },
-                tagFilter: session.tagFilter
+                tagFilter: session.tagFilter,
+                dictationToken: session.dictationToken,
+                dictationReplacesPlaceholder: session.dictationReplacesPlaceholder
             )
             .ignoresSafeArea()
             if showOutline, session.zen.chrome.showsSidebar {
@@ -390,6 +392,12 @@ struct DocumentEditor: View {
                 Label(text("同级"), systemImage: "square.on.square")
             }
             .help(Text(verbatim: text("在选中的节点旁新建一个同级节点")))
+            Button { session.beginDictation() } label: {
+                Label(text("语音输入"), systemImage: "mic")
+            }
+            .help(Text(verbatim: text("用系统听写新建子节点。正在编辑或选中自由节点时，听写写进当前文字。")))
+            .accessibilityIdentifier("insert.dictation")
+            .disabled(session.keyboard.isComposing)
             Button { session.addFreeNodeFromToolbar() } label: {
                 Label(text("自由节点"), systemImage: "arrow.up.left.and.arrow.down.right")
             }
@@ -441,7 +449,7 @@ struct DocumentEditor: View {
             Image(systemName: "plus")
         }
         .accessibilityLabel(text("插入"))
-        .help(Text(verbatim: text("插入子节点、同级、自由节点、便签、概要、边界、图片、附件，或从文件导入")))
+        .help(Text(verbatim: text("插入子节点、同级、语音输入、自由节点、便签、概要、边界、图片、附件，或从文件导入")))
     }
 
     private var zoomMenu: some View {

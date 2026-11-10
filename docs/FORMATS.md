@@ -22,7 +22,7 @@
 
 | 格式 | 归属 | 形态（已核实的部分） | 说明 |
 |---|---|---|---|
-| `.xmind` | Xmind Ltd. | ZIP，内含 `content.json`（旧版可能是 `content.xml`） | 结构复杂（主题、样式、关系线、附件、画布）。**只承诺导入层级与文字**，样式尽力而为。 |
+| `.xmind` | Xmind Ltd. | ZIP，内含 `content.json`（旧版可能是 `content.xml`） | 双向读写 `content.json`。映射字段见 `docs/XMIND-FIELDS.md`；读不懂的键和 zip 条目 pass-through。只有 `content.xml` 的 XMind 8 文件不导入。 |
 | `.itmz` | iThoughts (toketaWare) | ZIP + XML + 附件 | 作者本人称格式"相对开放"；需真实样本验证 |
 | `.mmap` | MindManager | ZIP + `Document.xml` + 资源 | 内容含大量二进制/专有结构，只做尽力导入 |
 | `.smmx` | SimpleMind | XML | 待用样本核实结构 |
@@ -133,19 +133,21 @@ HTML 标签去掉，只留文字。`p` / `br` 变成换行。`richcontent` 必�
 
 AI 路径定位见 **[FORMAT-FOR-AI.md](./FORMAT-FOR-AI.md)**。
 
-## `.xmind` 自由节点（1.5）
+## `.xmind` 双向读写
 
-只覆盖自由节点这一条，不是完整的 `.xmind` 互通（那是 D1）。文件是 ZIP，内有 `content.json`、`metadata.json`、`manifest.json`。一张画布。
+ZIP 内的 `content.json` 可以导入再导出。字段对照表在 **[XMIND-FIELDS.md](./XMIND-FIELDS.md)**。样本在 `Tests/FlorettaCoreTests/Fixtures/XMind/`。
 
-自由节点写在根主题的 `children.detached` 上，并带 `position`。这是 XMind 的 floating topic。它们不写进 `attached`，所以不会变成中心主题的子节点。`position` 的数字就是 Floretta 画布坐标；再导入时原样读回。XMind 自己打开时，会按它的浮动主题规则解释这个坐标。
+第一张画布落在文档的 `title` / `roots` / `freeNodes` / `relationships`。后面的画布落在 `additionalCanvases`。编辑器仍只改第一张；导出时其余画布按导入时的样子写回。
 
-关系写在画布的 `relationships`（`end1Id` = source，`end2Id` = target）。画布上先不画线。
+自由节点仍是根主题的 `children.detached`，并带 `position`。嵌套的 detached 不进树，留在 pass-through 里。关系在画布的 `relationships`（`end1Id` = source，`end2Id` = target）。画布上先不画线。
 
-多个根时，导出用文档标题包一层再把原来的根放进 `attached`，自由节点仍在这层的 `detached`。没有根时同样包一层，避免自由节点被塞进树。
+读不懂的 JSON 键留在 `xmindForeign` 的 `source` 上。`content.json` 的原始字节也留着：映射字段没变时，导出就是这串字节。改了一个映射字段之后，用 `source` 做底写出新的 `content.json`，没改的键仍按原值写回。`metadata.json`、`manifest.json`，以及 `resources/`、缩略图和其他条目，按原字节写回。
 
-本批往返保留：自由节点的 id、文字、坐标、备注、超链接、附件引用（`org.floretta.attachments`）、它自己的子主题，以及关系。不写入 XMind 样式表，所以填充色仍只在 `.floretta`。折叠不写。附件字节仍在 `.floretta` 的 `assets/`，不进这个 zip。便签不是主题，不写进 `.xmind`。
+`xap:` 附件在 zip 里有对应条目时，写成 `NodeAttachment`，字节留在 `xmindForeign.entries`，不复制进 `.floretta` 的 `assets/`。Floretta 自己的附件仍写 `org.floretta.attachments`，字节仍在 `.floretta`。
 
-多于一张画布、或主题 id 不是 UUID，导入直接报错，不丢节点后继续。
+主题 id 不是 UUID 时，模型里用稳定派生的 UUID，导出写回原来的字符串。只有 `content.xml`、没有 `content.json` 的文件直接失败。便签不是主题，不写进 `.xmind`。
+
+从 Floretta 新建、没有 `xmindForeign` 的文档，导出仍是一张画布。多个根时用文档标题包一层。没有根时同样包一层，避免自由节点被塞进树。
 
 ## PNG / PDF 本批
 
@@ -167,6 +169,6 @@ PNG 可选 2x 或 3x，底可以是白的或透明的。
 | `.opml` | 导入 + 导出 | 测试里的 OPML 与文档往返 | 层级、顺序、text、_note/note、url、文档标题 | 折叠、左右侧、画布坐标、head 元数据、未列出的属性 | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-09 |
 | Markdown | 一等文档读写 | 见 MD-AS-DOCUMENT fixture | 层级、顺序、text、note、单一 link、front-matter | 附件、颜色、关系线、位置、折叠、UUID；`##`+ 拒开 | 规格已通过（Censor）；实现见 S1+ | 2026-11-10 |
 | PNG / PDF | 仅导出 | 单测把 PNG 读回并抽样像素；PDF 看页数和 mediaBox | 当前可见节点和连线；2x/3x；白底或透明 | 工具栏、侧栏、选中框、点阵；折叠起来的子树；超出像素上限的部分 | 代码与单测已落盘；本机未打开文件 | 2026-11-09 |
-| `.xmind` | 导出 + 再导入本批写出的文件 | 单测里的 `MindMapDocument` | 自由节点 id / 文字 / 坐标 / 备注 / 链接 / 附件引用 / 子主题，以及 relationships；单根时根 id 不变 | 样式、折叠、附件字节、多画布；`.mm` / Markdown 不写自由节点 | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-10 |
+| `.xmind` | 导入 + 导出 + 再导入 | `Tests/FlorettaCoreTests/Fixtures/XMind/` 六类样本，加单测里的 `MindMapDocument` | 层级、文字、备注、链接、根上的自由节点、关系线、已映射的样式、xap 附件引用和字节、多画布；未知字段在未改映射时按原 `content.json` 字节写回 | 折叠不进 `isCollapsed`、标签/标记/概要/边界没有一等字段、嵌套浮动主题不可编辑、XMind 8 仅 `content.xml`、便签；改映射字段后数字会按 JSON 数字重写。详见 `docs/XMIND-FIELDS.md` | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-10 |
 
 > 空白 = 未验证。不要预填"通过"。

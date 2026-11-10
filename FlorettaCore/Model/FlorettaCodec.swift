@@ -125,20 +125,59 @@ public enum FlorettaCodec {
             }
         }
         if let relationships = object["relationships"], !(relationships is NSNull) {
-            guard let array = relationships as? [Any] else {
-                throw FlorettaCodecError.wrongJSONType(at: "relationships")
+            try preflightRelationships(relationships, at: "relationships")
+        }
+        if let canvases = object["additionalCanvases"], !(canvases is NSNull) {
+            guard let array = canvases as? [Any] else {
+                throw FlorettaCodecError.wrongJSONType(at: "additionalCanvases")
             }
             for (index, item) in array.enumerated() {
-                guard let relationship = item as? [String: Any] else {
-                    throw FlorettaCodecError.wrongJSONType(at: "relationships[\(index)]")
+                guard let canvas = item as? [String: Any] else {
+                    throw FlorettaCodecError.wrongJSONType(at: "additionalCanvases[\(index)]")
                 }
-                let place = "relationships[\(index)]"
-                try expect(relationship, key: "id", at: "\(place).id") { isJSONString($0) }
-                try expect(relationship, key: "sourceID", at: "\(place).sourceID") { isJSONString($0) }
-                try expect(relationship, key: "targetID", at: "\(place).targetID") { isJSONString($0) }
-                if let title = relationship["title"], !(title is NSNull) {
-                    try expect(relationship, key: "title", at: "\(place).title") { isJSONString($0) }
+                let place = "additionalCanvases[\(index)]"
+                try expect(canvas, key: "id", at: "\(place).id") { isJSONString($0) }
+                try expect(canvas, key: "title", at: "\(place).title") { isJSONString($0) }
+                if let roots = canvas["roots"] {
+                    guard let nodes = roots as? [Any] else {
+                        throw FlorettaCodecError.wrongJSONType(at: "\(place).roots")
+                    }
+                    for (nodeIndex, node) in nodes.enumerated() {
+                        try preflightNode(node, at: "\(place).roots[\(nodeIndex)]")
+                    }
                 }
+                if let freeNodes = canvas["freeNodes"], !(freeNodes is NSNull) {
+                    guard let nodes = freeNodes as? [Any] else {
+                        throw FlorettaCodecError.wrongJSONType(at: "\(place).freeNodes")
+                    }
+                    for (nodeIndex, node) in nodes.enumerated() {
+                        try preflightNode(node, at: "\(place).freeNodes[\(nodeIndex)]")
+                    }
+                }
+                if let relationships = canvas["relationships"], !(relationships is NSNull) {
+                    try preflightRelationships(relationships, at: "\(place).relationships")
+                }
+            }
+        }
+        if let foreign = object["xmindForeign"], !(foreign is NSNull), !(foreign is [String: Any]) {
+            throw FlorettaCodecError.wrongJSONType(at: "xmindForeign")
+        }
+    }
+
+    private static func preflightRelationships(_ value: Any, at path: String) throws {
+        guard let array = value as? [Any] else {
+            throw FlorettaCodecError.wrongJSONType(at: path)
+        }
+        for (index, item) in array.enumerated() {
+            guard let relationship = item as? [String: Any] else {
+                throw FlorettaCodecError.wrongJSONType(at: "\(path)[\(index)]")
+            }
+            let place = "\(path)[\(index)]"
+            try expect(relationship, key: "id", at: "\(place).id") { isJSONString($0) }
+            try expect(relationship, key: "sourceID", at: "\(place).sourceID") { isJSONString($0) }
+            try expect(relationship, key: "targetID", at: "\(place).targetID") { isJSONString($0) }
+            if let title = relationship["title"], !(title is NSNull) {
+                try expect(relationship, key: "title", at: "\(place).title") { isJSONString($0) }
             }
         }
     }

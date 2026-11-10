@@ -253,7 +253,8 @@ final class MarkdownDocumentUITests: XCTestCase {
         let preset = try SharePayload.bytes(for: "md", document: document)
         let presetText = try XCTUnwrap(String(data: preset, encoding: .utf8))
         XCTAssertTrue(presetText.contains("# 根"))
-        XCTAssertTrue(presetText.contains("## 子"))
+        XCTAssertTrue(presetText.contains("## [子](https://example.com/a)"))
+        XCTAssertTrue(presetText.contains("> 子备注"))
         let imported = try FlorettaMarkdown.importOutline(preset)
         XCTAssertEqual(imported.roots[0].children[0].link, "https://example.com/a")
         XCTAssertThrowsError(try DocumentOpener.open(data: preset, filename: "大纲.md")) { error in

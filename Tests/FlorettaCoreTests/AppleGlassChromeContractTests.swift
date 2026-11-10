@@ -66,7 +66,7 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertTrue(tabs.contains("case .presentation: \"演说\""))
         XCTAssertTrue(tabs.contains("case .map: \"导图\""))
 
-        let empty = try slice(editor, from: "systemName: \"paintbrush\"", until: "description:")
+        let empty = try slice(editor, from: "text(\"选择一个主题\")", until: "accessibilityIdentifier(\"inspector.empty\")")
         XCTAssertTrue(empty.contains(".appleGlassChrome(.iconButton)"))
         XCTAssertTrue(empty.contains("inspector.empty.brush"))
 

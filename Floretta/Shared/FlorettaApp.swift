@@ -133,6 +133,7 @@ private final class SameDocumentWindowHost: SameDocumentWindowOpening {
 
 enum AppLaunch {
     static let uiTestArgument = "-FlorettaUITest"
+    static let editChromeArgument = "-FlorettaEditChrome"
 
     struct Session {
         var recovery: RecoveryPresenter
@@ -177,6 +178,9 @@ enum AppLaunch {
             try library.installSmokeFixtures()
         } catch {
             preconditionFailure("UI test fixtures failed: \(error)")
+        }
+        if arguments.contains(editChromeArgument) {
+            library.openEditChromeSample()
         }
         let recovery = RecoveryPresenter(
             store: AutosaveStore(directory: autosave, fileAccess: FoundationFileAccess())

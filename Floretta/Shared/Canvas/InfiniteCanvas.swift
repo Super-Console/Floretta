@@ -465,10 +465,10 @@ struct InfiniteCanvas: View {
                 fontSize: CanvasTextScale.onScreenPointSize(fontSize: 15, scale: camera.viewport.scale),
                 onEvent: { handleKey($0) },
                 returnInsertsLine: true,
-                dictationToken: dictationToken,
-                dictationReplacesPlaceholder: dictationReplacesPlaceholder,
                 paper: stickyPaper(sticky.color),
-                ink: stickyInk(sticky.color)
+                ink: stickyInk(sticky.color),
+                dictationToken: dictationToken,
+                dictationReplacesPlaceholder: dictationReplacesPlaceholder
             )
             .frame(width: max(rect.width, 32), height: max(rect.height, 32))
             .clipShape(RoundedRectangle(cornerRadius: 8))

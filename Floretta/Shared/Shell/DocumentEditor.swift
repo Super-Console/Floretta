@@ -27,7 +27,7 @@ struct DocumentEditor: View {
     @State private var exportError: String?
     @State private var showOutline = false
     @State private var outlineWide = false
-    @State private var showInspector = false
+    @State private var showInspector = AppLaunch.opensInspector
     @State private var showRename = false
     @State private var renameText = ""
     @State private var showFind = false
@@ -710,44 +710,61 @@ struct DocumentEditor: View {
 
     private var inspectorBody: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Picker(text("检查器"), selection: $inspectorTab) {
-                Text(verbatim: text("样式")).tag(0)
-                Text(verbatim: text("演说")).tag(1)
-                Text(verbatim: text("导图")).tag(2)
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
-            if inspectorTab == 0 {
-                if session.keyboard.selectedRelationshipID != nil {
-                    relationshipLabelForm
-                } else if session.keyboard.selectedSummaryID != nil {
-                    summaryTextForm
-                } else if session.keyboard.selectedBoundaryID != nil {
-                    boundaryTitleForm
-                } else {
-                    StyleInspector(
-                        document: $session.document,
-                        nodeID: session.keyboard.selectedNodeID,
-                        locksAppearance: session.isMarkdownDocument,
-                        onSelectRelationship: { id in
-                            if session.keyboard.mode == .edit {
-                                session.keyboard.apply(.commitEdit, document: &session.document, frames: [])
-                            }
-                            session.keyboard.selectedRelationshipID = id
-                        }
-                    )
-                }
-            } else if inspectorTab == 2 {
-                documentInfo
-            } else {
-                ContentUnavailableView {
-                    Label(text("尚未实现"), systemImage: "clock")
-                } description: {
-                    Text(verbatim: text("演说"))
-                }
-            }
+            inspectorTabPicker
+            inspectorTabPage
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .padding(.top, 12)
+        // The column centers a stack shorter than itself. 演说 is only a
+        // placeholder, so the old stack slid to the middle and took the
+        // segmented control with it. Take the offered height and keep the
+        // control on the top edge; the page below is the only part that changes.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var inspectorTabPicker: some View {
+        Picker(text("检查器"), selection: $inspectorTab) {
+            Text(verbatim: text("样式")).tag(0)
+            Text(verbatim: text("演说")).tag(1)
+            Text(verbatim: text("导图")).tag(2)
+        }
+        .pickerStyle(.segmented)
+        .accessibilityIdentifier("inspector.tabs")
+        .padding(.horizontal)
+        .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private var inspectorTabPage: some View {
+        if inspectorTab == 0 {
+            if session.keyboard.selectedRelationshipID != nil {
+                relationshipLabelForm
+            } else if session.keyboard.selectedSummaryID != nil {
+                summaryTextForm
+            } else if session.keyboard.selectedBoundaryID != nil {
+                boundaryTitleForm
+            } else {
+                StyleInspector(
+                    document: $session.document,
+                    nodeID: session.keyboard.selectedNodeID,
+                    locksAppearance: session.isMarkdownDocument,
+                    onSelectRelationship: { id in
+                        if session.keyboard.mode == .edit {
+                            session.keyboard.apply(.commitEdit, document: &session.document, frames: [])
+                        }
+                        session.keyboard.selectedRelationshipID = id
+                    }
+                )
+            }
+        } else if inspectorTab == 2 {
+            documentInfo
+        } else {
+            ContentUnavailableView {
+                Label(text("尚未实现"), systemImage: "clock")
+            } description: {
+                Text(verbatim: text("演说"))
+            }
+        }
     }
 
     private var documentInfo: some View {

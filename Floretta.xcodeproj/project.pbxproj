@@ -63,6 +63,7 @@
 		CA4500000000000000000003 /* EditorToolbarChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4500000000000000000002 /* EditorToolbarChrome.swift */; };
 		CA4500000000000000000004 /* EditorToolbarChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4500000000000000000002 /* EditorToolbarChrome.swift */; };
 		CA4500000000000000000005 /* EditorToolbarChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4500000000000000000002 /* EditorToolbarChrome.swift */; };
+		CG4600000000000000000001 /* AppleGlassChromeContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FG4600000000000000000001 /* AppleGlassChromeContractTests.swift */; };
 		C52100000000000000000008 /* FileTypeIconTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52100000000000000000004 /* FileTypeIconTests.swift */; };
 		C60000000000000000000007 /* LayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000003 /* LayoutTests.swift */; };
 		C6E100000000000000000001 /* PetalExpandTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6E100000000000000000001 /* PetalExpandTests.swift */; };
@@ -124,6 +125,9 @@
 		CA4400000000000000000004 /* FlorettaL10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4400000000000000000002 /* FlorettaL10n.swift */; };
 		CA4400000000000000000005 /* FlorettaL10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4400000000000000000002 /* FlorettaL10n.swift */; };
 		CA4400000000000000000006 /* FlorettaL10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4400000000000000000002 /* FlorettaL10n.swift */; };
+		CA4600000000000000000001 /* AppleGlassChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4600000000000000000001 /* AppleGlassChrome.swift */; };
+		CA4600000000000000000002 /* AppleGlassChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4600000000000000000001 /* AppleGlassChrome.swift */; };
+		CA4600000000000000000003 /* AppleGlassChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4600000000000000000001 /* AppleGlassChrome.swift */; };
 		CB1000000000000000000001 /* ApplePlatformPorts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000000000000000000001 /* ApplePlatformPorts.swift */; };
 		CB1000000000000000000002 /* ApplePlatformPorts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000000000000000000001 /* ApplePlatformPorts.swift */; };
 		CB1000000000000000000003 /* ApplePlatformPorts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000000000000000000001 /* ApplePlatformPorts.swift */; };
@@ -230,6 +234,7 @@
 		F52100000000000000000008 /* HomeChromeContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HomeChromeContractTests.swift; path = Tests/FlorettaCoreTests/HomeChromeContractTests.swift; sourceTree = SOURCE_ROOT; };
 		F52100000000000000000009 /* EditorToolbarCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EditorToolbarCatalogTests.swift; path = Tests/FlorettaCoreTests/EditorToolbarCatalogTests.swift; sourceTree = SOURCE_ROOT; };
 		FA4500000000000000000002 /* EditorToolbarChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorToolbarChrome.swift; sourceTree = "<group>"; };
+		FG4600000000000000000001 /* AppleGlassChromeContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppleGlassChromeContractTests.swift; path = Tests/FlorettaCoreTests/AppleGlassChromeContractTests.swift; sourceTree = SOURCE_ROOT; };
 		F52100000000000000000004 /* FileTypeIconTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTypeIconTests.swift; sourceTree = "<group>"; };
 		F60000000000000000000003 /* LayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LayoutTests.swift; path = Tests/FlorettaCoreTests/LayoutTests.swift; sourceTree = SOURCE_ROOT; };
 		F6E100000000000000000001 /* PetalExpandTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PetalExpandTests.swift; path = Tests/FlorettaCoreTests/PetalExpandTests.swift; sourceTree = SOURCE_ROOT; };
@@ -261,6 +266,7 @@
 		FA8100000000000000000001 /* NOTICE */ = {isa = PBXFileReference; lastKnownFileType = text; path = NOTICE; sourceTree = SOURCE_ROOT; };
 		FA4400000000000000000001 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		FA4400000000000000000002 /* FlorettaL10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlorettaL10n.swift; sourceTree = "<group>"; };
+		FA4600000000000000000001 /* AppleGlassChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleGlassChrome.swift; sourceTree = "<group>"; };
 		FA9100000000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		FB1000000000000000000001 /* ApplePlatformPorts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplePlatformPorts.swift; sourceTree = "<group>"; };
 		F20000000000000000000005 /* RecoveryPresenterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryPresenterTests.swift; sourceTree = "<group>"; };
@@ -396,6 +402,7 @@
 			F52100000000000000000007 /* InspectorStyleTests.swift */,
 			F52100000000000000000008 /* HomeChromeContractTests.swift */,
 			F52100000000000000000009 /* EditorToolbarCatalogTests.swift */,
+			FG4600000000000000000001 /* AppleGlassChromeContractTests.swift */,
 			F91000000000000000000002 /* MMTests.swift */,
 			F92000000000000000000003 /* OPMLMarkdownTests.swift */,
 			F64000000000000000000001 /* XMindRoundTripTests.swift */,
@@ -534,6 +541,7 @@
 				FA2100000000000000000001 /* RecentMapsStore.swift */,
 				FA4300000000000000000001 /* TemplateThumbnail.swift */,
 				FA4400000000000000000002 /* FlorettaL10n.swift */,
+				FA4600000000000000000001 /* AppleGlassChrome.swift */,
 			);
 			path = Shell;
 			sourceTree = "<group>";
@@ -1065,6 +1073,7 @@
 				C52100000000000000000001 /* FileTypeIcon.swift in Sources */,
 				C52100000000000000000004 /* FileQuickLook.swift in Sources */,
 				CA4400000000000000000004 /* FlorettaL10n.swift in Sources */,
+				CA4600000000000000000001 /* AppleGlassChrome.swift in Sources */,
 				C31000000000000000000012 /* ShareCatalogStore.swift in Sources */,
 				C31000000000000000000015 /* SaveIntoNodeIntent.swift in Sources */,
 			);
@@ -1101,6 +1110,7 @@
 				C52100000000000000000002 /* FileTypeIcon.swift in Sources */,
 				C52100000000000000000005 /* FileQuickLook.swift in Sources */,
 				CA4400000000000000000005 /* FlorettaL10n.swift in Sources */,
+				CA4600000000000000000002 /* AppleGlassChrome.swift in Sources */,
 				C31000000000000000000013 /* ShareCatalogStore.swift in Sources */,
 				C31000000000000000000016 /* SaveIntoNodeIntent.swift in Sources */,
 			);
@@ -1145,6 +1155,7 @@
 				C5210000000000000000000C /* HomeChromeContractTests.swift in Sources */,
 				C5210000000000000000000D /* EditorToolbarCatalogTests.swift in Sources */,
 				CA4500000000000000000005 /* EditorToolbarChrome.swift in Sources */,
+				CG4600000000000000000001 /* AppleGlassChromeContractTests.swift in Sources */,
 				C52100000000000000000008 /* FileTypeIconTests.swift in Sources */,
 				C60000000000000000000007 /* LayoutTests.swift in Sources */,
 				C6E100000000000000000001 /* PetalExpandTests.swift in Sources */,
@@ -1169,6 +1180,7 @@
 				CA3200000000000000000003 /* MarkdownDocumentUI.swift in Sources */,
 				CA7200000000000000000001 /* MarkdownDocumentUITests.swift in Sources */,
 				CA4400000000000000000006 /* FlorettaL10n.swift in Sources */,
+				CA4600000000000000000003 /* AppleGlassChrome.swift in Sources */,
 				CA7100000000000000000001 /* ShellTests.swift in Sources */,
 				CB2100000000000000000003 /* SnapshotHistory.swift in Sources */,
 				CB2200000000000000000001 /* SnapshotHistoryTests.swift in Sources */,

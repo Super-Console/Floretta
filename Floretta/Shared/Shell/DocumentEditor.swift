@@ -136,14 +136,21 @@ struct DocumentEditor: View {
                     #if !os(macOS)
                     ToolbarItemGroup(placement: .principal) {
                         toolbarControl(.undo)
+                            .appleGlassChrome(.toolbarFloatingButton)
                         toolbarControl(.redo)
+                            .appleGlassChrome(.toolbarFloatingButton)
                         toolbarControl(.delete)
+                            .appleGlassChrome(.toolbarFloatingButton)
                     }
                     ToolbarItemGroup(placement: .primaryAction) {
                         toolbarControl(.insert)
+                            .appleGlassChrome(.toolbarFloatingButton)
                         toolbarControl(.share)
+                            .appleGlassChrome(.toolbarFloatingButton)
                         toolbarControl(.zoom)
+                            .appleGlassChrome(.toolbarFloatingButton)
                         toolbarControl(.immersive)
+                            .appleGlassChrome(.toolbarFloatingButton)
                     }
                     #if os(iOS)
                     // A primary-action group collapses into TopOverflowBarButtonItem on a
@@ -469,6 +476,7 @@ struct DocumentEditor: View {
                 .accessibilityIdentifier("statusBar")
                 }
             }
+            .accessibilityIdentifier("editor.bottomBar")
         }
     }
 
@@ -519,7 +527,10 @@ struct DocumentEditor: View {
             Text(verbatim: session.document.canvasTitle(at: index))
                 .lineLimit(1)
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.plain)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .appleGlassChrome(.bottomBarCapsule)
         .tint(selected ? Color.accentColor : Color.secondary)
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityIdentifier("canvas.tab.\(index)")
@@ -546,7 +557,7 @@ struct DocumentEditor: View {
         .font(.callout)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.regularMaterial, in: Capsule())
+        .appleGlassChrome(.bottomBarCapsule)
         .padding(.top, session.zen.isActive ? 56 : 8)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("tagFilter.banner")
@@ -578,12 +589,14 @@ struct DocumentEditor: View {
                     Image(systemName: "arrow.up.left.and.arrow.down.right")
                 }
                 .explained("让大纲占满或恢复原来的宽度")
+                .appleGlassChrome(.iconButton)
                 Button {
                     showOutline = false
                 } label: {
                     Image(systemName: "xmark")
                 }
                 .explained("关闭大纲")
+                .appleGlassChrome(.iconButton)
             }
             .padding(12)
             if session.isMarkdownDocument {
@@ -664,8 +677,7 @@ struct DocumentEditor: View {
             Image(systemName: "xmark")
         }
         .buttonStyle(.plain)
-        .padding(10)
-        .background { Circle().fill(.ultraThinMaterial) }
+        .appleGlassChrome(.iconButton)
         .explained("退出沉浸模式，恢复工具栏")
         .accessibilityIdentifier("zen.exit")
     }
@@ -800,6 +812,7 @@ struct DocumentEditor: View {
         let visibility: Visibility = command.customization == EditorCommandCustomization.visible ? .visible : .hidden
         return ToolbarItem(id: id.rawValue, placement: placement) {
             toolbarControl(id)
+                .appleGlassChrome(.toolbarFloatingButton)
         }
         .defaultCustomization(visibility)
     }
@@ -815,6 +828,7 @@ struct DocumentEditor: View {
         }
         .accessibilityLabel(text(EditorToolbarCatalog.command(.insert).title))
         .help(Text(verbatim: text(EditorToolbarCatalog.command(.insert).help)))
+        .appleGlassChrome(.toolbarFloatingButton)
     }
 
     @ViewBuilder
@@ -865,6 +879,7 @@ struct DocumentEditor: View {
             }
         }
         .explained(EditorToolbarCatalog.command(.zoom).help)
+        .appleGlassChrome(.toolbarFloatingButton)
     }
 
     private var shareMenu: some View {
@@ -877,6 +892,7 @@ struct DocumentEditor: View {
         }
         .accessibilityLabel(text(EditorToolbarCatalog.command(.share).title))
         .help(Text(verbatim: text(EditorToolbarCatalog.command(.share).help)))
+        .appleGlassChrome(.toolbarFloatingButton)
     }
 
     @ViewBuilder
@@ -912,6 +928,7 @@ struct DocumentEditor: View {
         .accessibilityLabel(text(EditorToolbarCatalog.command(.more).title))
         .accessibilityIdentifier("editor.more")
         .help(Text(verbatim: text(EditorToolbarCatalog.command(.more).help)))
+        .appleGlassChrome(.toolbarFloatingButton)
     }
 
     @ViewBuilder
@@ -1056,6 +1073,7 @@ struct DocumentEditor: View {
             .safeAreaInset(edge: .top, spacing: 12) {
                 inspectorHeader
             }
+            .appleGlassChrome(.inspectorPanel)
             .containerRelativeFrame(.vertical, alignment: .top) { length, _ in length }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
@@ -1110,6 +1128,7 @@ struct DocumentEditor: View {
             }
         }
         .pickerStyle(.segmented)
+        .appleGlassChrome(.segmentedContainer)
         .labelsHidden()
         .accessibilityLabel(text("检查器"))
         .accessibilityIdentifier("inspector.tabs")
@@ -1181,6 +1200,7 @@ struct DocumentEditor: View {
             }
         }
         .formStyle(.grouped)
+        .appleGlassInspectorFormPlate()
         .accessibilityIdentifier("inspector.map")
     }
 
@@ -1194,6 +1214,7 @@ struct DocumentEditor: View {
             }
         }
         .formStyle(.grouped)
+        .appleGlassInspectorFormPlate()
     }
 
     private var relationshipTitle: Binding<String> {
@@ -1231,6 +1252,7 @@ struct DocumentEditor: View {
             }
         }
         .formStyle(.grouped)
+        .appleGlassInspectorFormPlate()
     }
 
     private var summaryText: Binding<String> {
@@ -1268,6 +1290,7 @@ struct DocumentEditor: View {
             }
         }
         .formStyle(.grouped)
+        .appleGlassInspectorFormPlate()
     }
 
     private var boundaryTitle: Binding<String> {
@@ -1958,7 +1981,13 @@ private struct StyleInspector: View {
             }
         } else {
             ContentUnavailableView {
-                Label(text("选择一个主题"), systemImage: "paintbrush")
+                Label {
+                    Text(verbatim: text("选择一个主题"))
+                } icon: {
+                    Image(systemName: "paintbrush")
+                        .appleGlassChrome(.iconButton)
+                        .accessibilityIdentifier("inspector.empty.brush")
+                }
             } description: {
                 Text(verbatim: text(locksAppearance ? MarkdownModePolicy.reason(.nodeColor) : "样式会写进导图文件。"))
             }
@@ -2073,6 +2102,7 @@ private struct StyleInspector: View {
             }
         }
         .formStyle(.grouped)
+        .appleGlassInspectorFormPlate()
         .disabled(locksAppearance)
         .accessibilityIdentifier("inspector.style")
     }

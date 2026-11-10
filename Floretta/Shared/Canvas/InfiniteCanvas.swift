@@ -590,7 +590,7 @@ struct InfiniteCanvas: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background { Capsule().fill(.ultraThinMaterial) }
+            .appleGlassChrome(.bottomBarCapsule)
             .position(x: rect.midX, y: max(16, rect.minY - 18))
         }
     }

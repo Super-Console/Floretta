@@ -5,6 +5,9 @@ import XCTest
 /// Proves the Mac side panels install an official glass view, not a solid fill.
 @MainActor
 final class AppleGlassPanelTests: XCTestCase {
+    /// Windows stay alive until this case ends, so the hierarchy can be read.
+    private var mountedWindows: [NSWindow] = []
+
     func testResolvedBackendMatchesTheMacOS26DeploymentTarget() {
         XCTAssertEqual(AppleGlassBackend.resolved, .swiftUIGlassEffect)
         XCTAssertEqual(AppleGlassMetrics.cornerRadius, 16)
@@ -106,8 +109,7 @@ final class AppleGlassPanelTests: XCTestCase {
         hosting.layoutSubtreeIfNeeded()
         window.layoutIfNeeded()
         RunLoop.current.run(until: Date().addingTimeInterval(0.05))
-        // Keep the window alive until the assertions read the hierarchy.
-        objc_setAssociatedObject(hosting, &windowRetainKey, window, .OBJC_ASSOCIATION_RETAIN)
+        mountedWindows.append(window)
         return hosting
     }
 
@@ -141,5 +143,3 @@ final class AppleGlassPanelTests: XCTestCase {
         return String(rest[..<end.lowerBound])
     }
 }
-
-private var windowRetainKey: UInt8 = 0

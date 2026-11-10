@@ -639,6 +639,7 @@ struct DocumentEditor: View {
                 .disabled(session.isMarkdownDocument)
                 .help(Text(verbatim: text(markdownHelp(.nodeColor, otherwise: "打开样式检查器，修改选中节点的外观"))))
                 .accessibilityHint(text(markdownHelp(.nodeColor, otherwise: "打开样式检查器，修改选中节点的外观")))
+                .accessibilityIdentifier("inspector.open")
             Button {
                 showThemes = true
             } label: {
@@ -688,6 +689,7 @@ struct DocumentEditor: View {
             Image(systemName: "ellipsis")
         }
         .accessibilityLabel(text("更多"))
+        .accessibilityIdentifier("editor.more")
         .help(Text(verbatim: text("大纲、样式、配色、标签筛选、版本历史和关于")))
     }
 
@@ -709,17 +711,28 @@ struct DocumentEditor: View {
     }
 
     private var inspectorBody: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            inspectorTabPicker
-            inspectorTabPage
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        }
-        .padding(.top, 12)
-        // The column centers a stack shorter than itself. 演说 is only a
-        // placeholder, so the old stack slid to the middle and took the
-        // segmented control with it. Take the offered height and keep the
-        // control on the top edge; the page below is the only part that changes.
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        // The header is an inset, not a sibling of the page. A short page
+        // (演说, or 样式 with nothing selected) used to shrink the stack and
+        // the column centered it, so 「检查器」 and the segments left the top
+        // with the placeholder. The inset keeps a fixed-height header on the
+        // top edge. Only the page below is flexible, and it is what scrolls.
+        inspectorTabPage
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .safeAreaInset(edge: .top, spacing: 12) {
+                inspectorHeader
+            }
+            .containerRelativeFrame(.vertical, alignment: .top) { length, _ in length }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var inspectorHeader: some View {
+        inspectorTabPicker
+            .padding(.horizontal)
+            .padding(.top, 12)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("inspector.header")
     }
 
     private var inspectorTabPicker: some View {
@@ -730,8 +743,6 @@ struct DocumentEditor: View {
         }
         .pickerStyle(.segmented)
         .accessibilityIdentifier("inspector.tabs")
-        .padding(.horizontal)
-        .frame(maxWidth: .infinity)
     }
 
     @ViewBuilder
@@ -764,6 +775,7 @@ struct DocumentEditor: View {
             } description: {
                 Text(verbatim: text("演说"))
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
@@ -1392,6 +1404,8 @@ private struct StyleInspector: View {
             } description: {
                 Text(verbatim: text(locksAppearance ? MarkdownModePolicy.reason(.nodeColor) : "样式会写进导图文件。"))
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityIdentifier("inspector.empty")
         }
     }
 

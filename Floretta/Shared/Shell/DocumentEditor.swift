@@ -83,6 +83,57 @@ struct DocumentEditor: View {
     @FocusState private var regionMetric: RegionMetric?
     @State private var topicCensus = TopicCensusModel()
 
+    #if os(macOS)
+    @ToolbarContentBuilder
+    private var macToolbarItemsPrimary: some CustomizableToolbarContent {
+        macItem(.undo)
+        macItem(.redo)
+        macItem(.delete)
+        macItem(.insert)
+        macItem(.share)
+        macItem(.zoom)
+        macItem(.immersive)
+        macItem(.more)
+        macItem(.child)
+        macItem(.sibling)
+    }
+
+    @ToolbarContentBuilder
+    private var macToolbarItemsInsert: some CustomizableToolbarContent {
+        macItem(.dictation)
+        macItem(.freeNode)
+        macItem(.sticky)
+        macItem(.link)
+        macItem(.summary)
+        macItem(.boundary)
+        macItem(.region)
+        macItem(.image)
+        macItem(.attachment)
+        macItem(.importFile)
+    }
+
+    @ToolbarContentBuilder
+    private var macToolbarItemsNavigation: some CustomizableToolbarContent {
+        macItem(.outline)
+        macItem(.style)
+        macItem(.theme)
+        macItem(.viewMode)
+        macItem(.newCanvas)
+        macItem(.find)
+        macItem(.tagFilter)
+        macItem(.history)
+        macItem(.paste)
+        macItem(.about)
+    }
+
+    @ToolbarContentBuilder
+    private var macToolbarItemsView: some CustomizableToolbarContent {
+        macItem(.mapMode)
+        macItem(.focusMode)
+        macItem(.fit)
+    }
+    #endif
+
     var body: some View {
         editorPresentations
     }
@@ -199,39 +250,10 @@ struct DocumentEditor: View {
             #if os(macOS)
             .toolbar(id: "floretta.editor") {
                 if session.zen.chrome.showsToolbar {
-                    macItem(.undo)
-                    macItem(.redo)
-                    macItem(.delete)
-                    macItem(.insert)
-                    macItem(.share)
-                    macItem(.zoom)
-                    macItem(.immersive)
-                    macItem(.more)
-                    macItem(.child)
-                    macItem(.sibling)
-                    macItem(.dictation)
-                    macItem(.freeNode)
-                    macItem(.sticky)
-                    macItem(.link)
-                    macItem(.summary)
-                    macItem(.boundary)
-                    macItem(.region)
-                    macItem(.image)
-                    macItem(.attachment)
-                    macItem(.importFile)
-                    macItem(.outline)
-                    macItem(.style)
-                    macItem(.theme)
-                    macItem(.viewMode)
-                    macItem(.newCanvas)
-                    macItem(.find)
-                    macItem(.tagFilter)
-                    macItem(.history)
-                    macItem(.paste)
-                    macItem(.about)
-                    macItem(.mapMode)
-                    macItem(.focusMode)
-                    macItem(.fit)
+                    macToolbarItemsPrimary
+                    macToolbarItemsInsert
+                    macToolbarItemsNavigation
+                    macToolbarItemsView
                 }
             }
             #endif

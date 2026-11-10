@@ -5,7 +5,7 @@ final class AIAdaptationTests: XCTestCase {
     private let created = Date(timeIntervalSince1970: 1_700_000_000)
 
     func testRootPathIsTheSecondChildOfTheFourthRoot() throws {
-        var session = try markdownSession(sampleList())
+        let session = try markdownSession(sampleList())
         XCTAssertEqual(try session.get(.text, at: "root/3/1"), "d1")
         XCTAssertEqual(try session.get(.text, at: "root/3/1/0"), "d1a")
         XCTAssertEqual(try session.get(.text, at: "root/0"), "a")
@@ -172,7 +172,7 @@ final class AIAdaptationTests: XCTestCase {
           root/3/0	d0
           root/3/1	d1
             root/3/1/0	d1a
-        """)
+        """ + "\n")
         let shallow = FlorettaCommandLine.run(["floretta", "tree", file.path, "--depth", "1"])
         XCTAssertEqual(shallow.exitCode, 0, shallow.stderr)
         XCTAssertFalse(shallow.stdout.contains("root/3/1"))

@@ -5,7 +5,7 @@ import Foundation
 /// `freeNodes` are outside that tree: each has its own id and a canvas point.
 /// `stickies` are canvas cards. They are not topics and are not stored in `freeNodes`.
 public struct MindMapDocument: Equatable, Sendable {
-    /// Additive keys (`freeNodes`, `relationships`, `stickies`, `additionalCanvases`, `xmindForeign`, `opmlForeign`, `mmForeign`) stay on version 1.
+    /// Additive keys (`freeNodes`, `relationships`, `stickies`, `summaries`, `boundaries`, `additionalCanvases`, `xmindForeign`, `opmlForeign`, `mmForeign`) stay on version 1.
     /// A version bump would refuse every existing file. Empty arrays are omitted.
     public static let currentFormatVersion = 1
 
@@ -304,11 +304,31 @@ enum FlorettaTree {
             throw FlorettaCodecError.duplicateID(node.id)
         }
         ids.insert(node.id)
+        for summary in node.summaries {
+            if !seen.insert(summary.id).inserted {
+                throw FlorettaCodecError.duplicateID(summary.id)
+            }
+            try checkRange(summary.rangeStart, summary.rangeEnd, count: node.children.count, id: summary.id, kind: "Summary")
+        }
+        for boundary in node.boundaries {
+            if !seen.insert(boundary.id).inserted {
+                throw FlorettaCodecError.duplicateID(boundary.id)
+            }
+            try checkRange(boundary.rangeStart, boundary.rangeEnd, count: node.children.count, id: boundary.id, kind: "Boundary")
+        }
         stack.append(node.id)
         for child in node.children {
             try visit(child, seen: &seen, stack: &stack, ids: &ids)
         }
         stack.removeLast()
+    }
+
+    private static func checkRange(_ start: Int, _ end: Int, count: Int, id: UUID, kind: String) throws {
+        if start < 0 || end < start || end >= count {
+            throw FlorettaCodecError.corrupt(
+                "\(kind) \(id.uuidString) covers a child range outside 0..<\(count)."
+            )
+        }
     }
 }
 
@@ -555,6 +575,183 @@ public extension MindMapDocument {
         return true
     }
 
+    /// True when the first sheet has at least one summary. Geometry uses this to skip a walk.
+    public var hasSummaries: Bool {
+        func walk(_ nodes: [MindMapNode]) -> Bool {
+            for node in nodes {
+                if !node.summaries.isEmpty || walk(node.children) { return true }
+            }
+            return false
+        }
+        return walk(roots) || walk(freeNodes)
+    }
+
+    /// True when the first sheet has at least one boundary.
+    public var hasBoundaries: Bool {
+        func walk(_ nodes: [MindMapNode]) -> Bool {
+            for node in nodes {
+                if !node.boundaries.isEmpty || walk(node.children) { return true }
+            }
+            return false
+        }
+        return walk(roots) || walk(freeNodes)
+    }
+
+    /// Summaries on the sheet the editor changes. Additional sheets keep their own.
+    public var summaryCount: Int {
+        countMarks(roots) { $0.summaries.count } + countMarks(freeNodes) { $0.summaries.count }
+    }
+
+    /// Boundaries on the sheet the editor changes.
+    public var boundaryCount: Int {
+        countMarks(roots) { $0.boundaries.count } + countMarks(freeNodes) { $0.boundaries.count }
+    }
+
+    /// A topic can be enclosed when it is a child in the main tree.
+    public func canEnclose(_ id: UUID?) -> Bool {
+        guard let id, parentID(of: id) != nil else { return false }
+        return !isInFreeNodeTree(id)
+    }
+
+    public func summary(_ id: UUID) -> TopicSummary? {
+        var found: TopicSummary?
+        walkMarks { node in
+            if found == nil, let summary = node.summaries.first(where: { $0.id == id }) {
+                found = summary
+            }
+        }
+        return found
+    }
+
+    public func boundary(_ id: UUID) -> TopicBoundary? {
+        var found: TopicBoundary?
+        walkMarks { node in
+            if found == nil, let boundary = node.boundaries.first(where: { $0.id == id }) {
+                found = boundary
+            }
+        }
+        return found
+    }
+
+    /// Summary to select after `id` is removed. Does not fall through to a topic.
+    public func summarySelection(afterRemoving id: UUID) -> UUID? {
+        var next: UUID?
+        walkMarks { node in
+            guard next == nil, let index = node.summaries.firstIndex(where: { $0.id == id }) else { return }
+            if index + 1 < node.summaries.count {
+                next = node.summaries[index + 1].id
+            } else if index > 0 {
+                next = node.summaries[index - 1].id
+            }
+        }
+        return next
+    }
+
+    /// Boundary to select after `id` is removed. Does not fall through to a topic.
+    public func boundarySelection(afterRemoving id: UUID) -> UUID? {
+        var next: UUID?
+        walkMarks { node in
+            guard next == nil, let index = node.boundaries.firstIndex(where: { $0.id == id }) else { return }
+            if index + 1 < node.boundaries.count {
+                next = node.boundaries[index + 1].id
+            } else if index > 0 {
+                next = node.boundaries[index - 1].id
+            }
+        }
+        return next
+    }
+
+    /// Covers one selected child. The summary topic is not inserted into `children`.
+    @discardableResult
+    public mutating func addSummary(
+        covering childID: UUID,
+        text: String = "概要",
+        id: UUID = UUID()
+    ) -> TopicSummary? {
+        guard let parentID = parentID(of: childID), let parent = node(parentID) else { return nil }
+        guard let index = parent.children.firstIndex(where: { $0.id == childID }) else { return nil }
+        return addSummary(under: parentID, rangeStart: index, rangeEnd: index, text: text, id: id)
+    }
+
+    /// Covers `children[rangeStart...rangeEnd]` of `parentID`.
+    @discardableResult
+    public mutating func addSummary(
+        under parentID: UUID,
+        rangeStart: Int,
+        rangeEnd: Int,
+        text: String = "概要",
+        id: UUID = UUID()
+    ) -> TopicSummary? {
+        guard !containsIdentifier(id), node(parentID) != nil else { return nil }
+        let summary = TopicSummary(id: id, text: text, rangeStart: rangeStart, rangeEnd: rangeEnd)
+        let wrote = mutateNode(parentID) { parent in
+            guard rangeStart >= 0, rangeEnd >= rangeStart, rangeEnd < parent.children.count else { return }
+            parent.summaries.append(summary)
+        }
+        guard wrote, self.summary(id) != nil else { return nil }
+        return summary
+    }
+
+    @discardableResult
+    public mutating func renameSummary(_ id: UUID, text: String) -> Bool {
+        mutateMark(summary: id) { node in
+            guard let index = node.summaries.firstIndex(where: { $0.id == id }) else { return }
+            node.summaries[index].text = text
+        }
+    }
+
+    @discardableResult
+    public mutating func removeSummary(_ id: UUID) -> Bool {
+        mutateMark(summary: id) { node in
+            node.summaries.removeAll { $0.id == id }
+        }
+    }
+
+    /// Encloses one selected child.
+    @discardableResult
+    public mutating func addBoundary(
+        covering childID: UUID,
+        title: String = "",
+        id: UUID = UUID()
+    ) -> TopicBoundary? {
+        guard let parentID = parentID(of: childID), let parent = node(parentID) else { return nil }
+        guard let index = parent.children.firstIndex(where: { $0.id == childID }) else { return nil }
+        return addBoundary(under: parentID, rangeStart: index, rangeEnd: index, title: title, id: id)
+    }
+
+    @discardableResult
+    public mutating func addBoundary(
+        under parentID: UUID,
+        rangeStart: Int,
+        rangeEnd: Int,
+        title: String = "",
+        id: UUID = UUID()
+    ) -> TopicBoundary? {
+        guard !containsIdentifier(id), node(parentID) != nil else { return nil }
+        let boundary = TopicBoundary(id: id, title: title, rangeStart: rangeStart, rangeEnd: rangeEnd)
+        let wrote = mutateNode(parentID) { parent in
+            guard rangeStart >= 0, rangeEnd >= rangeStart, rangeEnd < parent.children.count else { return }
+            parent.boundaries.append(boundary)
+        }
+        guard wrote, self.boundary(id) != nil else { return nil }
+        return boundary
+    }
+
+    @discardableResult
+    public mutating func renameBoundary(_ id: UUID, title: String) -> Bool {
+        mutateMark(boundary: id) { node in
+            guard let index = node.boundaries.firstIndex(where: { $0.id == id }) else { return }
+            node.boundaries[index].title = title
+        }
+    }
+
+    @discardableResult
+    public mutating func removeBoundary(_ id: UUID) -> Bool {
+        mutateMark(boundary: id) { node in
+            node.boundaries.removeAll { $0.id == id }
+        }
+    }
+
     /// Records a connection between two existing topics. The same topic cannot link to itself.
     @discardableResult
     public mutating func linkTopics(
@@ -567,6 +764,78 @@ public extension MindMapDocument {
         let relationship = TopicRelationship(id: id, sourceID: sourceID, targetID: targetID, title: title)
         relationships.append(relationship)
         return relationship
+    }
+
+    public func containsIdentifier(_ id: UUID) -> Bool {
+        func marks(_ nodes: [MindMapNode]) -> Bool {
+            for node in nodes {
+                if node.id == id { return true }
+                if node.summaries.contains(where: { $0.id == id }) { return true }
+                if node.boundaries.contains(where: { $0.id == id }) { return true }
+                if marks(node.children) { return true }
+            }
+            return false
+        }
+        if marks(roots) || marks(freeNodes) { return true }
+        if stickies.contains(where: { $0.id == id }) { return true }
+        if relationships.contains(where: { $0.id == id }) { return true }
+        for canvas in additionalCanvases {
+            if canvas.id == id || marks(canvas.roots) || marks(canvas.freeNodes) { return true }
+            if canvas.relationships.contains(where: { $0.id == id }) { return true }
+        }
+        return false
+    }
+
+    private func countMarks(_ nodes: [MindMapNode], _ count: (MindMapNode) -> Int) -> Int {
+        nodes.reduce(0) { partial, node in
+            partial + count(node) + countMarks(node.children, count)
+        }
+    }
+
+    private func walkMarks(_ visit: (MindMapNode) -> Void) {
+        func walk(_ nodes: [MindMapNode]) {
+            for node in nodes {
+                visit(node)
+                walk(node.children)
+            }
+        }
+        walk(roots)
+        walk(freeNodes)
+        for canvas in additionalCanvases {
+            walk(canvas.roots)
+            walk(canvas.freeNodes)
+        }
+    }
+
+    private mutating func mutateMark(summary id: UUID, _ body: (inout MindMapNode) -> Void) -> Bool {
+        mutateOwningNode(where: { $0.summaries.contains { $0.id == id } }, body)
+    }
+
+    private mutating func mutateMark(boundary id: UUID, _ body: (inout MindMapNode) -> Void) -> Bool {
+        mutateOwningNode(where: { $0.boundaries.contains { $0.id == id } }, body)
+    }
+
+    private mutating func mutateOwningNode(
+        where matches: (MindMapNode) -> Bool,
+        _ body: (inout MindMapNode) -> Void
+    ) -> Bool {
+        func walk(_ nodes: inout [MindMapNode]) -> Bool {
+            for index in nodes.indices {
+                if matches(nodes[index]) {
+                    body(&nodes[index])
+                    return true
+                }
+                if walk(&nodes[index].children) { return true }
+            }
+            return false
+        }
+        if walk(&roots) || walk(&freeNodes) { return true }
+        for index in additionalCanvases.indices {
+            if walk(&additionalCanvases[index].roots) || walk(&additionalCanvases[index].freeNodes) {
+                return true
+            }
+        }
+        return false
     }
 
     private func countTopics(_ nodes: [MindMapNode]) -> Int {

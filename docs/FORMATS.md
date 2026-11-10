@@ -190,8 +190,8 @@ PNG 可选 2x 或 3x，底可以是白的或透明的。
 | `.mm` | 导入 + 导出 | `Fixtures/MM/` 与文档往返 | 层级、顺序、TEXT、richcontent 纯文本、NOTE、LINK、FOLDED、POSITION、`ID_`+32hex；其余属性和元素原样写回 | 自由坐标、自由节点、便签、模型样式、关系线；未知 POSITION 报错；注释在改过映射后不重写 | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-10 |
 | `.opml` | 导入 + 导出 | `Fixtures/OPML/` 与文档往返 | 层级、顺序、text、title/_note/note、url、文档标题；head 其余元素和未知属性原样写回 | 折叠、左右侧、画布坐标、自由节点、便签、样式、节点 id；注释在改过映射后不重写 | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-10 |
 | Markdown | 一等文档读写 + 纯标题预设 | 见 MD-AS-DOCUMENT 与 `Fixtures/MarkdownHeading/` | 文档：层级、顺序、text、note、单一 link、front-matter。预设：标题深度、text、note、单一 link | 附件、颜色、关系线、位置、折叠、UUID；`##`+ 拒开；预设认不出的行失败。不把这些补成假保真 | 文档 codec 未改；字段表见 MARKDOWN-FIELDS | 2026-11-10 |
-| PNG / PDF | 仅导出 | 单测把 PNG 读回并抽样像素；PDF 看页数和 mediaBox | 当前可见节点和连线；2x/3x；白底或透明 | 工具栏、侧栏、选中框、点阵；折叠起来的子树；超出像素上限的部分 | 代码与单测已落盘；本机未打开文件 | 2026-11-09 |
-| `.xmind` | 导入 + 导出 + 再导入 | `Tests/FlorettaCoreTests/Fixtures/XMind/` 六类样本，加单测里的 `MindMapDocument` | 层级、文字、备注、链接、根上的自由节点、关系线、已映射的样式、xap 附件引用和字节、多画布；未知字段在未改映射时按原 `content.json` 字节写回 | 折叠不进 `isCollapsed`、标签/标记/概要/边界没有一等字段、嵌套浮动主题不可编辑、XMind 8 仅 `content.xml`、便签；改映射字段后数字会按 JSON 数字重写。详见 `docs/XMIND-FIELDS.md` | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-10 |
+| PNG / PDF | 仅导出 | 单测把 PNG 读回并抽样像素；PDF 看页数和 mediaBox | 当前可见节点、连线、概要括号和边界；2x/3x；白底或透明 | 工具栏、侧栏、选中框、点阵；折叠起来的子树；超出像素上限的部分 | 代码与单测已落盘；本机未打开文件 | 2026-11-10 |
+| `.xmind` | 导入 + 导出 + 再导入 | `Tests/FlorettaCoreTests/Fixtures/XMind/` 六类样本，加单测里的 `MindMapDocument` | 层级、文字、备注、链接、根上的自由节点、关系线、概要、边界、已映射的样式、xap 附件引用和字节、多画布；未知字段在未改映射时按原 `content.json` 字节写回 | 折叠不进 `isCollapsed`、标签/标记没有一等字段、嵌套浮动主题不可编辑、XMind 8 仅 `content.xml`、便签；概要不进 children；改映射字段后数字会按 JSON 数字重写。详见 `docs/XMIND-FIELDS.md` | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-10 |
 | TextBundle | 仅导出 | `Tests/FlorettaCoreTests/Fixtures/TextBundle/` 的 simple、nested、attachments | 第一张画布的层级、文字、备注、链接、front matter、一级分区；有字节的树上图片和文件，相对路径进 text.md，字节进 assets/ | 不导入。自由节点、其他画布、便签、关系线、样式、坐标、折叠、节点 id、文档标题、缺字节的附件。详见 `docs/TEXTBUNDLE-FIELDS.md` | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-10 |
 
 > 空白 = 未验证。不要预填"通过"。

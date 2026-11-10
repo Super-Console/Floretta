@@ -48,7 +48,7 @@
 | `topic.children.attached` | mapped | children，顺序保持 |
 | `topic.children.detached` | mapped | 只在根主题上映射为 freeNodes |
 | `topic.children.detached nested` | passthrough | 嵌套浮动主题不进树，留在 source 里写回 |
-| `topic.children.summary` | passthrough | 不变成节点 |
+| `topic.children.summary` | mapped | 父主题上的 TopicSummary，不进 children |
 | `topic.position` | mapped | MindMapPoint；根上的 detached 缺坐标时导入为 0,0 |
 | `topic.notes.plain.content` | mapped | note |
 | `topic.notes other` | passthrough | realHTML 和其他 notes 键 |
@@ -61,8 +61,8 @@
 | `topic.structureClass` | passthrough | 不解释 |
 | `topic.customWidth` | passthrough | 不映射到 topicWidth |
 | `topic.numbering` | passthrough | 不解释 |
-| `topic.boundaries` | passthrough | 不解释 |
-| `topic.summaries` | passthrough | 不解释 |
+| `topic.boundaries` | mapped | 父主题上的 TopicBoundary |
+| `topic.summaries` | mapped | range 与 topicId 对应 TopicSummary |
 | `topic.extensions floretta` | mapped | provider org.floretta.attachments 写入 NodeAttachment |
 | `topic.extensions other` | passthrough | 其他 provider 原样留着 |
 | `topic.style.id` | passthrough | 样式 id 不解释 |

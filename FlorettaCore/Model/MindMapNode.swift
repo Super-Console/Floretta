@@ -134,6 +134,10 @@ public struct MindMapNode: Equatable, Sendable, Identifiable {
     /// Markdown document section root (`# ` only). Nested flags are not written as headings.
     public var isMarkdownSectionHeading: Bool
     public var children: [MindMapNode]
+    /// Summary topics for contiguous runs of `children`. Not members of `children`.
+    public var summaries: [TopicSummary]
+    /// Visual enclosures for contiguous runs of `children`.
+    public var boundaries: [TopicBoundary]
 
     public init(
         id: UUID = UUID(),
@@ -146,7 +150,9 @@ public struct MindMapNode: Equatable, Sendable, Identifiable {
         side: MindMapSide? = nil,
         attachments: [NodeAttachment] = [],
         children: [MindMapNode] = [],
-        isMarkdownSectionHeading: Bool = false
+        isMarkdownSectionHeading: Bool = false,
+        summaries: [TopicSummary] = [],
+        boundaries: [TopicBoundary] = []
     ) {
         self.id = id
         self.text = text
@@ -159,6 +165,8 @@ public struct MindMapNode: Equatable, Sendable, Identifiable {
         self.attachments = attachments
         self.children = children
         self.isMarkdownSectionHeading = isMarkdownSectionHeading
+        self.summaries = summaries
+        self.boundaries = boundaries
     }
 }
 
@@ -175,6 +183,8 @@ extension MindMapNode: Codable {
         case attachments
         case children
         case isMarkdownSectionHeading
+        case summaries
+        case boundaries
     }
 
     public init(from decoder: Decoder) throws {
@@ -194,6 +204,8 @@ extension MindMapNode: Codable {
         attachments = try container.decodeIfPresent([NodeAttachment].self, forKey: .attachments) ?? []
         children = try container.decode([MindMapNode].self, forKey: .children)
         isMarkdownSectionHeading = try container.decodeIfPresent(Bool.self, forKey: .isMarkdownSectionHeading) ?? false
+        summaries = try container.decodeIfPresent([TopicSummary].self, forKey: .summaries) ?? []
+        boundaries = try container.decodeIfPresent([TopicBoundary].self, forKey: .boundaries) ?? []
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -212,6 +224,12 @@ extension MindMapNode: Codable {
         try container.encode(children, forKey: .children)
         if isMarkdownSectionHeading {
             try container.encode(true, forKey: .isMarkdownSectionHeading)
+        }
+        if !summaries.isEmpty {
+            try container.encode(summaries, forKey: .summaries)
+        }
+        if !boundaries.isEmpty {
+            try container.encode(boundaries, forKey: .boundaries)
         }
     }
 }

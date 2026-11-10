@@ -204,6 +204,8 @@ public struct XMindNodeSnapshot: Equatable, Sendable, Codable {
     public var position: MindMapPoint?
     public var style: MindMapNodeStyle?
     public var attachments: [NodeAttachment]
+    public var summaries: [TopicSummary]
+    public var boundaries: [TopicBoundary]
     public var children: [XMindNodeSnapshot]
 
     public init(_ node: MindMapNode) {
@@ -214,7 +216,45 @@ public struct XMindNodeSnapshot: Equatable, Sendable, Codable {
         position = node.position
         style = node.style
         attachments = node.attachments
+        summaries = node.summaries
+        boundaries = node.boundaries
         children = node.children.map(XMindNodeSnapshot.init)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, text, note, link, position, style, attachments, summaries, boundaries, children
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        text = try container.decode(String.self, forKey: .text)
+        note = try container.decode(String.self, forKey: .note)
+        link = try container.decodeIfPresent(String.self, forKey: .link)
+        position = try container.decodeIfPresent(MindMapPoint.self, forKey: .position)
+        style = try container.decodeIfPresent(MindMapNodeStyle.self, forKey: .style)
+        attachments = try container.decodeIfPresent([NodeAttachment].self, forKey: .attachments) ?? []
+        summaries = try container.decodeIfPresent([TopicSummary].self, forKey: .summaries) ?? []
+        boundaries = try container.decodeIfPresent([TopicBoundary].self, forKey: .boundaries) ?? []
+        children = try container.decode([XMindNodeSnapshot].self, forKey: .children)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(text, forKey: .text)
+        try container.encode(note, forKey: .note)
+        try container.encodeIfPresent(link, forKey: .link)
+        try container.encodeIfPresent(position, forKey: .position)
+        try container.encodeIfPresent(style, forKey: .style)
+        try container.encode(attachments, forKey: .attachments)
+        if !summaries.isEmpty {
+            try container.encode(summaries, forKey: .summaries)
+        }
+        if !boundaries.isEmpty {
+            try container.encode(boundaries, forKey: .boundaries)
+        }
+        try container.encode(children, forKey: .children)
     }
 }
 

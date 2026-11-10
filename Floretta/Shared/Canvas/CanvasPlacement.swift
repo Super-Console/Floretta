@@ -30,6 +30,16 @@ enum CanvasPlacement {
                 bounds = bounds?.union(line.bounds) ?? line.bounds
             }
         }
+        if document.hasBoundaries {
+            for mark in SummaryGeometry.boundaries(in: document, frames: placed) {
+                bounds = bounds?.union(mark.bounds) ?? mark.bounds
+            }
+        }
+        if document.hasSummaries {
+            for mark in SummaryGeometry.summaries(in: document, frames: placed) {
+                bounds = bounds?.union(mark.bounds) ?? mark.bounds
+            }
+        }
         return bounds
     }
 

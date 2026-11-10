@@ -239,6 +239,12 @@ public enum FlorettaCodec {
                 isJSONBool($0)
             }
         }
+        if let summaries = object["summaries"], !(summaries is NSNull) {
+            try preflightMarks(summaries, at: "\(path).summaries", titleKey: "text")
+        }
+        if let boundaries = object["boundaries"], !(boundaries is NSNull) {
+            try preflightMarks(boundaries, at: "\(path).boundaries", titleKey: "title")
+        }
         if let children = object["children"] {
             guard let array = children as? [Any] else {
                 throw FlorettaCodecError.wrongJSONType(at: "\(path).children")
@@ -246,6 +252,22 @@ public enum FlorettaCodec {
             for (index, child) in array.enumerated() {
                 try preflightNode(child, at: "\(path).children[\(index)]")
             }
+        }
+    }
+
+    private static func preflightMarks(_ value: Any, at path: String, titleKey: String) throws {
+        guard let array = value as? [Any] else {
+            throw FlorettaCodecError.wrongJSONType(at: path)
+        }
+        for (index, item) in array.enumerated() {
+            guard let mark = item as? [String: Any] else {
+                throw FlorettaCodecError.wrongJSONType(at: "\(path)[\(index)]")
+            }
+            let place = "\(path)[\(index)]"
+            try expect(mark, key: "id", at: "\(place).id") { isJSONString($0) }
+            try expect(mark, key: titleKey, at: "\(place).\(titleKey)") { isJSONString($0) }
+            try expect(mark, key: "rangeStart", at: "\(place).rangeStart") { isJSONInteger($0) }
+            try expect(mark, key: "rangeEnd", at: "\(place).rangeEnd") { isJSONInteger($0) }
         }
     }
 

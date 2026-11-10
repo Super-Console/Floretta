@@ -40,8 +40,9 @@ struct MapExportResult: Equatable, Sendable {
 }
 
 /// PNG and PDF of the current map through SwiftUI `ImageRenderer`.
-/// The picture is the nodes, hierarchy links, relationship lines, and — when the
-/// user leaves the option on — sticky cards. No toolbar, sidebar, grid, or selection.
+/// The picture is the nodes, hierarchy links, relationship lines, summary brackets,
+/// boundary enclosures, and — when the user leaves the option on — sticky cards.
+/// No toolbar, sidebar, grid, or selection.
 @MainActor
 enum MapExporter {
     static let clippingNotice = "导出已按最大尺寸裁切，超出的内容没有画进文件。"
@@ -163,6 +164,8 @@ enum MapExporter {
         let view = MapExportView(
             frames: frames,
             lines: RelationshipGeometry.lines(for: document.relationships, frames: frames),
+            summaries: SummaryGeometry.summaries(in: document, frames: frames),
+            boundaries: SummaryGeometry.boundaries(in: document, frames: frames),
             stickies: document.stickiesForPictureExport(included: options.includeStickies),
             renderBounds: plan.renderBounds,
             background: options.background,
@@ -202,10 +205,12 @@ enum MapExporter {
     }
 }
 
-/// Nodes, hierarchy links, and relationship lines in export coordinates. No chrome.
+/// Nodes, hierarchy links, relationship lines, summaries, and boundaries. No chrome.
 private struct MapExportView: View {
     var frames: [NodeFrame]
     var lines: [RelationshipLine]
+    var summaries: [SummaryMark]
+    var boundaries: [BoundaryMark]
     var stickies: [StickyNote]
     var renderBounds: CGRect
     var background: MapExportBackground
@@ -213,6 +218,23 @@ private struct MapExportView: View {
 
     var body: some View {
         Canvas { context, _ in
+            for mark in boundaries {
+                let rect = local(mark.rect)
+                let path = Path(roundedRect: rect, cornerRadius: SummaryGeometry.cornerRadius)
+                let ink = color(SummaryGeometry.boundaryInk)
+                context.fill(path, with: .color(ink.opacity(0.08)))
+                context.stroke(path, with: .color(ink), lineWidth: SummaryGeometry.lineWidth)
+                if !mark.title.isEmpty {
+                    let title = local(mark.titleRect)
+                    if title.width > 1, title.height > 1 {
+                        context.fill(Path(roundedRect: title, cornerRadius: 4), with: .color(.white))
+                        context.draw(
+                            Text(mark.title).font(.system(size: SummaryGeometry.titleFontSize)),
+                            in: title.insetBy(dx: 4, dy: 1)
+                        )
+                    }
+                }
+            }
             for node in frames {
                 guard let link = node.link else { continue }
                 var curve = Path()
@@ -268,6 +290,31 @@ private struct MapExportView: View {
                     context.draw(
                         Text(line.title)
                             .font(.system(size: RelationshipGeometry.labelFontSize))
+                            .foregroundStyle(Color(red: 0.12, green: 0.14, blue: 0.16)),
+                        in: textRect
+                    )
+                }
+            }
+            for mark in summaries {
+                var brace = Path()
+                brace.move(to: local(mark.braceTop))
+                brace.addLine(to: local(mark.braceMid))
+                brace.addLine(to: local(mark.braceBottom))
+                context.stroke(
+                    brace,
+                    with: .color(color(SummaryGeometry.summaryInk)),
+                    style: StrokeStyle(lineWidth: SummaryGeometry.lineWidth, lineCap: .round, lineJoin: .round)
+                )
+                let rect = local(mark.topicRect)
+                guard rect.width > 1, rect.height > 1 else { continue }
+                let card = Path(roundedRect: rect, cornerRadius: 8)
+                context.fill(card, with: .color(.white))
+                context.stroke(card, with: .color(color(SummaryGeometry.summaryInk)), lineWidth: SummaryGeometry.lineWidth)
+                let textRect = rect.insetBy(dx: 8, dy: 4)
+                if textRect.width > 1, textRect.height > 1, !mark.text.isEmpty {
+                    context.draw(
+                        Text(mark.text)
+                            .font(.system(size: SummaryGeometry.topicFontSize))
                             .foregroundStyle(Color(red: 0.12, green: 0.14, blue: 0.16)),
                         in: textRect
                     )

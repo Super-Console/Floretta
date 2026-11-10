@@ -320,6 +320,13 @@ private func importTopic(
     }
     // `acceptDetached` is only the sheet root. Its detached children are free nodes
     // and get a point below when the file omitted one. The root itself keeps the file point.
+    let marks = parsedMarks(object, childCount: childNodes.count)
+    for summary in marks.summaries {
+        _ = try claim(summary.id, used: &used)
+    }
+    for boundary in marks.boundaries {
+        _ = try claim(boundary.id, used: &used)
+    }
     let node = MindMapNode(
         id: modelID,
         text: title,
@@ -328,7 +335,9 @@ private func importTopic(
         position: point,
         link: link,
         attachments: attachments,
-        children: childNodes
+        children: childNodes,
+        summaries: marks.summaries,
+        boundaries: marks.boundaries
     )
     topics[modelID.uuidString] = XMindTopicForeign(
         originalID: rawID,
@@ -580,6 +589,204 @@ private func interpretItalic(_ token: String) -> Bool? {
     }
 }
 
+private struct ParsedMarks {
+    var summaries: [TopicSummary] = []
+    var boundaries: [TopicBoundary] = []
+    var summaryTopicIDs: Set<String> = []
+    var summaryRecordIDs: Set<String> = []
+    var boundaryIDs: Set<String> = []
+}
+
+private func parsedMarks(_ object: XMindJSONObject, childCount: Int) -> ParsedMarks {
+    var parsed = ParsedMarks()
+    let summaryChildren = objectArray(object["children"]?.objectValue?["summary"]).compactMap(\.objectValue)
+    if usesSummaryRecords(object) {
+        for value in objectArray(object["summaries"]) {
+            guard let record = value.objectValue,
+                  let range = topicRange(record["range"], childCount: childCount) else { continue }
+            let topicRaw = record["topicId"]?.stringValue ?? record["id"]?.stringValue
+            guard let topicRaw, !topicRaw.isEmpty else { continue }
+            let topic = summaryChildren.first { $0["id"]?.stringValue == topicRaw }
+            let title = topic?["title"]?.stringValue ?? record["title"]?.stringValue ?? ""
+            parsed.summaries.append(TopicSummary(
+                id: XMindIDs.modelID(topicRaw),
+                text: title,
+                rangeStart: range.start,
+                rangeEnd: range.end
+            ))
+            parsed.summaryTopicIDs.insert(topicRaw)
+            if let recordID = record["id"]?.stringValue {
+                parsed.summaryRecordIDs.insert(recordID)
+            }
+        }
+    } else {
+        for topic in summaryChildren {
+            guard let rawID = topic["id"]?.stringValue, !rawID.isEmpty,
+                  let range = topicRange(topic["range"], childCount: childCount) else { continue }
+            parsed.summaries.append(TopicSummary(
+                id: XMindIDs.modelID(rawID),
+                text: topic["title"]?.stringValue ?? "",
+                rangeStart: range.start,
+                rangeEnd: range.end
+            ))
+            parsed.summaryTopicIDs.insert(rawID)
+        }
+    }
+    for value in objectArray(object["boundaries"]) {
+        guard let record = value.objectValue,
+              let rawID = record["id"]?.stringValue, !rawID.isEmpty,
+              let range = topicRange(record["range"], childCount: childCount) else { continue }
+        parsed.boundaries.append(TopicBoundary(
+            id: XMindIDs.modelID(rawID),
+            title: record["title"]?.stringValue ?? "",
+            rangeStart: range.start,
+            rangeEnd: range.end
+        ))
+        parsed.boundaryIDs.insert(rawID)
+    }
+    return parsed
+}
+
+private func usesSummaryRecords(_ object: XMindJSONObject) -> Bool {
+    !objectArray(object["summaries"]).isEmpty
+}
+
+private func applyMarks(_ object: inout XMindJSONObject, node: MindMapNode) {
+    let parsed = parsedMarks(object, childCount: node.children.count)
+    if parsed.summaries != node.summaries {
+        writeSummaries(&object, node: node, parsed: parsed)
+    }
+    if parsed.boundaries != node.boundaries {
+        writeBoundaries(&object, node: node, parsed: parsed)
+    }
+}
+
+private func writeSummaries(_ object: inout XMindJSONObject, node: MindMapNode, parsed: ParsedMarks) {
+    var children = object["children"]?.objectValue ?? XMindJSONObject()
+    let existingTopics = objectArray(children["summary"]).compactMap(\.objectValue)
+    if usesSummaryRecords(object) {
+        writeOfficialSummaries(&object, children: &children, node: node, existingTopics: existingTopics, parsed: parsed)
+        return
+    } else {
+        var written: [XMindJSONValue] = []
+        var kept: Set<String> = []
+        for summary in node.summaries {
+            var topic = existingTopics.first { sameModelID($0["id"]?.stringValue, summary.id) } ?? XMindJSONObject()
+            if topic["id"] == nil {
+                topic["id"] = .string(summary.id.uuidString)
+            }
+            topic["title"] = summary.text.isEmpty ? nil : .string(summary.text)
+            topic["range"] = .string("(\(summary.rangeStart),\(summary.rangeEnd))")
+            if let raw = topic["id"]?.stringValue { kept.insert(raw) }
+            written.append(.object(topic))
+        }
+        for topic in existingTopics {
+            guard let raw = topic["id"]?.stringValue, !kept.contains(raw), !parsed.summaryTopicIDs.contains(raw) else {
+                continue
+            }
+            written.append(.object(topic))
+        }
+        children["summary"] = written.isEmpty ? nil : .array(written)
+        object["children"] = children.isEmpty ? nil : .object(children)
+    }
+}
+
+private func writeOfficialSummaries(
+    _ object: inout XMindJSONObject,
+    children: inout XMindJSONObject,
+    node: MindMapNode,
+    existingTopics: [XMindJSONObject],
+    parsed: ParsedMarks
+) {
+    let existingRecords = objectArray(object["summaries"]).compactMap(\.objectValue)
+    var topics: [XMindJSONValue] = []
+    var records: [XMindJSONValue] = []
+    var keptTopics: Set<String> = []
+    var keptRecords: Set<String> = []
+    for summary in node.summaries {
+        var topic = existingTopics.first { sameModelID($0["id"]?.stringValue, summary.id) } ?? XMindJSONObject()
+        if topic["id"] == nil {
+            topic["id"] = .string(summary.id.uuidString)
+        }
+        if topic["class"] == nil {
+            topic["class"] = .string("topic")
+        }
+        topic["title"] = summary.text.isEmpty ? nil : .string(summary.text)
+        topic["range"] = nil
+        let topicRaw = topic["id"]?.stringValue ?? summary.id.uuidString
+        keptTopics.insert(topicRaw)
+        topics.append(.object(topic))
+
+        var record = existingRecords.first { sameModelID($0["topicId"]?.stringValue, summary.id) } ?? XMindJSONObject()
+        if record["id"] == nil {
+            record["id"] = .string(UUID().uuidString)
+        }
+        record["topicId"] = .string(topicRaw)
+        record["range"] = .string("(\(summary.rangeStart),\(summary.rangeEnd))")
+        if let raw = record["id"]?.stringValue { keptRecords.insert(raw) }
+        records.append(.object(record))
+    }
+    for topic in existingTopics {
+        guard let raw = topic["id"]?.stringValue, !keptTopics.contains(raw), !parsed.summaryTopicIDs.contains(raw) else {
+            continue
+        }
+        topics.append(.object(topic))
+    }
+    for record in existingRecords {
+        guard let raw = record["id"]?.stringValue, !keptRecords.contains(raw), !parsed.summaryRecordIDs.contains(raw) else {
+            continue
+        }
+        records.append(.object(record))
+    }
+    children["summary"] = topics.isEmpty ? nil : .array(topics)
+    object["children"] = children.isEmpty ? nil : .object(children)
+    object["summaries"] = records.isEmpty ? nil : .array(records)
+}
+
+private func writeBoundaries(_ object: inout XMindJSONObject, node: MindMapNode, parsed: ParsedMarks) {
+    let existing = objectArray(object["boundaries"]).compactMap(\.objectValue)
+    var written: [XMindJSONValue] = []
+    var kept: Set<String> = []
+    for boundary in node.boundaries {
+        var record = existing.first { sameModelID($0["id"]?.stringValue, boundary.id) } ?? XMindJSONObject()
+        if record["id"] == nil {
+            record["id"] = .string(boundary.id.uuidString)
+        }
+        record["range"] = .string("(\(boundary.rangeStart),\(boundary.rangeEnd))")
+        record["title"] = boundary.title.isEmpty ? nil : .string(boundary.title)
+        if let raw = record["id"]?.stringValue { kept.insert(raw) }
+        written.append(.object(record))
+    }
+    for record in existing {
+        guard let raw = record["id"]?.stringValue, !kept.contains(raw), !parsed.boundaryIDs.contains(raw) else {
+            continue
+        }
+        written.append(.object(record))
+    }
+    object["boundaries"] = written.isEmpty ? nil : .array(written)
+}
+
+private func objectArray(_ value: XMindJSONValue?) -> [XMindJSONValue] {
+    if case .array(let items)? = value { return items }
+    return []
+}
+
+private func topicRange(_ value: XMindJSONValue?, childCount: Int) -> (start: Int, end: Int)? {
+    guard let raw = value?.stringValue else { return nil }
+    guard raw.first == "(", raw.last == ")" else { return nil }
+    let parts = raw.dropFirst().dropLast().split(separator: ",", omittingEmptySubsequences: false)
+    guard parts.count == 2,
+          let start = Int(parts[0].trimmingCharacters(in: .whitespaces)),
+          let end = Int(parts[1].trimmingCharacters(in: .whitespaces)),
+          start >= 0, end >= start, end < childCount else { return nil }
+    return (start, end)
+}
+
+private func sameModelID(_ raw: String?, _ id: UUID) -> Bool {
+    guard let raw, !raw.isEmpty else { return false }
+    return XMindIDs.modelID(raw) == id
+}
+
 private enum XMindRebuild {
     static func content(_ document: MindMapDocument, foreign: XMindForeign) throws -> Data {
         var inputs: [(title: String, roots: [MindMapNode], freeNodes: [MindMapNode], relationships: [TopicRelationship])] = [
@@ -667,6 +874,7 @@ private enum XMindRebuild {
         let attached = node.children.map { buildTopic($0, detached: nil, foreign: foreign) }
         let detachedValues = detached?.map { buildTopic($0, detached: nil, foreign: foreign) }
         object["children"] = childrenValue(source: object, attached: attached, detached: detachedValues)
+        applyMarks(&object, node: node)
         object["style"] = styleValue(source: object, style: node.style, tokens: topic?.styleTokens ?? XMindStyleTokens())
         object["extensions"] = extensionsValue(
             source: object,
@@ -971,6 +1179,7 @@ private struct XTopic: Codable {
     var href: String?
     var children: XChildren?
     var extensions: [XExtension]?
+    var boundaries: [XBoundary]? = nil
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -981,6 +1190,7 @@ private struct XTopic: Codable {
         case href
         case children
         case extensions
+        case boundaries
     }
 
     init(node: MindMapNode, floating: Bool, detached: [MindMapNode]) {
@@ -1002,8 +1212,22 @@ private struct XTopic: Codable {
         }
         let attached = node.children.map { XTopic(node: $0, floating: false, detached: []) }
         let floatingTopics = detached.map { XTopic(node: $0, floating: true, detached: []) }
-        let built = XChildren(attached: attached, detached: floatingTopics)
+        let summaryTopics = node.summaries.map { summary in
+            XSummaryTopic(
+                id: summary.id.uuidString,
+                title: summary.text,
+                range: "(\(summary.rangeStart),\(summary.rangeEnd))"
+            )
+        }
+        let built = XChildren(attached: attached, detached: floatingTopics, summary: summaryTopics)
         children = built.isEmpty ? nil : built
+        boundaries = node.boundaries.isEmpty ? nil : node.boundaries.map { boundary in
+            XBoundary(
+                id: boundary.id.uuidString,
+                range: "(\(boundary.rangeStart),\(boundary.rangeEnd))",
+                title: boundary.title.isEmpty ? nil : boundary.title
+            )
+        }
         if node.attachments.isEmpty {
             extensions = nil
         } else {
@@ -1027,15 +1251,29 @@ private struct XTopic: Codable {
 private struct XChildren: Codable {
     var attached: [XTopic]?
     var detached: [XTopic]?
+    var summary: [XSummaryTopic]?
 
-    init(attached: [XTopic], detached: [XTopic]) {
+    init(attached: [XTopic], detached: [XTopic], summary: [XSummaryTopic] = []) {
         self.attached = attached.isEmpty ? nil : attached
         self.detached = detached.isEmpty ? nil : detached
+        self.summary = summary.isEmpty ? nil : summary
     }
 
     var isEmpty: Bool {
-        (attached ?? []).isEmpty && (detached ?? []).isEmpty
+        (attached ?? []).isEmpty && (detached ?? []).isEmpty && (summary ?? []).isEmpty
     }
+}
+
+private struct XSummaryTopic: Codable {
+    var id: String
+    var title: String
+    var range: String
+}
+
+private struct XBoundary: Codable {
+    var id: String
+    var range: String
+    var title: String?
 }
 
 private struct XPoint: Codable {

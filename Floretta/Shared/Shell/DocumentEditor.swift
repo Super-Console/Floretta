@@ -16,6 +16,7 @@ struct DocumentEditor: View {
     var onEdit: (MindMapDocument) -> Void
     var onImport: () -> Void
     var onSavedCopy: (URL) -> Void = { _ in }
+    var onMarkdownUpgrade: (URL, MarkdownUpgradeChoice) -> Void = { _, _ in }
     var thumbnailCache: ThumbnailFileCache? = nil
 
     @State private var showExport = false
@@ -47,6 +48,11 @@ struct DocumentEditor: View {
     @State private var previewPhase = FilePreviewPhase.idle
     @State private var previewToken = 0
     @State private var thumbnails = AttachmentThumbnailMemory()
+    @State private var showUpgrade = false
+    @State private var upgradeFile = ExportFile(data: Data())
+    @State private var upgradeName = "Floretta"
+    @State private var askOpenUpgrade = false
+    @State private var upgradedURL: URL?
 
     var body: some View {
         canvasStack
@@ -138,7 +144,7 @@ struct DocumentEditor: View {
                 ForEach(CanvasMenus.text, id: \.self) { item in
                     Button(text(item)) { runTextCommand(item) }
                         .explained(textHelp(item))
-                        .disabled(CanvasMenus.textDisabled.contains(item))
+                        .disabled(CanvasMenus.textDisabled.contains(item) || (session.isMarkdownDocument && item == "拷贝样式"))
                 }
             }
             .fileExporter(
@@ -155,6 +161,40 @@ struct DocumentEditor: View {
                 case .failure(let error):
                     exportError = error.localizedDescription
                 }
+            }
+            .fileExporter(
+                isPresented: $showUpgrade,
+                document: upgradeFile,
+                contentType: MarkdownUpgrade.contentType,
+                defaultFilename: upgradeName
+            ) { result in
+                switch result {
+                case .success(let url):
+                    if let current = session.url,
+                       MarkdownUpgrade.replacesOriginal(destination: url, original: current) {
+                        exportError = "不能覆盖原来的 Markdown 文件。"
+                        return
+                    }
+                    upgradedURL = url
+                    onMarkdownUpgrade(url, .keepMarkdown)
+                    askOpenUpgrade = true
+                case .failure(let error):
+                    exportError = error.localizedDescription
+                }
+            }
+            .confirmationDialog(
+                Text(verbatim: text("要打开新的 Floretta 文件吗？")),
+                isPresented: $askOpenUpgrade,
+                titleVisibility: .visible
+            ) {
+                Button(text("保持当前 Markdown"), role: .cancel) {}
+                Button(text("打开新的 Floretta 文件")) {
+                    if let upgradedURL {
+                        onMarkdownUpgrade(upgradedURL, .openFloretta)
+                    }
+                }
+            } message: {
+                Text(verbatim: text("升级后的文件已保存。当前 Markdown 仍打开着。"))
             }
             .alert(Text(verbatim: text("无法导出")), isPresented: exportErrorPresented) {
                 Button(text("好"), role: .cancel) {}
@@ -192,6 +232,10 @@ struct DocumentEditor: View {
                 importAttachment(result)
             }
             .dropDestination(for: DroppedImage.self) { items, _ in
+                guard session.acceptsAttachmentDrop else {
+                    session.revealBlocked(MarkdownModePolicy.reason(.insertAttachment))
+                    return false
+                }
                 guard let item = items.first else { return false }
                 stageAttachment(item.url, ownsCopy: item.ownsCopy)
                 return true
@@ -270,6 +314,7 @@ struct DocumentEditor: View {
                     previewFile(nodeID: nodeID, badge: badge)
                 },
                 tagFilter: session.tagFilter,
+                persistsPlacement: !session.isMarkdownDocument,
                 dictationToken: session.dictationToken,
                 dictationReplacesPlaceholder: session.dictationReplacesPlaceholder
             )
@@ -282,8 +327,23 @@ struct DocumentEditor: View {
             }
         }
         .overlay(alignment: .top) {
-            if session.tagFilter.isActive {
-                tagFilterBanner
+            VStack(spacing: 8) {
+                if session.markdownBannerVisible {
+                    markdownBanner
+                }
+                if let warning = session.visibleMarkdownWarning {
+                    markdownNotice(warning, identifier: "markdown.warning") {
+                        session.dismissMarkdownWarning()
+                    }
+                }
+                if let blocked = session.blockedNotice {
+                    markdownNotice(blocked, identifier: "markdown.blocked") {
+                        session.dismissBlockedNotice()
+                    }
+                }
+                if session.tagFilter.isActive {
+                    tagFilterBanner
+                }
             }
         }
     }
@@ -344,12 +404,62 @@ struct DocumentEditor: View {
                 .explained("关闭大纲")
             }
             .padding(12)
+            if session.isMarkdownDocument {
+                Text(verbatim: text(MarkdownModePolicy.reason(.collapse)))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 8)
+                    .accessibilityHint(text(MarkdownModePolicy.reason(.collapse)))
+            }
             OutlineView(
                 document: $session.document,
                 keyboard: $session.keyboard,
-                tagFilter: session.tagFilter
+                tagFilter: session.tagFilter,
+                locksCollapse: session.isMarkdownDocument
             )
         }
+    }
+
+    private var markdownBanner: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(verbatim: text(MarkdownModeCopy.title))
+                .font(.headline)
+            Text(verbatim: text(MarkdownModeCopy.explanation))
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.regularMaterial)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("markdown.mode.banner")
+        .padding(.top, session.zen.isActive ? 56 : 0)
+    }
+
+    private func markdownNotice(_ message: String, identifier: String, dismiss: @escaping () -> Void) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(verbatim: FlorettaL10n.present(message, locale: settings.resolvedLocale))
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button(action: dismiss) {
+                Image(systemName: "xmark")
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(text("关闭提示"))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(.regularMaterial)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(identifier)
+        .padding(.horizontal, 12)
+    }
+
+    private func markdownHelp(_ control: MarkdownBlockedControl, otherwise sentence: String) -> String {
+        session.isMarkdownDocument ? MarkdownModePolicy.reason(control) : sentence
     }
 
     private var documentTitle: String {
@@ -401,11 +511,15 @@ struct DocumentEditor: View {
             Button { session.addFreeNodeFromToolbar() } label: {
                 Label(text("自由节点"), systemImage: "arrow.up.left.and.arrow.down.right")
             }
-            .help(Text(verbatim: text("在画布上放一个不进层级的节点，位置会保存")))
+            .disabled(session.isMarkdownDocument)
+            .help(Text(verbatim: text(markdownHelp(.freeNode, otherwise: "在画布上放一个不进层级的节点，位置会保存"))))
+            .accessibilityHint(text(markdownHelp(.freeNode, otherwise: "在画布上放一个不进层级的节点，位置会保存")))
             Button { session.addStickyFromToolbar() } label: {
                 Label(text("便签"), systemImage: "note.text")
             }
-            .help(Text(verbatim: text("在画布上放一张便签。最多五种颜色，不计入节点，可以拖动，大小有上限")))
+            .disabled(session.isMarkdownDocument)
+            .help(Text(verbatim: text(markdownHelp(.sticky, otherwise: "在画布上放一张便签。最多五种颜色，不计入节点，可以拖动，大小有上限"))))
+            .accessibilityHint(text(markdownHelp(.sticky, otherwise: "在画布上放一张便签。最多五种颜色，不计入节点，可以拖动，大小有上限")))
             Menu {
                 let source = session.keyboard.selectedNodeID
                 let targets = session.document.linkTargets(excluding: source)
@@ -421,26 +535,33 @@ struct DocumentEditor: View {
             } label: {
                 Label(text("连到"), systemImage: "point.topleft.down.to.point.bottomright.curvepath")
             }
-            .disabled(session.keyboard.selectedNodeID == nil)
-            .help(Text(verbatim: text("把选中的节点连到另一个节点，画布上会画出这条线。")))
+            .disabled(session.isMarkdownDocument || session.keyboard.selectedNodeID == nil)
+            .help(Text(verbatim: text(markdownHelp(.relationship, otherwise: "把选中的节点连到另一个节点，画布上会画出这条线。"))))
+            .accessibilityHint(text(markdownHelp(.relationship, otherwise: "把选中的节点连到另一个节点，画布上会画出这条线。")))
             Button { session.addSummaryFromToolbar() } label: {
                 Label(text("概要"), systemImage: "curlybraces")
             }
-            .disabled(!session.document.canEnclose(session.keyboard.selectedNodeID))
-            .help(Text(verbatim: text("为选中的节点生成概要，并画出括住它的括号")))
+            .disabled(session.isMarkdownDocument || !session.document.canEnclose(session.keyboard.selectedNodeID))
+            .help(Text(verbatim: text(markdownHelp(.summary, otherwise: "为选中的节点生成概要，并画出括住它的括号"))))
+            .accessibilityHint(text(markdownHelp(.summary, otherwise: "为选中的节点生成概要，并画出括住它的括号")))
             Button { session.addBoundaryFromToolbar() } label: {
                 Label(text("边界"), systemImage: "rectangle.dashed")
             }
-            .disabled(!session.document.canEnclose(session.keyboard.selectedNodeID))
-            .help(Text(verbatim: text("用边界圈住选中的节点")))
+            .disabled(session.isMarkdownDocument || !session.document.canEnclose(session.keyboard.selectedNodeID))
+            .help(Text(verbatim: text(markdownHelp(.boundary, otherwise: "用边界圈住选中的节点"))))
+            .accessibilityHint(text(markdownHelp(.boundary, otherwise: "用边界圈住选中的节点")))
             Button { showImageImporter = true } label: {
                 Label(text("图片"), systemImage: "photo")
             }
-            .help(Text(verbatim: text("从文件选择一张图片放进选中的节点")))
+            .disabled(session.isMarkdownDocument)
+            .help(Text(verbatim: text(markdownHelp(.insertImage, otherwise: "从文件选择一张图片放进选中的节点"))))
+            .accessibilityHint(text(markdownHelp(.insertImage, otherwise: "从文件选择一张图片放进选中的节点")))
             Button { showAttachmentImporter = true } label: {
                 Label(text("附件"), systemImage: "paperclip")
             }
-            .help(Text(verbatim: text("把一个文件原样放进选中的节点")))
+            .disabled(session.isMarkdownDocument)
+            .help(Text(verbatim: text(markdownHelp(.insertAttachment, otherwise: "把一个文件原样放进选中的节点"))))
+            .accessibilityHint(text(markdownHelp(.insertAttachment, otherwise: "把一个文件原样放进选中的节点")))
             Button { onImport() } label: {
                 Label(text("从文件导入"), systemImage: "folder")
             }
@@ -476,8 +597,16 @@ struct DocumentEditor: View {
                 .explained("把这份导图导出为 PNG 图片")
             Button("Markdown") { export("md") }
                 .explained("把这份导图导出为 Markdown")
-            Button(text("保存为 Floretta")) { export("floretta") }
-                .explained("把这份导图保存为 Floretta 文件")
+            if session.isMarkdownDocument {
+                Button { beginUpgrade() } label: {
+                    Label(text(MarkdownUpgrade.actionTitle), systemImage: "arrow.up.document")
+                }
+                .help(Text(verbatim: text("把当前导图另存为 Floretta 工程。原来的 Markdown 文件不会被改掉。")))
+                .accessibilityIdentifier("markdown.upgrade")
+            } else {
+                Button(text("保存为 Floretta")) { export("floretta") }
+                    .explained("把这份导图保存为 Floretta 文件")
+            }
             Button(".mm") { export("mm") }
                 .explained("把这份导图导出为 FreeMind .mm")
             Button("OPML") { export("opml") }
@@ -500,13 +629,17 @@ struct DocumentEditor: View {
             Button(text("大纲")) { showOutline.toggle() }
                 .explained("打开或关闭左侧大纲")
             Button(text("样式")) { showInspector.toggle() }
-                .explained("打开样式检查器，修改选中节点的外观")
+                .disabled(session.isMarkdownDocument)
+                .help(Text(verbatim: text(markdownHelp(.nodeColor, otherwise: "打开样式检查器，修改选中节点的外观"))))
+                .accessibilityHint(text(markdownHelp(.nodeColor, otherwise: "打开样式检查器，修改选中节点的外观")))
             Button {
                 showThemes = true
             } label: {
                 Label(text("配色"), systemImage: "paintpalette")
             }
-            .explained("为各分支自动配色，浅色和深色各用一套")
+            .disabled(session.isMarkdownDocument)
+            .help(Text(verbatim: text(markdownHelp(.themeColor, otherwise: "为各分支自动配色，浅色和深色各用一套"))))
+            .accessibilityHint(text(markdownHelp(.themeColor, otherwise: "为各分支自动配色，浅色和深色各用一套")))
             .accessibilityIdentifier("theme.menu")
             Menu(text("查看模式")) {
                 Button(text("地图模式")) { session.viewMode = .map }
@@ -527,7 +660,9 @@ struct DocumentEditor: View {
             } label: {
                 Label(text("标签筛选"), systemImage: "tag")
             }
-            .explained("给选中的主题加上优先级、进度、旗帜或标签，并按标签高亮")
+            .disabled(session.isMarkdownDocument)
+            .help(Text(verbatim: text(markdownHelp(.tags, otherwise: "给选中的主题加上优先级、进度、旗帜或标签，并按标签高亮"))))
+            .accessibilityHint(text(markdownHelp(.tags, otherwise: "给选中的主题加上优先级、进度、旗帜或标签，并按标签高亮")))
             .accessibilityIdentifier("tagFilter.open")
             Button(text("粘贴")) { pasteFromClipboard() }
                 .explained("把剪贴板里的图片放进节点；没有图片时粘贴文字")
@@ -567,6 +702,7 @@ struct DocumentEditor: View {
                     StyleInspector(
                         document: $session.document,
                         nodeID: session.keyboard.selectedNodeID,
+                        locksAppearance: session.isMarkdownDocument,
                         onSelectRelationship: { id in
                             if session.keyboard.mode == .edit {
                                 session.keyboard.apply(.commitEdit, document: &session.document, frames: [])
@@ -745,6 +881,11 @@ struct DocumentEditor: View {
     }
 
     private func stageAttachment(_ url: URL, ownsCopy: Bool = false) {
+        if session.isMarkdownDocument {
+            if ownsCopy { try? FileManager.default.removeItem(at: url) }
+            session.revealBlocked(MarkdownModePolicy.reason(.insertAttachment))
+            return
+        }
         let started = url.startAccessingSecurityScopedResource()
         defer { if started { url.stopAccessingSecurityScopedResource() } }
         do {
@@ -892,7 +1033,23 @@ struct DocumentEditor: View {
         insertSourceIsCopy = false
     }
 
+    private func beginUpgrade() {
+        do {
+            upgradeFile = ExportFile(data: try MarkdownUpgrade.fileData(for: session.document))
+            let title = session.document.title.isEmpty ? "Floretta" : session.document.title
+            upgradeName = title + "." + MarkdownUpgrade.filenameExtension
+            showUpgrade = true
+        } catch {
+            exportError = error.localizedDescription
+        }
+    }
+
     private func beginInsert() {
+        guard session.acceptsAttachmentDrop else {
+            session.revealBlocked(MarkdownModePolicy.reason(.insertAttachment))
+            cancelInsert()
+            return
+        }
         insertAccepted = true
         let source = insertSource
         let ownsCopy = insertSourceIsCopy
@@ -1102,7 +1259,10 @@ struct DocumentEditor: View {
         case "拷贝": return "复制选中节点的文字"
         case "粘贴": return "把剪贴板里的图片放进节点；没有图片时粘贴文字"
         case "全选": return "选中当前节点里的全部文字"
-        case "拷贝样式": return "复制选中节点的填充颜色"
+        case "拷贝样式":
+            return session.isMarkdownDocument
+                ? MarkdownModePolicy.reason(.copyStyle)
+                : "复制选中节点的填充颜色"
         default: return item
         }
     }
@@ -1165,12 +1325,33 @@ struct DocumentEditor: View {
 private struct StyleInspector: View {
     @Binding var document: MindMapDocument
     var nodeID: UUID?
+    var locksAppearance = false
     var onSelectRelationship: (UUID) -> Void = { _ in }
     @Environment(\.locale) private var locale
 
     var body: some View {
         if let nodeID, document.node(nodeID) != nil {
-            Form {
+            VStack(alignment: .leading, spacing: 8) {
+                if locksAppearance {
+                    Text(verbatim: text(MarkdownModePolicy.reason(.nodeColor)))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal)
+                        .accessibilityHint(text(MarkdownModePolicy.reason(.nodeColor)))
+                }
+                appearanceForm
+            }
+        } else {
+            ContentUnavailableView {
+                Label(text("选择一个主题"), systemImage: "paintbrush")
+            } description: {
+                Text(verbatim: text(locksAppearance ? MarkdownModePolicy.reason(.nodeColor) : "样式会写进导图文件。"))
+            }
+        }
+    }
+
+    private var appearanceForm: some View {
+        Form {
                 Section(text("主题")) {
                     Picker(text("形状"), selection: shape) {
                         Text(verbatim: text("矩形")).tag("rectangle")
@@ -1230,32 +1411,30 @@ private struct StyleInspector: View {
                     }
                 }
                 Section(text("连到")) {
-                    let links = document.relationships.filter {
-                        $0.sourceID == nodeID || $0.targetID == nodeID
-                    }
-                    if links.isEmpty {
-                        Text(verbatim: text("还没有连到其他节点。"))
-                    } else {
-                        ForEach(links) { link in
-                            Button {
-                                onSelectRelationship(link.id)
-                            } label: {
-                                Text(verbatim: relationshipLine(link, seenFrom: nodeID))
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                    if locksAppearance {
+                        Text(verbatim: text(MarkdownModePolicy.reason(.relationship)))
+                    } else if let nodeID {
+                        let links = document.relationships.filter {
+                            $0.sourceID == nodeID || $0.targetID == nodeID
+                        }
+                        if links.isEmpty {
+                            Text(verbatim: text("还没有连到其他节点。"))
+                        } else {
+                            ForEach(links) { link in
+                                Button {
+                                    onSelectRelationship(link.id)
+                                } label: {
+                                    Text(verbatim: relationshipLine(link, seenFrom: nodeID))
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                 }
             }
             .formStyle(.grouped)
-        } else {
-            ContentUnavailableView {
-                Label(text("选择一个主题"), systemImage: "paintbrush")
-            } description: {
-                Text(verbatim: text("样式会写进导图文件。"))
-            }
-        }
+            .disabled(locksAppearance)
     }
 
     private var shape: Binding<String> {
@@ -1309,6 +1488,7 @@ private struct StyleInspector: View {
         Binding(
             get: { StyleColor.color(hex: style?.fillHex ?? style?.colorHex ?? "#FFFFFF") },
             set: { color in
+                guard !locksAppearance else { return }
                 let hex = StyleColor.hex(color)
                 guard let nodeID else { return }
                 _ = CanvasEditCommands.setFill(hex: hex, nodeID: nodeID, document: &document)
@@ -1401,7 +1581,7 @@ private struct StyleInspector: View {
     }
 
     private func update(_ body: (inout MindMapNodeStyle) -> Void) {
-        guard let nodeID else { return }
+        guard !locksAppearance, let nodeID else { return }
         _ = document.mutateNode(nodeID) { node in
             var style = node.style ?? MindMapNodeStyle(colorHex: "#000000")
             body(&style)

@@ -6,6 +6,8 @@ struct OutlineView: View {
     @Binding var document: MindMapDocument
     @Binding var keyboard: MindMapKeyboardSession
     var tagFilter: TopicTagFilter = TopicTagFilter()
+    /// Markdown mode has no collapse control. The tree stays expanded.
+    var locksCollapse: Bool = false
     #if os(iOS)
     @State private var reorderMode: EditMode = .inactive
     #endif
@@ -44,7 +46,13 @@ struct OutlineView: View {
 
     private var outlineList: some View {
         let list = List(selection: selection) {
-            OutlineLevel(document: $document, keyboard: $keyboard, tagFilter: tagFilter, parentID: nil)
+            OutlineLevel(
+                document: $document,
+                keyboard: $keyboard,
+                tagFilter: tagFilter,
+                parentID: nil,
+                locksCollapse: locksCollapse
+            )
             if !document.freeNodes.isEmpty {
                 Section(text("自由节点")) {
                     ForEach(document.freeNodes.map(\.id), id: \.self) { id in
@@ -81,23 +89,48 @@ private struct OutlineLevel: View {
     @Binding var keyboard: MindMapKeyboardSession
     var tagFilter: TopicTagFilter
     var parentID: UUID?
+    var locksCollapse: Bool
 
     var body: some View {
         let ids = childIDs
         ForEach(ids, id: \.self) { id in
-            DisclosureGroup(isExpanded: expanded(id)) {
-                if document.node(id)?.isCollapsed == false {
-                    OutlineLevel(document: $document, keyboard: $keyboard, tagFilter: tagFilter, parentID: id)
-                }
-            } label: {
+            if locksCollapse {
                 OutlineRow(document: $document, keyboard: $keyboard, tagFilter: tagFilter, id: id)
-            }
-            .tag(id)
-            .draggable(id.uuidString)
-            .dropDestination(for: String.self) { items, _ in
-                guard let raw = items.first, let dragged = UUID(uuidString: raw) else { return false }
-                let count = document.node(id)?.children.count ?? 0
-                return keyboard.reparentNode(dragged, to: id, at: count, document: &document)
+                    .tag(id)
+                    .draggable(id.uuidString)
+                    .dropDestination(for: String.self) { items, _ in
+                        guard let raw = items.first, let dragged = UUID(uuidString: raw) else { return false }
+                        let count = document.node(id)?.children.count ?? 0
+                        return keyboard.reparentNode(dragged, to: id, at: count, document: &document)
+                    }
+                OutlineLevel(
+                    document: $document,
+                    keyboard: $keyboard,
+                    tagFilter: tagFilter,
+                    parentID: id,
+                    locksCollapse: true
+                )
+            } else {
+                DisclosureGroup(isExpanded: expanded(id)) {
+                    if document.node(id)?.isCollapsed == false {
+                        OutlineLevel(
+                            document: $document,
+                            keyboard: $keyboard,
+                            tagFilter: tagFilter,
+                            parentID: id,
+                            locksCollapse: false
+                        )
+                    }
+                } label: {
+                    OutlineRow(document: $document, keyboard: $keyboard, tagFilter: tagFilter, id: id)
+                }
+                .tag(id)
+                .draggable(id.uuidString)
+                .dropDestination(for: String.self) { items, _ in
+                    guard let raw = items.first, let dragged = UUID(uuidString: raw) else { return false }
+                    let count = document.node(id)?.children.count ?? 0
+                    return keyboard.reparentNode(dragged, to: id, at: count, document: &document)
+                }
             }
         }
         .onMove { source, destination in

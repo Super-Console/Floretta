@@ -15,6 +15,11 @@
 		C10000000000000000000006 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000005 /* Assets.xcassets */; };
 		C91000000000000000000004 /* MMTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F91000000000000000000002 /* MMTests.swift */; };
 		C92000000000000000000007 /* OPMLMarkdownTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F92000000000000000000003 /* OPMLMarkdownTests.swift */; };
+		C64000000000000000000001 /* XMindRoundTripTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F64000000000000000000001 /* XMindRoundTripTests.swift */; };
+		C64000000000000000000002 /* TextBundleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F64000000000000000000002 /* TextBundleTests.swift */; };
+		C65000000000000000000001 /* OPMLRoundTripTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F65000000000000000000001 /* OPMLRoundTripTests.swift */; };
+		C65000000000000000000002 /* MMRoundTripTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F65000000000000000000002 /* MMRoundTripTests.swift */; };
+		C65000000000000000000003 /* MarkdownFieldTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F65000000000000000000003 /* MarkdownFieldTests.swift */; };
 		C20000000000000000000001 /* MindMapDocumentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000C /* MindMapDocumentTests.swift */; };
 		C30000000000000000000003 /* RecoveryPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000003 /* RecoveryPresenter.swift */; };
 		C30000000000000000000006 /* RecoveryPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000003 /* RecoveryPresenter.swift */; };
@@ -106,6 +111,11 @@
 		F10000000000000000000008 /* Floretta-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Floretta-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		F91000000000000000000002 /* MMTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MMTests.swift; path = Tests/FlorettaCoreTests/MMTests.swift; sourceTree = SOURCE_ROOT; };
 		F92000000000000000000003 /* OPMLMarkdownTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OPMLMarkdownTests.swift; path = Tests/FlorettaCoreTests/OPMLMarkdownTests.swift; sourceTree = SOURCE_ROOT; };
+		F64000000000000000000001 /* XMindRoundTripTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = XMindRoundTripTests.swift; path = Tests/FlorettaCoreTests/XMindRoundTripTests.swift; sourceTree = SOURCE_ROOT; };
+		F64000000000000000000002 /* TextBundleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TextBundleTests.swift; path = Tests/FlorettaCoreTests/TextBundleTests.swift; sourceTree = SOURCE_ROOT; };
+		F65000000000000000000001 /* OPMLRoundTripTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OPMLRoundTripTests.swift; path = Tests/FlorettaCoreTests/OPMLRoundTripTests.swift; sourceTree = SOURCE_ROOT; };
+		F65000000000000000000002 /* MMRoundTripTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MMRoundTripTests.swift; path = Tests/FlorettaCoreTests/MMRoundTripTests.swift; sourceTree = SOURCE_ROOT; };
+		F65000000000000000000003 /* MarkdownFieldTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MarkdownFieldTests.swift; path = Tests/FlorettaCoreTests/MarkdownFieldTests.swift; sourceTree = SOURCE_ROOT; };
 		F1000000000000000000000C /* MindMapDocumentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MindMapDocumentTests.swift; path = Tests/FlorettaCoreTests/MindMapDocumentTests.swift; sourceTree = SOURCE_ROOT; };
 		F1000000000000000000000D /* FlorettaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FlorettaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F20000000000000000000003 /* RecoveryPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryPresenter.swift; sourceTree = "<group>"; };
@@ -190,6 +200,11 @@
 			F52100000000000000000003 /* FileAttachmentTests.swift */,
 			F91000000000000000000002 /* MMTests.swift */,
 			F92000000000000000000003 /* OPMLMarkdownTests.swift */,
+			F64000000000000000000001 /* XMindRoundTripTests.swift */,
+			F64000000000000000000002 /* TextBundleTests.swift */,
+			F65000000000000000000001 /* OPMLRoundTripTests.swift */,
+			F65000000000000000000002 /* MMRoundTripTests.swift */,
+			F65000000000000000000003 /* MarkdownFieldTests.swift */,
 			F60000000000000000000003 /* LayoutTests.swift */,
 			F61000000000000000000001 /* FreeNodeTests.swift */,
 			F62000000000000000000001 /* StickyNoteTests.swift */,
@@ -533,6 +548,11 @@
 			files = (
 				C91000000000000000000004 /* MMTests.swift in Sources */,
 				C92000000000000000000007 /* OPMLMarkdownTests.swift in Sources */,
+				C64000000000000000000001 /* XMindRoundTripTests.swift in Sources */,
+				C64000000000000000000002 /* TextBundleTests.swift in Sources */,
+				C65000000000000000000001 /* OPMLRoundTripTests.swift in Sources */,
+				C65000000000000000000002 /* MMRoundTripTests.swift in Sources */,
+				C65000000000000000000003 /* MarkdownFieldTests.swift in Sources */,
 				CB1000000000000000000003 /* ApplePlatformPorts.swift in Sources */,
 				C20000000000000000000001 /* MindMapDocumentTests.swift in Sources */,
 				C30000000000000000000009 /* RecoveryPresenter.swift in Sources */,

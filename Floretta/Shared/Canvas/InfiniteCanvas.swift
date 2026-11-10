@@ -27,6 +27,8 @@ struct InfiniteCanvas: View {
     var attachmentEntries: [ZipStoredEntry] = []
     var onPreviewFile: (UUID, FileBadge) -> Void = { _, _ in }
     var tagFilter: TopicTagFilter = TopicTagFilter()
+    var dictationToken: Int = 0
+    var dictationReplacesPlaceholder: Bool = false
     @State private var compositionWidth: CGFloat = 0
     @State private var fileIcons = FileIconCache()
     @State private var dotTiles = DotTileCache()
@@ -407,7 +409,9 @@ struct InfiniteCanvas: View {
                     fontSize: frame.fontSize,
                     scale: camera.viewport.scale
                 ),
-                onEvent: { handleKey($0) }
+                onEvent: { handleKey($0) },
+                dictationToken: dictationToken,
+                dictationReplacesPlaceholder: dictationReplacesPlaceholder
             )
             .frame(width: max(rect.width, compositionWidth, 88), height: max(rect.height, 36))
             .position(x: rect.midX, y: rect.midY)
@@ -461,6 +465,8 @@ struct InfiniteCanvas: View {
                 fontSize: CanvasTextScale.onScreenPointSize(fontSize: 15, scale: camera.viewport.scale),
                 onEvent: { handleKey($0) },
                 returnInsertsLine: true,
+                dictationToken: dictationToken,
+                dictationReplacesPlaceholder: dictationReplacesPlaceholder,
                 paper: stickyPaper(sticky.color),
                 ink: stickyInk(sticky.color)
             )
@@ -488,7 +494,9 @@ struct InfiniteCanvas: View {
                 ),
                 onEvent: { handleKey($0) },
                 paper: colorScheme == .dark ? Color(white: 0.16) : Color.white,
-                ink: colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16)
+                ink: colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16),
+                dictationToken: dictationToken,
+                dictationReplacesPlaceholder: dictationReplacesPlaceholder
             )
             .frame(width: frame.width, height: frame.height)
             .position(x: frame.midX, y: frame.midY)
@@ -513,7 +521,9 @@ struct InfiniteCanvas: View {
                 ),
                 onEvent: { handleKey($0) },
                 paper: colorScheme == .dark ? Color(white: 0.16) : Color.white,
-                ink: colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16)
+                ink: colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16),
+                dictationToken: dictationToken,
+                dictationReplacesPlaceholder: dictationReplacesPlaceholder
             )
             .frame(width: frame.width, height: frame.height)
             .position(x: frame.midX, y: frame.midY)
@@ -538,7 +548,9 @@ struct InfiniteCanvas: View {
                 ),
                 onEvent: { handleKey($0) },
                 paper: colorScheme == .dark ? Color(white: 0.16) : Color.white,
-                ink: colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16)
+                ink: colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16),
+                dictationToken: dictationToken,
+                dictationReplacesPlaceholder: dictationReplacesPlaceholder
             )
             .frame(width: max(frame.width, 72), height: max(frame.height, 22))
             .position(x: frame.midX, y: frame.midY)

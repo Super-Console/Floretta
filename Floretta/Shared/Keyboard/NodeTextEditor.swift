@@ -63,6 +63,10 @@ struct NodeTextEditor: View {
     var returnInsertsLine: Bool = false
     var paper: Color? = nil
     var ink: Color? = nil
+    /// Non-zero asks the focused field to start system dictation once.
+    var dictationToken: Int = 0
+    /// Select the placeholder so the first dictated phrase replaces it.
+    var dictationReplacesPlaceholder: Bool = false
 
     var body: some View {
         #if os(macOS)
@@ -74,7 +78,9 @@ struct NodeTextEditor: View {
             onEvent: onEvent,
             returnInsertsLine: returnInsertsLine,
             paper: paper,
-            ink: ink
+            ink: ink,
+            dictationToken: dictationToken,
+            dictationReplacesPlaceholder: dictationReplacesPlaceholder
         )
         #else
         IOSNodeTextEditor(
@@ -85,7 +91,9 @@ struct NodeTextEditor: View {
             onEvent: onEvent,
             returnInsertsLine: returnInsertsLine,
             paper: paper,
-            ink: ink
+            ink: ink,
+            dictationToken: dictationToken,
+            dictationReplacesPlaceholder: dictationReplacesPlaceholder
         )
         #endif
     }
@@ -101,6 +109,8 @@ private struct MacNodeTextEditor: NSViewRepresentable {
     var returnInsertsLine: Bool
     var paper: Color?
     var ink: Color?
+    var dictationToken: Int
+    var dictationReplacesPlaceholder: Bool
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -111,7 +121,9 @@ private struct MacNodeTextEditor: NSViewRepresentable {
             onEvent: onEvent,
             returnInsertsLine: returnInsertsLine,
             paper: paper,
-            ink: ink
+            ink: ink,
+            dictationToken: dictationToken,
+            dictationReplacesPlaceholder: dictationReplacesPlaceholder
         )
     }
 
@@ -153,6 +165,11 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         context.coordinator.returnInsertsLine = returnInsertsLine
         context.coordinator.paper = paper
         context.coordinator.ink = ink
+        if context.coordinator.dictationToken != dictationToken, dictationToken != 0 {
+            context.coordinator.didFocus = false
+        }
+        context.coordinator.dictationToken = dictationToken
+        context.coordinator.dictationReplacesPlaceholder = dictationReplacesPlaceholder
         if let paper {
             nsView.drawsBackground = true
             nsView.backgroundColor = NSColor(paper)
@@ -182,7 +199,10 @@ private struct MacNodeTextEditor: NSViewRepresentable {
                     window.makeFirstResponder(nsView)
                 }
                 context.coordinator.didFocus = window.firstResponder === nsView
+                context.coordinator.noteDictation(on: nsView)
             }
+        } else {
+            context.coordinator.noteDictation(on: nsView)
         }
     }
 
@@ -196,7 +216,10 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         var returnInsertsLine: Bool
         var paper: Color?
         var ink: Color?
+        var dictationToken: Int
+        var dictationReplacesPlaceholder: Bool
         var didFocus = false
+        private var handledDictationToken = 0
 
         init(
             text: Binding<String>,
@@ -206,7 +229,9 @@ private struct MacNodeTextEditor: NSViewRepresentable {
             onEvent: @escaping (KeyEvent) -> Bool,
             returnInsertsLine: Bool,
             paper: Color?,
-            ink: Color?
+            ink: Color?,
+            dictationToken: Int,
+            dictationReplacesPlaceholder: Bool
         ) {
             self.text = text
             self.isComposing = isComposing
@@ -216,6 +241,20 @@ private struct MacNodeTextEditor: NSViewRepresentable {
             self.returnInsertsLine = returnInsertsLine
             self.paper = paper
             self.ink = ink
+            self.dictationToken = dictationToken
+            self.dictationReplacesPlaceholder = dictationReplacesPlaceholder
+        }
+
+        /// Select the new-topic placeholder, then start system dictation.
+        /// Spoken characters still arrive through `textDidChange`, like typing.
+        func noteDictation(on view: NSTextView) {
+            guard dictationToken != 0, dictationToken != handledDictationToken else { return }
+            guard view.window?.firstResponder === view else { return }
+            handledDictationToken = dictationToken
+            if dictationReplacesPlaceholder {
+                view.selectAll(nil)
+            }
+            SystemDictation.begin(on: view)
         }
 
         func compositionChanged(_ view: NSTextView) {
@@ -325,6 +364,8 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
     var returnInsertsLine: Bool
     var paper: Color?
     var ink: Color?
+    var dictationToken: Int
+    var dictationReplacesPlaceholder: Bool
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -333,7 +374,9 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
             minimumWidth: $minimumWidth,
             fontSize: fontSize,
             onEvent: onEvent,
-            returnInsertsLine: returnInsertsLine
+            returnInsertsLine: returnInsertsLine,
+            dictationToken: dictationToken,
+            dictationReplacesPlaceholder: dictationReplacesPlaceholder
         )
     }
 
@@ -360,6 +403,10 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
             guard let view else { return }
             context.coordinator.compositionChanged(view)
         }
+        view.onDictationPhrase = { [weak view] phrase in
+            guard let view else { return false }
+            return context.coordinator.acceptDictation(phrase, in: view)
+        }
         return view
     }
 
@@ -370,8 +417,17 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
         context.coordinator.fontSize = fontSize
         context.coordinator.onEvent = onEvent
         context.coordinator.returnInsertsLine = returnInsertsLine
+        if context.coordinator.dictationToken != dictationToken, dictationToken != 0 {
+            context.coordinator.didFocus = false
+        }
+        context.coordinator.dictationToken = dictationToken
+        context.coordinator.dictationReplacesPlaceholder = dictationReplacesPlaceholder
         uiView.returnInsertsLine = returnInsertsLine
         uiView.onEvent = onEvent
+        uiView.onDictationPhrase = { [weak uiView] phrase in
+            guard let uiView else { return false }
+            return context.coordinator.acceptDictation(phrase, in: uiView)
+        }
         if let paper {
             uiView.backgroundColor = UIColor(paper)
         }
@@ -399,7 +455,10 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
                     uiView.becomeFirstResponder()
                 }
                 context.coordinator.didFocus = uiView.isFirstResponder
+                context.coordinator.noteDictation(on: uiView)
             }
+        } else {
+            context.coordinator.noteDictation(on: uiView)
         }
     }
 
@@ -411,7 +470,10 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
         var fontSize: CGFloat
         var onEvent: (KeyEvent) -> Bool
         var returnInsertsLine: Bool
+        var dictationToken: Int
+        var dictationReplacesPlaceholder: Bool
         var didFocus = false
+        private var handledDictationToken = 0
 
         init(
             text: Binding<String>,
@@ -419,7 +481,9 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
             minimumWidth: Binding<CGFloat>,
             fontSize: CGFloat,
             onEvent: @escaping (KeyEvent) -> Bool,
-            returnInsertsLine: Bool
+            returnInsertsLine: Bool,
+            dictationToken: Int,
+            dictationReplacesPlaceholder: Bool
         ) {
             self.text = text
             self.isComposing = isComposing
@@ -427,6 +491,55 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
             self.fontSize = fontSize
             self.onEvent = onEvent
             self.returnInsertsLine = returnInsertsLine
+            self.dictationToken = dictationToken
+            self.dictationReplacesPlaceholder = dictationReplacesPlaceholder
+        }
+
+        /// Select the new-topic placeholder, then start system dictation.
+        func noteDictation(on view: UITextView) {
+            guard dictationToken != 0, dictationToken != handledDictationToken else { return }
+            guard view.isFirstResponder else { return }
+            handledDictationToken = dictationToken
+            if dictationReplacesPlaceholder {
+                let length = (view.text as NSString?)?.length ?? 0
+                view.selectedRange = NSRange(location: 0, length: length)
+            }
+            SystemDictation.begin(on: view)
+        }
+
+        /// System dictation delivers a phrase. Write it with the same insertion
+        /// rule typed text uses, then show that string in the field.
+        func acceptDictation(_ phrase: String, in view: UITextView) -> Bool {
+            let existing = view.text ?? ""
+            let nsLength = (existing as NSString).length
+            let selected = view.selectedRange
+            guard selected.location >= 0,
+                  selected.length >= 0,
+                  selected.location <= nsLength,
+                  selected.length <= nsLength - selected.location
+            else {
+                return false
+            }
+            let selection = selected.location..<(selected.location + selected.length)
+            let replacing = dictationReplacesPlaceholder && existing == MindMapKeyboardSession.newTopicText
+            guard let next = DictationNodeInput.inserted(
+                existing: existing,
+                phrase: phrase,
+                utf16Selection: selection,
+                replacesPlaceholder: replacing
+            ) else {
+                return false
+            }
+            if text.wrappedValue != next {
+                text.wrappedValue = next
+            }
+            if view.text != next {
+                view.text = next
+            }
+            let end = (next as NSString).length
+            view.selectedRange = NSRange(location: end, length: 0)
+            dictationReplacesPlaceholder = false
+            return true
         }
 
         func compositionChanged(_ view: UITextView) {
@@ -464,7 +577,18 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
 private final class FlorettaTextView: UITextView {
     var onEvent: ((KeyEvent) -> Bool)?
     var onMarkedTextChange: (() -> Void)?
+    /// Return true when the phrase was written into the topic. False lets the
+    /// system text view insert it the way it inserts typed characters.
+    var onDictationPhrase: ((String) -> Bool)?
     var returnInsertsLine = false
+
+    override func insertDictationResult(_ dictationResult: [UIDictationPhrase]) {
+        let phrase = dictationResult.map(\.text).joined()
+        if onDictationPhrase?(phrase) == true {
+            return
+        }
+        super.insertDictationResult(dictationResult)
+    }
 
     override func setMarkedText(_ markedText: String?, selectedRange: NSRange) {
         super.setMarkedText(markedText, selectedRange: selectedRange)

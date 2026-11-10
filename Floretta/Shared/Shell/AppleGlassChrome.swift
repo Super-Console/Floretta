@@ -14,9 +14,8 @@ import AppKit
 /// API, in order:
 /// 1. SwiftUI `GlassEffectContainer` + `glassEffect(.regular, in:)`. This is
 ///    the path the app ships. Deployment is iOS 26 / macOS 26.
-/// 2. AppKit `NSGlassEffectView` (`.regular`) when a host cannot apply the
-///    SwiftUI modifier but the macOS 26 class exists. `AppleGlassChromePlates`
-///    builds that view.
+/// 2. The runtime-discovered AppKit glass view when a host cannot apply the
+///    SwiftUI modifier. `AppleGlassChromePlates` builds it when available.
 /// 3. `NSVisualEffectView`, `blendingMode: .behindWindow`. Bars and the
 ///    inspector plate use material `.sidebar`. Segmented controls, icon
 ///    buttons, and toolbar buttons use `.underWindowBackground`.
@@ -62,7 +61,7 @@ enum AppleGlassChromeBackend: String, Equatable {
         if #available(macOS 26.0, *) {
             return .swiftUIGlassEffect
         }
-        return .nsVisualEffectView
+        return .nsGlassEffectView
         #else
         if #available(iOS 26.0, *) {
             return .swiftUIGlassEffect
@@ -159,12 +158,8 @@ private struct AppleGlassChromePlate<Content: View>: View {
             }
         case .nsGlassEffectView:
             #if os(macOS)
-            if #available(macOS 26.0, *) {
-                view.background { AppleGlassChromeAppKitPlate(role: role) }
-                    .clipShape(shape)
-            } else {
-                degraded(view, shape: shape)
-            }
+            view.background { AppleGlassChromeAppKitPlate(role: role) }
+                .clipShape(shape)
             #else
             degraded(view, shape: shape)
             #endif
@@ -211,18 +206,29 @@ extension AppleGlassChromeRole {
 
 @MainActor
 enum AppleGlassChromePlates {
-    /// AppKit glass plate. Tests and the `nsGlassEffectView` backend use this.
-    @available(macOS 26.0, *)
-    static func makeGlassEffectView(cornerRadius: CGFloat) -> NSGlassEffectView {
-        let view = NSGlassEffectView()
-        view.cornerRadius = cornerRadius
-        view.style = .regular
-        return view
+    // Resolve by name because older macOS SDKs do not declare this AppKit type.
+    static let glassEffectClass: AnyClass? = NSClassFromString("NSGlassEffectView")
+
+    /// Uses the system glass view when present; otherwise keeps the chrome readable
+    /// with AppKit's system vibrancy material.
+    static func makeGlassEffectView(role: AppleGlassChromeRole, cornerRadius: CGFloat) -> NSView {
+        if let viewClass = glassEffectClass as? NSView.Type {
+            let view = viewClass.init(frame: .zero)
+            view.setValue(cornerRadius, forKey: "cornerRadius")
+            return view
+        }
+
+        return makeVisualEffectView(role: role, cornerRadius: cornerRadius)
     }
 
     /// Last-resort system material. Does not paint a white or gray fill.
     static func makeVisualEffectView(role: AppleGlassChromeRole, cornerRadius: CGFloat) -> NSVisualEffectView {
         let view = NSVisualEffectView()
+        updateVisualEffectView(view, role: role, cornerRadius: cornerRadius)
+        return view
+    }
+
+    static func updateVisualEffectView(_ view: NSVisualEffectView, role: AppleGlassChromeRole, cornerRadius: CGFloat) {
         view.material = role.fallbackMaterial
         view.blendingMode = .behindWindow
         view.state = .followsWindowActiveState
@@ -231,22 +237,23 @@ enum AppleGlassChromePlates {
         view.layer?.cornerRadius = cornerRadius
         view.layer?.cornerCurve = .continuous
         view.layer?.masksToBounds = true
-        return view
     }
 }
 
-@available(macOS 26.0, *)
 @MainActor
 private struct AppleGlassChromeAppKitPlate: NSViewRepresentable {
     var role: AppleGlassChromeRole
 
-    func makeNSView(context: Context) -> NSGlassEffectView {
-        AppleGlassChromePlates.makeGlassEffectView(cornerRadius: role.plateCornerRadius)
+    func makeNSView(context: Context) -> NSView {
+        AppleGlassChromePlates.makeGlassEffectView(role: role, cornerRadius: role.plateCornerRadius)
     }
 
-    func updateNSView(_ view: NSGlassEffectView, context: Context) {
-        view.cornerRadius = role.plateCornerRadius
-        view.style = .regular
+    func updateNSView(_ view: NSView, context: Context) {
+        if let visualEffectView = view as? NSVisualEffectView {
+            AppleGlassChromePlates.updateVisualEffectView(visualEffectView, role: role, cornerRadius: role.plateCornerRadius)
+        } else {
+            view.setValue(role.plateCornerRadius, forKey: "cornerRadius")
+        }
     }
 }
 

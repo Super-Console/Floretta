@@ -85,10 +85,6 @@ private final class ScrollWheelView: NSView, @unchecked Sendable {
         NSEvent.removeMonitor(monitor)
         self.monitor = nil
     }
-
-    nonisolated deinit {
-        // Harmless. stop() already removed the monitor on the main actor.
-    }
 }
 #else
 private struct IOSScrollCatcher: UIViewRepresentable {

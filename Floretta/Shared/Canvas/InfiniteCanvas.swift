@@ -1085,6 +1085,7 @@ struct InfiniteCanvas: View {
         }
     }
 
+    @ViewBuilder
     private var paperLayer: some View {
         if let paper = resolvedAppearance.canvasBackground {
             Rectangle().fill(color(paper))

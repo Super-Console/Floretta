@@ -40,8 +40,8 @@ struct MapExportResult: Equatable, Sendable {
 }
 
 /// PNG and PDF of the current map through SwiftUI `ImageRenderer`.
-/// The picture is the nodes, links, and — when the user leaves the option on — sticky cards.
-/// No toolbar, sidebar, grid, or selection. Stickies are not topics.
+/// The picture is the nodes, hierarchy links, relationship lines, and — when the
+/// user leaves the option on — sticky cards. No toolbar, sidebar, grid, or selection.
 @MainActor
 enum MapExporter {
     static let clippingNotice = "导出已按最大尺寸裁切，超出的内容没有画进文件。"
@@ -159,8 +159,10 @@ enum MapExporter {
         document: MindMapDocument,
         images: [String: CGImage]
     ) -> ImageRenderer<MapExportView> {
+        let frames = visibleFrames(in: document)
         let view = MapExportView(
-            frames: visibleFrames(in: document),
+            frames: frames,
+            lines: RelationshipGeometry.lines(for: document.relationships, frames: frames),
             stickies: document.stickiesForPictureExport(included: options.includeStickies),
             renderBounds: plan.renderBounds,
             background: options.background,
@@ -200,9 +202,10 @@ enum MapExporter {
     }
 }
 
-/// Nodes and links in export coordinates. No chrome.
+/// Nodes, hierarchy links, and relationship lines in export coordinates. No chrome.
 private struct MapExportView: View {
     var frames: [NodeFrame]
+    var lines: [RelationshipLine]
     var stickies: [StickyNote]
     var renderBounds: CGRect
     var background: MapExportBackground
@@ -220,6 +223,9 @@ private struct MapExportView: View {
                     control2: local(link.control2)
                 )
                 context.stroke(curve, with: .color(color(link.color)), lineWidth: link.lineWidth)
+            }
+            for line in lines {
+                stroke(line, in: context)
             }
             for node in frames {
                 let rect = local(node.frame)
@@ -243,6 +249,26 @@ private struct MapExportView: View {
                         Text(node.text)
                             .font(.system(size: node.fontSize))
                             .foregroundStyle(color(node.textColor)),
+                        in: textRect
+                    )
+                }
+            }
+            for line in lines where !line.title.isEmpty {
+                let canvasRect = RelationshipLine.labelRect(
+                    center: line.labelCenter(straight: false),
+                    size: line.labelSize
+                )
+                let rect = local(canvasRect)
+                guard rect.width > 1, rect.height > 1 else { continue }
+                let pill = Path(roundedRect: rect, cornerRadius: 4)
+                context.fill(pill, with: .color(.white))
+                context.stroke(pill, with: .color(color(RelationshipGeometry.ink).opacity(0.45)), lineWidth: 1)
+                let textRect = rect.insetBy(dx: 6, dy: 2)
+                if textRect.width > 1, textRect.height > 1 {
+                    context.draw(
+                        Text(line.title)
+                            .font(.system(size: RelationshipGeometry.labelFontSize))
+                            .foregroundStyle(Color(red: 0.12, green: 0.14, blue: 0.16)),
                         in: textRect
                     )
                 }
@@ -271,6 +297,29 @@ private struct MapExportView: View {
 
     private func local(_ point: CGPoint) -> CGPoint {
         CGPoint(x: point.x - renderBounds.minX, y: point.y - renderBounds.minY)
+    }
+
+    private func stroke(_ line: RelationshipLine, in context: GraphicsContext) {
+        var curve = Path()
+        curve.move(to: local(line.curve.start))
+        curve.addCurve(
+            to: local(line.curve.end),
+            control1: local(line.curve.control1),
+            control2: local(line.curve.control2)
+        )
+        let ink = color(line.curve.color)
+        context.stroke(
+            curve,
+            with: .color(ink),
+            style: StrokeStyle(lineWidth: line.curve.lineWidth, lineCap: .round, dash: [7, 5])
+        )
+        let head = RelationshipGeometry.arrow(tip: line.curve.end, from: line.curve.control2)
+        var arrow = Path()
+        arrow.move(to: local(line.curve.end))
+        arrow.addLine(to: local(head.left))
+        arrow.addLine(to: local(head.right))
+        arrow.closeSubpath()
+        context.fill(arrow, with: .color(ink))
     }
 
     private func local(_ rect: CGRect) -> CGRect {

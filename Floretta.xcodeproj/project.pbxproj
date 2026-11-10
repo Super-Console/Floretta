@@ -55,6 +55,7 @@
 		C52100000000000000000008 /* FileTypeIconTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52100000000000000000004 /* FileTypeIconTests.swift */; };
 		C60000000000000000000007 /* LayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000003 /* LayoutTests.swift */; };
 		C61000000000000000000001 /* FreeNodeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F61000000000000000000001 /* FreeNodeTests.swift */; };
+		C66000000000000000000001 /* RelationshipLineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F66000000000000000000001 /* RelationshipLineTests.swift */; };
 		C62000000000000000000001 /* StickyNoteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F62000000000000000000001 /* StickyNoteTests.swift */; };
 		C63000000000000000000001 /* SnapshotRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F63000000000000000000001 /* SnapshotRecoveryTests.swift */; };
 		C70000000000000000000004 /* NodeTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000004 /* NodeTextEditor.swift */; };
@@ -142,6 +143,7 @@
 		F52100000000000000000004 /* FileTypeIconTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTypeIconTests.swift; sourceTree = "<group>"; };
 		F60000000000000000000003 /* LayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LayoutTests.swift; path = Tests/FlorettaCoreTests/LayoutTests.swift; sourceTree = SOURCE_ROOT; };
 		F61000000000000000000001 /* FreeNodeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FreeNodeTests.swift; path = Tests/FlorettaCoreTests/FreeNodeTests.swift; sourceTree = SOURCE_ROOT; };
+		F66000000000000000000001 /* RelationshipLineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RelationshipLineTests.swift; path = Tests/FlorettaCoreTests/RelationshipLineTests.swift; sourceTree = SOURCE_ROOT; };
 		F62000000000000000000001 /* StickyNoteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = StickyNoteTests.swift; path = Tests/FlorettaCoreTests/StickyNoteTests.swift; sourceTree = SOURCE_ROOT; };
 		F63000000000000000000001 /* SnapshotRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SnapshotRecoveryTests.swift; path = Tests/FlorettaCoreTests/SnapshotRecoveryTests.swift; sourceTree = SOURCE_ROOT; };
 		F70000000000000000000004 /* NodeTextEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeTextEditor.swift; sourceTree = "<group>"; };
@@ -224,6 +226,7 @@
 			F65000000000000000000003 /* MarkdownFieldTests.swift */,
 			F60000000000000000000003 /* LayoutTests.swift */,
 			F61000000000000000000001 /* FreeNodeTests.swift */,
+			F66000000000000000000001 /* RelationshipLineTests.swift */,
 			F62000000000000000000001 /* StickyNoteTests.swift */,
 			F63000000000000000000001 /* SnapshotRecoveryTests.swift */,
 			F70000000000000000000005 /* KeyboardTests.swift */,
@@ -649,6 +652,7 @@
 				C52100000000000000000008 /* FileTypeIconTests.swift in Sources */,
 				C60000000000000000000007 /* LayoutTests.swift in Sources */,
 				C61000000000000000000001 /* FreeNodeTests.swift in Sources */,
+				C66000000000000000000001 /* RelationshipLineTests.swift in Sources */,
 				C62000000000000000000001 /* StickyNoteTests.swift in Sources */,
 				C63000000000000000000001 /* SnapshotRecoveryTests.swift in Sources */,
 				C7000000000000000000000C /* NodeTextEditor.swift in Sources */,

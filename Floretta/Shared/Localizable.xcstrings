@@ -2194,19 +2194,19 @@
         }
       }
     },
-    "还没有连到其他节点。只保存关系，不画线。": {
+    "还没有连到其他节点。": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Not linked to another topic yet. Only the relationship is saved, not a line."
+            "value": "Not linked to another topic yet."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "还没有连到其他节点。只保存关系，不画线。"
+            "value": "还没有连到其他节点。"
           }
         }
       }
@@ -2415,19 +2415,19 @@
         }
       }
     },
-    "删除选中的节点": {
+    "删除选中的节点、便签或关系": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delete the selected topic"
+            "value": "Delete the selected topic, sticky, or relationship"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "删除选中的节点"
+            "value": "删除选中的节点、便签或关系"
           }
         }
       }
@@ -2500,19 +2500,53 @@
         }
       }
     },
-    "把选中的自由节点连到另一个节点。只记下关系，不画线。": {
+    "把选中的节点连到另一个节点，画布上会画出这条线。": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Link the selected free topic to another topic. Only the relationship is saved, not a line."
+            "value": "Link the selected topic to another topic. The canvas draws the line."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "把选中的自由节点连到另一个节点。只记下关系，不画线。"
+            "value": "把选中的节点连到另一个节点，画布上会画出这条线。"
+          }
+        }
+      }
+    },
+    "编辑这条关系的标签": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit the label on this relationship"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑这条关系的标签"
+          }
+        }
+      }
+    },
+    "标签": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Label"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "标签"
           }
         }
       }

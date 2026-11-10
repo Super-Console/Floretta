@@ -214,6 +214,73 @@ final class MapExportTests: XCTestCase {
         XCTAssertFalse(plan.storesInThumbnailCache)
     }
 
+    func testPNGAndPDFIncludeTheRelationshipLine() throws {
+        let left = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        let right = UUID(uuidString: "33333333-3333-3333-3333-333333333333")!
+        let link = UUID(uuidString: "66666666-6666-6666-6666-666666666666")!
+        let bare = MindMapDocument(
+            title: "关系",
+            roots: [MindMapNode(text: "根", children: [
+                MindMapNode(id: left, text: "左支"),
+                MindMapNode(id: right, text: "右支"),
+            ])]
+        )
+        var linked = bare
+        _ = linked.linkTopics(from: left, to: right, title: "对照", id: link)
+        let frames = MapExporter.visibleFrames(in: linked)
+        let line = try XCTUnwrap(RelationshipGeometry.lines(in: linked, frames: frames).first)
+        XCTAssertEqual(line.id, link)
+        XCTAssertEqual(line.title, "对照")
+        XCTAssertFalse(frames.contains { $0.id == link })
+
+        let options = MapExportOptions(scale: .two, background: .white)
+        let without = MapExporter.png(document: bare, options: options)
+        let png = MapExporter.png(document: linked, options: options)
+        XCTAssertNil(png.notice)
+        XCTAssertFalse(png.visibleNodeIDs.contains(link))
+        XCTAssertFalse(isRelationshipInk(try bitmap(try XCTUnwrap(without.png))))
+        XCTAssertTrue(isRelationshipInk(try bitmap(try XCTUnwrap(png.png))))
+        assertInside(line, result: png)
+
+        let pdf = MapExporter.pdf(document: linked, options: options)
+        XCTAssertNotNil(pdf.pdf)
+        XCTAssertFalse(pdf.visibleNodeIDs.contains(link))
+        assertInside(line, result: pdf)
+        let page = try XCTUnwrap(PDFDocument(data: try XCTUnwrap(pdf.pdf))?.page(at: 0))
+        let media = page.bounds(for: .mediaBox)
+        let thumb = page.thumbnail(of: CGSize(width: media.width * 2, height: media.height * 2), for: .mediaBox)
+        XCTAssertTrue(isRelationshipInk(try bitmap(thumb)))
+    }
+
+    private func assertInside(_ line: RelationshipLine, result: MapExportResult, file: StaticString = #filePath, lineNumber: UInt = #line) {
+        for point in [line.curve.start, line.curve.end, line.curveLabel] {
+            let x = point.x - result.renderBounds.minX
+            let y = point.y - result.renderBounds.minY
+            XCTAssertGreaterThanOrEqual(x, -0.5, file: file, line: lineNumber)
+            XCTAssertGreaterThanOrEqual(y, -0.5, file: file, line: lineNumber)
+            XCTAssertLessThanOrEqual(x, result.pointSize.width + 0.5, file: file, line: lineNumber)
+            XCTAssertLessThanOrEqual(y, result.pointSize.height + 0.5, file: file, line: lineNumber)
+        }
+    }
+
+    private func isRelationshipInk(_ rep: NSBitmapImageRep) -> Bool {
+        let ink = RelationshipGeometry.ink
+        for y in 0..<rep.pixelsHigh {
+            for x in 0..<rep.pixelsWide {
+                guard let color = rep.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { continue }
+                guard color.alphaComponent > 0.45 else { continue }
+                let red = color.redComponent
+                let green = color.greenComponent
+                let blue = color.blueComponent
+                let near = abs(red - ink.red) < 0.16 && abs(green - ink.green) < 0.16 && abs(blue - ink.blue) < 0.16
+                let teal = red < 0.32 && green > 0.30 && green < 0.62 && blue > 0.32 && blue < 0.70
+                    && blue + 0.05 > green && green > red + 0.12 && blue > red + 0.16
+                if near || teal { return true }
+            }
+        }
+        return false
+    }
+
     private func sampleMap() -> MindMapDocument {
         MindMapDocument(
             title: "export",

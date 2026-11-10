@@ -365,10 +365,10 @@ final class EditorSession {
         _ = keyboard.addSticky(at: point, document: &document)
     }
 
-    func linkSelectedFreeNode(to targetID: UUID) {
+    func linkSelectedTopic(to targetID: UUID) {
         finishEditingIfNeeded()
         guard keyboard.mode == .command, !keyboard.isComposing else { return }
-        _ = keyboard.linkFreeNode(to: targetID, document: &document)
+        _ = keyboard.linkSelectedTopic(to: targetID, document: &document)
     }
 
     func deleteSelection() {

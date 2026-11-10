@@ -99,7 +99,7 @@ struct DocumentEditor: View {
                             Image(systemName: "trash")
                         }
                         .accessibilityLabel(text("删除"))
-                        .help(Text(verbatim: text("删除选中的节点")))
+                        .help(Text(verbatim: text("删除选中的节点、便签或关系")))
                     }
                     ToolbarItemGroup(placement: .primaryAction) {
                         insertMenu
@@ -344,14 +344,14 @@ struct DocumentEditor: View {
                 }
                 ForEach(targets) { target in
                     Button(target.text.isEmpty ? "未命名" : target.text) {
-                        session.linkSelectedFreeNode(to: target.id)
+                        session.linkSelectedTopic(to: target.id)
                     }
                 }
             } label: {
                 Label(text("连到"), systemImage: "point.topleft.down.to.point.bottomright.curvepath")
             }
-            .disabled(session.keyboard.selectedNodeID.map { session.document.isFreeNode($0) } != true)
-            .help(Text(verbatim: text("把选中的自由节点连到另一个节点。只记下关系，不画线。")))
+            .disabled(session.keyboard.selectedNodeID == nil)
+            .help(Text(verbatim: text("把选中的节点连到另一个节点，画布上会画出这条线。")))
             Button { showImageImporter = true } label: {
                 Label(text("图片"), systemImage: "photo")
             }
@@ -462,7 +462,20 @@ struct DocumentEditor: View {
             .pickerStyle(.segmented)
             .padding(.horizontal)
             if inspectorTab == 0 {
-                StyleInspector(document: $session.document, nodeID: session.keyboard.selectedNodeID)
+                if session.keyboard.selectedRelationshipID != nil {
+                    relationshipLabelForm
+                } else {
+                    StyleInspector(
+                        document: $session.document,
+                        nodeID: session.keyboard.selectedNodeID,
+                        onSelectRelationship: { id in
+                            if session.keyboard.mode == .edit {
+                                session.keyboard.apply(.commitEdit, document: &session.document, frames: [])
+                            }
+                            session.keyboard.selectedRelationshipID = id
+                        }
+                    )
+                }
             } else if inspectorTab == 2 {
                 documentInfo
             } else {
@@ -501,6 +514,42 @@ struct DocumentEditor: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    private var relationshipLabelForm: some View {
+        Form {
+            Section(text("标签")) {
+                TextField(text("标签"), text: relationshipTitle)
+                    .onSubmit { commitRelationshipTitle() }
+                    .help(Text(verbatim: text("编辑这条关系的标签")))
+                    .accessibilityIdentifier("relationship.label")
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var relationshipTitle: Binding<String> {
+        Binding(
+            get: {
+                guard let id = session.keyboard.selectedRelationshipID else { return "" }
+                if session.keyboard.editingRelationshipID == id {
+                    return session.keyboard.editingText
+                }
+                return session.document.relationship(id)?.title ?? ""
+            },
+            set: { newValue in
+                guard let id = session.keyboard.selectedRelationshipID else { return }
+                if session.keyboard.editingRelationshipID != id {
+                    session.keyboard.apply(.beginEdit, document: &session.document, frames: [])
+                }
+                session.keyboard.replaceEditingText(newValue, document: &session.document)
+            }
+        )
+    }
+
+    private func commitRelationshipTitle() {
+        guard session.keyboard.mode == .edit else { return }
+        session.keyboard.apply(.commitEdit, document: &session.document, frames: [])
     }
 
     private var insertDialogPresented: Binding<Bool> {
@@ -943,6 +992,7 @@ struct DocumentEditor: View {
 private struct StyleInspector: View {
     @Binding var document: MindMapDocument
     var nodeID: UUID?
+    var onSelectRelationship: (UUID) -> Void = { _ in }
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -1006,17 +1056,21 @@ private struct StyleInspector: View {
                         Text(verbatim: text("颜色"))
                     }
                 }
-                if document.isFreeNode(nodeID) {
-                    Section(text("连到")) {
-                        let links = document.relationships.filter {
-                            $0.sourceID == nodeID || $0.targetID == nodeID
-                        }
-                        if links.isEmpty {
-                            Text(verbatim: text("还没有连到其他节点。只保存关系，不画线。"))
-                        } else {
-                            ForEach(links) { link in
+                Section(text("连到")) {
+                    let links = document.relationships.filter {
+                        $0.sourceID == nodeID || $0.targetID == nodeID
+                    }
+                    if links.isEmpty {
+                        Text(verbatim: text("还没有连到其他节点。"))
+                    } else {
+                        ForEach(links) { link in
+                            Button {
+                                onSelectRelationship(link.id)
+                            } label: {
                                 Text(verbatim: relationshipLine(link, seenFrom: nodeID))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                 }

@@ -613,6 +613,40 @@
         }
       }
     },
+    "新建窗口": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Window"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建窗口"
+          }
+        }
+      }
+    },
+    "再开一个窗口，编辑同一份导图。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open another window on this same map."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再开一个窗口，编辑同一份导图。"
+          }
+        }
+      }
+    },
     "关闭": {
       "extractionState": "manual",
       "localizations": {

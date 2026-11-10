@@ -33,31 +33,103 @@ struct FlorettaApp: App {
         }
         .defaultSize(width: 960, height: 680)
         .commands {
-            CommandGroup(replacing: .newItem) {
-                Button(FlorettaL10n.string("新建", language: settings.language)) {
-                    library.makeNew()
-                }
-                .keyboardShortcut("n", modifiers: .command)
-            }
-            CommandGroup(replacing: .saveItem) {
-                Button(FlorettaL10n.string("保存", language: settings.language)) {
-                    library.saveActiveFile()
-                }
-                .keyboardShortcut("s", modifiers: .command)
-                .disabled(!library.canSaveActiveFile)
-            }
-            #if os(macOS)
-            CommandGroup(replacing: .appSettings) {
-                Button(FlorettaL10n.string(ShellTab.settings.title, language: settings.language)) {
-                    library.tab = .settings
-                }
-                .keyboardShortcut(",", modifiers: .command)
-                .disabled(library.editor != nil)
-            }
-            #endif
+            FlorettaCommands(settings: settings, library: library)
         }
+        #if os(macOS)
+        WindowGroup(id: SameDocumentWindow.sceneID, for: UUID.self) { $windowID in
+            SameDocumentWindow(
+                windowID: windowID,
+                recovery: recovery,
+                settings: settings,
+                library: library
+            )
+        }
+        .defaultSize(width: 960, height: 680)
+        .commands {
+            FlorettaCommands(settings: settings, library: library)
+        }
+        #endif
     }
 }
+
+private struct FlorettaCommands: Commands {
+    @Bindable var settings: AppSettings
+    @Bindable var library: LibraryModel
+
+    var body: some Commands {
+        CommandGroup(replacing: .newItem) {
+            Button(FlorettaL10n.string("新建", language: settings.language)) {
+                library.makeNew()
+            }
+            .keyboardShortcut("n", modifiers: .command)
+        }
+        CommandGroup(replacing: .saveItem) {
+            Button(FlorettaL10n.string("保存", language: settings.language)) {
+                library.saveActiveFile()
+            }
+            .keyboardShortcut("s", modifiers: .command)
+            .disabled(!library.canSaveActiveFile)
+        }
+        #if os(macOS)
+        CommandGroup(before: .windowList) {
+            OpenSameDocumentWindowButton(settings: settings, library: library)
+        }
+        CommandGroup(replacing: .appSettings) {
+            Button(FlorettaL10n.string(ShellTab.settings.title, language: settings.language)) {
+                library.tab = .settings
+            }
+            .keyboardShortcut(",", modifiers: .command)
+            .disabled(library.editor != nil)
+        }
+        #endif
+    }
+}
+
+#if os(macOS)
+private struct OpenSameDocumentWindowButton: View {
+    @Bindable var settings: AppSettings
+    @Bindable var library: LibraryModel
+
+    var body: some View {
+        Button(FlorettaL10n.string("新建窗口", language: settings.language)) {
+            library.openAnotherWindow()
+        }
+        .keyboardShortcut("n", modifiers: [.command, .shift])
+        .disabled(library.editor == nil)
+        .help(Text(verbatim: FlorettaL10n.string("再开一个窗口，编辑同一份导图。", language: settings.language)))
+    }
+}
+
+/// Connects `LibraryModel.openAnotherWindow` to SwiftUI `openWindow`.
+/// File open, recent files, and the Window menu all use that one method.
+struct SameDocumentWindowInstaller: View {
+    var library: LibraryModel
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .accessibilityHidden(true)
+            .allowsHitTesting(false)
+            .onAppear {
+                library.sameDocumentWindows = SameDocumentWindowHost(openWindow: openWindow)
+            }
+    }
+}
+
+@MainActor
+private final class SameDocumentWindowHost: SameDocumentWindowOpening {
+    private let openWindow: OpenWindowAction
+
+    init(openWindow: OpenWindowAction) {
+        self.openWindow = openWindow
+    }
+
+    func openSameDocumentWindow(_ presentation: SameDocumentWindowPresentation) {
+        openWindow(id: presentation.sceneID, value: presentation.windowID)
+    }
+}
+#endif
 
 enum AppLaunch {
     static let uiTestArgument = "-FlorettaUITest"

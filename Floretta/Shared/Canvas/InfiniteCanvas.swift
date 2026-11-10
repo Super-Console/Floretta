@@ -724,9 +724,10 @@ struct InfiniteCanvas: View {
                 .buttonStyle(.borderless)
                 .background {
                     if region.aspectLocked {
-                        Capsule().fill(Color.accentColor.opacity(0.22))
+                        Color.accentColor.opacity(0.22)
                     }
                 }
+                .clipShape(Capsule())
                 .accessibilityIdentifier("region.lock")
                 .accessibilityAddTraits(region.aspectLocked ? .isSelected : AccessibilityTraits())
                 .help(Text(verbatim: text("锁定专区的宽高比")))
@@ -759,7 +760,7 @@ struct InfiniteCanvas: View {
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background { Capsule().fill(.ultraThinMaterial) }
+            .appleGlassChrome(.bottomBarCapsule)
             .position(x: rect.midX, y: max(18, rect.minY - 22))
         }
     }

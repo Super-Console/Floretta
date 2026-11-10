@@ -33,3 +33,21 @@
 ## 命名
 
 - 仓库与工作区统一叫 `floretta`（旧名 `Supernode` 已废弃，仅存于历史提交与远程仓库名）。
+
+## 文档更新规则（重要）
+
+PR **不要**修改这四个共享文档：
+
+```
+docs/FEATURES-CHECKLIST.md
+docs/STATUS.md
+docs/SMOKE.md
+docs/VERIFY.md
+```
+
+原因：每个 PR 都往同一批行里追加记录，rebase 时必然冲突（实测 5 个冲突里 4 个出在这里），而且冲突是语义性的，无法机械解决。
+
+正确做法：
+- 需要记录完成项时，在 PR 描述里写清楚「要往检查单哪一节加哪一行」
+- 合并后由单一写者（Hermes / Censor）统一更新这些文档
+- rebase 撞上这些文档的冲突，直接取 `main` 版本，只保留代码改动

@@ -25,6 +25,27 @@ final class FileAttachmentTests: XCTestCase {
         ))
     }
 
+    func testVideoAttachmentKeepsRawByteHashAndDedupKey() throws {
+        let directory = try makeDirectory()
+        let bytes = Data([0, 0, 0, 24, 102, 116, 121, 112, 109, 112, 52, 50, 0x11, 0x22])
+        let original = directory.appendingPathComponent("clip.mp4")
+        let duplicate = directory.appendingPathComponent("copy.mp4")
+        try bytes.write(to: original)
+        try bytes.write(to: duplicate)
+        let first = try hashed(original, files: HandleFiles())
+        let second = try hashed(duplicate, files: HandleFiles())
+        XCTAssertEqual(first.sha256, second.sha256)
+        XCTAssertEqual(first.byteCount, UInt64(bytes.count))
+        XCTAssertEqual(first.fileExtension, "mp4")
+    }
+
+    func testVideoAttachmentRequestsAnAsyncThumbnailByHashInLayout() {
+        let hash = String(repeating: "b", count: 64)
+        let video = NodeAttachment(sha256: hash, fileExtension: "mov", byteCount: 1024, filename: "clip.mov")
+        let document = MindMapDocument(title: "视频", roots: [MindMapNode(text: "根", attachments: [video])])
+        XCTAssertEqual(LayoutEngine().layout(document).first?.thumbnailHashes, [hash])
+    }
+
     func testMissingAndUnreadableMediaUseNonfatalFallbackStates() {
         XCTAssertEqual(MediaFileAvailability.state(fileExists: false, isReadable: false), .missing)
         XCTAssertEqual(MediaFileAvailability.state(fileExists: true, isReadable: false), .unreadable)

@@ -23,6 +23,12 @@ public struct MindMapDocument: Equatable, Sendable {
     /// Opaque YAML front matter for a Markdown document, fences included.
     /// Nil when the map is not a Markdown projection. Omitted from `.floretta` JSON when nil.
     public var markdownFrontMatter: String?
+    /// Sheets after the first. The first sheet is `title` / `roots` / `freeNodes` / `relationships`.
+    /// Empty for a map that did not come from a multi-sheet file. Omitted from JSON when empty.
+    public var additionalCanvases: [MindMapCanvas]
+    /// XMind bytes and unknown fields. Nil for a map that did not come from `.xmind`.
+    /// Omitted from JSON when nil.
+    public var xmindForeign: XMindForeign?
 
     public init(
         title: String,
@@ -33,7 +39,9 @@ public struct MindMapDocument: Equatable, Sendable {
         relationships: [TopicRelationship] = [],
         stickies: [StickyNote] = [],
         formatVersion: Int = MindMapDocument.currentFormatVersion,
-        markdownFrontMatter: String? = nil
+        markdownFrontMatter: String? = nil,
+        additionalCanvases: [MindMapCanvas] = [],
+        xmindForeign: XMindForeign? = nil
     ) {
         self.formatVersion = formatVersion
         self.title = title
@@ -44,6 +52,8 @@ public struct MindMapDocument: Equatable, Sendable {
         self.relationships = relationships
         self.stickies = stickies
         self.markdownFrontMatter = markdownFrontMatter
+        self.additionalCanvases = additionalCanvases
+        self.xmindForeign = xmindForeign
     }
 }
 
@@ -112,6 +122,8 @@ extension MindMapDocument: Codable {
         case relationships
         case stickies
         case markdownFrontMatter
+        case additionalCanvases
+        case xmindForeign
     }
 
     public init(from decoder: Decoder) throws {
@@ -135,6 +147,8 @@ extension MindMapDocument: Codable {
         let freeNodes = try container.decodeIfPresent([MindMapNode].self, forKey: .freeNodes) ?? []
         let relationships = try container.decodeIfPresent([TopicRelationship].self, forKey: .relationships) ?? []
         let stickies = try container.decodeIfPresent([StickyNote].self, forKey: .stickies) ?? []
+        let additionalCanvases = try container.decodeIfPresent([MindMapCanvas].self, forKey: .additionalCanvases) ?? []
+        let xmindForeign = try container.decodeIfPresent(XMindForeign.self, forKey: .xmindForeign)
         self.formatVersion = version
         self.title = title
         self.createdAt = createdAt
@@ -144,6 +158,8 @@ extension MindMapDocument: Codable {
         self.relationships = relationships
         self.stickies = stickies
         self.markdownFrontMatter = markdownFrontMatter
+        self.additionalCanvases = additionalCanvases
+        self.xmindForeign = xmindForeign
         try FlorettaTree.validate(self)
     }
 
@@ -171,6 +187,10 @@ extension MindMapDocument: Codable {
             try container.encode(stickies, forKey: .stickies)
         }
         try container.encodeIfPresent(markdownFrontMatter, forKey: .markdownFrontMatter)
+        if !additionalCanvases.isEmpty {
+            try container.encode(additionalCanvases, forKey: .additionalCanvases)
+        }
+        try container.encodeIfPresent(xmindForeign, forKey: .xmindForeign)
     }
 }
 
@@ -181,11 +201,13 @@ enum FlorettaTree {
     static func validate(_ document: MindMapDocument) throws {
         var seen: Set<UUID> = []
         var stack: [UUID] = []
-        for root in document.roots {
-            try visit(root, seen: &seen, stack: &stack)
-        }
-        for node in document.freeNodes {
-            try visit(node, seen: &seen, stack: &stack)
+        let primary = try collect(document.roots, document.freeNodes, seen: &seen, stack: &stack)
+        var canvasTopics: [Set<UUID>] = []
+        for canvas in document.additionalCanvases {
+            if !seen.insert(canvas.id).inserted {
+                throw FlorettaCodecError.duplicateID(canvas.id)
+            }
+            canvasTopics.append(try collect(canvas.roots, canvas.freeNodes, seen: &seen, stack: &stack))
         }
         var stickyIDs: Set<UUID> = []
         for sticky in document.stickies {
@@ -194,14 +216,55 @@ enum FlorettaTree {
             }
         }
         var relationshipIDs: Set<UUID> = []
-        for relationship in document.relationships {
+        try check(
+            document.relationships,
+            within: primary,
+            seen: seen,
+            stickyIDs: stickyIDs,
+            relationshipIDs: &relationshipIDs
+        )
+        for (index, canvas) in document.additionalCanvases.enumerated() {
+            try check(
+                canvas.relationships,
+                within: canvasTopics[index],
+                seen: seen,
+                stickyIDs: stickyIDs,
+                relationshipIDs: &relationshipIDs
+            )
+        }
+    }
+
+    private static func collect(
+        _ roots: [MindMapNode],
+        _ freeNodes: [MindMapNode],
+        seen: inout Set<UUID>,
+        stack: inout [UUID]
+    ) throws -> Set<UUID> {
+        var ids: Set<UUID> = []
+        for root in roots {
+            try visit(root, seen: &seen, stack: &stack, ids: &ids)
+        }
+        for node in freeNodes {
+            try visit(node, seen: &seen, stack: &stack, ids: &ids)
+        }
+        return ids
+    }
+
+    private static func check(
+        _ relationships: [TopicRelationship],
+        within topics: Set<UUID>,
+        seen: Set<UUID>,
+        stickyIDs: Set<UUID>,
+        relationshipIDs: inout Set<UUID>
+    ) throws {
+        for relationship in relationships {
             if seen.contains(relationship.id)
                 || stickyIDs.contains(relationship.id)
                 || !relationshipIDs.insert(relationship.id).inserted {
                 throw FlorettaCodecError.duplicateID(relationship.id)
             }
-            if !seen.contains(relationship.sourceID) || !seen.contains(relationship.targetID) {
-                let missing = seen.contains(relationship.sourceID) ? relationship.targetID : relationship.sourceID
+            if !topics.contains(relationship.sourceID) || !topics.contains(relationship.targetID) {
+                let missing = topics.contains(relationship.sourceID) ? relationship.targetID : relationship.sourceID
                 throw FlorettaCodecError.corrupt(
                     "Relationship \(relationship.id.uuidString) points at a missing topic \(missing.uuidString)."
                 )
@@ -212,7 +275,8 @@ enum FlorettaTree {
     private static func visit(
         _ node: MindMapNode,
         seen: inout Set<UUID>,
-        stack: inout [UUID]
+        stack: inout [UUID],
+        ids: inout Set<UUID>
     ) throws {
         if stack.contains(node.id) {
             throw FlorettaCodecError.cyclicID(node.id)
@@ -220,9 +284,10 @@ enum FlorettaTree {
         if !seen.insert(node.id).inserted {
             throw FlorettaCodecError.duplicateID(node.id)
         }
+        ids.insert(node.id)
         stack.append(node.id)
         for child in node.children {
-            try visit(child, seen: &seen, stack: &stack)
+            try visit(child, seen: &seen, stack: &stack, ids: &ids)
         }
         stack.removeLast()
     }
@@ -262,7 +327,9 @@ public extension MindMapDocument {
     /// Hierarchy topics plus free nodes, including children stored under a free node.
     /// Sticky notes are not topics and are not included.
     public var topicCount: Int {
-        countTopics(roots) + countTopics(freeNodes)
+        countTopics(roots) + countTopics(freeNodes) + additionalCanvases.reduce(0) { partial, canvas in
+            partial + countTopics(canvas.roots) + countTopics(canvas.freeNodes)
+        }
     }
 
     public func sticky(_ id: UUID) -> StickyNote? {

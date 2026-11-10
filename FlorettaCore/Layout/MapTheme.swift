@@ -48,7 +48,7 @@ public enum MapThemeCatalog {
     public static let all: [MapTheme] = [
         MapTheme(
             id: florettaID,
-            nameKey: "Floretta 主题",
+            nameKey: "Floretta",
             light: floretta(
                 canvas: "#F5EBDA",
                 fill: "#F7EFE1",

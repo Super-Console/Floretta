@@ -313,7 +313,7 @@ enum FlorettaL10n {
         "配色": "Colors",
         "为各分支自动配色，浅色和深色各用一套": "Colors each branch automatically. Light and dark each have a set.",
         "墨色": "Ink",
-        "Floretta 主题": "Floretta",
+        "Floretta": "Floretta",
         "海色": "Sea",
         "林色": "Grove",
         "焰色": "Ember",

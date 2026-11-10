@@ -325,7 +325,7 @@ final class LayoutTests: XCTestCase {
         XCTAssertEqual(MapThemeCatalog.florettaCornerRadius, 12)
         XCTAssertEqual(MapThemeCatalog.florettaStrokeWidth, 1)
         let theme = try XCTUnwrap(MapThemeCatalog.all.first { $0.id == MapThemeCatalog.florettaID })
-        XCTAssertEqual(theme.nameKey, "Floretta 主题")
+        XCTAssertEqual(theme.nameKey, "Floretta")
         let light = theme.light
         XCTAssertEqual(light.canvasBackground, BranchColor(hex: "#F5EBDA"))
         XCTAssertEqual(light.uniformFill, BranchColor(hex: "#F7EFE1"))

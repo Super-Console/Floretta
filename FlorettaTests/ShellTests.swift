@@ -77,6 +77,40 @@ final class ShellTests: XCTestCase {
         XCTAssertNotEqual(ZoomStop.displayPercent(forScale: scrolled.scale), 137)
     }
 
+    func testStatusBarZoomChoicesChangeTheCanvasCamera() {
+        let camera = CanvasCamera()
+        camera.viewSize = CGSize(width: 800, height: 600)
+        XCTAssertEqual(camera.chrome.zoomPercent, 100)
+        XCTAssertEqual(camera.viewport.scale, ZoomStop.oneHundred.scale, accuracy: 0.000_1)
+
+        for choice in EditorStatusZoomChoice.menu {
+            guard case .stop(let stop) = choice else {
+                XCTAssertEqual(choice, .fitWindow)
+                XCTAssertNil(choice.fixedScale)
+                continue
+            }
+            camera.zoom(to: stop)
+            XCTAssertEqual(camera.viewport.scale, stop.scale, accuracy: 0.000_1)
+            XCTAssertEqual(camera.viewport.scale, choice.fixedScale ?? -1, accuracy: 0.000_1)
+            XCTAssertEqual(camera.chrome.zoomPercent, stop.percent)
+            var chrome = CanvasChrome.standard
+            EditorStatusBarModel.apply(choice, to: &chrome)
+            XCTAssertEqual(chrome.zoomPercent, camera.chrome.zoomPercent)
+        }
+
+        camera.contentBounds = CGRect(x: 0, y: 0, width: 400, height: 200)
+        camera.zoom(to: .fourHundred)
+        XCTAssertEqual(camera.chrome.zoomPercent, 400)
+        camera.fitToContent()
+        XCTAssertTrue(ZoomStop.legalPercents.contains(camera.chrome.zoomPercent))
+        XCTAssertLessThan(camera.chrome.zoomPercent, 400)
+        XCTAssertEqual(
+            camera.viewport.scale,
+            ZoomStop.nearest(to: camera.viewport.scale).scale,
+            accuracy: 0.000_1
+        )
+    }
+
     func testZenEnterAndExitRestoreDocumentAndSelection() {
         let id = UUID()
         let session = EditorSession(
@@ -372,7 +406,9 @@ final class ShellTests: XCTestCase {
             ["50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%", "适应窗口"]
         )
         XCTAssertEqual(ZoomStop.allCases.map { "\($0.percent)%" }, Array(CanvasMenus.zoom.dropLast()))
-        XCTAssertEqual(CanvasMenus.more, ["大纲", "样式", "配色", "查看模式", "新建画布", "查找", "标签筛选", "粘贴", "关于"])
+        XCTAssertEqual(EditorStatusZoomChoice.menu.map(\.menuTitle), CanvasMenus.zoom)
+        XCTAssertEqual(DocumentViewMode.allCases, [.map, .focus])
+        XCTAssertEqual(CanvasMenus.more, ["大纲", "样式", "配色", "新建画布", "查找", "标签筛选", "粘贴", "关于"])
         XCTAssertEqual(CanvasMenus.moreDisabled, [])
         XCTAssertFalse(CanvasMenus.more.contains("ZEN"))
         XCTAssertFalse(CanvasMenus.more.contains("Zen"))

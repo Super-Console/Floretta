@@ -54,6 +54,9 @@
 		C52100000000000000000006 /* FileQuickLook.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52100000000000000000002 /* FileQuickLook.swift */; };
 		C52100000000000000000007 /* FileAttachmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52100000000000000000003 /* FileAttachmentTests.swift */; };
 		C52100000000000000000009 /* EditorChromeContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52100000000000000000005 /* EditorChromeContractTests.swift */; };
+		C5210000000000000000000A /* EditorStatusBarTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52100000000000000000006 /* EditorStatusBarTests.swift */; };
+		CA4500000000000000000001 /* EditorStatusBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4500000000000000000001 /* EditorStatusBar.swift */; };
+		CA4500000000000000000002 /* EditorStatusBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4500000000000000000001 /* EditorStatusBar.swift */; };
 		C52100000000000000000008 /* FileTypeIconTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52100000000000000000004 /* FileTypeIconTests.swift */; };
 		C60000000000000000000007 /* LayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000003 /* LayoutTests.swift */; };
 		C61000000000000000000001 /* FreeNodeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F61000000000000000000001 /* FreeNodeTests.swift */; };
@@ -210,6 +213,7 @@
 		F52100000000000000000002 /* FileQuickLook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileQuickLook.swift; sourceTree = "<group>"; };
 		F52100000000000000000003 /* FileAttachmentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FileAttachmentTests.swift; path = Tests/FlorettaCoreTests/FileAttachmentTests.swift; sourceTree = SOURCE_ROOT; };
 		F52100000000000000000005 /* EditorChromeContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EditorChromeContractTests.swift; path = Tests/FlorettaCoreTests/EditorChromeContractTests.swift; sourceTree = SOURCE_ROOT; };
+		F52100000000000000000006 /* EditorStatusBarTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EditorStatusBarTests.swift; path = Tests/FlorettaCoreTests/EditorStatusBarTests.swift; sourceTree = SOURCE_ROOT; };
 		F52100000000000000000004 /* FileTypeIconTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTypeIconTests.swift; sourceTree = "<group>"; };
 		F60000000000000000000003 /* LayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LayoutTests.swift; path = Tests/FlorettaCoreTests/LayoutTests.swift; sourceTree = SOURCE_ROOT; };
 		F61000000000000000000001 /* FreeNodeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FreeNodeTests.swift; path = Tests/FlorettaCoreTests/FreeNodeTests.swift; sourceTree = SOURCE_ROOT; };
@@ -232,6 +236,7 @@
 		FA4200000000000000000001 /* LocalDeviceLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDeviceLabel.swift; sourceTree = "<group>"; };
 		FA4300000000000000000001 /* TemplateThumbnail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateThumbnail.swift; sourceTree = "<group>"; };
 		FA5100000000000000000001 /* DocumentEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentEditor.swift; sourceTree = "<group>"; };
+		FA4500000000000000000001 /* EditorStatusBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorStatusBar.swift; sourceTree = "<group>"; };
 		FA7100000000000000000001 /* ShellTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellTests.swift; sourceTree = "<group>"; };
 		FA7200000000000000000001 /* MarkdownDocumentUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownDocumentUITests.swift; sourceTree = "<group>"; };
 		FA8100000000000000000001 /* NOTICE */ = {isa = PBXFileReference; lastKnownFileType = text; path = NOTICE; sourceTree = SOURCE_ROOT; };
@@ -364,6 +369,7 @@
 			F51000000000000000000006 /* ImageInsertTests.swift */,
 			F52100000000000000000003 /* FileAttachmentTests.swift */,
 			F52100000000000000000005 /* EditorChromeContractTests.swift */,
+			F52100000000000000000006 /* EditorStatusBarTests.swift */,
 			F91000000000000000000002 /* MMTests.swift */,
 			F92000000000000000000003 /* OPMLMarkdownTests.swift */,
 			F64000000000000000000001 /* XMindRoundTripTests.swift */,
@@ -489,6 +495,7 @@
 			children = (
 				FA1100000000000000000001 /* AppSettings.swift */,
 				FA5100000000000000000001 /* DocumentEditor.swift */,
+				FA4500000000000000000001 /* EditorStatusBar.swift */,
 				FA3100000000000000000001 /* DocumentSession.swift */,
 				FB2100000000000000000001 /* SnapshotHistory.swift */,
 				FA3200000000000000000001 /* MarkdownDocumentUI.swift */,
@@ -1020,6 +1027,7 @@
 				CA4200000000000000000001 /* LocalDeviceLabel.swift in Sources */,
 				CA4300000000000000000001 /* TemplateThumbnail.swift in Sources */,
 				CA5100000000000000000001 /* DocumentEditor.swift in Sources */,
+				CA4500000000000000000001 /* EditorStatusBar.swift in Sources */,
 				CB2100000000000000000001 /* SnapshotHistory.swift in Sources */,
 				C52100000000000000000001 /* FileTypeIcon.swift in Sources */,
 				C52100000000000000000004 /* FileQuickLook.swift in Sources */,
@@ -1054,6 +1062,7 @@
 				CA4200000000000000000002 /* LocalDeviceLabel.swift in Sources */,
 				CA4300000000000000000002 /* TemplateThumbnail.swift in Sources */,
 				CA5100000000000000000002 /* DocumentEditor.swift in Sources */,
+				CA4500000000000000000002 /* EditorStatusBar.swift in Sources */,
 				CB2100000000000000000002 /* SnapshotHistory.swift in Sources */,
 				C52100000000000000000002 /* FileTypeIcon.swift in Sources */,
 				C52100000000000000000005 /* FileQuickLook.swift in Sources */,
@@ -1097,6 +1106,7 @@
 				C52100000000000000000006 /* FileQuickLook.swift in Sources */,
 				C52100000000000000000007 /* FileAttachmentTests.swift in Sources */,
 				C52100000000000000000009 /* EditorChromeContractTests.swift in Sources */,
+				C5210000000000000000000A /* EditorStatusBarTests.swift in Sources */,
 				C52100000000000000000008 /* FileTypeIconTests.swift in Sources */,
 				C60000000000000000000007 /* LayoutTests.swift in Sources */,
 				C61000000000000000000001 /* FreeNodeTests.swift in Sources */,

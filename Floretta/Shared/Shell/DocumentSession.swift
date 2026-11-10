@@ -1484,7 +1484,7 @@ enum CanvasMenus {
     static let insert = ["子节点", "同级", "语音输入", "自由节点", "连到", "图片", "附件", "从文件导入"]
     static let share = ["PDF", "PNG", "Markdown", "保存为 Floretta", ".mm", "OPML", ".xmind", "打印"]
     static let zoom = ["50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%", "适应窗口"]
-    static let more = ["大纲", "样式", "配色", "查看模式", "新建画布", "查找", "标签筛选", "粘贴", "关于"]
+    static let more = ["大纲", "样式", "配色", "新建画布", "查找", "标签筛选", "粘贴", "关于"]
     static let moreDisabled: [String] = []
     static let file = ["重新命名"]
     static let fileDisabled: [String] = []

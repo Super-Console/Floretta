@@ -47,6 +47,23 @@ final class FileAttachmentTests: XCTestCase {
         XCTAssertTrue(huge?.confirmationMessage.contains("超过 10GB 软上限。") == true)
     }
 
+    /// The 10GB figure is a warning, not a refusal. A file past the cap still
+    /// produces a proposal the user can confirm.
+    func testSoftCapDoesNotRefuseAnInsertProposal() throws {
+        let over = try XCTUnwrap(FileAttachmentRoute.proposal(
+            filename: "huge.bin",
+            byteCount: StreamingBudget.softCapBytes + 1,
+            currentDocumentByteCount: 4096
+        ))
+        XCTAssertTrue(over.exceedsSoftCap)
+        XCTAssertEqual(over.fileByteCount, StreamingBudget.softCapBytes + 1)
+        XCTAssertEqual(over.projectedDocumentByteCount, StreamingBudget.softCapBytes + 1 + 4096)
+        XCTAssertTrue(over.confirmationMessage.contains("文件大小："))
+        XCTAssertTrue(over.confirmationMessage.contains("放入后文档大约："))
+        XCTAssertTrue(over.confirmationMessage.contains("超过 10GB 软上限。"))
+        XCTAssertFalse(over.confirmationMessage.contains("拒绝"))
+    }
+
     func testStoredNameKeepsTheExtensionUTTypeRecognized() {
         XCTAssertEqual(FileAttachmentName.storedFilename(original: "Poster.psd", recognizedExtension: "psd"), "Poster.psd")
         XCTAssertEqual(FileAttachmentName.storedFilename(original: "Notes.PDF", recognizedExtension: "bin"), "Notes.PDF")

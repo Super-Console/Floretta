@@ -170,8 +170,10 @@ final class InspectorTabPinUITests: XCTestCase {
             return
         }
         let more = app.descendants(matching: .any)["editor.more"]
-        XCTAssertTrue(more.waitForExistence(timeout: 5), "更多菜单没有出现")
-        more.tap()
+        let moreByTitle = app.descendants(matching: .any)["更多"]
+        let found = more.waitForExistence(timeout: 5) || moreByTitle.waitForExistence(timeout: 2)
+        XCTAssertTrue(found, "更多菜单没有出现")
+        (more.exists ? more : moreByTitle).tap()
         let open = app.buttons["inspector.open"]
         XCTAssertTrue(open.waitForExistence(timeout: 5), "打不开检查器")
         open.tap()

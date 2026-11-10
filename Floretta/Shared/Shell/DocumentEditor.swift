@@ -156,10 +156,10 @@ struct DocumentEditor: View {
                             .appleGlassChrome(.toolbarFloatingButton)
                     }
                     #if os(iOS)
-                    // A primary-action group collapses into TopOverflowBarButtonItem on a
-                    // compact phone, which hides editor.more. confirmationAction stays
-                    // on screen as its own button.
-                    ToolbarItem(placement: .confirmationAction) {
+                    // confirmationAction can still disappear once the trailing group
+                    // includes a percent-width zoom chip. topBarTrailing plus an icon
+                    // zoom control keeps editor.more on a compact phone.
+                    ToolbarItem(placement: .topBarTrailing) {
                         toolbarControl(.more)
                     }
                     #endif
@@ -873,6 +873,11 @@ struct DocumentEditor: View {
             commandMenuButton(.fit) { perform(.fit) }
                 .keyboardShortcut("0", modifiers: .command)
         } label: {
+            #if os(iOS)
+            // The bottom status bar already hosts the zoom percent. An icon
+            // here leaves room for editor.more on a compact phone.
+            commandLabel(.zoom, surface: .toolbar)
+            #else
             switch EditorToolbarCatalog.command(.zoom).toolbarFace {
             case .zoomPercent:
                 Text("\(camera.chrome.zoomPercent)%")
@@ -880,6 +885,7 @@ struct DocumentEditor: View {
             case .symbol:
                 commandLabel(.zoom, surface: .toolbar)
             }
+            #endif
         }
         .explained(EditorToolbarCatalog.command(.zoom).help)
         .appleGlassChrome(.toolbarFloatingButton)
@@ -927,6 +933,7 @@ struct DocumentEditor: View {
             }
         } label: {
             commandLabel(.more, surface: .toolbar)
+                .accessibilityIdentifier("editor.more")
         }
         .accessibilityLabel(text(EditorToolbarCatalog.command(.more).title))
         .accessibilityIdentifier("editor.more")

@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 struct ContentView: View {
     @Bindable var recovery: RecoveryPresenter
@@ -63,6 +66,11 @@ struct ContentView: View {
                 Text(verbatim: FlorettaL10n.present(notice ?? "", locale: settings.resolvedLocale))
             }
             .environment(\.locale, settings.resolvedLocale)
+            #if os(macOS)
+            .background {
+                SameDocumentWindowInstaller(library: library)
+            }
+            #endif
             .fileImporter(
                 isPresented: $showImporter,
                 allowedContentTypes: FlorettaFileTypes.allowedContentTypes,
@@ -80,14 +88,14 @@ struct ContentView: View {
 
     @ViewBuilder
     private var root: some View {
-        if let editor = library.editor {
+        if let editor = library.session(for: .primary) {
             NavigationStack {
                 DocumentEditor(
                     session: editor,
                     settings: settings,
                     onClose: dismissEditor,
                     onEdit: { updated in
-                        if library.editor?.consumeAutosaveEdit(updated) != false {
+                        if library.session(for: .primary)?.consumeAutosaveEdit(updated) != false {
                             recovery.noteEdit(updated)
                         }
                     },
@@ -275,3 +283,132 @@ struct ContentView: View {
     }
 
 }
+
+#if os(macOS)
+/// A second (or later) window on the document already open in `ContentView`.
+struct SameDocumentWindow: View {
+    static let sceneID = SameDocumentWindowScene.id
+
+    var windowID: UUID?
+    @Bindable var recovery: RecoveryPresenter
+    @Bindable var settings: AppSettings
+    @Bindable var library: LibraryModel
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var showImporter = false
+
+    var body: some View {
+        Group {
+            if let windowID, let editor = library.session(for: .auxiliary(windowID)) {
+                NavigationStack {
+                    DocumentEditor(
+                        session: editor,
+                        settings: settings,
+                        onClose: { closeThisWindow() },
+                        onEdit: { updated in
+                            if library.session(for: .auxiliary(windowID))?.consumeAutosaveEdit(updated) != false {
+                                recovery.noteEdit(updated)
+                            }
+                        },
+                        onImport: { showImporter = true },
+                        onSavedCopy: { library.noteExportedCopy($0) },
+                        onMarkdownUpgrade: { url, choice in
+                            library.finishMarkdownUpgrade(savedAt: url, choice: choice)
+                        },
+                        thumbnailCache: library.thumbnailCache
+                    )
+                }
+            } else {
+                Color.clear
+            }
+        }
+        .preferredColorScheme(settings.appearance.colorScheme)
+        .environment(\.locale, settings.resolvedLocale)
+        .background {
+            SameDocumentWindowInstaller(library: library)
+            if let windowID {
+                AuxiliaryWindowCloseMonitor {
+                    library.closeAuxiliaryWindow(windowID)
+                }
+                .allowsHitTesting(false)
+            }
+        }
+        .onChange(of: library.auxiliaryWindowIDs) { _, ids in
+            guard let windowID, !ids.contains(windowID) else { return }
+            dismiss()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                library.absorbExternalShare()
+            }
+        }
+        .fileImporter(
+            isPresented: $showImporter,
+            allowedContentTypes: FlorettaFileTypes.allowedContentTypes,
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                if let url = urls.first { library.openFile(url) }
+            case .failure(let error):
+                library.inventoryError = nil
+                library.openError = error.localizedDescription
+            }
+        }
+    }
+
+    private func closeThisWindow() {
+        guard let windowID else { return }
+        library.closeAuxiliaryWindow(windowID)
+        dismiss()
+    }
+}
+
+private struct AuxiliaryWindowCloseMonitor: NSViewRepresentable {
+    var onClose: () -> Void
+
+    func makeNSView(context: Context) -> AuxiliaryWindowCloseView {
+        let view = AuxiliaryWindowCloseView()
+        view.onClose = onClose
+        return view
+    }
+
+    func updateNSView(_ nsView: AuxiliaryWindowCloseView, context: Context) {
+        nsView.onClose = onClose
+    }
+}
+
+private final class AuxiliaryWindowCloseView: NSView, @unchecked Sendable {
+    var onClose: (() -> Void)?
+    /// Register and remove only from the main actor. deinit must not touch this.
+    @MainActor private var token: NSObjectProtocol?
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        let attached = window != nil
+        MainActor.assumeIsolated {
+            stop()
+            guard attached, let window = self.window else { return }
+            token = NotificationCenter.default.addObserver(
+                forName: NSWindow.willCloseNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.onClose?()
+                }
+            }
+        }
+    }
+
+    @MainActor private func stop() {
+        if let token {
+            NotificationCenter.default.removeObserver(token)
+            self.token = nil
+        }
+    }
+}
+#endif

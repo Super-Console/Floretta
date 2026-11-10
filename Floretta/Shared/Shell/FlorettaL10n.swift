@@ -78,6 +78,8 @@ enum FlorettaL10n {
         "这里还没有导图。": "No maps here yet.",
         "现在是创建一个好的时机。": "This is a good time to make one.",
         "新建": "New",
+        "新建窗口": "New Window",
+        "再开一个窗口，编辑同一份导图。": "Open another window on this same map.",
         "关闭": "Close",
         "返回": "Back",
         "iCloud 云盘不可用。": "iCloud Drive isn't available.",

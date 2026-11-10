@@ -98,10 +98,7 @@ struct InfiniteCanvas: View {
     }
 
     private var canvasVisuals: some View {
-        ZStack {
-            canvasPaper
-            canvasTimeline
-        }
+        canvasPaper.overlay { canvasTimeline }
     }
 
     private var canvasPaper: some View {

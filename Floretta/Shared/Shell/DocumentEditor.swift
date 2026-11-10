@@ -1505,7 +1505,6 @@ private struct BranchThemeSheet: View {
                     .accessibilityIdentifier("theme.close")
                 }
             }
-            .toolbarBackground(.visible, for: .navigationBar)
         }
         .frame(minWidth: 360, idealHeight: 520)
         .presentationDetents([.medium, .large])

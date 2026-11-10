@@ -25,6 +25,11 @@ enum CanvasPlacement {
                 bounds = bounds?.union(rect) ?? rect
             }
         }
+        if !document.relationships.isEmpty {
+            for line in RelationshipGeometry.lines(for: document.relationships, frames: placed) {
+                bounds = bounds?.union(line.bounds) ?? line.bounds
+            }
+        }
         return bounds
     }
 

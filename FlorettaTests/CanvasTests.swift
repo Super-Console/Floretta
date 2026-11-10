@@ -297,6 +297,39 @@ final class CanvasTests: XCTestCase {
         XCTAssertTrue(CanvasTextLOD.title.drawsTitle)
     }
 
+    func testContentBoundsIncludeTheRelationshipLine() throws {
+        let root = UUID()
+        let left = UUID()
+        let right = UUID()
+        let link = UUID()
+        var document = MindMapDocument(
+            title: "关系",
+            roots: [
+                MindMapNode(
+                    id: root,
+                    text: "根",
+                    children: [
+                        MindMapNode(id: left, text: "左支"),
+                        MindMapNode(id: right, text: "右支"),
+                    ]
+                ),
+            ]
+        )
+        let bare = try XCTUnwrap(CanvasPlacement.contentBounds(in: document, includingStickies: false))
+        _ = document.linkTopics(from: left, to: right, title: "对照", id: link)
+        let line = try XCTUnwrap(
+            RelationshipGeometry.lines(in: document, frames: CanvasPlacement.nodes(in: document)).first
+        )
+        let bounds = try XCTUnwrap(CanvasPlacement.contentBounds(in: document, includingStickies: false))
+        XCTAssertTrue(bounds.contains(line.curve.start))
+        XCTAssertTrue(bounds.contains(line.curve.end))
+        XCTAssertTrue(bounds.contains(line.curveLabel))
+        XCTAssertTrue(bounds.contains(line.chordLabel))
+        XCTAssertGreaterThanOrEqual(bounds.width + 0.01, bare.width)
+        XCTAssertGreaterThanOrEqual(bounds.height + 0.01, bare.height)
+        XCTAssertFalse(CanvasPlacement.nodes(in: document).contains { $0.id == link })
+    }
+
     private func sampleFrame(id: UUID, origin: CGPoint) -> NodeFrame {
         NodeFrame(
             id: id,

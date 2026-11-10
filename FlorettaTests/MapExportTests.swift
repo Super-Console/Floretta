@@ -214,6 +214,84 @@ final class MapExportTests: XCTestCase {
         XCTAssertFalse(plan.storesInThumbnailCache)
     }
 
+    func testPNGAndPDFIncludeTheRelationshipLine() throws {
+        let left = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        let right = UUID(uuidString: "33333333-3333-3333-3333-333333333333")!
+        let link = UUID(uuidString: "66666666-6666-6666-6666-666666666666")!
+        let bare = MindMapDocument(
+            title: "关系",
+            roots: [MindMapNode(text: "根", children: [
+                MindMapNode(id: left, text: "左支"),
+                MindMapNode(id: right, text: "右支"),
+            ])]
+        )
+        var linked = bare
+        _ = linked.linkTopics(from: left, to: right, title: "对照", id: link)
+        let frames = MapExporter.visibleFrames(in: linked)
+        let line = try XCTUnwrap(RelationshipGeometry.lines(in: linked, frames: frames).first)
+        XCTAssertEqual(line.id, link)
+        XCTAssertEqual(line.title, "对照")
+        XCTAssertFalse(frames.contains { $0.id == link })
+
+        XCTAssertTrue(bare.relationships.isEmpty)
+        XCTAssertTrue(RelationshipGeometry.lines(in: bare, frames: MapExporter.visibleFrames(in: bare)).isEmpty)
+
+        let options = MapExportOptions(scale: .two, background: .white)
+        let without = MapExporter.png(document: bare, options: options)
+        let png = MapExporter.png(document: linked, options: options)
+        XCTAssertNil(png.notice)
+        XCTAssertFalse(png.visibleNodeIDs.contains(link))
+        XCTAssertEqual(relationshipInkCount(try bitmap(try XCTUnwrap(without.png))), 0)
+        XCTAssertGreaterThan(relationshipInkCount(try bitmap(try XCTUnwrap(png.png))), 0)
+        assertInside(line, result: png)
+
+        let pdf = MapExporter.pdf(document: linked, options: options)
+        XCTAssertNotNil(pdf.pdf)
+        XCTAssertFalse(pdf.visibleNodeIDs.contains(link))
+        assertInside(line, result: pdf)
+        let page = try XCTUnwrap(PDFDocument(data: try XCTUnwrap(pdf.pdf))?.page(at: 0))
+        let media = page.bounds(for: .mediaBox)
+        let thumb = page.thumbnail(of: CGSize(width: media.width * 2, height: media.height * 2), for: .mediaBox)
+        XCTAssertGreaterThan(relationshipInkCount(try bitmap(thumb)), 0)
+    }
+
+    private func assertInside(_ line: RelationshipLine, result: MapExportResult, file: StaticString = #filePath, lineNumber: UInt = #line) {
+        for point in [line.curve.start, line.curve.end, line.curveLabel] {
+            let x = point.x - result.renderBounds.minX
+            let y = point.y - result.renderBounds.minY
+            XCTAssertGreaterThanOrEqual(x, -0.5, file: file, line: lineNumber)
+            XCTAssertGreaterThanOrEqual(y, -0.5, file: file, line: lineNumber)
+            XCTAssertLessThanOrEqual(x, result.pointSize.width + 0.5, file: file, line: lineNumber)
+            XCTAssertLessThanOrEqual(y, result.pointSize.height + 0.5, file: file, line: lineNumber)
+        }
+    }
+
+    /// Pixels of `RelationshipGeometry.ink` (0.11, 0.46, 0.50). Green and blue stay
+    /// close and both sit above red, including a moderate blend toward white.
+    /// Branch blue is (0.18, 0.52, 0.82): blended with the center node's black
+    /// stroke or the white page, blue stays well above green, so a bare map
+    /// does not match.
+    private func relationshipInkCount(_ rep: NSBitmapImageRep) -> Int {
+        var count = 0
+        for y in 0..<rep.pixelsHigh {
+            for x in 0..<rep.pixelsWide {
+                guard let color = rep.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { continue }
+                guard color.alphaComponent > 0.55 else { continue }
+                let red = color.redComponent
+                let green = color.greenComponent
+                let blue = color.blueComponent
+                let matches = abs(blue - green) < 0.10
+                    && green > red + 0.18
+                    && blue > red + 0.18
+                    && green > 0.28 && green < 0.80
+                    && blue > 0.28 && blue < 0.82
+                    && red < 0.50
+                if matches { count += 1 }
+            }
+        }
+        return count
+    }
+
     private func sampleMap() -> MindMapDocument {
         MindMapDocument(
             title: "export",

@@ -9,8 +9,8 @@ import Foundation
 /// the same list, so a language change applies on the next view refresh without
 /// restarting the process.
 ///
-/// Document titles, node text, sticky text, and the default map title「未命名」
-/// are not keys. Callers must not pass user document strings through `string`.
+/// Document titles, node text, sticky text, relationship labels, and the default
+/// map title「未命名」 are not keys. Callers must not pass user document strings through `string`.
 enum FlorettaL10n {
     /// English is first so `Bundle.preferredLocalizations` treats it as the
     /// development language, matching the Xcode project.
@@ -146,7 +146,7 @@ enum FlorettaL10n {
         "大小": "Size",
         "选择一个主题": "Select a Topic",
         "样式会写进导图文件。": "Styles are saved in the map file.",
-        "还没有连到其他节点。只保存关系，不画线。": "Not linked to another topic yet. Only the relationship is saved, not a line.",
+        "还没有连到其他节点。": "Not linked to another topic yet.",
         "没有其他节点": "No other topics",
         "黄色": "Yellow",
         "粉色": "Pink",
@@ -159,12 +159,14 @@ enum FlorettaL10n {
         "退出沉浸模式，恢复工具栏": "Exit zen mode and restore the toolbar",
         "撤销上一步编辑": "Undo the last edit",
         "恢复刚刚撤销的编辑": "Redo the edit that was just undone",
-        "删除选中的节点": "Delete the selected topic",
+        "删除选中的节点、便签或关系": "Delete the selected topic, sticky, or relationship",
         "在选中的节点下新建一个子节点": "Add a child under the selected topic",
         "在选中的节点旁新建一个同级节点": "Add a sibling beside the selected topic",
         "在画布上放一个不进层级的节点，位置会保存": "Place a topic on the canvas outside the hierarchy. Its position is saved.",
         "在画布上放一张便签。最多五种颜色，不计入节点，可以拖动，大小有上限": "Place a sticky on the canvas. Up to five colors. It is not a topic, it can be dragged, and its size is limited.",
-        "把选中的自由节点连到另一个节点。只记下关系，不画线。": "Link the selected free topic to another topic. Only the relationship is saved, not a line.",
+        "把选中的节点连到另一个节点，画布上会画出这条线。": "Link the selected topic to another topic. The canvas draws the line.",
+        "编辑这条关系的标签": "Edit the label on this relationship",
+        "标签": "Label",
         "从文件选择一张图片放进选中的节点": "Choose an image file to put in the selected topic",
         "把一个文件原样放进选中的节点": "Put a file into the selected topic as-is",
         "从文件打开另一份导图": "Open another map from a file",

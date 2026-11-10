@@ -3,6 +3,7 @@ import Foundation
 public enum EditedObject: Equatable, Sendable {
     case node
     case sticky
+    case relationship
 }
 
 public struct EditBuffer: Equatable, Sendable {
@@ -26,6 +27,7 @@ public struct MindMapKeyboardSession {
         didSet {
             if selectedNodeID != nil {
                 selectedStickyID = nil
+                selectedRelationshipID = nil
             }
         }
     }
@@ -33,6 +35,16 @@ public struct MindMapKeyboardSession {
         didSet {
             if selectedStickyID != nil {
                 selectedNodeID = nil
+                selectedRelationshipID = nil
+            }
+        }
+    }
+    /// The selected relationship line. Setting it clears the topic and the sticky.
+    public var selectedRelationshipID: UUID? {
+        didSet {
+            if selectedRelationshipID != nil {
+                selectedNodeID = nil
+                selectedStickyID = nil
             }
         }
     }
@@ -44,6 +56,12 @@ public struct MindMapKeyboardSession {
     private var pendingChange: Snapshot?
 
     public var editingText: String { edit?.text ?? "" }
+
+    /// Set while the relationship label is the text being edited.
+    public var editingRelationshipID: UUID? {
+        guard mode == .edit, edit?.object == .relationship else { return nil }
+        return edit?.nodeID
+    }
 
     @discardableResult
     public mutating func handle(
@@ -98,6 +116,8 @@ public struct MindMapKeyboardSession {
             _ = document.mutateNode(buffer.nodeID) { $0.text = text }
         case .sticky:
             _ = document.replaceStickyText(buffer.nodeID, with: text)
+        case .relationship:
+            _ = document.renameRelationship(buffer.nodeID, title: text)
         }
     }
 
@@ -137,6 +157,19 @@ public struct MindMapKeyboardSession {
             mode = .edit
             return
         }
+        if let relationshipID = selectedRelationshipID,
+           selectedNodeID == nil,
+           let relationship = document.relationship(relationshipID) {
+            editOrigin = capture(document)
+            edit = EditBuffer(
+                nodeID: relationshipID,
+                original: relationship.title,
+                text: relationship.title,
+                object: .relationship
+            )
+            mode = .edit
+            return
+        }
         guard let id = selectedNodeID, let node = document.node(id) else { return }
         editOrigin = capture(document)
         edit = EditBuffer(nodeID: id, original: node.text, text: node.text)
@@ -169,6 +202,20 @@ public struct MindMapKeyboardSession {
             record(document)
             guard document.removeSticky(stickyID) else { return }
             selectedStickyID = next
+            return
+        }
+        if let relationshipID = selectedRelationshipID {
+            guard document.relationship(relationshipID) != nil else {
+                selectedRelationshipID = nil
+                return
+            }
+            let next = document.relationshipSelection(afterRemoving: relationshipID)
+            record(document)
+            guard document.removeRelationship(relationshipID) else {
+                if !undoStack.isEmpty { undoStack.removeLast() }
+                return
+            }
+            selectedRelationshipID = next
             return
         }
         guard let id = selectedNodeID, document.node(id) != nil else { return }
@@ -378,7 +425,27 @@ public struct MindMapKeyboardSession {
         }
     }
 
-    /// Connects the selected free node to any other topic. One undo step. Nothing is drawn.
+    /// Connects the selected topic to any other topic and selects the new line.
+    /// One undo step. The canvas draws `TopicRelationship`; this method does not store a second curve.
+    @discardableResult
+    public mutating func linkSelectedTopic(
+        to targetID: UUID,
+        document: inout MindMapDocument,
+        title: String = ""
+    ) -> UUID? {
+        guard mode == .command, editOrigin == nil, pendingChange == nil else { return nil }
+        guard let sourceID = selectedNodeID, document.node(sourceID) != nil else { return nil }
+        record(document)
+        guard let relationship = document.linkTopics(from: sourceID, to: targetID, title: title) else {
+            if !undoStack.isEmpty { undoStack.removeLast() }
+            return nil
+        }
+        selectedRelationshipID = relationship.id
+        return relationship.id
+    }
+
+    /// Connects the selected free node to any other topic. One undo step.
+    /// The free node stays selected, matching callers that delete that node next.
     @discardableResult
     public mutating func linkFreeNode(
         to targetID: UUID,
@@ -404,6 +471,7 @@ public struct MindMapKeyboardSession {
             document: document,
             selectedNodeID: selectedNodeID,
             selectedStickyID: selectedStickyID,
+            selectedRelationshipID: selectedRelationshipID,
             mode: mode,
             edit: edit,
             isComposing: isComposing
@@ -414,6 +482,7 @@ public struct MindMapKeyboardSession {
         document = snapshot.document
         selectedNodeID = snapshot.selectedNodeID
         selectedStickyID = snapshot.selectedStickyID
+        selectedRelationshipID = snapshot.selectedRelationshipID
         mode = snapshot.mode
         edit = snapshot.edit
         isComposing = snapshot.isComposing
@@ -424,6 +493,7 @@ private struct Snapshot: Equatable {
     var document: MindMapDocument
     var selectedNodeID: UUID?
     var selectedStickyID: UUID?
+    var selectedRelationshipID: UUID?
     var mode: KeyboardMode
     var edit: EditBuffer?
     var isComposing: Bool

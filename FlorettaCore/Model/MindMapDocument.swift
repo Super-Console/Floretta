@@ -16,7 +16,8 @@ public struct MindMapDocument: Equatable, Sendable {
     public var roots: [MindMapNode]
     /// Topics that do not participate in parent/child layout.
     public var freeNodes: [MindMapNode]
-    /// Connections between any topics. The canvas does not draw these yet.
+    /// Connections between any topics. The canvas and PNG/PDF export draw these
+    /// from the topic frames. This array is the only stored copy.
     public var relationships: [TopicRelationship]
     /// Canvas cards. Not topics, so they are outside the tree and the node count.
     public var stickies: [StickyNote]
@@ -68,7 +69,7 @@ public struct MindMapDocument: Equatable, Sendable {
 }
 
 /// A stored connection between two topics. Either end may be a tree topic or a free node.
-/// Drawing is a later pass; this record is the data layer those lines will read.
+/// `RelationshipGeometry` reads this record when it draws the line and its label.
 public struct TopicRelationship: Equatable, Sendable, Identifiable {
     public var id: UUID
     public var sourceID: UUID
@@ -509,6 +510,33 @@ public extension MindMapDocument {
         guard let index = stickies.firstIndex(where: { $0.id == id }) else { return false }
         stickies.remove(at: index)
         return true
+    }
+
+    public func relationship(_ id: UUID) -> TopicRelationship? {
+        relationships.first { $0.id == id }
+    }
+
+    /// Writes the label. Returns false when `id` is missing. An unchanged title still returns true.
+    @discardableResult
+    public mutating func renameRelationship(_ id: UUID, title: String) -> Bool {
+        guard let index = relationships.firstIndex(where: { $0.id == id }) else { return false }
+        relationships[index].title = title
+        return true
+    }
+
+    @discardableResult
+    public mutating func removeRelationship(_ id: UUID) -> Bool {
+        guard let index = relationships.firstIndex(where: { $0.id == id }) else { return false }
+        relationships.remove(at: index)
+        return true
+    }
+
+    /// The relationship to select after `id` is removed. Does not fall through to a topic.
+    public func relationshipSelection(afterRemoving id: UUID) -> UUID? {
+        guard let index = relationships.firstIndex(where: { $0.id == id }) else { return nil }
+        if index + 1 < relationships.count { return relationships[index + 1].id }
+        if index > 0 { return relationships[index - 1].id }
+        return nil
     }
 
     /// The sticky to select after `id` is removed. Does not fall through to a topic.

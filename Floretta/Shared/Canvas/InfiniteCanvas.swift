@@ -57,6 +57,7 @@ struct InfiniteCanvas: View {
             .overlay { editField }
             .overlay { stickyChrome }
             .overlay { stickyEditor }
+            .overlay { relationshipEditor }
             .canvasHover { location in
                 guard let location else {
                     interaction.hoveredNodeID = nil
@@ -132,6 +133,10 @@ struct InfiniteCanvas: View {
                 }
                 if previewFile(at: point) { return }
                 let hit = CanvasPlacement.nodeID(at: point, in: layoutSource())
+                if hit == nil, let relationshipID = relationshipHit(at: point) {
+                    applyRelationshipTap(relationshipID)
+                    return
+                }
                 if zenActive, hit == nil { return }
                 applyNodeTap(hit)
             })
@@ -149,6 +154,13 @@ struct InfiniteCanvas: View {
                 if previewFile(at: point) { return }
                 if let hit = CanvasPlacement.nodeID(at: point, in: layoutSource()) {
                     beginEditing(hit)
+                    return
+                }
+                if let relationshipID = relationshipHit(at: point) {
+                    if keyboard.mode == .edit, keyboard.selectedRelationshipID != relationshipID {
+                        keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+                    }
+                    beginRelationshipEdit(relationshipID)
                     return
                 }
                 if onConsumeBlankDoubleTap() { return }
@@ -208,6 +220,32 @@ struct InfiniteCanvas: View {
         interaction.selectedNodeID = nil
     }
 
+    private func applyRelationshipTap(_ id: UUID) {
+        if keyboard.isComposing { return }
+        if keyboard.mode == .edit {
+            if keyboard.selectedRelationshipID == id { return }
+            keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+            keyboard.selectedRelationshipID = id
+            interaction.selectedNodeID = nil
+            canvasFocused = true
+            return
+        }
+        if keyboard.selectedRelationshipID == id {
+            beginRelationshipEdit(id)
+            return
+        }
+        keyboard.selectedRelationshipID = id
+        interaction.selectedNodeID = nil
+    }
+
+    private func beginRelationshipEdit(_ id: UUID) {
+        keyboard.selectedRelationshipID = id
+        interaction.selectedNodeID = nil
+        canvasFocused = false
+        guard keyboard.mode != .edit else { return }
+        keyboard.apply(.beginEdit, document: &document, frames: placedFrames())
+    }
+
     private func beginStickyEdit(_ id: UUID) {
         keyboard.selectedStickyID = id
         interaction.selectedNodeID = nil
@@ -226,12 +264,18 @@ struct InfiniteCanvas: View {
         case .ignore:
             return
         case .select(let id):
+            if id == nil {
+                keyboard.selectedRelationshipID = nil
+            }
             keyboard.selectedNodeID = id
             interaction.selectedNodeID = id
         case .beginEdit(let id):
             beginEditing(id)
         case .commitAndSelect(let id):
             keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+            if id == nil {
+                keyboard.selectedRelationshipID = nil
+            }
             keyboard.selectedNodeID = id
             interaction.selectedNodeID = id
             canvasFocused = true
@@ -347,6 +391,31 @@ struct InfiniteCanvas: View {
         }
     }
 
+    @ViewBuilder
+    private var relationshipEditor: some View {
+        if keyboard.mode == .edit,
+           keyboard.selectedRelationshipID != nil,
+           let frame = relationshipEditFrame() {
+            NodeTextEditor(
+                text: Binding(
+                    get: { keyboard.editingText },
+                    set: { keyboard.replaceEditingText($0, document: &document) }
+                ),
+                isComposing: $keyboard.isComposing,
+                minimumWidth: $compositionWidth,
+                fontSize: CanvasTextScale.onScreenPointSize(
+                    fontSize: RelationshipGeometry.labelFontSize,
+                    scale: camera.viewport.scale
+                ),
+                onEvent: { handleKey($0) },
+                paper: colorScheme == .dark ? Color(white: 0.16) : Color.white,
+                ink: colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16)
+            )
+            .frame(width: frame.width, height: frame.height)
+            .position(x: frame.midX, y: frame.midY)
+        }
+    }
+
     private func stickyChromeContains(_ viewPoint: CGPoint) -> Bool {
         guard keyboard.mode == .command,
               let id = keyboard.selectedStickyID,
@@ -454,6 +523,9 @@ struct InfiniteCanvas: View {
     /// View rect of the system text field, including the extra width used while
     /// marked text is wider than the topic.
     private func editFieldFrame() -> CGRect? {
+        if keyboard.mode == .edit, keyboard.selectedRelationshipID != nil, let frame = relationshipEditFrame() {
+            return frame
+        }
         guard keyboard.mode == .edit,
               let id = keyboard.selectedNodeID,
               let frame = placedFrames().first(where: { $0.id == id }) else { return nil }
@@ -461,6 +533,19 @@ struct InfiniteCanvas: View {
         let width = max(rect.width, compositionWidth, 88)
         let height = max(rect.height, 36)
         return CGRect(x: rect.midX - width / 2, y: rect.midY - height / 2, width: width, height: height)
+    }
+
+    private func relationshipEditFrame() -> CGRect? {
+        guard let id = keyboard.selectedRelationshipID else { return nil }
+        let frames = placedFrames()
+        guard let line = relationshipLines(in: frames).first(where: { $0.id == id }) else { return nil }
+        let straight = CanvasDrawPolicy.useStraightLink(nodeCount: frames.count, link: line.curve)
+        let center = camera.viewport.viewPoint(fromCanvas: line.labelCenter(straight: straight))
+        let canvasRect = RelationshipLine.labelRect(center: line.labelCenter(straight: straight), size: line.labelSize)
+        let mapped = camera.viewport.viewRect(fromCanvas: canvasRect)
+        let width = max(mapped.width, compositionWidth, 88)
+        let height = max(mapped.height, 28)
+        return CGRect(x: center.x - width / 2, y: center.y - height / 2, width: width, height: height)
     }
 
     private func placedFrames() -> [NodeFrame] {
@@ -496,6 +581,10 @@ struct InfiniteCanvas: View {
             .onChanged { value in
                 if drag == nil && panAnchor == nil && stickyDrag == nil && !ignoreDrag {
                     let start = camera.viewport.canvasPoint(fromView: value.startLocation)
+                    if keyboard.mode == .edit, let frame = editFieldFrame(), frame.contains(value.startLocation) {
+                        ignoreDrag = true
+                        return
+                    }
                     let onEditedSticky = keyboard.mode == .edit
                         && stickyHit(at: start) != nil
                         && stickyHit(at: start) == keyboard.selectedStickyID
@@ -576,9 +665,39 @@ struct InfiniteCanvas: View {
                 in: context
             )
         }
+        let relationships = relationshipLines(in: placed)
+        let straightRelationship: (RelationshipLine) -> Bool = { line in
+            CanvasDrawPolicy.useStraightLink(nodeCount: placed.count, link: line.curve)
+        }
+        if !relationships.isEmpty {
+            let viewBounds = CGRect(origin: .zero, size: size).insetBy(dx: -48, dy: -48)
+            for line in relationships {
+                let box = camera.viewport.viewRect(fromCanvas: line.bounds)
+                guard box.intersects(viewBounds) else { continue }
+                stroke(
+                    line,
+                    straight: straightRelationship(line),
+                    selected: keyboard.selectedRelationshipID == line.id,
+                    in: context
+                )
+            }
+        }
         for node in visible {
             let onScreen = min(node.size.width, node.size.height) * scale
             draw(node, detail: CanvasDetail.level(scale: scale, onScreenHeight: onScreen), scale: scale, in: context)
+        }
+        if !relationships.isEmpty, RelationshipGeometry.labelFontSize * scale >= 9 {
+            let labelViewport = CGRect(origin: .zero, size: size).insetBy(dx: -48, dy: -48)
+            for line in relationships where !line.title.isEmpty {
+                let straight = straightRelationship(line)
+                if keyboard.mode == .edit, keyboard.selectedRelationshipID == line.id { continue }
+                let canvasRect = RelationshipLine.labelRect(
+                    center: line.labelCenter(straight: straight),
+                    size: line.labelSize
+                )
+                guard camera.viewport.viewRect(fromCanvas: canvasRect).intersects(labelViewport) else { continue }
+                drawLabel(line, straight: straight, scale: scale, in: context)
+            }
         }
         let viewBounds = CGRect(origin: .zero, size: size).insetBy(dx: -48, dy: -48)
         for sticky in document.stickies {
@@ -603,6 +722,73 @@ struct InfiniteCanvas: View {
             )
         }
         context.stroke(path, with: .color(color(link.color)), lineWidth: link.lineWidth)
+    }
+
+    private func stroke(_ line: RelationshipLine, straight: Bool, selected: Bool, in context: GraphicsContext) {
+        var path = Path()
+        let start = camera.viewport.viewPoint(fromCanvas: line.curve.start)
+        let end = camera.viewport.viewPoint(fromCanvas: line.curve.end)
+        path.move(to: start)
+        if straight {
+            path.addLine(to: end)
+        } else {
+            path.addCurve(
+                to: end,
+                control1: camera.viewport.viewPoint(fromCanvas: line.curve.control1),
+                control2: camera.viewport.viewPoint(fromCanvas: line.curve.control2)
+            )
+        }
+        let ink = selected ? color(interaction.selectionBorder) : color(line.curve.color)
+        let width = selected ? line.curve.lineWidth + 0.75 : line.curve.lineWidth
+        let style = StrokeStyle(lineWidth: width, lineCap: .round, dash: selected ? [] : [7, 5])
+        context.stroke(path, with: .color(ink), style: style)
+        let from = straight ? line.curve.start : line.curve.control2
+        let head = RelationshipGeometry.arrow(tip: line.curve.end, from: from)
+        var arrow = Path()
+        arrow.move(to: end)
+        arrow.addLine(to: camera.viewport.viewPoint(fromCanvas: head.left))
+        arrow.addLine(to: camera.viewport.viewPoint(fromCanvas: head.right))
+        arrow.closeSubpath()
+        context.fill(arrow, with: .color(ink))
+    }
+
+    private func drawLabel(_ line: RelationshipLine, straight: Bool, scale: CGFloat, in context: GraphicsContext) {
+        let canvasRect = RelationshipLine.labelRect(center: line.labelCenter(straight: straight), size: line.labelSize)
+        let rect = camera.viewport.viewRect(fromCanvas: canvasRect)
+        guard rect.width > 1, rect.height > 1 else { return }
+        let paper = colorScheme == .dark ? Color(white: 0.16) : Color.white
+        let ink = colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16)
+        let path = Path(roundedRect: rect, cornerRadius: min(6, rect.height / 2))
+        context.fill(path, with: .color(paper))
+        let selected = keyboard.selectedRelationshipID == line.id
+        let border = selected ? color(interaction.selectionBorder) : color(RelationshipGeometry.ink).opacity(0.45)
+        context.stroke(path, with: .color(border), lineWidth: selected ? 1.5 : 1)
+        let textRect = rect.insetBy(dx: 4, dy: 2)
+        guard textRect.width > 1, textRect.height > 1 else { return }
+        context.draw(
+            Text(line.title)
+                .font(.system(size: CanvasTextScale.onScreenPointSize(
+                    fontSize: RelationshipGeometry.labelFontSize,
+                    scale: scale
+                )))
+                .foregroundStyle(ink),
+            in: textRect
+        )
+    }
+
+    private func relationshipLines(in frames: [NodeFrame]) -> [RelationshipLine] {
+        guard !document.relationships.isEmpty else { return [] }
+        return RelationshipGeometry.lines(for: document.relationships, frames: frames)
+    }
+
+    private func relationshipHit(at point: CGPoint) -> UUID? {
+        let frames = placedFrames()
+        let lines = relationshipLines(in: frames)
+        guard !lines.isEmpty else { return nil }
+        let slop = max(RelationshipGeometry.hitSlop, 12 / max(camera.viewport.scale, 0.25))
+        return RelationshipGeometry.hit(at: point, in: lines, straight: { line in
+            CanvasDrawPolicy.useStraightLink(nodeCount: frames.count, link: line.curve)
+        }, slop: slop)
     }
 
     private func draw(_ node: NodeFrame, detail: CanvasDetail, scale: CGFloat, in context: GraphicsContext) {

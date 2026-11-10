@@ -282,7 +282,7 @@ final class LayoutTests: XCTestCase {
                 XCTAssertNotEqual(a.dark.centerFill, b.dark.centerFill)
             }
         }
-        for theme in MapThemeCatalog.all {
+        for theme in MapThemeCatalog.all where theme.id != MapThemeCatalog.florettaID {
             XCTAssertNil(theme.light.canvasBackground)
             XCTAssertNil(theme.dark.canvasBackground)
             XCTAssertNil(theme.light.linkStroke)

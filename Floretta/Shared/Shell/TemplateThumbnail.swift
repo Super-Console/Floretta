@@ -1,3 +1,4 @@
+import FlorettaCore
 import SwiftUI
 
 /// One drawing per template. Colors are the official theme for the current appearance.

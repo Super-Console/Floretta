@@ -34,6 +34,7 @@
 - [x] A23 `docs/DESIGN-RULES.md`（唯一入口、退出可达、图标优先、禁止重复控件、禁止占位假数据；六条规矩已在该文件，前五条与本行一致）
 - [~] A24 `docs/SMOKE.md` + XCUITest 冒烟（13 条可达性路径，打包前必跑）
 - [x] A25 模板库重做（12 个真模板，结构各不相同，禁止同树换色）（`TemplateKind` 十二个；`ShellTests.testMenusAndTemplatesOmitDeadActions` 断言名称与 `TemplateKind.shape` 均不重复）
+- [x] A26 底栏字数（底栏在「主题: N」旁显示「字数: N」。Mac 在底栏右侧，悬停展开主题 / 字数 / 字符数；iPhone / iPad 把这三项放在底栏上。只计节点标题，编辑中实时更新。验收：中心主题 + 分支主题 1–4 = 主题 5、字数 24、字符数 28。`TopicTitleCensusTests`。PR #75 → main `658b0c37`，tip `c9d6eb28`；Censor 通过该 tip，CI 与 Pro 双验已在该 tip 上通过）
 
 ## B. 附件（核心差异化）
 
@@ -57,7 +58,7 @@
 - [x] C5 标签 / 标记（优先级、进度、旗帜）+ 按标签筛选（PR #53 合入 main `fd97255`，tip `942f46b`；Censor 通过；Pro 双验绿，macOS 258/0 含 `TagFilterTests`）
 - [x] C6 分支配色 / 主题预设（≤8 套，深浅色各一套；PR #55 合入 main `88d50e9`，tip `4b6bc5b`；Censor 通过；FlorettaCore CI 绿；Pro 双验绿，macOS 263/0 含 `testPNGAndPDFKeepBranchThemeColors`）
 - [~] C7 多画布（Sheet）
-- [~] C8 画布专区（可调矩形，可输入宽高，可锁定比例、填充、描边和标签；视觉圈住节点但不改层级）
+- [~] C8 画布专区（可调矩形，可输入宽高，可锁定比例、填充、描边和标签；视觉圈住节点但不改层级。PR #83，尚未合并）
 
 ## D. 格式与互通（T0）
 
@@ -130,8 +131,8 @@
 
 ## 统计
 
-- 已完成并验过：**61** 项
+- 已完成并验过：**62** 项
 - 已派未合并/未验：**7** 项
 - 未开始：**13** 项
-- 合计：**81** 项
+- 合计：**82** 项
 - 已知阻塞：**3** 项

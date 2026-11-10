@@ -330,6 +330,30 @@ final class CanvasTests: XCTestCase {
         XCTAssertFalse(CanvasPlacement.nodes(in: document).contains { $0.id == link })
     }
 
+    func testEditModeKeepsTheNodeFrameWhenTextFits() throws {
+        let node = CGRect(x: 40, y: 80, width: 72, height: 32)
+        XCTAssertEqual(NodeEditChrome.editorFrame(node: node, compositionWidth: 0), node)
+        let wider = NodeEditChrome.editorFrame(node: node, compositionWidth: 140)
+        XCTAssertEqual(wider.width, 140, accuracy: 0.001)
+        XCTAssertEqual(wider.height, node.height, accuracy: 0.001)
+        XCTAssertEqual(wider.midX, node.midX, accuracy: 0.001)
+        XCTAssertEqual(wider.minY, node.minY, accuracy: 0.001)
+        XCTAssertFalse(NodeEditChrome.showsSelectionHandles(editing: true))
+        XCTAssertTrue(NodeEditChrome.showsSelectionHandles(editing: false))
+        XCTAssertEqual(NodeEditChrome.selectionStrokeWidth, 2)
+
+        let fitted = try XCTUnwrap(LayoutEngine().layout(NodeEditChrome.sampleDocument()).first)
+        XCTAssertLessThan(fitted.size.width, 88)
+        XCTAssertEqual(NodeEditChrome.hex(fitted.fill), "#800020")
+        XCTAssertEqual(NodeEditChrome.editorFrame(node: fitted.frame, compositionWidth: 0), fitted.frame)
+        let idle = NodeEditChrome.accessibilityValue(editing: false, fill: fitted.fill, size: fitted.size)
+        let editing = NodeEditChrome.accessibilityValue(editing: true, fill: fitted.fill, size: fitted.size)
+        XCTAssertEqual(NodeEditChrome.mode(in: idle), "idle")
+        XCTAssertEqual(NodeEditChrome.mode(in: editing), "edit")
+        XCTAssertEqual(NodeEditChrome.fillHex(in: idle), NodeEditChrome.fillHex(in: editing))
+        XCTAssertEqual(NodeEditChrome.size(in: idle), NodeEditChrome.size(in: editing))
+    }
+
     private func sampleFrame(id: UUID, origin: CGPoint) -> NodeFrame {
         NodeFrame(
             id: id,

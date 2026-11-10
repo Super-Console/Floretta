@@ -67,6 +67,8 @@ struct NodeTextEditor: View {
     var dictationToken: Int = 0
     /// Select the placeholder so the first dictated phrase replaces it.
     var dictationReplacesPlaceholder: Bool = false
+    /// When set, the field paints this topic instead of the system text background.
+    var nodeChrome: NodeEditSurface? = nil
 
     var body: some View {
         #if os(macOS)
@@ -80,7 +82,8 @@ struct NodeTextEditor: View {
             paper: paper,
             ink: ink,
             dictationToken: dictationToken,
-            dictationReplacesPlaceholder: dictationReplacesPlaceholder
+            dictationReplacesPlaceholder: dictationReplacesPlaceholder,
+            nodeChrome: nodeChrome
         )
         #else
         IOSNodeTextEditor(
@@ -93,7 +96,8 @@ struct NodeTextEditor: View {
             paper: paper,
             ink: ink,
             dictationToken: dictationToken,
-            dictationReplacesPlaceholder: dictationReplacesPlaceholder
+            dictationReplacesPlaceholder: dictationReplacesPlaceholder,
+            nodeChrome: nodeChrome
         )
         #endif
     }
@@ -111,6 +115,7 @@ private struct MacNodeTextEditor: NSViewRepresentable {
     var ink: Color?
     var dictationToken: Int
     var dictationReplacesPlaceholder: Bool
+    var nodeChrome: NodeEditSurface?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -138,9 +143,11 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         view.drawsBackground = true
         view.backgroundColor = paper.map { NSColor($0) } ?? .textBackgroundColor
         view.textColor = ink.map { NSColor($0) } ?? .labelColor
-        view.insertionPointColor = view.textColor
+        view.insertionPointColor = view.textColor ?? .labelColor
         view.font = .systemFont(ofSize: max(fontSize, 1))
-        if paper != nil {
+        if let nodeChrome {
+            applyNodeChrome(nodeChrome, to: view, ownsKeys: false)
+        } else if paper != nil {
             view.textContainerInset = NSSize(width: 8, height: 6)
         }
         view.isAutomaticQuoteSubstitutionEnabled = false
@@ -165,31 +172,46 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         context.coordinator.returnInsertsLine = returnInsertsLine
         context.coordinator.paper = paper
         context.coordinator.ink = ink
+        let ownsKeys = nsView.window?.firstResponder === nsView
+        if let nodeChrome {
+            applyNodeChrome(nodeChrome, to: nsView, ownsKeys: ownsKeys)
+        }
         if context.coordinator.dictationToken != dictationToken, dictationToken != 0 {
             context.coordinator.didFocus = false
         }
         context.coordinator.dictationToken = dictationToken
         context.coordinator.dictationReplacesPlaceholder = dictationReplacesPlaceholder
-        if let paper {
-            nsView.drawsBackground = true
-            nsView.backgroundColor = NSColor(paper)
-        }
-        if let ink {
-            nsView.textColor = NSColor(ink)
-            nsView.insertionPointColor = NSColor(ink)
+        if nodeChrome == nil {
+            if let paper {
+                nsView.drawsBackground = true
+                nsView.backgroundColor = NSColor(paper)
+            }
+            if let ink {
+                nsView.textColor = NSColor(ink)
+                nsView.insertionPointColor = NSColor(ink)
+            }
         }
         nsView.onMarkedTextChange = { [weak nsView] in
             guard let nsView else { return }
             context.coordinator.compositionChanged(nsView)
         }
         if !nsView.hasMarkedText(), !context.coordinator.isComposing.wrappedValue {
-            let font = NSFont.systemFont(ofSize: max(fontSize, 1))
-            if nsView.font?.pointSize != font.pointSize {
-                nsView.font = font
+            if let nodeChrome {
+                let font = Self.editingFont(nodeChrome)
+                if nsView.font != font {
+                    nsView.font = font
+                }
+            } else {
+                let font = NSFont.systemFont(ofSize: max(fontSize, 1))
+                if nsView.font?.pointSize != font.pointSize {
+                    nsView.font = font
+                }
             }
-            let ownsKeys = nsView.window?.firstResponder === nsView
             if nsView.string != text, !ownsKeys {
                 nsView.string = text
+                if let nodeChrome {
+                    applyNodeChrome(nodeChrome, to: nsView, ownsKeys: false)
+                }
             }
         }
         if !context.coordinator.didFocus {
@@ -204,6 +226,66 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         } else {
             context.coordinator.noteDictation(on: nsView)
         }
+    }
+
+    /// Focus must not swap the topic for the system text background or font.
+    private func applyNodeChrome(_ chrome: NodeEditSurface, to view: EditingTextView, ownsKeys: Bool) {
+        let fill = NSColor(
+            srgbRed: CGFloat(chrome.fill.red),
+            green: CGFloat(chrome.fill.green),
+            blue: CGFloat(chrome.fill.blue),
+            alpha: chrome.hidesFill ? 0 : 1
+        )
+        let ink = NSColor(
+            srgbRed: CGFloat(chrome.textColor.red),
+            green: CGFloat(chrome.textColor.green),
+            blue: CGFloat(chrome.textColor.blue),
+            alpha: 1
+        )
+        view.lockedBackground = fill
+        view.lockedTextColor = ink
+        view.locksChrome = true
+        view.centersInNode = true
+        view.backgroundColor = fill
+        view.drawsBackground = !chrome.hidesFill
+        view.textColor = ink
+        view.insertionPointColor = ink
+        view.focusRingType = .none
+        let font = Self.editingFont(chrome)
+        view.lockedFont = font
+        if view.font != font {
+            view.font = font
+        }
+        view.wantsLayer = true
+        view.layer?.cornerRadius = chrome.cornerRadius
+        view.layer?.masksToBounds = true
+        view.layer?.borderWidth = 0
+        view.textContainer?.lineFragmentPadding = 0
+        if !ownsKeys {
+            view.alignCenter(nil)
+        }
+        view.publishChromeProbe()
+    }
+
+    private static func editingFont(_ chrome: NodeEditSurface) -> NSFont {
+        let size = max(chrome.fontSize, 1)
+        let weight: NSFont.Weight = chrome.bold ? .bold : .regular
+        let base = NSFont.systemFont(ofSize: size, weight: weight)
+        let design: NSFontDescriptor.SystemDesign?
+        switch chrome.fontDesign {
+        case "serif": design = .serif
+        case "rounded": design = .rounded
+        case "monospaced": design = .monospaced
+        default: design = nil
+        }
+        var font = base
+        if let design, let descriptor = base.fontDescriptor.withDesign(design) {
+            font = NSFont(descriptor: descriptor, size: size) ?? base
+        }
+        if chrome.italic, let descriptor = font.fontDescriptor.withSymbolicTraits(.italic) {
+            font = NSFont(descriptor: descriptor, size: size) ?? font
+        }
+        return font
     }
 
     @MainActor
@@ -304,6 +386,99 @@ private struct MacNodeTextEditor: NSViewRepresentable {
 /// this view does not include their editor.
 private final class EditingTextView: NSTextView {
     var onMarkedTextChange: (() -> Void)?
+    var locksChrome = false
+    var centersInNode = false
+    var lockedBackground: NSColor = .clear
+    var lockedTextColor: NSColor = .labelColor
+    var lockedFont: NSFont?
+    private var applyingChrome = false
+
+    override var backgroundColor: NSColor? {
+        get { super.backgroundColor }
+        set { super.backgroundColor = locksChrome ? lockedBackground : newValue }
+    }
+
+    override var drawsBackground: Bool {
+        get { super.drawsBackground }
+        set {
+            if locksChrome {
+                super.drawsBackground = lockedBackground.alphaComponent > 0.01
+            } else {
+                super.drawsBackground = newValue
+            }
+        }
+    }
+
+    override var textColor: NSColor? {
+        get { super.textColor }
+        set { super.textColor = locksChrome ? lockedTextColor : newValue }
+    }
+
+    override var focusRingType: NSFocusRingType {
+        get { centersInNode ? .none : super.focusRingType }
+        set { if !centersInNode { super.focusRingType = newValue } }
+    }
+
+    override func drawFocusRingMask() {
+        if centersInNode { return }
+        super.drawFocusRingMask()
+    }
+
+    override var focusRingMaskBounds: NSRect {
+        centersInNode ? .zero : super.focusRingMaskBounds
+    }
+
+    override func becomeFirstResponder() -> Bool {
+        let ok = super.becomeFirstResponder()
+        guard locksChrome else { return ok }
+        super.backgroundColor = lockedBackground
+        super.drawsBackground = lockedBackground.alphaComponent > 0.01
+        super.textColor = lockedTextColor
+        if let lockedFont {
+            font = lockedFont
+        }
+        insertionPointColor = lockedTextColor
+        focusRingType = .none
+        return ok
+    }
+
+    override func layout() {
+        super.layout()
+        guard centersInNode, !applyingChrome else {
+            publishChromeProbe()
+            return
+        }
+        guard let layoutManager, let textContainer else {
+            publishChromeProbe()
+            return
+        }
+        layoutManager.ensureLayout(for: textContainer)
+        let used = layoutManager.usedRect(for: textContainer).height
+        let vertical = max(0, (bounds.height - used) / 2)
+        let next = NSSize(width: NodeEditChrome.textInset.width, height: vertical)
+        if abs(textContainerInset.width - next.width) > 0.5 || abs(textContainerInset.height - next.height) > 0.5 {
+            applyingChrome = true
+            textContainerInset = next
+            applyingChrome = false
+        }
+        publishChromeProbe()
+    }
+
+    func publishChromeProbe() {
+        guard locksChrome, bounds.width > 1, bounds.height > 1 else { return }
+        let rgb = (backgroundColor ?? lockedBackground).usingColorSpace(.sRGB) ?? lockedBackground
+        let fill = BranchColor(
+            red: Double(rgb.redComponent),
+            green: Double(rgb.greenComponent),
+            blue: Double(rgb.blueComponent)
+        )
+        let value = NodeEditChrome.accessibilityValue(editing: true, fill: fill, size: bounds.size)
+        accessibilityIdentifier = NodeEditChrome.accessibilityIdentifier
+        accessibilityLabel = "node"
+        if (accessibilityValue as? String) != value {
+            accessibilityValue = value
+        }
+    }
 
     override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
         super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange)
@@ -366,6 +541,7 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
     var ink: Color?
     var dictationToken: Int
     var dictationReplacesPlaceholder: Bool
+    var nodeChrome: NodeEditSurface?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -396,7 +572,9 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
         view.text = text
         view.returnInsertsLine = returnInsertsLine
         view.onEvent = onEvent
-        if paper != nil {
+        if let nodeChrome {
+            applyNodeChrome(nodeChrome, to: view, ownsKeys: false)
+        } else if paper != nil {
             view.textContainerInset = UIEdgeInsets(top: 6, left: 8, bottom: 6, right: 8)
         }
         view.onMarkedTextChange = { [weak view] in
@@ -417,6 +595,10 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
         context.coordinator.fontSize = fontSize
         context.coordinator.onEvent = onEvent
         context.coordinator.returnInsertsLine = returnInsertsLine
+        let ownsKeys = uiView.isFirstResponder
+        if let nodeChrome {
+            applyNodeChrome(nodeChrome, to: uiView, ownsKeys: ownsKeys)
+        }
         if context.coordinator.dictationToken != dictationToken, dictationToken != 0 {
             context.coordinator.didFocus = false
         }
@@ -428,24 +610,36 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
             guard let uiView else { return false }
             return context.coordinator.acceptDictation(phrase, in: uiView)
         }
-        if let paper {
-            uiView.backgroundColor = UIColor(paper)
-        }
-        if let ink {
-            uiView.textColor = UIColor(ink)
-            uiView.tintColor = UIColor(ink)
+        if nodeChrome == nil {
+            if let paper {
+                uiView.backgroundColor = UIColor(paper)
+            }
+            if let ink {
+                uiView.textColor = UIColor(ink)
+                uiView.tintColor = UIColor(ink)
+            }
         }
         uiView.onMarkedTextChange = { [weak uiView] in
             guard let uiView else { return }
             context.coordinator.compositionChanged(uiView)
         }
         if uiView.markedTextRange == nil, !context.coordinator.isComposing.wrappedValue {
-            let font = UIFont.systemFont(ofSize: max(fontSize, 1))
-            if uiView.font?.pointSize != font.pointSize {
-                uiView.font = font
+            if let nodeChrome {
+                let font = Self.editingFont(nodeChrome)
+                if uiView.font != font {
+                    uiView.font = font
+                }
+            } else {
+                let font = UIFont.systemFont(ofSize: max(fontSize, 1))
+                if uiView.font?.pointSize != font.pointSize {
+                    uiView.font = font
+                }
             }
-            if uiView.text != text, !uiView.isFirstResponder {
+            if uiView.text != text, !ownsKeys {
                 uiView.text = text
+                if let nodeChrome {
+                    applyNodeChrome(nodeChrome, to: uiView, ownsKeys: false)
+                }
             }
         }
         if !context.coordinator.didFocus {
@@ -460,6 +654,68 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
         } else {
             context.coordinator.noteDictation(on: uiView)
         }
+    }
+
+    /// Focus must not swap the topic for the system text background or font.
+    private func applyNodeChrome(_ chrome: NodeEditSurface, to view: FlorettaTextView, ownsKeys: Bool) {
+        let fill = UIColor(
+            red: CGFloat(chrome.fill.red),
+            green: CGFloat(chrome.fill.green),
+            blue: CGFloat(chrome.fill.blue),
+            alpha: chrome.hidesFill ? 0 : 1
+        )
+        let ink = UIColor(
+            red: CGFloat(chrome.textColor.red),
+            green: CGFloat(chrome.textColor.green),
+            blue: CGFloat(chrome.textColor.blue),
+            alpha: 1
+        )
+        view.lockedBackground = fill
+        view.lockedTextColor = ink
+        view.locksChrome = true
+        view.centersInNode = true
+        view.backgroundColor = fill
+        view.textColor = ink
+        view.tintColor = ink
+        view.isOpaque = !chrome.hidesFill
+        let font = Self.editingFont(chrome)
+        view.lockedFont = font
+        if view.font != font {
+            view.font = font
+        }
+        view.clipsToBounds = true
+        view.layer.cornerRadius = chrome.cornerRadius
+        view.layer.borderWidth = 0
+        view.textContainer.lineFragmentPadding = 0
+        if !ownsKeys {
+            view.textAlignment = .center
+        }
+        view.publishChromeProbe()
+    }
+
+    private static func editingFont(_ chrome: NodeEditSurface) -> UIFont {
+        let size = max(chrome.fontSize, 1)
+        let weight: UIFont.Weight = chrome.bold ? .bold : .regular
+        let base = UIFont.systemFont(ofSize: size, weight: weight)
+        let design: UIFontDescriptor.SystemDesign?
+        switch chrome.fontDesign {
+        case "serif": design = .serif
+        case "rounded": design = .rounded
+        case "monospaced": design = .monospaced
+        default: design = nil
+        }
+        var font = base
+        if let design, let descriptor = base.fontDescriptor.withDesign(design) {
+            font = UIFont(descriptor: descriptor, size: size)
+        }
+        if chrome.italic {
+            var traits = font.fontDescriptor.symbolicTraits
+            traits.insert(.traitItalic)
+            if let descriptor = font.fontDescriptor.withSymbolicTraits(traits) {
+                font = UIFont(descriptor: descriptor, size: size)
+            }
+        }
+        return font
     }
 
     @MainActor
@@ -581,6 +837,80 @@ private final class FlorettaTextView: UITextView {
     /// system text view insert it the way it inserts typed characters.
     var onDictationPhrase: ((String) -> Bool)?
     var returnInsertsLine = false
+    var locksChrome = false
+    var centersInNode = false
+    var lockedBackground: UIColor = .clear
+    var lockedTextColor: UIColor = .label
+    var lockedFont: UIFont?
+    private var applyingChrome = false
+
+    override var backgroundColor: UIColor? {
+        get { super.backgroundColor }
+        set { super.backgroundColor = locksChrome ? lockedBackground : newValue }
+    }
+
+    override var textColor: UIColor? {
+        get { super.textColor }
+        set { super.textColor = locksChrome ? lockedTextColor : newValue }
+    }
+
+    override func becomeFirstResponder() -> Bool {
+        let ok = super.becomeFirstResponder()
+        guard locksChrome else { return ok }
+        super.backgroundColor = lockedBackground
+        super.textColor = lockedTextColor
+        if let lockedFont {
+            font = lockedFont
+        }
+        tintColor = lockedTextColor
+        return ok
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        guard centersInNode, !applyingChrome else {
+            publishChromeProbe()
+            return
+        }
+        let lineHeight = font?.lineHeight ?? 0
+        let lines = (text ?? "").split(separator: "\n", omittingEmptySubsequences: false).count
+        let used = lineHeight * CGFloat(max(lines, 1))
+        let vertical = max(0, (bounds.height - used) / 2)
+        let next = UIEdgeInsets(
+            top: vertical,
+            left: NodeEditChrome.textInset.width,
+            bottom: vertical,
+            right: NodeEditChrome.textInset.width
+        )
+        let current = textContainerInset
+        if abs(current.top - next.top) > 0.5 || abs(current.left - next.left) > 0.5 {
+            applyingChrome = true
+            textContainerInset = next
+            applyingChrome = false
+        }
+        publishChromeProbe()
+    }
+
+    func publishChromeProbe() {
+        guard locksChrome, bounds.width > 1, bounds.height > 1 else { return }
+        let source = backgroundColor ?? lockedBackground
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        let fill: BranchColor
+        if source.getRed(&red, green: &green, blue: &blue, alpha: &alpha) {
+            fill = BranchColor(red: Double(red), green: Double(green), blue: Double(blue))
+        } else {
+            fill = BranchColor(red: 1, green: 1, blue: 1)
+        }
+        let value = NodeEditChrome.accessibilityValue(editing: true, fill: fill, size: bounds.size)
+        accessibilityIdentifier = NodeEditChrome.accessibilityIdentifier
+        accessibilityLabel = "node"
+        if (accessibilityValue as? String) != value {
+            accessibilityValue = value
+        }
+    }
 
     override func insertDictationResult(_ dictationResult: [UIDictationPhrase]) {
         let phrase = dictationResult.map(\.text).joined()

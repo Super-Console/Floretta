@@ -413,6 +413,23 @@ final class EditorSession {
         archiveByteCount = bytes
     }
 
+    /// Sidecar history exists only for a `.floretta` package. Markdown saves do not write one.
+    var canOpenSnapshotHistory: Bool {
+        !isMarkdownDocument && sourceExtension == "floretta" && url != nil
+    }
+
+    /// Installs a document just written by `DocumentSnapshots.rollback`.
+    /// Keyboard undo is cleared; the previous map is the newest sidecar snapshot.
+    func replaceFromSnapshot(_ document: MindMapDocument, catalog: ZipDirectory, bytes: Int64) {
+        self.document = document
+        shareBase = document
+        notePackage(catalog: catalog, bytes: bytes)
+        keyboard.discardEditHistory()
+        let root = document.roots.first?.id
+        keyboard.selectedNodeID = root
+        focusNodeID = root
+    }
+
     var documentHasAttachments: Bool {
         !attachmentCatalog.attachments.isEmpty || !AttachmentReferences.hashes(in: document).isEmpty
     }

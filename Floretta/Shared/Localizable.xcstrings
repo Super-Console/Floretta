@@ -3180,19 +3180,19 @@
         }
       }
     },
-    "大纲、样式、配色、标签筛选和关于": {
+    "大纲、样式、配色、标签筛选、版本历史和关于": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Outline, style, colors, tag filter, and about"
+            "value": "Outline, style, colors, tag filter, version history, and about"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "大纲、样式、配色、标签筛选和关于"
+            "value": "大纲、样式、配色、标签筛选、版本历史和关于"
           }
         }
       }
@@ -4913,6 +4913,202 @@
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Tab indents were read as two spaces per tab." } },
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "已将 Tab 缩进按 1 个 Tab = 2 个空格规范化。" } }
+      }
+    },
+    "版本历史": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Version History" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "版本历史" } }
+      }
+    },
+    "查看已保存的历史版本，回滚或对比两份内容。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "See saved versions, roll back, or compare two of them." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "查看已保存的历史版本，回滚或对比两份内容。" } }
+      }
+    },
+    "Markdown 文件不保留版本快照。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Markdown files don't keep version snapshots." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Markdown 文件不保留版本快照。" } }
+      }
+    },
+    "当前": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Current" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "当前" } }
+      }
+    },
+    "历史版本": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Earlier Versions" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "历史版本" } }
+      }
+    },
+    "第 %lld 版": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Version %lld" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "第 %lld 版" } }
+      }
+    },
+    "%lld 个主题": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%lld topics" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%lld 个主题" } }
+      }
+    },
+    "回滚": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Roll Back" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "回滚" } }
+      }
+    },
+    "回滚到第 %lld 版？": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Roll back to version %lld?" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "回滚到第 %lld 版？" } }
+      }
+    },
+    "回滚到这一版": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Roll back to this version" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "回滚到这一版" } }
+      }
+    },
+    "当前这份会先写入历史，再换成所选版本。工具栏的撤销不能退回这次替换。要回到刚才的内容，再从历史里选那一版。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The current map is saved into history first, then replaced by the version you picked. Undo in the toolbar does not reverse this. To get the current map back, pick that version from history." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "当前这份会先写入历史，再换成所选版本。工具栏的撤销不能退回这次替换。要回到刚才的内容，再从历史里选那一版。" } }
+      }
+    },
+    "对比": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Compare" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "对比" } }
+      }
+    },
+    "和当前这份比较": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Compare with the current map" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "和当前这份比较" } }
+      }
+    },
+    "左边": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Left" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "左边" } }
+      }
+    },
+    "右边": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Right" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "右边" } }
+      }
+    },
+    "这两份的文字和结构没有差别。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "These two have the same text and structure." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "这两份的文字和结构没有差别。" } }
+      }
+    },
+    "还没有历史版本。再保存一次之后，上一版会出现在这里。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No earlier versions yet. After the next save, the previous one shows up here." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "还没有历史版本。再保存一次之后，上一版会出现在这里。" } }
+      }
+    },
+    "每一行的对比是和当前比较。进入对比后可以改选任意两版。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Compare on a row is against the current map. Inside Compare you can pick any two versions." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "每一行的对比是和当前比较。进入对比后可以改选任意两版。" } }
+      }
+    },
+    "新增 %lld，删去 %lld，修改 %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Added %lld, removed %lld, changed %lld" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "新增 %lld，删去 %lld，修改 %lld" } }
+      }
+    },
+    "新增": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Added" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "新增" } }
+      }
+    },
+    "删去": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Removed" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "删去" } }
+      }
+    },
+    "修改": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Changed" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "修改" } }
+      }
+    },
+    "无法读取历史版本": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Couldn't Read Version History" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "无法读取历史版本" } }
+      }
+    },
+    "无法回滚": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Couldn't Roll Back" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "无法回滚" } }
+      }
+    },
+    "找不到这一版。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "That version isn't there." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "找不到这一版。" } }
+      }
+    },
+    "备注": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Note" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "备注" } }
+      }
+    },
+    "子节点顺序": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Child order" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "子节点顺序" } }
+      }
+    },
+    "位置": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Place" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "位置" } }
       }
     }
   },

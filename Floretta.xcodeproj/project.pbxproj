@@ -136,6 +136,10 @@
 		C31000000000000000000042 /* FlorettaShare-macOS.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F3100000000000000000000C /* FlorettaShare-macOS.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		C31000000000000000000051 /* FlorettaCore in Frameworks */ = {isa = PBXBuildFile; productRef = D81000000000000000000006 /* FlorettaCore */; };
 		C31000000000000000000052 /* FlorettaCore in Frameworks */ = {isa = PBXBuildFile; productRef = D81000000000000000000007 /* FlorettaCore */; };
+		CB2100000000000000000001 /* SnapshotHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB2100000000000000000001 /* SnapshotHistory.swift */; };
+		CB2100000000000000000002 /* SnapshotHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB2100000000000000000001 /* SnapshotHistory.swift */; };
+		CB2100000000000000000003 /* SnapshotHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB2100000000000000000001 /* SnapshotHistory.swift */; };
+		CB2200000000000000000001 /* SnapshotHistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB2200000000000000000001 /* SnapshotHistoryTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -215,6 +219,8 @@
 		F31000000000000000000009 /* FlorettaShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FlorettaShare.entitlements; sourceTree = "<group>"; };
 		F3100000000000000000000B /* FlorettaShare-iOS.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "FlorettaShare-iOS.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		F3100000000000000000000C /* FlorettaShare-macOS.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "FlorettaShare-macOS.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		FB2100000000000000000001 /* SnapshotHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotHistory.swift; sourceTree = "<group>"; };
+		FB2200000000000000000001 /* SnapshotHistoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotHistoryTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -402,6 +408,7 @@
 				FA1100000000000000000001 /* AppSettings.swift */,
 				FA5100000000000000000001 /* DocumentEditor.swift */,
 				FA3100000000000000000001 /* DocumentSession.swift */,
+				FB2100000000000000000001 /* SnapshotHistory.swift */,
 				FA3200000000000000000001 /* MarkdownDocumentUI.swift */,
 				FA4100000000000000000001 /* LibraryHome.swift */,
 				FA4200000000000000000001 /* LocalDeviceLabel.swift */,
@@ -441,6 +448,7 @@
 				F52100000000000000000004 /* FileTypeIconTests.swift */,
 				F93000000000000000000002 /* MapExportTests.swift */,
 				FA7100000000000000000001 /* ShellTests.swift */,
+				FB2200000000000000000001 /* SnapshotHistoryTests.swift */,
 				FA7200000000000000000001 /* MarkdownDocumentUITests.swift */,
 				F20000000000000000000005 /* RecoveryPresenterTests.swift */,
 			);
@@ -788,6 +796,7 @@
 				CA4200000000000000000001 /* LocalDeviceLabel.swift in Sources */,
 				CA4300000000000000000001 /* TemplateThumbnail.swift in Sources */,
 				CA5100000000000000000001 /* DocumentEditor.swift in Sources */,
+				CB2100000000000000000001 /* SnapshotHistory.swift in Sources */,
 				C52100000000000000000001 /* FileTypeIcon.swift in Sources */,
 				C52100000000000000000004 /* FileQuickLook.swift in Sources */,
 				CA4400000000000000000004 /* FlorettaL10n.swift in Sources */,
@@ -820,6 +829,7 @@
 				CA4200000000000000000002 /* LocalDeviceLabel.swift in Sources */,
 				CA4300000000000000000002 /* TemplateThumbnail.swift in Sources */,
 				CA5100000000000000000002 /* DocumentEditor.swift in Sources */,
+				CB2100000000000000000002 /* SnapshotHistory.swift in Sources */,
 				C52100000000000000000002 /* FileTypeIcon.swift in Sources */,
 				C52100000000000000000005 /* FileQuickLook.swift in Sources */,
 				CA4400000000000000000005 /* FlorettaL10n.swift in Sources */,
@@ -880,6 +890,8 @@
 				CA7200000000000000000001 /* MarkdownDocumentUITests.swift in Sources */,
 				CA4400000000000000000006 /* FlorettaL10n.swift in Sources */,
 				CA7100000000000000000001 /* ShellTests.swift in Sources */,
+				CB2100000000000000000003 /* SnapshotHistory.swift in Sources */,
+				CB2200000000000000000001 /* SnapshotHistoryTests.swift in Sources */,
 				C31000000000000000000014 /* ShareCatalogStore.swift in Sources */,
 				C31000000000000000000011 /* ShareIngressTests.swift in Sources */,
 			);

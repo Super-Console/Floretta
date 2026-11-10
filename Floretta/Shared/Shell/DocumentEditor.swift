@@ -9,6 +9,12 @@ import PDFKit
 import UIKit
 #endif
 
+private enum RegionMetric: Hashable {
+    case width
+    case height
+    case stroke
+}
+
 struct DocumentEditor: View {
     @Bindable var session: EditorSession
     @Bindable var settings: AppSettings
@@ -32,10 +38,13 @@ struct DocumentEditor: View {
     @State private var didAutoOpenInspector = false
     @State private var showRename = false
     @State private var renameText = ""
+    @State private var showCanvasRename = false
+    @State private var canvasRenameText = ""
+    @State private var canvasRenameIndex = 0
     @State private var showFind = false
     @State private var findQuery = ""
     @State private var showTagFilter = false
-    @State private var inspectorTab = 0
+    @State private var inspectorTab = InspectorTab.style
     @State private var showAbout = false
     @State private var showThemes = false
     @State private var showHistory = false
@@ -59,6 +68,10 @@ struct DocumentEditor: View {
     @State private var upgradeName = "Floretta"
     @State private var askOpenUpgrade = false
     @State private var upgradedURL: URL?
+    @State private var regionWidthDraft = ""
+    @State private var regionHeightDraft = ""
+    @State private var regionStrokeDraft = ""
+    @FocusState private var regionMetric: RegionMetric?
     @State private var topicCensus = TopicCensusModel()
 
     var body: some View {
@@ -76,6 +89,12 @@ struct DocumentEditor: View {
         #endif
         .modifier(MacEditorWindowTitle())
         .zenChrome(session.zen.chrome)
+        .onChange(of: regionDraftToken) { _, _ in
+            syncRegionDrafts()
+        }
+        .onChange(of: regionMetric) { previous, _ in
+            if let previous { commitRegionMetric(previous) }
+        }
             .inspector(isPresented: inspectorPresented) {
                 inspectorBody
                     .inspectorColumnWidth(min: 280, ideal: 320, max: 440)
@@ -83,61 +102,106 @@ struct DocumentEditor: View {
             .onAppear(perform: openInspectorForUITest)
             .toolbar {
                 if session.zen.chrome.showsToolbar {
+                    // A chevron nested in the filename stack is custom bar content:
+                    // the glass platter is decoration, and the hit target shrinks to
+                    // the glyph. Its own toolbar button is a system bar item, whose
+                    // platter is a circle of at least 44pt and owns the hit testing.
+                    #if os(iOS)
                     ToolbarItem(placement: .cancellationAction) {
-                        HStack(spacing: 8) {
-                            Button(action: onClose) {
-                                Image(systemName: "chevron.backward")
-                            }
-                            .accessibilityLabel(text("返回"))
-                            .accessibilityIdentifier("basicChain.back")
-                            .help(Text(verbatim: text("返回导图列表")))
-                            Button(action: beginRename) {
-                                Text(verbatim: documentTitle)
-                                    .lineLimit(1)
-                            }
-                            .help(Text(verbatim: text("为这份导图重新命名")))
-                            .accessibilityLabel(documentTitle)
-                            .accessibilityHint(text("为这份导图重新命名"))
-                            .accessibilityIdentifier("document.title")
+                        Button(action: onClose) {
+                            Image(systemName: "chevron.backward")
                         }
+                        .accessibilityLabel(text("返回"))
+                        .accessibilityIdentifier("basicChain.back")
+                        .help(Text(verbatim: text("返回导图列表")))
                     }
+                    ToolbarSpacer(.fixed, placement: .cancellationAction)
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(action: beginRename) {
+                            Text(verbatim: documentTitle)
+                                .lineLimit(1)
+                        }
+                        .buttonStyle(.borderless)
+                        .help(Text(verbatim: text("为这份导图重新命名")))
+                        .accessibilityLabel(documentTitle)
+                        .accessibilityHint(text("为这份导图重新命名"))
+                        .accessibilityIdentifier("document.title")
+                    }
+                    .sharedBackgroundVisibility(.hidden)
+                    #else
+                    ToolbarItem(placement: .cancellationAction) {
+                        leadingDocumentChrome
+                    }
+                    #endif
+                    #if !os(macOS)
                     ToolbarItemGroup(placement: .principal) {
-                        Button { session.undo() } label: {
-                            Image(systemName: "arrow.uturn.backward")
-                        }
-                        .accessibilityLabel(text("撤销"))
-                        .help(Text(verbatim: text("撤销上一步编辑")))
-                        Button { session.redo() } label: {
-                            Image(systemName: "arrow.uturn.forward")
-                        }
-                        .accessibilityLabel(text("重做"))
-                        .help(Text(verbatim: text("恢复刚刚撤销的编辑")))
-                        Button { session.deleteSelection() } label: {
-                            Image(systemName: "trash")
-                        }
-                        .accessibilityLabel(text("删除"))
-                        .help(Text(verbatim: text("删除选中的节点、便签、关系、概要或边界")))
+                        toolbarControl(.undo)
+                            .appleGlassChrome(.toolbarFloatingButton)
+                        toolbarControl(.redo)
+                            .appleGlassChrome(.toolbarFloatingButton)
+                        toolbarControl(.delete)
+                            .appleGlassChrome(.toolbarFloatingButton)
                     }
                     ToolbarItemGroup(placement: .primaryAction) {
-                        insertMenu
-                        shareMenu
-                        zoomMenu
-                        Button(text(CanvasMenus.immersive)) { session.enterZen() }
-                            .explained("进入全屏沉浸模式，暂时只留下导图")
-                        #if !os(iOS)
-                        moreMenu
-                        #endif
+                        toolbarControl(.insert)
+                            .appleGlassChrome(.toolbarFloatingButton)
+                        toolbarControl(.share)
+                            .appleGlassChrome(.toolbarFloatingButton)
+                        toolbarControl(.zoom)
+                            .appleGlassChrome(.toolbarFloatingButton)
+                        toolbarControl(.immersive)
+                            .appleGlassChrome(.toolbarFloatingButton)
                     }
                     #if os(iOS)
                     // A primary-action group collapses into TopOverflowBarButtonItem on a
                     // compact phone, which hides editor.more. confirmationAction stays
                     // on screen as its own button.
                     ToolbarItem(placement: .confirmationAction) {
-                        moreMenu
+                        toolbarControl(.more)
                     }
+                    #endif
                     #endif
                 }
             }
+            #if os(macOS)
+            .toolbar(id: "floretta.editor") {
+                if session.zen.chrome.showsToolbar {
+                    macItem(.undo)
+                    macItem(.redo)
+                    macItem(.delete)
+                    macItem(.insert)
+                    macItem(.share)
+                    macItem(.zoom)
+                    macItem(.immersive)
+                    macItem(.more)
+                    macItem(.child)
+                    macItem(.sibling)
+                    macItem(.dictation)
+                    macItem(.freeNode)
+                    macItem(.sticky)
+                    macItem(.link)
+                    macItem(.summary)
+                    macItem(.boundary)
+                    macItem(.region)
+                    macItem(.image)
+                    macItem(.attachment)
+                    macItem(.importFile)
+                    macItem(.outline)
+                    macItem(.style)
+                    macItem(.theme)
+                    macItem(.viewMode)
+                    macItem(.newCanvas)
+                    macItem(.find)
+                    macItem(.tagFilter)
+                    macItem(.history)
+                    macItem(.paste)
+                    macItem(.about)
+                    macItem(.mapMode)
+                    macItem(.focusMode)
+                    macItem(.fit)
+                }
+            }
+            #endif
             #if os(macOS)
             .toolbarBackground(.hidden, for: .windowToolbar)
             #else
@@ -146,11 +210,24 @@ struct DocumentEditor: View {
             .onChange(of: session.viewMode) { _, mode in
                 guard mode == .focus else { return }
                 if session.focusNodeID == nil {
-                    session.focusNodeID = session.keyboard.selectedNodeID ?? session.document.roots.first?.id
+                    session.focusNodeID = session.keyboard.selectedNodeID ?? session.editingDocument.roots.first?.id
                 }
             }
-            .onChange(of: session.document) { _, updated in
-                onEdit(updated)
+            .onChange(of: session.document) { _, _ in
+                session.flushLiveViewport()
+                onEdit(session.document)
+            }
+            .onAppear {
+                camera.restore(session.document.viewport(forCanvas: session.document.clampedCanvasIndex))
+            }
+            .onChange(of: session.document.activeCanvasIndex) { _, _ in
+                camera.restore(session.document.viewport(forCanvas: session.document.clampedCanvasIndex))
+            }
+            .onChange(of: session.canvasCameraToken) { _, _ in
+                camera.restore(session.document.viewport(forCanvas: session.document.clampedCanvasIndex))
+            }
+            .onChange(of: camera.viewport) { _, viewport in
+                session.noteViewport(viewport.persisted)
             }
             .onChange(of: session.zen.isActive) { _, active in
                 syncFullScreen(active)
@@ -307,7 +384,7 @@ struct DocumentEditor: View {
             .alert(Text(verbatim: text("查找")), isPresented: $showFind) {
                 TextField(text("文字"), text: $findQuery)
                 Button(text("查找")) {
-                    if let id = CanvasEditCommands.find(in: session.document, query: findQuery) {
+                    if let id = CanvasEditCommands.find(in: session.editingDocument, query: findQuery) {
                         session.keyboard.selectedNodeID = id
                     } else {
                         exportError = "没有找到。"
@@ -320,7 +397,7 @@ struct DocumentEditor: View {
     private var canvasStack: some View {
         ZStack(alignment: .leading) {
             InfiniteCanvas(
-                document: $session.document,
+                document: session.activeCanvasDocument,
                 keyboard: $session.keyboard,
                 camera: camera,
                 focusNodeID: session.viewMode == .focus ? session.focusNodeID : nil,
@@ -342,7 +419,7 @@ struct DocumentEditor: View {
                 dictationToken: session.dictationToken,
                 dictationReplacesPlaceholder: session.dictationReplacesPlaceholder
             )
-            .ignoresSafeArea()
+            .ignoresSafeArea(edges: showsCanvasTabs ? .top.union(.horizontal) : .all)
             if showOutline, session.zen.chrome.showsSidebar {
                 outlinePanel
                     .frame(width: outlineWide ? nil : 300)
@@ -371,13 +448,97 @@ struct DocumentEditor: View {
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if session.zen.chrome.showsStatusBar {
-                TopicStatusBar(
-                    census: topicCensus.census(of: session.document),
-                    locale: settings.resolvedLocale
-                )
+            VStack(spacing: 0) {
+                if showsCanvasTabs { canvasTabBar }
+                if session.zen.chrome.showsStatusBar {
+                HStack(spacing: 8) {
+                    #if os(macOS)
+                    Spacer(minLength: 8)
+                    #endif
+
+                    TopicStatusBar(
+                        census: topicCensus.census(of: session.editingDocument),
+                        locale: settings.resolvedLocale
+                    )
+                    #if !os(macOS)
+                    Spacer(minLength: 8)
+                    #endif
+                    EditorStatusControls(
+                        session: session,
+                        camera: camera,
+                        language: settings.language
+                    )
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(.bar)
+                .overlay(alignment: .top) { Divider() }
+                .accessibilityIdentifier("statusBar")
+                }
             }
+            .accessibilityIdentifier("editor.bottomBar")
         }
+    }
+
+    /// One row of sheet titles. Only the visible canvas is mounted, so switching
+    /// sheets lays that sheet out once and leaves the others off the frame path.
+    private var showsCanvasTabs: Bool {
+        !session.isMarkdownDocument && !session.zen.isActive
+    }
+
+    private var canvasTabBar: some View {
+        HStack(spacing: 6) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(0..<session.document.canvasCount, id: \.self) { index in
+                        canvasTab(index)
+                    }
+                }
+            }
+            Button {
+                session.addCanvas(viewport: camera.viewport.persisted)
+            } label: {
+                Image(systemName: "plus")
+            }
+            .buttonStyle(.bordered)
+            .accessibilityLabel(text("新建画布"))
+            .accessibilityIdentifier("canvas.tab.add")
+            .help(Text(verbatim: text("在这份文档里再加一张画布")))
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.bar)
+        .accessibilityIdentifier("canvas.tabs")
+        .alert(Text(verbatim: text("重新命名")), isPresented: $showCanvasRename) {
+            TextField(text("名称"), text: $canvasRenameText)
+            Button(text("确定")) {
+                session.renameCanvas(at: canvasRenameIndex, to: canvasRenameText)
+            }
+            Button(text("取消"), role: .cancel) {}
+        }
+    }
+
+    private func canvasTab(_ index: Int) -> some View {
+        let selected = index == session.document.clampedCanvasIndex
+        return Button {
+            session.activateCanvas(index, viewport: camera.viewport.persisted)
+        } label: {
+            Text(verbatim: session.document.canvasTitle(at: index))
+                .lineLimit(1)
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .appleGlassChrome(.bottomBarCapsule)
+        .tint(selected ? Color.accentColor : Color.secondary)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier("canvas.tab.\(index)")
+        .simultaneousGesture(TapGesture(count: 2).onEnded {
+            canvasRenameIndex = index
+            canvasRenameText = session.document.canvasTitle(at: index)
+            showCanvasRename = true
+        })
     }
 
     private var tagFilterBanner: some View {
@@ -396,7 +557,7 @@ struct DocumentEditor: View {
         .font(.callout)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.regularMaterial, in: Capsule())
+        .appleGlassChrome(.bottomBarCapsule)
         .padding(.top, session.zen.isActive ? 56 : 8)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("tagFilter.banner")
@@ -428,12 +589,14 @@ struct DocumentEditor: View {
                     Image(systemName: "arrow.up.left.and.arrow.down.right")
                 }
                 .explained("让大纲占满或恢复原来的宽度")
+                .appleGlassChrome(.iconButton)
                 Button {
                     showOutline = false
                 } label: {
                     Image(systemName: "xmark")
                 }
                 .explained("关闭大纲")
+                .appleGlassChrome(.iconButton)
             }
             .padding(12)
             if session.isMarkdownDocument {
@@ -445,7 +608,7 @@ struct DocumentEditor: View {
                     .accessibilityHint(text(MarkdownModePolicy.reason(.collapse)))
             }
             OutlineView(
-                document: $session.document,
+                document: session.activeCanvasDocument,
                 keyboard: $session.keyboard,
                 tagFilter: session.tagFilter,
                 locksCollapse: session.isMarkdownDocument
@@ -490,10 +653,6 @@ struct DocumentEditor: View {
         .padding(.horizontal, 12)
     }
 
-    private func markdownHelp(_ control: MarkdownBlockedControl, otherwise sentence: String) -> String {
-        session.isMarkdownDocument ? MarkdownModePolicy.reason(control) : sentence
-    }
-
     private var documentTitle: String {
         session.document.title.isEmpty ? "未命名" : session.document.title
     }
@@ -518,91 +677,188 @@ struct DocumentEditor: View {
             Image(systemName: "xmark")
         }
         .buttonStyle(.plain)
-        .padding(10)
-        .background { Circle().fill(.ultraThinMaterial) }
+        .appleGlassChrome(.iconButton)
         .explained("退出沉浸模式，恢复工具栏")
         .accessibilityIdentifier("zen.exit")
     }
 
+    private var leadingDocumentChrome: some View {
+        HStack(spacing: 8) {
+            Button(action: onClose) {
+                Image(systemName: "chevron.backward")
+            }
+            .accessibilityLabel(text("返回"))
+            .accessibilityIdentifier("basicChain.back")
+            .help(Text(verbatim: text("返回导图列表")))
+            Button(action: beginRename) {
+                Text(verbatim: documentTitle)
+                    .lineLimit(1)
+            }
+            .help(Text(verbatim: text("为这份导图重新命名")))
+            .accessibilityLabel(documentTitle)
+            .accessibilityHint(text("为这份导图重新命名"))
+            .accessibilityIdentifier("document.title")
+        }
+    }
+
+    private var toolbarContext: EditorToolbarContext {
+        EditorToolbarContext(
+            isMarkdownDocument: session.isMarkdownDocument,
+            isComposing: session.keyboard.isComposing,
+            hasSelectedTopic: session.keyboard.selectedNodeID != nil,
+            canEncloseSelection: session.editingDocument.canEnclose(session.keyboard.selectedNodeID),
+            canOpenSnapshotHistory: session.canOpenSnapshotHistory
+        )
+    }
+
+    private func commandLabel(_ id: EditorToolbarCommandID, surface: EditorCommandSurface) -> EditorCommandLabel {
+        let command = EditorToolbarCatalog.command(id)
+        return EditorCommandLabel(
+            title: text(command.title),
+            symbol: command.symbol,
+            display: EditorToolbarCatalog.display(on: surface)
+        )
+    }
+
+    private func commandHelp(_ id: EditorToolbarCommandID) -> String {
+        if id == .history {
+            return snapshotHistoryHelp
+        }
+        if session.isMarkdownDocument, let control = markdownBlockedControl(id) {
+            return MarkdownModePolicy.reason(control)
+        }
+        return EditorToolbarCatalog.command(id).help
+    }
+
+    private func markdownBlockedControl(_ id: EditorToolbarCommandID) -> MarkdownBlockedControl? {
+        switch id {
+        case .freeNode: return .freeNode
+        case .sticky: return .sticky
+        case .link: return .relationship
+        case .summary: return .summary
+        case .boundary: return .boundary
+        case .region: return .region
+        case .image: return .insertImage
+        case .attachment: return .insertAttachment
+        case .style: return .nodeColor
+        case .theme: return .themeColor
+        case .tagFilter: return .tags
+        default: return nil
+        }
+    }
+
+    private func accessibilityIdentifier(for id: EditorToolbarCommandID) -> String? {
+        switch id {
+        case .dictation: return "insert.dictation"
+        case .region: return "insert.region"
+        case .style: return "inspector.open"
+        case .theme: return "theme.menu"
+        case .tagFilter: return "tagFilter.open"
+        case .history: return "snapshotHistory.menu"
+        case .upgrade: return "markdown.upgrade"
+        case .more: return "editor.more"
+        default: return nil
+        }
+    }
+
+    private func commandMenuButton(_ id: EditorToolbarCommandID, action: @escaping () -> Void) -> some View {
+        let helpText = commandHelp(id)
+        return Button(action: action) {
+            commandLabel(id, surface: .expandedMenu)
+        }
+        .disabled(!EditorToolbarCatalog.isEnabled(id, in: toolbarContext))
+        .help(Text(verbatim: text(helpText)))
+        .accessibilityHint(text(helpText))
+        .modifier(CommandAccessibilityIdentifier(identifier: accessibilityIdentifier(for: id)))
+    }
+
+    private func commandToolbarButton(_ id: EditorToolbarCommandID, action: @escaping () -> Void) -> some View {
+        let helpText = commandHelp(id)
+        return Button(action: action) {
+            commandLabel(id, surface: .toolbar)
+        }
+        .disabled(!EditorToolbarCatalog.isEnabled(id, in: toolbarContext))
+        .help(Text(verbatim: text(helpText)))
+        .accessibilityLabel(text(EditorToolbarCatalog.command(id).title))
+        .modifier(CommandAccessibilityIdentifier(identifier: accessibilityIdentifier(for: id)))
+    }
+
+    @ViewBuilder
+    private func toolbarControl(_ id: EditorToolbarCommandID) -> some View {
+        switch EditorToolbarCatalog.command(id).kind {
+        case .pulldown:
+            switch id {
+            case .insert: insertMenu
+            case .share: shareMenu
+            case .more: moreMenu
+            case .zoom: zoomMenu
+            default: EmptyView()
+            }
+        case .submenu:
+            switch id {
+            case .link: linkCommandMenu(surface: .toolbar)
+            case .viewMode: viewModeCommandMenu(surface: .toolbar)
+            default: EmptyView()
+            }
+        case .button:
+            commandToolbarButton(id) { perform(id) }
+        }
+    }
+
+    #if os(macOS)
+    private func macItem(_ id: EditorToolbarCommandID) -> some CustomizableToolbarContent {
+        let command = EditorToolbarCatalog.command(id)
+        let placement: ToolbarItemPlacement = command.placement == EditorToolbarPlacement.principal ? .principal : .primaryAction
+        let visibility: Visibility = command.customization == EditorCommandCustomization.visible ? .visible : .hidden
+        return ToolbarItem(id: id.rawValue, placement: placement) {
+            toolbarControl(id)
+                .appleGlassChrome(.toolbarFloatingButton)
+        }
+        .defaultCustomization(visibility)
+    }
+    #endif
+
     private var insertMenu: some View {
         Menu {
-            Button { session.addChildFromToolbar() } label: {
-                Label(text("子节点"), systemImage: "plus.square")
+            ForEach(EditorToolbarCatalog.menu(.insert), id: \.self) { id in
+                insertRow(id)
             }
-            .help(Text(verbatim: text("在选中的节点下新建一个子节点")))
-            Button { session.addSiblingFromToolbar() } label: {
-                Label(text("同级"), systemImage: "square.on.square")
-            }
-            .help(Text(verbatim: text("在选中的节点旁新建一个同级节点")))
-            Button { session.beginDictation() } label: {
-                Label(text("语音输入"), systemImage: "mic")
-            }
-            .help(Text(verbatim: text("用系统听写新建子节点。正在编辑或选中自由节点时，听写写进当前文字。")))
-            .accessibilityIdentifier("insert.dictation")
-            .disabled(session.keyboard.isComposing)
-            Button { session.addFreeNodeFromToolbar() } label: {
-                Label(text("自由节点"), systemImage: "arrow.up.left.and.arrow.down.right")
-            }
-            .disabled(session.isMarkdownDocument)
-            .help(Text(verbatim: text(markdownHelp(.freeNode, otherwise: "在画布上放一个不进层级的节点，位置会保存"))))
-            .accessibilityHint(text(markdownHelp(.freeNode, otherwise: "在画布上放一个不进层级的节点，位置会保存")))
-            Button { session.addStickyFromToolbar() } label: {
-                Label(text("便签"), systemImage: "note.text")
-            }
-            .disabled(session.isMarkdownDocument)
-            .help(Text(verbatim: text(markdownHelp(.sticky, otherwise: "在画布上放一张便签。最多五种颜色，不计入节点，可以拖动，大小有上限"))))
-            .accessibilityHint(text(markdownHelp(.sticky, otherwise: "在画布上放一张便签。最多五种颜色，不计入节点，可以拖动，大小有上限")))
-            Menu {
-                let source = session.keyboard.selectedNodeID
-                let targets = session.document.linkTargets(excluding: source)
-                if targets.isEmpty {
-                    Button(text("没有其他节点")) {}
-                        .disabled(true)
-                }
-                ForEach(targets) { target in
-                    Button(target.text.isEmpty ? "未命名" : target.text) {
-                        session.linkSelectedTopic(to: target.id)
-                    }
-                }
-            } label: {
-                Label(text("连到"), systemImage: "point.topleft.down.to.point.bottomright.curvepath")
-            }
-            .disabled(session.isMarkdownDocument || session.keyboard.selectedNodeID == nil)
-            .help(Text(verbatim: text(markdownHelp(.relationship, otherwise: "把选中的节点连到另一个节点，画布上会画出这条线。"))))
-            .accessibilityHint(text(markdownHelp(.relationship, otherwise: "把选中的节点连到另一个节点，画布上会画出这条线。")))
-            Button { session.addSummaryFromToolbar() } label: {
-                Label(text("概要"), systemImage: "curlybraces")
-            }
-            .disabled(session.isMarkdownDocument || !session.document.canEnclose(session.keyboard.selectedNodeID))
-            .help(Text(verbatim: text(markdownHelp(.summary, otherwise: "为选中的节点生成概要，并画出括住它的括号"))))
-            .accessibilityHint(text(markdownHelp(.summary, otherwise: "为选中的节点生成概要，并画出括住它的括号")))
-            Button { session.addBoundaryFromToolbar() } label: {
-                Label(text("边界"), systemImage: "rectangle.dashed")
-            }
-            .disabled(session.isMarkdownDocument || !session.document.canEnclose(session.keyboard.selectedNodeID))
-            .help(Text(verbatim: text(markdownHelp(.boundary, otherwise: "用边界圈住选中的节点"))))
-            .accessibilityHint(text(markdownHelp(.boundary, otherwise: "用边界圈住选中的节点")))
-            Button { showImageImporter = true } label: {
-                Label(text("图片"), systemImage: "photo")
-            }
-            .disabled(session.isMarkdownDocument)
-            .help(Text(verbatim: text(markdownHelp(.insertImage, otherwise: "从文件选择一张图片放进选中的节点"))))
-            .accessibilityHint(text(markdownHelp(.insertImage, otherwise: "从文件选择一张图片放进选中的节点")))
-            Button { showAttachmentImporter = true } label: {
-                Label(text("附件"), systemImage: "paperclip")
-            }
-            .disabled(session.isMarkdownDocument)
-            .help(Text(verbatim: text(markdownHelp(.insertAttachment, otherwise: "把一个文件原样放进选中的节点"))))
-            .accessibilityHint(text(markdownHelp(.insertAttachment, otherwise: "把一个文件原样放进选中的节点")))
-            Button { onImport() } label: {
-                Label(text("从文件导入"), systemImage: "folder")
-            }
-            .help(Text(verbatim: text("从文件打开另一份导图")))
         } label: {
-            Image(systemName: "plus")
+            commandLabel(.insert, surface: .toolbar)
         }
-        .accessibilityLabel(text("插入"))
-        .help(Text(verbatim: text("插入子节点、同级、语音输入、自由节点、便签、概要、边界、图片、附件，或从文件导入")))
+        .accessibilityLabel(text(EditorToolbarCatalog.command(.insert).title))
+        .help(Text(verbatim: text(EditorToolbarCatalog.command(.insert).help)))
+        .appleGlassChrome(.toolbarFloatingButton)
+    }
+
+    @ViewBuilder
+    private func insertRow(_ id: EditorToolbarCommandID) -> some View {
+        if id == .link {
+            linkCommandMenu(surface: .expandedMenu)
+        } else {
+            commandMenuButton(id) { perform(id) }
+        }
+    }
+
+    private func linkCommandMenu(surface: EditorCommandSurface) -> some View {
+        Menu {
+            let source = session.keyboard.selectedNodeID
+            let targets = session.editingDocument.linkTargets(excluding: source)
+            if targets.isEmpty {
+                Button(text("没有其他节点")) {}
+                    .disabled(true)
+            }
+            ForEach(targets) { target in
+                Button(target.text.isEmpty ? "未命名" : target.text) {
+                    session.linkSelectedTopic(to: target.id)
+                }
+            }
+        } label: {
+            commandLabel(.link, surface: surface)
+        }
+        .disabled(!EditorToolbarCatalog.isEnabled(.link, in: toolbarContext))
+        .help(Text(verbatim: text(commandHelp(.link))))
+        .accessibilityHint(text(commandHelp(.link)))
     }
 
     private var zoomMenu: some View {
@@ -611,111 +867,169 @@ struct DocumentEditor: View {
                 Button("\(stop.percent)%") { camera.zoom(to: stop) }
                     .explained(FlorettaL10n.format("把画布缩放到 %lld%%", locale: settings.resolvedLocale, arguments: [Int64(stop.percent)]))
             }
-            Button(text("适应窗口")) { camera.fitToContent() }
-                .explained("让整张导图缩进窗口里")
+            commandMenuButton(.fit) { perform(.fit) }
                 .keyboardShortcut("0", modifiers: .command)
         } label: {
-            Text("\(camera.chrome.zoomPercent)%")
-                .monospacedDigit()
+            switch EditorToolbarCatalog.command(.zoom).toolbarFace {
+            case .zoomPercent:
+                Text("\(camera.chrome.zoomPercent)%")
+                    .monospacedDigit()
+            case .symbol:
+                commandLabel(.zoom, surface: .toolbar)
+            }
         }
-        .explained("选择缩放比例，或让导图适应窗口")
+        .explained(EditorToolbarCatalog.command(.zoom).help)
+        .appleGlassChrome(.toolbarFloatingButton)
     }
 
     private var shareMenu: some View {
         Menu {
-            Button("PDF") { export("pdf") }
-                .explained("把这份导图导出为 PDF")
-            Button("PNG") { export("png") }
-                .explained("把这份导图导出为 PNG 图片")
-            Button("Markdown") { export("md") }
-                .explained("把这份导图导出为 Markdown")
-            if session.isMarkdownDocument {
-                Button { beginUpgrade() } label: {
-                    Label(text(MarkdownUpgrade.actionTitle), systemImage: "arrow.up.document")
-                }
-                .help(Text(verbatim: text("把当前导图另存为 Floretta 工程。原来的 Markdown 文件不会被改掉。")))
-                .accessibilityIdentifier("markdown.upgrade")
-            } else {
-                Button(text("保存为 Floretta")) { export("floretta") }
-                    .explained("把这份导图保存为 Floretta 文件")
+            ForEach(EditorToolbarCatalog.menu(.share), id: \.self) { id in
+                shareRow(id)
             }
-            Button(".mm") { export("mm") }
-                .explained("把这份导图导出为 FreeMind .mm")
-            Button("OPML") { export("opml") }
-                .explained("把这份导图导出为 OPML")
-            Button(".xmind") { export("xmind") }
-                .explained("导出为 XMind，自由节点写成浮动主题")
-            #if os(macOS)
-            Button(text("打印")) { printMap() }
-                .explained("打印这份导图")
-            #endif
         } label: {
-            Image(systemName: "square.and.arrow.up")
+            commandLabel(.share, surface: .toolbar)
         }
-        .accessibilityLabel(text("分享"))
-        .help(Text(verbatim: text("把导图导出为 PDF、PNG、Markdown，或保存为已支持的文件")))
+        .accessibilityLabel(text(EditorToolbarCatalog.command(.share).title))
+        .help(Text(verbatim: text(EditorToolbarCatalog.command(.share).help)))
+        .appleGlassChrome(.toolbarFloatingButton)
+    }
+
+    @ViewBuilder
+    private func shareRow(_ id: EditorToolbarCommandID) -> some View {
+        switch id {
+        case .upgrade:
+            if session.isMarkdownDocument {
+                commandMenuButton(id) { perform(id) }
+            }
+        case .saveFloretta:
+            if !session.isMarkdownDocument {
+                commandMenuButton(id) { perform(id) }
+            }
+        case .printMap:
+            #if os(macOS)
+            commandMenuButton(id) { perform(id) }
+            #else
+            EmptyView()
+            #endif
+        default:
+            commandMenuButton(id) { perform(id) }
+        }
     }
 
     private var moreMenu: some View {
         Menu {
-            Button(text("大纲")) { showOutline.toggle() }
-                .explained("打开或关闭左侧大纲")
-            Button(text("样式")) { showInspector.toggle() }
-                .disabled(session.isMarkdownDocument)
-                .help(Text(verbatim: text(markdownHelp(.nodeColor, otherwise: "打开样式检查器，修改选中节点的外观"))))
-                .accessibilityHint(text(markdownHelp(.nodeColor, otherwise: "打开样式检查器，修改选中节点的外观")))
-                .accessibilityIdentifier("inspector.open")
-            Button {
-                showThemes = true
-            } label: {
-                Label(text("配色"), systemImage: "paintpalette")
+            ForEach(EditorToolbarCatalog.menu(.more), id: \.self) { id in
+                moreRow(id)
             }
-            .disabled(session.isMarkdownDocument)
-            .help(Text(verbatim: text(markdownHelp(.themeColor, otherwise: "为各分支自动配色，浅色和深色各用一套"))))
-            .accessibilityHint(text(markdownHelp(.themeColor, otherwise: "为各分支自动配色，浅色和深色各用一套")))
-            .accessibilityIdentifier("theme.menu")
-            Menu(text("查看模式")) {
-                Button(text("地图模式")) { session.viewMode = .map }
-                    .explained("用整张地图查看导图")
-                Button(text("聚焦模式")) { session.viewMode = .focus }
-                    .explained("只看当前选中的这一支")
-            }
-            .explained("在地图模式和聚焦模式之间切换")
-            Button(text("新建画布")) { session.addCanvas() }
-                .explained("在这份导图里再加一个中心主题")
-            Button(text("查找")) {
-                findQuery = ""
-                showFind = true
-            }
-            .explained("按文字或标签查找节点")
-            Button {
-                showTagFilter = true
-            } label: {
-                Label(text("标签筛选"), systemImage: "tag")
-            }
-            .disabled(session.isMarkdownDocument)
-            .help(Text(verbatim: text(markdownHelp(.tags, otherwise: "给选中的主题加上优先级、进度、旗帜或标签，并按标签高亮"))))
-            .accessibilityHint(text(markdownHelp(.tags, otherwise: "给选中的主题加上优先级、进度、旗帜或标签，并按标签高亮")))
-            .accessibilityIdentifier("tagFilter.open")
-            Button {
-                showHistory = true
-            } label: {
-                Label(text("版本历史"), systemImage: "clock.arrow.circlepath")
-            }
-            .disabled(!session.canOpenSnapshotHistory)
-            .help(Text(verbatim: text(snapshotHistoryHelp)))
-            .accessibilityHint(text(snapshotHistoryHelp))
-            .accessibilityIdentifier("snapshotHistory.menu")
-            Button(text("粘贴")) { pasteFromClipboard() }
-                .explained("把剪贴板里的图片放进节点；没有图片时粘贴文字")
-            Button(text("关于")) { showAbout = true }
-                .explained("查看版本号和开源致谢")
         } label: {
-            Image(systemName: "ellipsis")
+            commandLabel(.more, surface: .toolbar)
         }
-        .accessibilityLabel(text("更多"))
+        .accessibilityLabel(text(EditorToolbarCatalog.command(.more).title))
         .accessibilityIdentifier("editor.more")
-        .help(Text(verbatim: text("大纲、样式、配色、标签筛选、版本历史和关于")))
+        .help(Text(verbatim: text(EditorToolbarCatalog.command(.more).help)))
+        .appleGlassChrome(.toolbarFloatingButton)
+    }
+
+    @ViewBuilder
+    private func moreRow(_ id: EditorToolbarCommandID) -> some View {
+        if id == .viewMode {
+            viewModeCommandMenu(surface: .expandedMenu)
+        } else {
+            commandMenuButton(id) { perform(id) }
+        }
+    }
+
+    private func viewModeCommandMenu(surface: EditorCommandSurface) -> some View {
+        Menu {
+            ForEach(EditorToolbarCatalog.menu(.viewMode), id: \.self) { id in
+                commandMenuButton(id) { perform(id) }
+            }
+        } label: {
+            commandLabel(.viewMode, surface: surface)
+        }
+        .disabled(!EditorToolbarCatalog.isEnabled(.viewMode, in: toolbarContext))
+        .help(Text(verbatim: text(commandHelp(.viewMode))))
+    }
+
+    private func perform(_ id: EditorToolbarCommandID) {
+        switch id {
+        case .undo:
+            session.undo()
+        case .redo:
+            session.redo()
+        case .delete:
+            session.deleteSelection()
+        case .immersive:
+            session.enterZen()
+        case .child:
+            session.addChildFromToolbar()
+        case .sibling:
+            session.addSiblingFromToolbar()
+        case .dictation:
+            session.beginDictation()
+        case .freeNode:
+            session.addFreeNodeFromToolbar()
+        case .sticky:
+            session.addStickyFromToolbar()
+        case .summary:
+            session.addSummaryFromToolbar()
+        case .boundary:
+            session.addBoundaryFromToolbar()
+        case .region:
+            session.addRegionFromToolbar()
+        case .image:
+            showImageImporter = true
+        case .attachment:
+            showAttachmentImporter = true
+        case .importFile:
+            onImport()
+        case .outline:
+            showOutline.toggle()
+        case .style:
+            showInspector.toggle()
+        case .theme:
+            showThemes = true
+        case .mapMode:
+            session.viewMode = .map
+        case .focusMode:
+            session.viewMode = .focus
+        case .newCanvas:
+            session.addCanvas(viewport: camera.viewport.persisted)
+        case .find:
+            findQuery = ""
+            showFind = true
+        case .tagFilter:
+            showTagFilter = true
+        case .history:
+            showHistory = true
+        case .paste:
+            pasteFromClipboard()
+        case .about:
+            showAbout = true
+        case .fit:
+            camera.fitToContent()
+        case .pdf:
+            export("pdf")
+        case .png:
+            export("png")
+        case .markdownExport:
+            export("md")
+        case .saveFloretta:
+            export("floretta")
+        case .upgrade:
+            beginUpgrade()
+        case .mm:
+            export("mm")
+        case .opml:
+            export("opml")
+        case .xmind:
+            export("xmind")
+        case .printMap:
+            printMap()
+        case .insert, .share, .zoom, .more, .link, .viewMode:
+            break
+        }
     }
 
     private var snapshotHistoryHelp: String {
@@ -759,6 +1073,7 @@ struct DocumentEditor: View {
             .safeAreaInset(edge: .top, spacing: 12) {
                 inspectorHeader
             }
+            .appleGlassChrome(.inspectorPanel)
             .containerRelativeFrame(.vertical, alignment: .top) { length, _ in length }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
@@ -778,6 +1093,7 @@ struct DocumentEditor: View {
                     .contentShape(Rectangle())
                     .accessibilityLabel("关闭检查器")
                     .highPriorityGesture(sheetDismissDrag)
+
             }
             inspectorTabPicker
                 .padding(.horizontal)
@@ -807,79 +1123,85 @@ struct DocumentEditor: View {
 
     private var inspectorTabPicker: some View {
         Picker(text("检查器"), selection: $inspectorTab) {
-            Text(verbatim: text("样式")).tag(0)
-            Text(verbatim: text("演说")).tag(1)
-            Text(verbatim: text("导图")).tag(2)
+            ForEach(InspectorTab.allCases) { tab in
+                Text(verbatim: text(tab.titleKey)).tag(tab)
+            }
         }
         .pickerStyle(.segmented)
+        .appleGlassChrome(.segmentedContainer)
+        .labelsHidden()
+        .accessibilityLabel(text("检查器"))
         .accessibilityIdentifier("inspector.tabs")
     }
 
     @ViewBuilder
     private var inspectorTabPage: some View {
-        if inspectorTab == 0 {
-            if session.keyboard.selectedRelationshipID != nil {
-                relationshipLabelForm
-            } else if session.keyboard.selectedSummaryID != nil {
-                summaryTextForm
-            } else if session.keyboard.selectedBoundaryID != nil {
-                boundaryTitleForm
-            } else {
-                StyleInspector(
-                    document: $session.document,
-                    nodeID: session.keyboard.selectedNodeID,
-                    locksAppearance: session.isMarkdownDocument,
-                    onSelectRelationship: { id in
-                        if session.keyboard.mode == .edit {
-                            session.keyboard.apply(.commitEdit, document: &session.document, frames: [])
-                        }
-                        session.keyboard.selectedRelationshipID = id
-                    }
-                )
-            }
-        } else if inspectorTab == 2 {
+        switch inspectorTab {
+        case .style:
+            stylePage
+        case .presentation:
+            presentationPage
+        case .map:
             documentInfo
-        } else {
-            ContentUnavailableView {
-                Label(text("尚未实现"), systemImage: "clock")
-            } description: {
-                Text(verbatim: text("演说"))
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
+    @ViewBuilder
+    private var stylePage: some View {
+        if session.keyboard.selectedRelationshipID != nil {
+            relationshipLabelForm
+        } else if session.keyboard.selectedSummaryID != nil {
+            summaryTextForm
+        } else if session.keyboard.selectedBoundaryID != nil {
+            boundaryTitleForm
+        } else if session.keyboard.selectedRegionID != nil {
+            regionStyleForm
+        } else {
+            StyleInspector(
+                document: session.activeCanvasDocument,
+                nodeID: session.keyboard.selectedNodeID,
+                locksAppearance: session.isMarkdownDocument,
+                onSelectRelationship: { id in
+                    session.editActive { document in
+                        InspectorStyle.selectLink(id, document: &document, keyboard: &session.keyboard)
+                    }
+                }
+            )
+        }
+    }
+
+    private var presentationPage: some View {
+        ContentUnavailableView {
+            Label(text("尚未实现"), systemImage: "clock")
+        } description: {
+            Text(verbatim: text("演说"))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityIdentifier("inspector.presentation")
+    }
+
     private var documentInfo: some View {
-        let references = AttachmentReferences.counts(in: session.document)
-        let stored = session.attachmentCatalog.storedAttachmentBytes
-        let total = stored > 0 ? stored : references.reduce(Int64(0)) { $0 + $1.byteCount }
+        let facts = InspectorStyle.mapFacts(
+            document: session.editingDocument,
+            storedAttachmentBytes: session.attachmentCatalog.storedAttachmentBytes,
+            archiveByteCount: session.archiveByteCount
+        )
         return Form {
-            LabeledContent(text("附件合计")) {
-                Text(verbatim: AttachmentByteFormat.label(total)).monospacedDigit()
-            }
-            LabeledContent(text("文档大小")) {
-                Text(verbatim: AttachmentByteFormat.label(session.archiveByteCount)).monospacedDigit()
-            }
-            LabeledContent(text("引用")) {
-                Text(verbatim: "\(references.reduce(0) { $0 + $1.count })").monospacedDigit()
-            }
-            LabeledContent(text("节点")) {
-                Text(verbatim: "\(session.document.topicCount)").monospacedDigit()
-            }
-            LabeledContent(text("便签")) {
-                Text(verbatim: "\(session.document.stickies.count)").monospacedDigit()
-            }
-            LabeledContent(text("关系")) {
-                Text(verbatim: "\(session.document.relationships.count)").monospacedDigit()
-            }
-            LabeledContent(text("概要")) {
-                Text(verbatim: "\(session.document.summaryCount)").monospacedDigit()
-            }
-            LabeledContent(text("边界")) {
-                Text(verbatim: "\(session.document.boundaryCount)").monospacedDigit()
+            Section {
+                ForEach(InspectorStyle.mapRowTitleKeys, id: \.self) { key in
+                    LabeledContent(text(key)) {
+                        Text(verbatim: InspectorStyle.mapValue(key, facts: facts))
+                            .monospacedDigit()
+                    }
+                }
+                LabeledContent(text("专区")) {
+                    Text(verbatim: "\(session.editingDocument.regions.count)").monospacedDigit()
+                }
             }
         }
         .formStyle(.grouped)
+        .appleGlassInspectorFormPlate()
+        .accessibilityIdentifier("inspector.map")
     }
 
     private var relationshipLabelForm: some View {
@@ -892,23 +1214,30 @@ struct DocumentEditor: View {
             }
         }
         .formStyle(.grouped)
+        .appleGlassInspectorFormPlate()
     }
 
     private var relationshipTitle: Binding<String> {
         Binding(
             get: {
-                guard let id = session.keyboard.selectedRelationshipID else { return "" }
-                if session.keyboard.editingRelationshipID == id {
-                    return session.keyboard.editingText
-                }
-                return session.document.relationship(id)?.title ?? ""
+                InspectorMarkField.text(
+                    .relationship,
+                    id: session.keyboard.selectedRelationshipID,
+                    document: session.editingDocument,
+                    keyboard: session.keyboard
+                )
             },
             set: { newValue in
-                guard let id = session.keyboard.selectedRelationshipID else { return }
-                if session.keyboard.editingRelationshipID != id {
-                    session.keyboard.apply(.beginEdit, document: &session.document, frames: [])
+                session.editActive { document in
+                    InspectorMarkField.replace(
+                        newValue,
+                        kind: .relationship,
+                        id: session.keyboard.selectedRelationshipID,
+                        document: &document,
+                        keyboard: &session.keyboard
+                    )
                 }
-                session.keyboard.replaceEditingText(newValue, document: &session.document)
+
             }
         )
     }
@@ -923,23 +1252,30 @@ struct DocumentEditor: View {
             }
         }
         .formStyle(.grouped)
+        .appleGlassInspectorFormPlate()
     }
 
     private var summaryText: Binding<String> {
         Binding(
             get: {
-                guard let id = session.keyboard.selectedSummaryID else { return "" }
-                if session.keyboard.editingSummaryID == id {
-                    return session.keyboard.editingText
-                }
-                return session.document.summary(id)?.text ?? ""
+                InspectorMarkField.text(
+                    .summary,
+                    id: session.keyboard.selectedSummaryID,
+                    document: session.editingDocument,
+                    keyboard: session.keyboard
+                )
             },
             set: { newValue in
-                guard let id = session.keyboard.selectedSummaryID else { return }
-                if session.keyboard.editingSummaryID != id {
-                    session.keyboard.apply(.beginEdit, document: &session.document, frames: [])
+                session.editActive { document in
+                    InspectorMarkField.replace(
+                        newValue,
+                        kind: .summary,
+                        id: session.keyboard.selectedSummaryID,
+                        document: &document,
+                        keyboard: &session.keyboard
+                    )
                 }
-                session.keyboard.replaceEditingText(newValue, document: &session.document)
+
             }
         )
     }
@@ -954,35 +1290,208 @@ struct DocumentEditor: View {
             }
         }
         .formStyle(.grouped)
+        .appleGlassInspectorFormPlate()
     }
 
     private var boundaryTitle: Binding<String> {
         Binding(
             get: {
-                guard let id = session.keyboard.selectedBoundaryID else { return "" }
-                if session.keyboard.editingBoundaryID == id {
-                    return session.keyboard.editingText
-                }
-                return session.document.boundary(id)?.title ?? ""
+                InspectorMarkField.text(
+                    .boundary,
+                    id: session.keyboard.selectedBoundaryID,
+                    document: session.editingDocument,
+                    keyboard: session.keyboard
+                )
             },
             set: { newValue in
-                guard let id = session.keyboard.selectedBoundaryID else { return }
-                if session.keyboard.editingBoundaryID != id {
-                    session.keyboard.apply(.beginEdit, document: &session.document, frames: [])
+                session.editActive { document in
+                    InspectorMarkField.replace(
+                        newValue,
+                        kind: .boundary,
+                        id: session.keyboard.selectedBoundaryID,
+                        document: &document,
+                        keyboard: &session.keyboard
+                    )
                 }
-                session.keyboard.replaceEditingText(newValue, document: &session.document)
+            }
+        )
+    }
+
+    private var regionStyleForm: some View {
+        Form {
+            Section(text("专区")) {
+                TextField(text("标题"), text: regionLabel)
+                    .onSubmit { commitMarkText() }
+                    .help(Text(verbatim: text("编辑专区标题")))
+                    .accessibilityIdentifier("region.label")
+                HStack {
+                    TextField(text("宽度"), text: $regionWidthDraft)
+                        .focused($regionMetric, equals: .width)
+                        .onSubmit { commitRegionMetric(.width, includingFocused: true) }
+                        .accessibilityIdentifier("region.width")
+                    Text("px")
+                        .foregroundStyle(.secondary)
+                }
+                HStack {
+                    TextField(text("高度"), text: $regionHeightDraft)
+                        .focused($regionMetric, equals: .height)
+                        .onSubmit { commitRegionMetric(.height, includingFocused: true) }
+                        .accessibilityIdentifier("region.height")
+                    Text("px")
+                        .foregroundStyle(.secondary)
+                }
+                Toggle(text("锁定"), isOn: regionAspectLocked)
+                    .accessibilityIdentifier("region.lockInspector")
+                HStack {
+                    TextField(text("描边"), text: $regionStrokeDraft)
+                        .focused($regionMetric, equals: .stroke)
+                        .onSubmit { commitRegionMetric(.stroke, includingFocused: true) }
+                        .accessibilityIdentifier("region.stroke")
+                    Text("px")
+                        .foregroundStyle(.secondary)
+                }
+                ColorPicker(selection: regionFill, supportsOpacity: false) {
+                    Text(verbatim: text("填充颜色"))
+                }
+                .accessibilityIdentifier("region.fill")
+                ColorPicker(selection: regionBorder, supportsOpacity: false) {
+                    Text(verbatim: text("颜色"))
+                }
+                .accessibilityIdentifier("region.border")
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var regionDraftToken: String {
+        guard let id = session.keyboard.selectedRegionID, let region = session.editingDocument.region(id) else { return "" }
+        return "\(id.uuidString)|\(region.width)|\(region.height)|\(region.strokeWidth)"
+    }
+
+    private func syncRegionDrafts(includingFocused: Bool = false) {
+        guard let id = session.keyboard.selectedRegionID, let region = session.editingDocument.region(id) else { return }
+        if includingFocused || regionMetric != .width {
+            regionWidthDraft = formatRegionPx(region.width)
+        }
+        if includingFocused || regionMetric != .height {
+            regionHeightDraft = formatRegionPx(region.height)
+        }
+        if includingFocused || regionMetric != .stroke {
+            regionStrokeDraft = formatRegionPx(region.strokeWidth)
+        }
+    }
+
+    private func formatRegionPx(_ value: Double) -> String {
+        if value.rounded() == value {
+            return String(Int(value.rounded()))
+        }
+        return String(format: "%.1f", value)
+    }
+
+    private func commitRegionMetric(_ metric: RegionMetric, includingFocused: Bool = false) {
+        guard let id = session.keyboard.selectedRegionID else { return }
+        let raw: String
+        switch metric {
+        case .width: raw = regionWidthDraft
+        case .height: raw = regionHeightDraft
+        case .stroke: raw = regionStrokeDraft
+        }
+        let trimmed = raw.trimmingCharacters(in: .whitespaces)
+        guard let value = Double(trimmed) else {
+            syncRegionDrafts(includingFocused: true)
+            return
+        }
+        if session.keyboard.mode == .edit, !session.keyboard.isComposing {
+            session.editActive { document in session.keyboard.apply(.commitEdit, document: &document, frames: []) }
+        }
+        switch metric {
+        case .width:
+            session.editActive { document in _ = session.keyboard.setRegionLength(value, axis: .width, id: id, document: &document) }
+        case .height:
+            session.editActive { document in _ = session.keyboard.setRegionLength(value, axis: .height, id: id, document: &document) }
+        case .stroke:
+            session.editActive { document in _ = session.keyboard.setRegionStroke(value, id: id, document: &document) }
+        }
+        syncRegionDrafts(includingFocused: includingFocused)
+    }
+
+    private var regionLabel: Binding<String> {
+        Binding(
+            get: {
+                guard let id = session.keyboard.selectedRegionID else { return "" }
+                if session.keyboard.editingRegionID == id {
+                    return session.keyboard.editingText
+                }
+                return session.editingDocument.region(id)?.label ?? ""
+            },
+            set: { newValue in
+                guard let id = session.keyboard.selectedRegionID else { return }
+                if session.keyboard.editingRegionID != id {
+                    session.editActive { document in session.keyboard.apply(.beginEdit, document: &document, frames: []) }                }
+            }
+        )
+    }
+
+    private var regionAspectLocked: Binding<Bool> {
+        Binding(
+            get: {
+                guard let id = session.keyboard.selectedRegionID else { return false }
+                return session.editingDocument.region(id)?.aspectLocked ?? false
+            },
+            set: { locked in
+                guard let id = session.keyboard.selectedRegionID else { return }
+                if session.keyboard.mode == .edit, !session.keyboard.isComposing {
+                    session.editActive { document in session.keyboard.apply(.commitEdit, document: &document, frames: []) }
+                }
+                session.editActive { document in _ = session.keyboard.setRegionAspectLocked(locked, id: id, document: &document) }
+            }
+        )
+    }
+
+    private var regionFill: Binding<Color> {
+        Binding(
+            get: {
+                guard let id = session.keyboard.selectedRegionID, let region = session.editingDocument.region(id) else {
+                    return StyleColor.color(hex: CanvasRegionLimits.defaultFill.hexRGB)
+                }
+                return StyleColor.color(hex: region.fill.hexRGB)
+            },
+            set: { color in
+                guard let id = session.keyboard.selectedRegionID, let parsed = BranchColor(hex: StyleColor.hex(color)) else {
+                    return
+                }
+                session.editActive { document in _ = document.setRegionFill(id, parsed) }
+            }
+        )
+    }
+
+    private var regionBorder: Binding<Color> {
+        Binding(
+            get: {
+                guard let id = session.keyboard.selectedRegionID, let region = session.editingDocument.region(id) else {
+                    return StyleColor.color(hex: CanvasRegionLimits.defaultBorder.hexRGB)
+                }
+                return StyleColor.color(hex: region.border.hexRGB)
+            },
+            set: { color in
+                guard let id = session.keyboard.selectedRegionID, let parsed = BranchColor(hex: StyleColor.hex(color)) else {
+                    return
+                }
+                session.editActive { document in _ = document.setRegionBorder(id, parsed) }
             }
         )
     }
 
     private func commitMarkText() {
-        guard session.keyboard.mode == .edit else { return }
-        session.keyboard.apply(.commitEdit, document: &session.document, frames: [])
+        session.editActive { document in
+            InspectorMarkField.commit(document: &document, keyboard: &session.keyboard)
+        }
     }
 
     private func commitRelationshipTitle() {
-        guard session.keyboard.mode == .edit else { return }
-        session.keyboard.apply(.commitEdit, document: &session.document, frames: [])
+        session.editActive { document in
+            InspectorMarkField.commit(document: &document, keyboard: &session.keyboard)
+        }
     }
 
     private var insertDialogPresented: Binding<Bool> {
@@ -1190,7 +1699,7 @@ struct DocumentEditor: View {
             exportError = "先把导图存成文件。"
             return
         }
-        let nodeID = session.keyboard.selectedNodeID ?? session.document.roots.first?.id
+        let nodeID = session.keyboard.selectedNodeID ?? session.editingDocument.roots.first?.id
         guard let nodeID else {
             source.stopAccessingSecurityScopedResource()
             if ownsCopy { try? FileManager.default.removeItem(at: source) }
@@ -1265,6 +1774,7 @@ struct DocumentEditor: View {
     }
 
     private func export(_ kind: String) {
+        session.prepareToSave()
         let title = session.document.title.isEmpty ? "Floretta" : session.document.title
         let type = FlorettaFileTypes.contentType(forExport: kind)
         do {
@@ -1404,7 +1914,7 @@ struct DocumentEditor: View {
             session.selectCurrent()
         case "拷贝样式":
             if let id = session.keyboard.selectedNodeID,
-               let style = session.document.node(id)?.style {
+               let style = session.editingDocument.node(id)?.style {
                 writePasteboard(style.fillHex ?? style.colorHex)
             }
         default:
@@ -1458,19 +1968,26 @@ private struct StyleInspector: View {
 
     var body: some View {
         if let nodeID, document.node(nodeID) != nil {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 0) {
                 if locksAppearance {
                     Text(verbatim: text(MarkdownModePolicy.reason(.nodeColor)))
                         .font(.callout)
                         .foregroundStyle(.secondary)
-                        .padding(.horizontal)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 4)
                         .accessibilityHint(text(MarkdownModePolicy.reason(.nodeColor)))
                 }
                 appearanceForm
             }
         } else {
             ContentUnavailableView {
-                Label(text("选择一个主题"), systemImage: "paintbrush")
+                Label {
+                    Text(verbatim: text("选择一个主题"))
+                } icon: {
+                    Image(systemName: "paintbrush")
+                        .appleGlassChrome(.iconButton)
+                        .accessibilityIdentifier("inspector.empty.brush")
+                }
             } description: {
                 Text(verbatim: text(locksAppearance ? MarkdownModePolicy.reason(.nodeColor) : "样式会写进导图文件。"))
             }
@@ -1481,226 +1998,282 @@ private struct StyleInspector: View {
 
     private var appearanceForm: some View {
         Form {
-                Section(text("主题")) {
-                    Picker(text("形状"), selection: shape) {
-                        Text(verbatim: text("矩形")).tag("rectangle")
-                        Text(verbatim: text("圆角")).tag("rounded")
-                        Text(verbatim: text("胶囊")).tag("capsule")
-                        Text(verbatim: text("无边框")).tag("none")
-                    }
-                    Picker(text("填充样式"), selection: fillStyle) {
-                        Text(verbatim: text("实心")).tag("solid")
-                        Text(verbatim: text("无")).tag("none")
-                    }
-                    ColorPicker(selection: fillColor, supportsOpacity: false) {
-                        Text(verbatim: text("填充颜色"))
-                    }
-                    HStack {
-                        Text(verbatim: text("长度"))
-                        Slider(value: topicWidth, in: 40...480)
-                        Text("\(Int(topicWidth.wrappedValue))px")
-                            .monospacedDigit()
+            Section(text(InspectorStyleSection.topic.titleKey)) {
+                Picker(text("形状"), selection: shape) {
+                    ForEach(InspectorTopicShape.allCases) { item in
+                        Text(verbatim: text(item.titleKey)).tag(item)
                     }
                 }
-                Section(text("边框")) {
-                    Picker(text("样式"), selection: borderStyle) {
-                        Text(verbatim: text("实线")).tag("solid")
-                        Text(verbatim: text("无")).tag("none")
-                    }
-                    HStack {
-                        Text(verbatim: text("宽度"))
-                        Slider(value: borderWidth, in: 0...8)
-                    }
-                    ColorPicker(selection: borderColor, supportsOpacity: false) {
-                        Text(verbatim: text("颜色"))
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("inspector.style.shape")
+                Picker(text("填充样式"), selection: fillStyle) {
+                    ForEach(fillStyleTags, id: \.self) { tag in
+                        Text(verbatim: fillStyleTitle(tag)).tag(tag)
                     }
                 }
-                Section(text("文本")) {
-                    Picker(text("字体"), selection: fontDesign) {
-                        Text(verbatim: text("系统")).tag("default")
-                        Text(verbatim: text("衬线")).tag("serif")
-                        Text(verbatim: text("圆体")).tag("rounded")
-                        Text(verbatim: text("等宽")).tag("monospaced")
-                    }
-                    HStack {
-                        Toggle("B", isOn: boolFlag("bold"))
-                        Toggle("I", isOn: boolFlag("italic"))
-                        Toggle("S", isOn: boolFlag("strikethrough"))
-                        Toggle("U", isOn: boolFlag("underline"))
-                    }
-                    .toggleStyle(.button)
-                    HStack {
-                        Text(verbatim: text("大小"))
-                        Slider(value: fontSize, in: 10...64, step: 1)
-                        Text("\(Int(fontSize.wrappedValue))pt")
-                            .monospacedDigit()
-                    }
-                    ColorPicker(selection: textColor, supportsOpacity: false) {
-                        Text(verbatim: text("颜色"))
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("inspector.style.fillStyle")
+                ColorPicker(selection: fillColor, supportsOpacity: false) {
+                    Text(verbatim: text("填充颜色"))
+                }
+                .accessibilityIdentifier("inspector.style.fillColor")
+                LabeledContent(text("长度")) {
+                    Text(verbatim: "\(Int(InspectorStyle.topicWidthValue(of: style)))px")
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+                Slider(value: topicWidth, in: InspectorStyle.topicWidthRange)
+                    .accessibilityLabel(text("长度"))
+                    .accessibilityIdentifier("inspector.style.topicWidth")
+            }
+            Section(text(InspectorStyleSection.border.titleKey)) {
+                Picker(text("样式"), selection: borderStyle) {
+                    ForEach(borderStyleTags, id: \.self) { tag in
+                        Text(verbatim: borderStyleTitle(tag)).tag(tag)
                     }
                 }
-                Section(text("连到")) {
-                    if locksAppearance {
-                        Text(verbatim: text(MarkdownModePolicy.reason(.relationship)))
-                    } else if let nodeID {
-                        let links = document.relationships.filter {
-                            $0.sourceID == nodeID || $0.targetID == nodeID
-                        }
-                        if links.isEmpty {
-                            Text(verbatim: text("还没有连到其他节点。"))
-                        } else {
-                            ForEach(links) { link in
-                                Button {
-                                    onSelectRelationship(link.id)
-                                } label: {
-                                    Text(verbatim: relationshipLine(link, seenFrom: nodeID))
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                                .buttonStyle(.plain)
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("inspector.style.borderStyle")
+                LabeledContent(text("宽度")) {
+                    Text(verbatim: borderWidthText)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+                Slider(value: borderWidth, in: InspectorStyle.borderWidthRange)
+                    .accessibilityLabel(text("宽度"))
+                    .accessibilityIdentifier("inspector.style.borderWidth")
+                ColorPicker(selection: borderColor, supportsOpacity: false) {
+                    Text(verbatim: text("颜色"))
+                }
+                .accessibilityIdentifier("inspector.style.borderColor")
+            }
+            Section(text(InspectorStyleSection.text.titleKey)) {
+                Picker(text("字体"), selection: fontDesign) {
+                    ForEach(fontDesignTags, id: \.self) { tag in
+                        Text(verbatim: fontDesignTitle(tag)).tag(tag)
+                    }
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("inspector.style.font")
+                HStack(spacing: 8) {
+                    textFlagToggle(.bold)
+                    textFlagToggle(.italic)
+                    textFlagToggle(.strikethrough)
+                    textFlagToggle(.underline)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                LabeledContent(text("大小")) {
+                    Text(verbatim: "\(Int(InspectorStyle.fontSizeValue(of: style)))pt")
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+                Slider(value: fontSize, in: InspectorStyle.fontSizeRange, step: InspectorStyle.fontSizeStep)
+                    .accessibilityLabel(text("大小"))
+                    .accessibilityIdentifier("inspector.style.fontSize")
+                ColorPicker(selection: textColor, supportsOpacity: false) {
+                    Text(verbatim: text("颜色"))
+                }
+                .accessibilityIdentifier("inspector.style.textColor")
+            }
+            Section(text(InspectorStyleSection.links.titleKey)) {
+                if locksAppearance {
+                    Text(verbatim: text(MarkdownModePolicy.reason(.relationship)))
+                } else if let nodeID {
+                    if linkedRelationships.isEmpty {
+                        Text(verbatim: text("还没有连到其他节点。"))
+                    } else {
+                        ForEach(linkedRelationships) { link in
+                            Button {
+                                onSelectRelationship(link.id)
+                            } label: {
+                                Text(verbatim: InspectorStyle.relationshipLine(
+                                    link,
+                                    seenFrom: nodeID,
+                                    document: document,
+                                    missingTopic: text("缺失的节点")
+                                ))
+                                .frame(maxWidth: .infinity, alignment: .leading)
                             }
+                            .buttonStyle(.borderless)
+                            .accessibilityIdentifier("inspector.link.\(link.id.uuidString)")
                         }
                     }
                 }
             }
-            .formStyle(.grouped)
-            .disabled(locksAppearance)
+        }
+        .formStyle(.grouped)
+        .appleGlassInspectorFormPlate()
+        .disabled(locksAppearance)
+        .accessibilityIdentifier("inspector.style")
     }
 
-    private var shape: Binding<String> {
-        Binding(
-            get: { shapeName },
-            set: { name in
-                let radius: Double
-                let width: Double?
-                switch name {
-                case "rectangle": radius = 2; width = nil
-                case "capsule": radius = 40; width = nil
-                case "none": radius = 0; width = 0
-                default: radius = 8; width = nil
-                }
-                update { style in
-                    style.cornerRadius = radius
-                    if let width { style.borderWidth = width; style.borderStyle = "none" }
-                }
-            }
+    private var linkedRelationships: [TopicRelationship] {
+        guard let nodeID else { return [] }
+        return InspectorStyle.links(in: document, nodeID: nodeID)
+    }
+
+    private var fillStyleTags: [String] {
+        InspectorStyle.choiceTags(
+            known: InspectorFillStyle.allCases.map(\.rawValue),
+            current: InspectorStyle.fillStyleValue(of: style)
         )
     }
 
-    private var shapeName: String {
-        guard let radius = style?.cornerRadius else { return "rounded" }
-        if style?.borderStyle == "none" || style?.borderWidth == 0 { return "none" }
-        if radius >= 24 { return "capsule" }
-        if radius <= 3 { return "rectangle" }
-        return "rounded"
+    private var borderStyleTags: [String] {
+        InspectorStyle.choiceTags(
+            known: InspectorBorderStyle.allCases.map(\.rawValue),
+            current: InspectorStyle.borderStyleValue(of: style)
+        )
+    }
+
+    private var fontDesignTags: [String] {
+        InspectorStyle.choiceTags(
+            known: InspectorFontDesign.allCases.map(\.rawValue),
+            current: InspectorStyle.fontDesignValue(of: style)
+        )
+    }
+
+    private func fillStyleTitle(_ tag: String) -> String {
+        if let known = InspectorFillStyle(rawValue: tag) { return text(known.titleKey) }
+        return tag
+    }
+
+    private func borderStyleTitle(_ tag: String) -> String {
+        if let known = InspectorBorderStyle(rawValue: tag) { return text(known.titleKey) }
+        return tag
+    }
+
+    private func fontDesignTitle(_ tag: String) -> String {
+        if let known = InspectorFontDesign(rawValue: tag) { return text(known.titleKey) }
+        return tag
+    }
+
+    private var borderWidthText: String {
+        switch InspectorStyle.borderWidthReadout(of: style) {
+        case .none:
+            return text("无")
+        case .points(let width):
+            if width.rounded() == width { return "\(Int(width))" }
+            return String(format: "%.1f", width)
+        }
+    }
+
+    private func textFlagToggle(_ flag: InspectorTextFlag) -> some View {
+        Toggle(isOn: textFlag(flag)) {
+            flagLabel(flag)
+        }
+        .toggleStyle(.button)
+        .buttonBorderShape(.capsule)
+        .accessibilityLabel(text(flag.titleKey))
+        .accessibilityIdentifier(textFlagIdentifier(flag))
+    }
+
+    private func textFlagIdentifier(_ flag: InspectorTextFlag) -> String {
+        switch flag {
+        case .bold: "inspector.style.bold"
+        case .italic: "inspector.style.italic"
+        case .strikethrough: "inspector.style.strikethrough"
+        case .underline: "inspector.style.underline"
+        }
+    }
+
+    private func flagLabel(_ flag: InspectorTextFlag) -> Text {
+        let mark = Text(verbatim: flag.mark)
+        switch flag {
+        case .bold: return mark.bold()
+        case .italic: return mark.italic()
+        case .strikethrough: return mark.strikethrough()
+        case .underline: return mark.underline()
+        }
     }
 
     private func text(_ key: String) -> String {
         FlorettaL10n.string(key, locale: locale)
     }
 
-    /// Node text and relationship titles stay as stored. Only the missing-topic fallback is chrome.
-    private func relationshipLine(_ link: TopicRelationship, seenFrom id: UUID) -> String {
-        let otherID = link.sourceID == id ? link.targetID : link.sourceID
-        let name = document.node(otherID)?.text ?? text("缺失的节点")
-        if link.title.isEmpty { return name }
-        return "\(name) · \(link.title)"
+    private var shape: Binding<InspectorTopicShape> {
+        Binding(
+            get: { InspectorStyle.shape(of: style) },
+            set: { apply(.shape($0)) }
+        )
     }
 
     private var fillStyle: Binding<String> {
         Binding(
-            get: { style?.fillStyle ?? "solid" },
-            set: { value in update { $0.fillStyle = value } }
+            get: { InspectorStyle.fillStyleValue(of: style) },
+            set: { value in
+                guard let parsed = InspectorFillStyle(rawValue: value) else { return }
+                apply(.fillStyle(parsed))
+            }
         )
     }
 
     private var fillColor: Binding<Color> {
         Binding(
-            get: { StyleColor.color(hex: style?.fillHex ?? style?.colorHex ?? "#FFFFFF") },
-            set: { color in
-                guard !locksAppearance else { return }
-                let hex = StyleColor.hex(color)
-                guard let nodeID else { return }
-                _ = CanvasEditCommands.setFill(hex: hex, nodeID: nodeID, document: &document)
-            }
+            get: { StyleColor.color(hex: style?.fillHex ?? style?.colorHex ?? InspectorStyle.fallbackFillHex) },
+            set: { apply(.fillHex(StyleColor.hex($0))) }
         )
     }
 
     private var topicWidth: Binding<Double> {
         Binding(
-            get: { style?.topicWidth ?? 120 },
-            set: { value in update { $0.topicWidth = value } }
+            get: { InspectorStyle.topicWidthValue(of: style) },
+            set: { apply(.topicWidth($0)) }
         )
     }
 
     private var borderStyle: Binding<String> {
         Binding(
-            get: { style?.borderStyle ?? "solid" },
+            get: { InspectorStyle.borderStyleValue(of: style) },
             set: { value in
-                update {
-                    $0.borderStyle = value
-                    if value == "none" { $0.borderWidth = 0 }
-                }
+                guard let parsed = InspectorBorderStyle(rawValue: value) else { return }
+                apply(.borderStyle(parsed))
             }
         )
     }
 
     private var borderWidth: Binding<Double> {
         Binding(
-            get: { style?.borderWidth ?? 1.5 },
-            set: { value in update { $0.borderWidth = value; $0.borderStyle = value == 0 ? "none" : "solid" } }
+            get: { InspectorStyle.borderWidthValue(of: style) },
+            set: { apply(.borderWidth($0)) }
         )
     }
 
     private var borderColor: Binding<Color> {
         Binding(
-            get: { StyleColor.color(hex: style?.borderHex ?? "#000000") },
-            set: { color in update { $0.borderHex = StyleColor.hex(color) } }
+            get: { StyleColor.color(hex: style?.borderHex ?? InspectorStyle.fallbackColorHex) },
+            set: { apply(.borderHex(StyleColor.hex($0))) }
         )
     }
 
     private var fontDesign: Binding<String> {
         Binding(
-            get: { style?.fontDesign ?? "default" },
-            set: { value in update { $0.fontDesign = value } }
+            get: { InspectorStyle.fontDesignValue(of: style) },
+            set: { value in
+                guard let parsed = InspectorFontDesign(rawValue: value) else { return }
+                apply(.fontDesign(parsed))
+            }
         )
     }
 
     private var fontSize: Binding<Double> {
         Binding(
-            get: { style?.fontSize ?? 18 },
-            set: { value in update { $0.fontSize = value } }
+            get: { InspectorStyle.fontSizeValue(of: style) },
+            set: { apply(.fontSize($0)) }
         )
     }
 
     private var textColor: Binding<Color> {
         Binding(
-            get: { StyleColor.color(hex: style?.textHex ?? "#000000") },
-            set: { color in update { $0.textHex = StyleColor.hex(color) } }
+            get: { StyleColor.color(hex: style?.textHex ?? InspectorStyle.fallbackColorHex) },
+            set: { apply(.textHex(StyleColor.hex($0))) }
         )
     }
 
-    private func boolFlag(_ key: String) -> Binding<Bool> {
+    private func textFlag(_ flag: InspectorTextFlag) -> Binding<Bool> {
         Binding(
-            get: {
-                switch key {
-                case "bold": return style?.bold ?? false
-                case "italic": return style?.italic ?? false
-                case "strikethrough": return style?.strikethrough ?? false
-                case "underline": return style?.underline ?? false
-                default: return false
-                }
-            },
-            set: { value in
-                update { style in
-                    switch key {
-                    case "bold": style.bold = value
-                    case "italic": style.italic = value
-                    case "strikethrough": style.strikethrough = value
-                    case "underline": style.underline = value
-                    default: break
-                    }
-                }
-            }
+            get: { InspectorStyle.isOn(flag, style: style) },
+            set: { apply(.flag(flag, $0)) }
         )
     }
 
@@ -1709,13 +2282,14 @@ private struct StyleInspector: View {
         return document.node(nodeID)?.style
     }
 
-    private func update(_ body: (inout MindMapNodeStyle) -> Void) {
-        guard !locksAppearance, let nodeID else { return }
-        _ = document.mutateNode(nodeID) { node in
-            var style = node.style ?? MindMapNodeStyle(colorHex: "#000000")
-            body(&style)
-            node.style = style
-        }
+    private func apply(_ edit: InspectorStyleEdit) {
+        guard let nodeID else { return }
+        _ = InspectorStyle.apply(
+            edit,
+            nodeID: nodeID,
+            document: &document,
+            allowsAppearanceWrites: !locksAppearance
+        )
     }
 }
 
@@ -1780,6 +2354,49 @@ private struct BranchThemeSheet: View {
         NavigationStack {
             List {
                 Section {
+                    ForEach(MapColorPresetCatalog.all) { preset in
+                        Button {
+                            onSelect(preset.id)
+                        } label: {
+                            HStack(spacing: 12) {
+                                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                    .fill(ink(preset.canvasBackground))
+                                    .frame(width: 22, height: 22)
+                                    .overlay {
+                                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                            .strokeBorder(
+                                                ink(preset.branchColors.first ?? .black),
+                                                lineWidth: min(max(preset.lineWidth, 1), 3)
+                                            )
+                                    }
+                                    .accessibilityHidden(true)
+                                HStack(spacing: 4) {
+                                    ForEach(Array(preset.branchColors.enumerated()), id: \.offset) { _, swatch in
+                                        Circle()
+                                            .fill(ink(swatch))
+                                            .frame(width: 14, height: 14)
+                                    }
+                                }
+                                .accessibilityHidden(true)
+                                Text(verbatim: text(preset.nameKey))
+                                Spacer(minLength: 8)
+                                if isSelected(preset.id) {
+                                    Image(systemName: "checkmark")
+                                        .accessibilityHidden(true)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(text(preset.nameKey))
+                        .accessibilityAddTraits(isSelected(preset.id) ? .isSelected : AccessibilityTraits())
+                        .accessibilityIdentifier("preset.\(preset.id)")
+                    }
+                } header: {
+                    Text(verbatim: text("配色方案"))
+                } footer: {
+                    Text(verbatim: text("一次换上分支色、画布背景和线条粗细"))
+                }
+                Section {
                     ForEach(MapThemeCatalog.all) { theme in
                         Button {
                             onSelect(theme.id)
@@ -1795,7 +2412,7 @@ private struct BranchThemeSheet: View {
                                 .accessibilityHidden(true)
                                 Text(verbatim: text(theme.nameKey))
                                 Spacer(minLength: 8)
-                                if isSelected(theme) {
+                                if isSelected(theme.id) {
                                     Image(systemName: "checkmark")
                                         .accessibilityHidden(true)
                                 }
@@ -1803,7 +2420,7 @@ private struct BranchThemeSheet: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(text(theme.nameKey))
-                        .accessibilityAddTraits(isSelected(theme) ? .isSelected : AccessibilityTraits())
+                        .accessibilityAddTraits(isSelected(theme.id) ? .isSelected : AccessibilityTraits())
                         .accessibilityIdentifier("theme.\(theme.id)")
                     }
                 } footer: {
@@ -1841,8 +2458,8 @@ private struct BranchThemeSheet: View {
         Color(red: color.red, green: color.green, blue: color.blue)
     }
 
-    private func isSelected(_ theme: MapTheme) -> Bool {
-        MapThemeCatalog.persistedID(theme.id) == MapThemeCatalog.persistedID(themeID)
+    private func isSelected(_ id: String) -> Bool {
+        MapThemeCatalog.persistedID(id) == MapThemeCatalog.persistedID(themeID)
     }
 }
 
@@ -2005,7 +2622,7 @@ private struct TagFilterSheet: View {
 
     private var selectedNode: MindMapNode? {
         guard let id = session.keyboard.selectedNodeID else { return nil }
-        return session.document.node(id)
+        return session.editingDocument.node(id)
     }
 
     private var queryTrims: String {
@@ -2013,11 +2630,11 @@ private struct TagFilterSheet: View {
     }
 
     private var filteredLabels: [String] {
-        TopicTagIndex.labels(in: session.document).filter { TopicTagIndex.contains(query, in: $0) }
+        TopicTagIndex.labels(in: session.editingDocument).filter { TopicTagIndex.contains(query, in: $0) }
     }
 
     private var filteredMarkers: [String] {
-        TopicTagIndex.markerIDs(in: session.document).filter { markerId in
+        TopicTagIndex.markerIDs(in: session.editingDocument).filter { markerId in
             TopicTagIndex.contains(query, in: title(markerId))
         }
     }
@@ -2084,8 +2701,8 @@ private struct TagFilterSheet: View {
     }
 }
 
-/// One bottom bar for the open map. Mac keeps the counts on the trailing edge.
-/// iPhone and iPad keep them on the leading edge of the same bar.
+/// Topic and word counts for the bottom bar. Mac keeps them on the trailing
+/// edge, beside the zoom menu. iPhone and iPad keep them on the leading edge.
 private struct TopicStatusBar: View {
     var census: TopicTitleCensus
     var locale: Locale
@@ -2100,11 +2717,7 @@ private struct TopicStatusBar: View {
         }
         .font(.caption)
         .foregroundStyle(.secondary)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, alignment: barAlignment)
-        .background(.bar)
-        .overlay(alignment: .top) { Divider() }
+        .frame(alignment: barAlignment)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(breakdown)
         .accessibilityIdentifier("status.topicCensus")
@@ -2182,7 +2795,7 @@ private struct MacWindowTitleHider: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: MacWindowTitleView, context: Context) {
-        nsView.hideDocumentTitle()
+        nsView.applyEditorChrome()
     }
 
     static func dismantleNSView(_ nsView: MacWindowTitleView, coordinator: ()) {
@@ -2197,17 +2810,25 @@ private final class MacWindowTitleView: NSView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        hideDocumentTitle()
+        applyEditorChrome()
     }
 
     override func layout() {
         super.layout()
-        hideDocumentTitle()
+        applyEditorChrome()
     }
 
-    func hideDocumentTitle() {
-        guard let window, window.titleVisibility != .hidden else { return }
-        window.titleVisibility = .hidden
+    /// The window title stays hidden so the filename lives in the toolbar.
+    /// Icon-only is the editor toolbar's display mode. Each item's `Label`
+    /// still carries its title for the overflow menu and the customization panel.
+    func applyEditorChrome() {
+        guard let window else { return }
+        if window.titleVisibility != .hidden {
+            window.titleVisibility = .hidden
+        }
+        if let toolbar = window.toolbar, toolbar.displayMode != .iconOnly {
+            toolbar.displayMode = .iconOnly
+        }
     }
 }
 #endif

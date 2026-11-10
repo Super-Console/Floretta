@@ -40,10 +40,11 @@
 | `assets filename` | mapped | 磁盘名用文件名最后一段的 ASCII 安全形式；重名且内容不同时加 sha256 前 8 位；否则用 sha256.扩展名 |
 | `assets label` | mapped | 链接文字用原始文件名的最后一段，方括号按 Markdown 转义 |
 | `assets missing bytes` | gap | 节点引用了附件但没有字节：不写坏链接，也不造空文件 |
-| `assets orphan bytes` | gap | 没被第一张画布的树引用的字节不进 assets |
+| `assets orphan bytes` | gap | 没被当前画布（缺省第一张）的树引用的字节不进 assets |
 | `freeNodes` | gap | Markdown 文档不写自由节点，文字和附件都不出现 |
-| `additionalCanvases` | gap | 只导出第一张画布的 roots |
+| `additionalCanvases` | gap | 单树导出只写当前画布（activeCanvasIndex，缺省第一张）的 roots。其余画布留在 .floretta |
 | `stickies` | gap | 便签不是主题，不写 |
+| `regions` | gap | 专区不是主题，不写 |
 | `relationships` | gap | Markdown 没有关系线 |
 | `style` | gap | 颜色和样式不写 |
 | `position side` | gap | 坐标和左右侧不写 |

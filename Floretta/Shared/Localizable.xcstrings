@@ -2249,6 +2249,74 @@
         }
       }
     },
+    "粗体": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bold"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "粗体"
+          }
+        }
+      }
+    },
+    "斜体": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Italic"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "斜体"
+          }
+        }
+      }
+    },
+    "删除线": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Strikethrough"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除线"
+          }
+        }
+      }
+    },
+    "下划线": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Underline"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下划线"
+          }
+        }
+      }
+    },
     "系统": {
       "extractionState": "manual",
       "localizations": {
@@ -2589,19 +2657,19 @@
         }
       }
     },
-    "删除选中的节点、便签、关系、概要或边界": {
+    "删除选中的节点、便签、关系、概要、边界或专区": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delete the selected topic, sticky, relationship, summary, or boundary"
+            "value": "Delete the selected topic, sticky, relationship, summary, boundary, or region"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "删除选中的节点、便签、关系、概要或边界"
+            "value": "删除选中的节点、便签、关系、概要、边界或专区"
           }
         }
       }
@@ -2895,19 +2963,19 @@
         }
       }
     },
-    "插入子节点、同级、语音输入、自由节点、便签、概要、边界、图片、附件，或从文件导入": {
+    "插入子节点、同级、语音输入、自由节点、便签、概要、边界、专区、图片、附件，或从文件导入": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Insert a child, sibling, dictation, free topic, sticky, summary, boundary, image, or attachment, or import from a file"
+            "value": "Insert a child, sibling, dictation, free topic, sticky, summary, boundary, region, image, or attachment, or import from a file"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "插入子节点、同级、语音输入、自由节点、便签、概要、边界、图片、附件，或从文件导入"
+            "value": "插入子节点、同级、语音输入、自由节点、便签、概要、边界、专区、图片、附件，或从文件导入"
           }
         }
       }
@@ -3201,19 +3269,19 @@
         }
       }
     },
-    "在这份导图里再加一个中心主题": {
+    "在这份文档里再加一张画布": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Add another central topic to this map"
+            "value": "Add another canvas to this document"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在这份导图里再加一个中心主题"
+            "value": "在这份文档里再加一张画布"
           }
         }
       }
@@ -3422,6 +3490,23 @@
         }
       }
     },
+    "Floretta": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Floretta"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Floretta"
+          }
+        }
+      }
+    },
     "岩色": {
       "extractionState": "manual",
       "localizations": {
@@ -3435,6 +3520,142 @@
           "stringUnit": {
             "state": "translated",
             "value": "岩色"
+          }
+        }
+      }
+    },
+    "配色方案": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Color Schemes"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配色方案"
+          }
+        }
+      }
+    },
+    "一次换上分支色、画布背景和线条粗细": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Applies branch colors, the canvas background, and the line thickness together."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一次换上分支色、画布背景和线条粗细"
+          }
+        }
+      }
+    },
+    "晨曦": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dawn"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "晨曦"
+          }
+        }
+      }
+    },
+    "极简灰": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minimal Gray"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "极简灰"
+          }
+        }
+      }
+    },
+    "海盐": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sea Salt"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "海盐"
+          }
+        }
+      }
+    },
+    "橘叶": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orange Leaf"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "橘叶"
+          }
+        }
+      }
+    },
+    "夜紫": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Night Purple"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "夜紫"
+          }
+        }
+      }
+    },
+    "森林": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forest"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "森林"
           }
         }
       }
@@ -5181,6 +5402,90 @@
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Place" } },
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "位置" } }
+      }
+    },
+    "专区": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Region" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "专区" } }
+      }
+    },
+    "在画布上放一个矩形区域。它可以圈住节点，但不会改变节点层级。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Place a rectangular region on the canvas. It can enclose topics without changing the hierarchy." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "在画布上放一个矩形区域。它可以圈住节点，但不会改变节点层级。" } }
+      }
+    },
+    "锁定": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Lock" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "锁定" } }
+      }
+    },
+    "适应": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Fit" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "适应" } }
+      }
+    },
+    "圆形": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Circle" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "圆形" } }
+      }
+    },
+    "锁定专区的宽高比": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Lock the region's aspect ratio" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "锁定专区的宽高比" } }
+      }
+    },
+    "按当前圈住的节点调整专区": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Fit the region to the topics it currently encloses" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "按当前圈住的节点调整专区" } }
+      }
+    },
+    "把专区变成圆形": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Make the region a circle" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "把专区变成圆形" } }
+      }
+    },
+    "编辑专区标题": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Edit the region title" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "编辑专区标题" } }
+      }
+    },
+    "高度": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Height" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "高度" } }
+      }
+    },
+    "描边": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Stroke" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "描边" } }
+      }
+    },
+    "Markdown 模式无法保存专区": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Markdown Mode can't save regions" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Markdown 模式无法保存专区" } }
       }
     }
   },

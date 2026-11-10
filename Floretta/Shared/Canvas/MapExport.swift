@@ -3,6 +3,11 @@ import CoreGraphics
 import ImageIO
 import SwiftUI
 import UniformTypeIdentifiers
+#if os(macOS)
+import AppKit
+#elseif os(iOS)
+import UIKit
+#endif
 
 enum MapExportScale: CGFloat, Equatable, Sendable {
     /// 1 render pixel per logical point. No extra scale coefficient.
@@ -61,6 +66,8 @@ enum MapExporter {
         images: [String: CGImage] = [:],
         scheme: MapColorScheme = .light
     ) -> MapExportResult {
+        // PNG holds one canvas: the active sheet. Other sheets stay on the native document.
+        let document = document.singleTreeExport()
         let plan = plan(document: document, options: options, scheme: scheme)
         guard plan.pointSize.width > 1, plan.pointSize.height > 1 else {
             return empty(plan)
@@ -88,6 +95,8 @@ enum MapExporter {
         images: [String: CGImage] = [:],
         scheme: MapColorScheme = .light
     ) -> MapExportResult {
+        // PDF holds one canvas: the active sheet. Other sheets stay on the native document.
+        let document = document.singleTreeExport()
         let plan = plan(document: document, options: options, scheme: scheme)
         guard plan.pointSize.width > 1, plan.pointSize.height > 1 else {
             return empty(plan)
@@ -188,19 +197,26 @@ enum MapExporter {
         scheme: MapColorScheme
     ) -> ImageRenderer<MapExportView> {
         let frames = visibleFrames(in: document, scheme: scheme)
+        let appearance = MapThemeCatalog.appearance(
+            themeID: document.themeID,
+            scheme: scheme,
+            fallback: .standard
+        )
+        let paper = exportPaper(options.background, canvas: appearance.canvasBackground)
         let view = MapExportView(
             frames: frames,
             lines: RelationshipGeometry.lines(for: document.relationships, frames: frames),
             summaries: SummaryGeometry.summaries(in: document, frames: frames),
             boundaries: SummaryGeometry.boundaries(in: document, frames: frames),
             stickies: document.stickiesForPictureExport(included: options.includeStickies),
+            regions: document.regions,
             renderBounds: plan.renderBounds,
-            background: options.background,
+            paper: paper.color,
             images: images
         )
         let renderer = ImageRenderer(content: view)
         renderer.scale = plan.pixelScale
-        renderer.isOpaque = options.background == .white
+        renderer.isOpaque = paper.opaque
         renderer.proposedSize = ProposedViewSize(width: plan.pointSize.width, height: plan.pointSize.height)
         return renderer
     }
@@ -221,6 +237,21 @@ enum MapExporter {
         )
     }
 
+    private static func exportPaper(
+        _ background: MapExportBackground,
+        canvas: BranchColor?
+    ) -> (color: Color, opaque: Bool) {
+        switch background {
+        case .transparent:
+            return (.clear, false)
+        case .white:
+            if let canvas {
+                return (Color(red: canvas.red, green: canvas.green, blue: canvas.blue), true)
+            }
+            return (.white, true)
+        }
+    }
+
     private static func pngData(_ image: CGImage) -> Data? {
         let data = NSMutableData()
         guard let destination = CGImageDestinationCreateWithData(
@@ -239,12 +270,36 @@ private struct MapExportView: View {
     var summaries: [SummaryMark]
     var boundaries: [BoundaryMark]
     var stickies: [StickyNote]
+    var regions: [CanvasRegion]
     var renderBounds: CGRect
-    var background: MapExportBackground
+    var paper: Color
     var images: [String: CGImage]
 
     var body: some View {
         Canvas { context, _ in
+            for region in regions {
+                let rect = local(region.bounds)
+                guard rect.width > 1, rect.height > 1 else { continue }
+                let path: Path
+                switch region.shape {
+                case .rectangle:
+                    path = Path(roundedRect: rect, cornerRadius: min(10, rect.height / 6))
+                case .ellipse:
+                    path = Path(ellipseIn: rect)
+                }
+                context.fill(path, with: .color(color(region.fill)))
+                if region.strokeWidth > 0 {
+                    context.stroke(path, with: .color(color(region.border)), lineWidth: CGFloat(region.strokeWidth))
+                }
+                if !region.label.isEmpty {
+                    let band = CGRect(x: rect.minX + 12, y: rect.minY + 8, width: max(0, rect.width - 24), height: min(22, max(0, rect.height - 16)))
+                    if band.width > 1, band.height > 1 {
+                        var layer = context
+                        layer.clip(to: path)
+                        layer.draw(Text(region.label).font(.system(size: 14)), in: band)
+                    }
+                }
+            }
             for mark in boundaries {
                 let rect = local(mark.rect)
                 let path = Path(roundedRect: rect, cornerRadius: SummaryGeometry.cornerRadius)
@@ -264,14 +319,13 @@ private struct MapExportView: View {
             }
             for node in frames {
                 guard let link = node.link else { continue }
-                var curve = Path()
-                curve.move(to: local(link.start))
-                curve.addCurve(
-                    to: local(link.end),
-                    control1: local(link.control1),
-                    control2: local(link.control2)
-                )
-                context.stroke(curve, with: .color(color(link.color)), lineWidth: link.lineWidth)
+                let drawn = ThemeCurvePath.make(link: link, straight: false) { local($0) }
+                let ink = color(link.color)
+                if drawn.tapered {
+                    context.fill(drawn.path, with: .color(ink))
+                } else {
+                    context.stroke(drawn.path, with: .color(ink), lineWidth: link.lineWidth)
+                }
             }
             for line in lines {
                 stroke(line, in: context)
@@ -280,7 +334,9 @@ private struct MapExportView: View {
                 let rect = local(node.frame)
                 let path = Path(roundedRect: rect, cornerRadius: node.cornerRadius)
                 context.fill(path, with: .color(color(node.fill)))
-                context.stroke(path, with: .color(color(node.border)), lineWidth: 1.5)
+                if node.borderWidth > 0 {
+                    context.stroke(path, with: .color(color(node.border)), lineWidth: node.borderWidth)
+                }
                 var textRect = rect.insetBy(dx: 8, dy: 4)
                 if let hash = node.thumbnailHashes.first, let image = images[hash] {
                     let imageRect = ImagePlacement.rect(for: image, in: rect)
@@ -298,10 +354,11 @@ private struct MapExportView: View {
                     let tagTop = rect.maxY - fileBand - node.tagBandHeight
                     textRect.size.height = max(0, min(textRect.maxY, tagTop - 2) - textRect.minY)
                 }
+                textRect = excludingChildBadge(textRect, node: node)
                 if textRect.width > 1, textRect.height > 1 {
                     context.draw(
                         Text(node.text)
-                            .font(.system(size: node.fontSize))
+                            .font(FlorettaTitleFont.font(design: node.fontDesign, size: node.fontSize))
                             .foregroundStyle(color(node.textColor)),
                         in: textRect
                     )
@@ -377,8 +434,19 @@ private struct MapExportView: View {
             }
         }
         .frame(width: renderBounds.width, height: renderBounds.height)
-        .background(background == .white ? Color.white : Color.clear)
+        .background(paper)
         .clipped()
+    }
+
+    private func excludingChildBadge(_ textRect: CGRect, node: NodeFrame) -> CGRect {
+        let badge = node.childBadgeInset
+        guard badge > 0, textRect.width > 0 else { return textRect }
+        var rect = textRect
+        if node.childBadgeOnMinX {
+            rect.origin.x += badge
+        }
+        rect.size.width = max(0, rect.width - badge)
+        return rect
     }
 
     private func local(_ point: CGPoint) -> CGPoint {
@@ -526,3 +594,92 @@ enum ImageExportLoader {
         return nil
     }
 }
+
+/// The hierarchy curve already stored on the frame.
+/// A taper fills the outline of that cubic. A constant width strokes it.
+enum ThemeCurvePath {
+    static func make(link: LinkCurve, straight: Bool, map: (CGPoint) -> CGPoint) -> (path: Path, tapered: Bool) {
+        if !straight, link.isTapered {
+            let placed = LinkCurve(
+                start: map(link.start),
+                control1: map(link.control1),
+                control2: map(link.control2),
+                end: map(link.end),
+                lineWidth: link.lineWidth,
+                endWidth: link.endWidth,
+                color: link.color
+            )
+            var path = Path()
+            let outline = placed.taperedOutline()
+            guard let first = outline.first else { return (path, true) }
+            path.move(to: first)
+            for point in outline.dropFirst() {
+                path.addLine(to: point)
+            }
+            path.closeSubpath()
+            return (path, true)
+        }
+        var path = Path()
+        path.move(to: map(link.start))
+        if straight {
+            path.addLine(to: map(link.end))
+        } else {
+            path.addCurve(
+                to: map(link.end),
+                control1: map(link.control1),
+                control2: map(link.control2)
+            )
+        }
+        return (path, false)
+    }
+}
+
+/// Root serif is New York through the system serif design. Georgia is the named face
+/// when that design cannot be built. Every other design stays on the system font.
+enum FlorettaTitleFont {
+    static func font(design: String, size: CGFloat) -> Font {
+        switch design {
+        case "serif":
+            return serif(size: size)
+        case "rounded":
+            return .system(size: size, design: .rounded)
+        case "monospaced":
+            return .system(size: size, design: .monospaced)
+        default:
+            return .system(size: size, design: .default)
+        }
+    }
+
+    private static func serif(size: CGFloat) -> Font {
+        let point = max(size, 1)
+        #if os(macOS)
+        if let font = newYork(size: point, base: NSFont.systemFont(ofSize: point)) {
+            return Font(font)
+        }
+        if let georgia = NSFont(name: "Georgia", size: point) {
+            return Font(georgia)
+        }
+        #else
+        if let font = newYork(size: point, base: UIFont.systemFont(ofSize: point)) {
+            return Font(font)
+        }
+        if let georgia = UIFont(name: "Georgia", size: point) {
+            return Font(georgia)
+        }
+        #endif
+        return .system(size: point, design: .serif)
+    }
+
+    #if os(macOS)
+    private static func newYork(size: CGFloat, base: NSFont) -> NSFont? {
+        guard let descriptor = base.fontDescriptor.withDesign(.serif) else { return nil }
+        return NSFont(descriptor: descriptor, size: size)
+    }
+    #else
+    private static func newYork(size: CGFloat, base: UIFont) -> UIFont? {
+        guard let descriptor = base.fontDescriptor.withDesign(.serif) else { return nil }
+        return UIFont(descriptor: descriptor, size: size)
+    }
+    #endif
+}
+

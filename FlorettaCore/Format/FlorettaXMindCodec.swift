@@ -146,8 +146,9 @@ public enum FlorettaXMindCodec {
         }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        let sheet = XSheet(document: document)
-        let content = try encode([sheet], with: encoder)
+        var sheets = [XSheet(document: document)]
+        sheets.append(contentsOf: document.additionalCanvases.map { XSheet(canvas: $0) })
+        let content = try encode(sheets, with: encoder)
         let metadata = XMetadata(
             creator: XMetadata.Creator(name: "Floretta", version: "1"),
             dataStructureVersion: "2"
@@ -794,7 +795,7 @@ private func sameModelID(_ raw: String?, _ id: UUID) -> Bool {
 private enum XMindRebuild {
     static func content(_ document: MindMapDocument, foreign: XMindForeign) throws -> Data {
         var inputs: [(title: String, roots: [MindMapNode], freeNodes: [MindMapNode], relationships: [TopicRelationship])] = [
-            (document.title, document.roots, document.freeNodes, document.relationships),
+            (document.canvasTitle(at: 0), document.roots, document.freeNodes, document.relationships),
         ]
         for canvas in document.additionalCanvases {
             inputs.append((canvas.title, canvas.roots, canvas.freeNodes, canvas.relationships))
@@ -1218,29 +1219,52 @@ private struct XSheet: Codable {
     }
 
     init(document: MindMapDocument) {
+        self.init(
+            title: document.canvasTitle(at: 0),
+            roots: document.roots,
+            freeNodes: document.freeNodes,
+            relationships: document.relationships
+        )
+    }
+
+    init(canvas: MindMapCanvas) {
+        self.init(
+            title: canvas.title,
+            roots: canvas.roots,
+            freeNodes: canvas.freeNodes,
+            relationships: canvas.relationships
+        )
+    }
+
+    init(
+        title: String,
+        roots: [MindMapNode],
+        freeNodes: [MindMapNode],
+        relationships: [TopicRelationship]
+    ) {
         id = UUID().uuidString
         kind = "sheet"
-        title = document.title
+        self.title = title
         topicPositioning = "free"
-        if document.roots.count == 1 {
-            rootTopic = XTopic(node: document.roots[0], floating: false, detached: document.freeNodes)
+        if roots.count == 1 {
+            rootTopic = XTopic(node: roots[0], floating: false, detached: freeNodes)
         } else {
-            let attached = document.roots.map { XTopic(node: $0, floating: false, detached: []) }
+            let attached = roots.map { XTopic(node: $0, floating: false, detached: []) }
             rootTopic = XTopic(
                 id: UUID().uuidString,
                 kind: "topic",
-                title: document.title.isEmpty ? "Mind Map" : document.title,
+                title: title.isEmpty ? "Mind Map" : title,
                 position: nil,
                 notes: nil,
                 href: nil,
-                children: XChildren(attached: attached, detached: document.freeNodes.map {
+                children: XChildren(attached: attached, detached: freeNodes.map {
                     XTopic(node: $0, floating: true, detached: [])
                 }),
                 extensions: nil
             )
         }
-        let links = document.relationships.map { XRelationship($0) }
-        relationships = links.isEmpty ? nil : links
+        let links = relationships.map { XRelationship($0) }
+        self.relationships = links.isEmpty ? nil : links
     }
 }
 

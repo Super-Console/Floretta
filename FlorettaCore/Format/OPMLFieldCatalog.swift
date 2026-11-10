@@ -58,6 +58,7 @@ public enum OPMLFieldCatalog {
         OPMLFieldRow(field: "position", disposition: .gap, detail: "没有 x/y"),
         OPMLFieldRow(field: "freeNodes", disposition: .gap, detail: "不写进 .opml"),
         OPMLFieldRow(field: "stickies", disposition: .gap, detail: "便签不是大纲节点"),
+        OPMLFieldRow(field: "regions", disposition: .gap, detail: "专区不是大纲节点"),
         OPMLFieldRow(field: "relationships", disposition: .gap, detail: "不写"),
         OPMLFieldRow(field: "style", disposition: .gap, detail: "不映射到 MindMapNodeStyle，导出也不发明样式"),
         OPMLFieldRow(field: "node id", disposition: .gap, detail: "OPML 没有节点 id；每次导入新的 UUID"),

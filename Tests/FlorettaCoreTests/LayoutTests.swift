@@ -246,13 +246,16 @@ final class LayoutTests: XCTestCase {
         XCTAssertEqual(LayoutEngine().kind, .bilateral)
     }
 
-    func testBranchThemesStayWithinEightAndDifferInBothSchemes() {
+    func testBranchThemesStayWithinTheCatalogLimitAndDifferInBothSchemes() {
         XCTAssertLessThanOrEqual(MapThemeCatalog.all.count, MapThemeCatalog.limit)
-        XCTAssertEqual(MapThemeCatalog.all.count, 8)
-        let ink = MapThemeCatalog.all[0]
-        XCTAssertEqual(ink.id, MapThemeCatalog.standardID)
-        XCTAssertEqual(ink.light, .standard)
-        XCTAssertEqual(ink.light.palette, .standard)
+        XCTAssertEqual(MapThemeCatalog.limit, 9)
+        XCTAssertEqual(MapThemeCatalog.all.count, 9)
+        let ink = MapThemeCatalog.all.first { $0.id == MapThemeCatalog.standardID }
+        XCTAssertEqual(ink?.id, MapThemeCatalog.standardID)
+        XCTAssertEqual(ink?.light, .standard)
+        XCTAssertEqual(ink?.light.palette, .standard)
+        let branches = MapThemeCatalog.all.filter { $0.id != MapThemeCatalog.florettaID }
+        XCTAssertEqual(branches.count, 8)
         for theme in MapThemeCatalog.all {
             XCTAssertFalse(theme.nameKey.isEmpty)
             XCTAssertGreaterThanOrEqual(theme.light.palette.colors.count, 4)
@@ -262,10 +265,11 @@ final class LayoutTests: XCTestCase {
             assertDistinct(theme.dark.palette.colors)
             XCTAssertNotEqual(theme.light.palette.colors, theme.dark.palette.colors)
             XCTAssertNotEqual(theme.light.centerFill, theme.dark.centerFill)
-            XCTAssertEqual(theme.light.level1Text, LayoutAppearance.standard.level1Text)
-            XCTAssertLessThan(theme.dark.level1Text.red, 0.2)
             XCTAssertLessThan(theme.dark.centerFill.red, 0.35)
             XCTAssertGreaterThan(theme.dark.centerText.red, 0.9)
+            if theme.id == MapThemeCatalog.florettaID { continue }
+            XCTAssertEqual(theme.light.level1Text, LayoutAppearance.standard.level1Text)
+            XCTAssertLessThan(theme.dark.level1Text.red, 0.2)
         }
         for left in MapThemeCatalog.all.indices {
             for right in MapThemeCatalog.all.indices where right > left {
@@ -278,6 +282,202 @@ final class LayoutTests: XCTestCase {
                 XCTAssertNotEqual(a.dark.centerFill, b.dark.centerFill)
             }
         }
+        for theme in MapThemeCatalog.all where theme.id != MapThemeCatalog.florettaID {
+            XCTAssertNil(theme.light.canvasBackground)
+            XCTAssertNil(theme.dark.canvasBackground)
+            XCTAssertNil(theme.light.linkStroke)
+            XCTAssertNil(theme.dark.linkStroke)
+        }
+    }
+
+    func testColorPresetsDefineBranchColorsBackgroundAndLineWidth() {
+        let names = ["晨曦", "极简灰", "海盐", "橘叶", "夜紫", "森林"]
+        XCTAssertEqual(MapColorPresetCatalog.all.map(\.nameKey), names)
+        XCTAssertEqual(Set(MapColorPresetCatalog.all.map(\.id)).count, names.count)
+        var papers: [BranchColor] = []
+        var widths: [CGFloat] = []
+        var palettes: [[BranchColor]] = []
+        for preset in MapColorPresetCatalog.all {
+            XCTAssertFalse(preset.id.isEmpty)
+            XCTAssertGreaterThanOrEqual(preset.branchColors.count, 4)
+            XCTAssertGreaterThan(preset.lineWidth, 0)
+            XCTAssertEqual(preset.appearance.palette.colors, preset.branchColors)
+            XCTAssertEqual(preset.appearance.canvasBackground, preset.canvasBackground)
+            XCTAssertEqual(preset.appearance.linkStroke, preset.lineWidth)
+            XCTAssertFalse(papers.contains(preset.canvasBackground))
+            XCTAssertFalse(widths.contains(preset.lineWidth))
+            XCTAssertFalse(palettes.contains(preset.branchColors))
+            assertDistinct(preset.branchColors)
+            papers.append(preset.canvasBackground)
+            widths.append(preset.lineWidth)
+            palettes.append(preset.branchColors)
+            XCTAssertFalse(MapThemeCatalog.all.contains { $0.id == preset.id })
+            let light = MapThemeCatalog.appearance(themeID: preset.id, scheme: .light, fallback: .standard)
+            let dark = MapThemeCatalog.appearance(themeID: preset.id, scheme: .dark, fallback: .standard)
+            XCTAssertEqual(light, preset.appearance)
+            XCTAssertEqual(dark, preset.appearance)
+        }
+    }
+
+    func testFlorettaThemeTokensMatchTheBrandAndNewMapsUseIt() throws {
+        XCTAssertEqual(MapThemeCatalog.defaultThemeID, MapThemeCatalog.florettaID)
+        XCTAssertNotEqual(MapThemeCatalog.defaultThemeID, MapThemeCatalog.standardID)
+        XCTAssertEqual(MapThemeCatalog.florettaCornerRadius, 12)
+        XCTAssertEqual(MapThemeCatalog.florettaStrokeWidth, 1)
+        let theme = try XCTUnwrap(MapThemeCatalog.all.first { $0.id == MapThemeCatalog.florettaID })
+        XCTAssertEqual(theme.nameKey, "Floretta")
+        let light = theme.light
+        XCTAssertEqual(light.canvasBackground, BranchColor(hex: "#F5EBDA"))
+        XCTAssertEqual(light.uniformFill, BranchColor(hex: "#F7EFE1"))
+        XCTAssertEqual(light.uniformStroke, BranchColor(hex: "#C87756"))
+        XCTAssertEqual(light.uniformStrokeWidth, 1)
+        XCTAssertEqual(light.cornerRadius, 12)
+        XCTAssertEqual(light.edgeColor, BranchColor(hex: "#BFA893"))
+        XCTAssertEqual(light.edgeStartWidth, MapThemeCatalog.florettaEdgeStartWidth)
+        XCTAssertEqual(light.edgeEndWidth, MapThemeCatalog.florettaEdgeEndWidth)
+        XCTAssertGreaterThan(light.edgeStartWidth ?? 0, light.edgeEndWidth ?? 0)
+        XCTAssertLessThanOrEqual(light.edgeStartWidth ?? 99, 2)
+        XCTAssertEqual(light.rootFontDesign, "serif")
+        XCTAssertEqual(light.bodyFontDesign, "default")
+        XCTAssertEqual(light.childCountBadgeInset, MapThemeCatalog.florettaChildBadgeInset)
+        XCTAssertEqual(light.childCountBadgeColor, BranchColor(hex: "#C87756"))
+        XCTAssertEqual(light.centerText, BranchColor(hex: MapThemeCatalog.florettaTitleHex))
+        XCTAssertEqual(light.level1Text, light.centerText)
+        XCTAssertNotEqual(theme.dark.canvasBackground, light.canvasBackground)
+        XCTAssertEqual(theme.dark.cornerRadius, light.cornerRadius)
+        XCTAssertEqual(theme.dark.uniformStrokeWidth, 1)
+        XCTAssertEqual(theme.dark.rootFontDesign, "serif")
+        XCTAssertEqual(theme.dark.bodyFontDesign, "default")
+
+        let child = MindMapNode(text: "子")
+        let root = MindMapNode(text: "根", children: [child])
+        let fresh = MindMapDocument.newMap(title: "品牌", roots: [root])
+        XCTAssertEqual(fresh.themeID, "floretta")
+        let saved = try XCTUnwrap(String(data: try FlorettaCodec.encode(fresh), encoding: .utf8))
+        XCTAssertTrue(saved.contains("themeID"))
+        XCTAssertTrue(saved.contains("floretta"))
+        let openedFresh = try FlorettaCodec.decode(try FlorettaCodec.encode(fresh))
+        XCTAssertEqual(openedFresh.themeID, "floretta")
+
+        let frames = LayoutEngine().layout(openedFresh, scheme: .light)
+        let rootFrame = try XCTUnwrap(frames.first { $0.isRoot })
+        let childFrame = try XCTUnwrap(frames.first { $0.id == child.id })
+        XCTAssertEqual(rootFrame.fill, BranchColor(hex: "#F7EFE1"))
+        XCTAssertEqual(childFrame.fill, rootFrame.fill)
+        XCTAssertEqual(rootFrame.border, BranchColor(hex: "#C87756"))
+        XCTAssertEqual(childFrame.border, rootFrame.border)
+        XCTAssertEqual(rootFrame.borderWidth, 1)
+        XCTAssertEqual(childFrame.borderWidth, 1)
+        XCTAssertEqual(rootFrame.cornerRadius, 12)
+        XCTAssertEqual(childFrame.cornerRadius, 12)
+        XCTAssertEqual(rootFrame.fontDesign, "serif")
+        XCTAssertEqual(childFrame.fontDesign, "default")
+        XCTAssertEqual(rootFrame.textColor, BranchColor(hex: "#3A2A22"))
+        XCTAssertEqual(childFrame.textColor, rootFrame.textColor)
+        XCTAssertEqual(rootFrame.childBadgeInset, 0)
+        XCTAssertEqual(childFrame.childBadgeInset, 28)
+        XCTAssertFalse(childFrame.childBadgeOnMinX)
+        let sided = MindMapDocument.newMap(
+            title: "侧",
+            roots: [MindMapNode(text: "根", children: [MindMapNode(text: "右"), MindMapNode(text: "左")])]
+        )
+        let sidedFrames = LayoutEngine().layout(sided)
+        let sidedRoot = try XCTUnwrap(sidedFrames.first { $0.isRoot })
+        let sidedChildren = sidedFrames.filter { !$0.isRoot }
+        XCTAssertEqual(sidedChildren.count, 2)
+        XCTAssertTrue(sidedChildren.contains { $0.frame.midX < sidedRoot.frame.midX && $0.childBadgeOnMinX })
+        XCTAssertTrue(sidedChildren.contains { $0.frame.midX > sidedRoot.frame.midX && !$0.childBadgeOnMinX })
+        let link = try XCTUnwrap(childFrame.link)
+        XCTAssertEqual(link.color, BranchColor(hex: "#BFA893"))
+        XCTAssertEqual(link.lineWidth, MapThemeCatalog.florettaEdgeStartWidth)
+        XCTAssertEqual(link.endWidth, MapThemeCatalog.florettaEdgeEndWidth)
+        XCTAssertTrue(link.isTapered)
+        XCTAssertEqual(link.point(at: 0), link.start)
+        XCTAssertEqual(link.point(at: 1).x, link.end.x, accuracy: 0.001)
+        XCTAssertEqual(link.point(at: 1).y, link.end.y, accuracy: 0.001)
+        let samples = 8
+        let outline = link.taperedOutline(samples: samples)
+        XCTAssertEqual(outline.count, samples * 2)
+        let startGap = hypot(
+            outline[0].x - outline[outline.count - 1].x,
+            outline[0].y - outline[outline.count - 1].y
+        )
+        let endGap = hypot(
+            outline[samples - 1].x - outline[samples].x,
+            outline[samples - 1].y - outline[samples].y
+        )
+        XCTAssertEqual(startGap, link.lineWidth, accuracy: 0.05)
+        XCTAssertEqual(endGap, link.endWidth, accuracy: 0.05)
+
+        let plainRoot = MindMapNode(text: "根", children: [MindMapNode(text: "子")])
+        let plain = LayoutEngine().layout(MindMapDocument(title: "旧", roots: [plainRoot]))
+        let plainChild = try XCTUnwrap(plain.first { !$0.isRoot })
+        let plainCenter = try XCTUnwrap(plain.first { $0.isRoot })
+        XCTAssertEqual(childFrame.size.width - plainChild.size.width, 28, accuracy: 0.001)
+        XCTAssertEqual(rootFrame.size.width, plainCenter.size.width, accuracy: 0.001)
+
+        let painted = MindMapNode(
+            text: "丙",
+            style: MindMapNodeStyle(
+                colorHex: "#112233",
+                fillHex: "#ED0DB8",
+                borderHex: "#010101",
+                borderWidth: 4,
+                cornerRadius: 3,
+                fontDesign: "rounded"
+            )
+        )
+        let custom = MindMapDocument.newMap(title: "品牌", roots: [MindMapNode(text: "根", children: [painted])])
+        let customFrame = try XCTUnwrap(LayoutEngine().layout(custom).first { $0.id == painted.id })
+        XCTAssertEqual(customFrame.fill, BranchColor(hex: "#ED0DB8"))
+        XCTAssertEqual(customFrame.border, BranchColor(hex: "#010101"))
+        XCTAssertEqual(customFrame.cornerRadius, 3)
+        XCTAssertEqual(customFrame.borderWidth, 4)
+        XCTAssertEqual(customFrame.fontDesign, "rounded")
+        XCTAssertEqual(custom.roots[0].children[0].style?.colorHex, "#112233")
+    }
+
+    func testOpeningADocumentKeepsItsThemeAndNodeStyles() throws {
+        let styled = MindMapNode(
+            text: "根",
+            style: MindMapNodeStyle(
+                colorHex: "#112233",
+                fillHex: "#ED0DB8",
+                cornerRadius: 2,
+                fontDesign: "rounded"
+            ),
+            children: [MindMapNode(text: "子")]
+        )
+        var grove = MindMapDocument(title: "旧", roots: [styled])
+        grove.themeID = "grove"
+        let openedGrove = try FlorettaCodec.decode(try FlorettaCodec.encode(grove))
+        XCTAssertEqual(openedGrove.themeID, "grove")
+        XCTAssertEqual(openedGrove.roots[0].style, styled.style)
+        let groveFill = try XCTUnwrap(LayoutEngine().layout(openedGrove).first { $0.isRoot }?.fill)
+        XCTAssertNotEqual(groveFill, BranchColor(hex: "#F7EFE1"))
+        XCTAssertEqual(
+            LayoutEngine().layout(openedGrove).first { $0.text == "根" }?.fill,
+            BranchColor(hex: "#ED0DB8")
+        )
+
+        let ink = MindMapDocument(title: "旧墨", roots: [MindMapNode(text: "根", children: [MindMapNode(text: "子")])])
+        XCTAssertNil(ink.themeID)
+        let inkJSON = try XCTUnwrap(String(data: try FlorettaCodec.encode(ink), encoding: .utf8))
+        XCTAssertFalse(inkJSON.contains("themeID"))
+        let openedInk = try FlorettaCodec.decode(Data(inkJSON.utf8))
+        XCTAssertNil(openedInk.themeID)
+        let inkRoot = try XCTUnwrap(LayoutEngine().layout(openedInk).first { $0.isRoot })
+        XCTAssertEqual(inkRoot.fill, .white)
+        XCTAssertEqual(inkRoot.fontDesign, "default")
+        XCTAssertEqual(inkRoot.cornerRadius, LayoutAppearance.standard.cornerRadius)
+        XCTAssertNotEqual(inkRoot.fill, BranchColor(hex: "#F7EFE1"))
+
+        let blank = """
+        {"formatVersion":1,"title":"t","createdAt":"2026-11-09T00:00:00Z","modifiedAt":"2026-11-09T00:00:00Z","roots":[{"id":"11111111-1111-1111-1111-111111111111","text":"根","note":"","collapsed":false,"children":[]}]}
+        """
+        let decodedBlank = try FlorettaCodec.decode(Data(blank.utf8))
+        XCTAssertNil(decodedBlank.themeID)
+        XCTAssertEqual(LayoutEngine().layout(decodedBlank).first?.fill, .white)
     }
 
     func testAutomaticBranchColorsFollowTheThemeAndKeepExplicitFills() throws {

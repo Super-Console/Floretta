@@ -35,7 +35,7 @@ public struct FlorettaNodePath: Equatable, Sendable, CustomStringConvertible {
 }
 
 public extension MindMapDocument {
-    /// Path of a topic in `roots`. Free nodes, stickies, and other sheets are not on this path.
+    /// Path of a topic in `roots`. Free nodes, stickies, regions, and other sheets are not on this path.
     public func nodePath(of id: UUID) -> FlorettaNodePath? {
         struct Frame {
             var nodes: [MindMapNode]

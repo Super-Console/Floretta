@@ -49,6 +49,7 @@
 | `document position side collapse` | gap | 打开时用模型默认值，保存时丢掉 |
 | `document freeNodes` | gap | 自由节点不是列表子项 |
 | `document stickies` | gap | 便签不是列表子项 |
+| `document regions` | gap | 专区不是列表子项 |
 | `document unrecognized line` | gap | 认不出的行打开失败，不猜 |
 | `heading depth` | mapped | 标题层级是树深；写出 # 的个数等于深度 |
 | `heading text` | mapped | 标题文字是 text |
@@ -61,6 +62,7 @@
 | `heading id style position` | gap | 不写 UUID、颜色、坐标、左右侧、折叠 |
 | `heading freeNodes` | gap | 自由节点不写 |
 | `heading stickies` | gap | 便签不写 |
+| `heading regions` | gap | 专区不写 |
 | `heading document title` | gap | 单个根的标题就是根文字；多个根没有单独的文档标题 |
 | `heading newline in text` | gap | 标题里的换行写成空格 |
 

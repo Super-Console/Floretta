@@ -112,26 +112,45 @@ public enum FlorettaCodec {
             }
         }
         if let stickies = object["stickies"], !(stickies is NSNull) {
-            guard let array = stickies as? [Any] else {
-                throw FlorettaCodecError.wrongJSONType(at: "stickies")
+            try preflightStickies(stickies, at: "stickies")
+        }
+        if let regions = object["regions"], !(regions is NSNull) {
+            guard let array = regions as? [Any] else {
+                throw FlorettaCodecError.wrongJSONType(at: "regions")
             }
             for (index, item) in array.enumerated() {
-                guard let sticky = item as? [String: Any] else {
-                    throw FlorettaCodecError.wrongJSONType(at: "stickies[\(index)]")
+                guard let region = item as? [String: Any] else {
+                    throw FlorettaCodecError.wrongJSONType(at: "regions[\(index)]")
                 }
-                let place = "stickies[\(index)]"
-                try expect(sticky, key: "id", at: "\(place).id") { isJSONString($0) }
-                try expect(sticky, key: "text", at: "\(place).text") { isJSONString($0) }
-                try expect(sticky, key: "color", at: "\(place).color") { isJSONString($0) }
-                if let origin = sticky["origin"], !(origin is NSNull) {
+                let place = "regions[\(index)]"
+                try expect(region, key: "id", at: "\(place).id") { isJSONString($0) }
+                if let label = region["label"], !(label is NSNull) {
+                    try expect(region, key: "label", at: "\(place).label") { isJSONString($0) }
+                }
+                if let origin = region["origin"], !(origin is NSNull) {
                     guard let point = origin as? [String: Any] else {
                         throw FlorettaCodecError.wrongJSONType(at: "\(place).origin")
                     }
                     try expect(point, key: "x", at: "\(place).origin.x") { isJSONNumber($0) }
                     try expect(point, key: "y", at: "\(place).origin.y") { isJSONNumber($0) }
                 }
-                try expect(sticky, key: "width", at: "\(place).width") { isJSONNumber($0) }
-                try expect(sticky, key: "height", at: "\(place).height") { isJSONNumber($0) }
+                try expect(region, key: "width", at: "\(place).width") { isJSONNumber($0) }
+                try expect(region, key: "height", at: "\(place).height") { isJSONNumber($0) }
+                if let locked = region["aspectLocked"], !(locked is NSNull) {
+                    try expect(region, key: "aspectLocked", at: "\(place).aspectLocked") { isJSONBool($0) }
+                }
+                if let shape = region["shape"], !(shape is NSNull) {
+                    try expect(region, key: "shape", at: "\(place).shape") { isJSONString($0) }
+                }
+                if let fill = region["fill"], !(fill is NSNull) {
+                    try expect(region, key: "fill", at: "\(place).fill") { isJSONString($0) }
+                }
+                if let border = region["border"], !(border is NSNull) {
+                    try expect(region, key: "border", at: "\(place).border") { isJSONString($0) }
+                }
+                if let stroke = region["strokeWidth"], !(stroke is NSNull) {
+                    try expect(region, key: "strokeWidth", at: "\(place).strokeWidth") { isJSONNumber($0) }
+                }
             }
         }
         if let relationships = object["relationships"], !(relationships is NSNull) {
@@ -167,6 +186,12 @@ public enum FlorettaCodec {
                 if let relationships = canvas["relationships"], !(relationships is NSNull) {
                     try preflightRelationships(relationships, at: "\(place).relationships")
                 }
+                if let stickies = canvas["stickies"], !(stickies is NSNull) {
+                    try preflightStickies(stickies, at: "\(place).stickies")
+                }
+                if let viewport = canvas["viewport"], !(viewport is NSNull) {
+                    try preflightViewport(viewport, at: "\(place).viewport")
+                }
             }
         }
         if let foreign = object["xmindForeign"], !(foreign is NSNull), !(foreign is [String: Any]) {
@@ -175,6 +200,48 @@ public enum FlorettaCodec {
         if let themeID = object["themeID"], !(themeID is NSNull) {
             try expect(object, key: "themeID", at: "themeID") { isJSONString($0) }
         }
+        if let index = object["activeCanvasIndex"], !(index is NSNull) {
+            try expect(object, key: "activeCanvasIndex", at: "activeCanvasIndex") { isJSONInteger($0) }
+        }
+        if let canvasTitle = object["primaryCanvasTitle"], !(canvasTitle is NSNull) {
+            try expect(object, key: "primaryCanvasTitle", at: "primaryCanvasTitle") { isJSONString($0) }
+        }
+        if let viewport = object["primaryCanvasViewport"], !(viewport is NSNull) {
+            try preflightViewport(viewport, at: "primaryCanvasViewport")
+        }
+    }
+
+    private static func preflightStickies(_ value: Any, at path: String) throws {
+        guard let array = value as? [Any] else {
+            throw FlorettaCodecError.wrongJSONType(at: path)
+        }
+        for (index, item) in array.enumerated() {
+            guard let sticky = item as? [String: Any] else {
+                throw FlorettaCodecError.wrongJSONType(at: "\(path)[\(index)]")
+            }
+            let place = "\(path)[\(index)]"
+            try expect(sticky, key: "id", at: "\(place).id") { isJSONString($0) }
+            try expect(sticky, key: "text", at: "\(place).text") { isJSONString($0) }
+            try expect(sticky, key: "color", at: "\(place).color") { isJSONString($0) }
+            if let origin = sticky["origin"], !(origin is NSNull) {
+                guard let point = origin as? [String: Any] else {
+                    throw FlorettaCodecError.wrongJSONType(at: "\(place).origin")
+                }
+                try expect(point, key: "x", at: "\(place).origin.x") { isJSONNumber($0) }
+                try expect(point, key: "y", at: "\(place).origin.y") { isJSONNumber($0) }
+            }
+            try expect(sticky, key: "width", at: "\(place).width") { isJSONNumber($0) }
+            try expect(sticky, key: "height", at: "\(place).height") { isJSONNumber($0) }
+        }
+    }
+
+    private static func preflightViewport(_ value: Any, at path: String) throws {
+        guard let object = value as? [String: Any] else {
+            throw FlorettaCodecError.wrongJSONType(at: path)
+        }
+        try expect(object, key: "scale", at: "\(path).scale") { isJSONNumber($0) }
+        try expect(object, key: "offsetX", at: "\(path).offsetX") { isJSONNumber($0) }
+        try expect(object, key: "offsetY", at: "\(path).offsetY") { isJSONNumber($0) }
     }
 
     private static func preflightRelationships(_ value: Any, at path: String) throws {

@@ -15,6 +15,7 @@ let package = Package(
     products: [
         .library(name: "FlorettaCore", targets: ["FlorettaCore"]),
         .library(name: "FlorettaUI", targets: ["FlorettaUI"]),
+        .executable(name: "floretta", targets: ["floretta"]),
     ],
     targets: [
         .target(
@@ -26,6 +27,11 @@ let package = Package(
             name: "FlorettaUI",
             dependencies: ["FlorettaCore"],
             path: "FlorettaUI"
+        ),
+        .executableTarget(
+            name: "floretta",
+            dependencies: ["FlorettaCore"],
+            path: "FlorettaCLI"
         ),
         .testTarget(
             name: "FlorettaCoreTests",

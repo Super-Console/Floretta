@@ -94,7 +94,7 @@ final class RelationshipLineTests: XCTestCase {
         XCTAssertFalse(session.linkFreeNode(to: rightID, document: &document, title: "不该出现"))
         XCTAssertTrue(document.relationships.isEmpty)
 
-        let created = try XCTUnwrap(session.linkSelectedTopic(to: rightID, title: "对照", document: &document))
+        let created = try XCTUnwrap(session.linkSelectedTopic(to: rightID, document: &document, title: "对照"))
         XCTAssertEqual(created, document.relationships[0].id)
         XCTAssertEqual(document.relationships.map(\.title), ["对照"])
         XCTAssertEqual(session.selectedRelationshipID, created)
@@ -140,7 +140,7 @@ final class RelationshipLineTests: XCTestCase {
         var document = branches()
         var session = MindMapKeyboardSession()
         session.selectedNodeID = leftID
-        let created = try XCTUnwrap(session.linkSelectedTopic(to: rightID, title: "对照", document: &document))
+        let created = try XCTUnwrap(session.linkSelectedTopic(to: rightID, document: &document, title: "对照"))
         session.apply(.beginEdit, document: &document, frames: [])
         XCTAssertEqual(session.mode, .edit)
         XCTAssertEqual(session.editingRelationshipID, created)
@@ -167,9 +167,9 @@ final class RelationshipLineTests: XCTestCase {
         var document = branches()
         var session = MindMapKeyboardSession()
         session.selectedNodeID = leftID
-        let first = try XCTUnwrap(session.linkSelectedTopic(to: rightID, title: "一", document: &document))
+        let first = try XCTUnwrap(session.linkSelectedTopic(to: rightID, document: &document, title: "一"))
         session.selectedNodeID = leftID
-        let second = try XCTUnwrap(session.linkSelectedTopic(to: rootID, title: "二", document: &document))
+        let second = try XCTUnwrap(session.linkSelectedTopic(to: rootID, document: &document, title: "二"))
         XCTAssertEqual(session.selectedRelationshipID, second)
         session.apply(.deleteSelection, document: &document, frames: [])
         XCTAssertEqual(document.relationships.map(\.id), [first])

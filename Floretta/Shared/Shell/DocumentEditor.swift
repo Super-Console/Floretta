@@ -46,6 +46,9 @@ struct DocumentEditor: View {
     @State private var showTagFilter = false
     @State private var inspectorTab = InspectorTab.style
     @State private var showAbout = false
+    #if os(macOS)
+    @State private var showShortcutHelp = false
+    #endif
     @State private var showThemes = false
     @State private var showHistory = false
     @Environment(\.colorScheme) private var colorScheme
@@ -84,6 +87,9 @@ struct DocumentEditor: View {
             }
         .scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
         .navigationTitle("")
+        #if os(macOS)
+        .focusedSceneValue(\.florettaEditorCommands, editorMenuActions)
+        #endif
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -317,9 +323,14 @@ struct DocumentEditor: View {
                 }
                 Button(text("取消"), role: .cancel) {}
             }
-            .sheet(isPresented: $showAbout) {
-                AboutSheet()
-            }
+        .sheet(isPresented: $showAbout) {
+            AboutSheet()
+        }
+        #if os(macOS)
+        .sheet(isPresented: $showShortcutHelp) {
+            ShortcutsHelpSheet()
+        }
+        #endif
             .sheet(isPresented: $showThemes) {
                 BranchThemeSheet(themeID: session.document.themeID, language: settings.language) { id in
                     session.setBranchTheme(id)
@@ -723,6 +734,63 @@ struct DocumentEditor: View {
             canOpenSnapshotHistory: session.canOpenSnapshotHistory
         )
     }
+
+    #if os(macOS)
+    private var editorMenuActions: FlorettaEditorMenuActions {
+        let eligible = Set(EditorToolbarCommandID.allCases.filter {
+            MacMenuShortcutCatalog.isEnabled($0, in: toolbarContext)
+        })
+        let selectedID = session.keyboard.selectedNodeID
+        let hasSelection = selectedID != nil
+        let ids: [EditorToolbarCommandID] = [
+            .child, .sibling, .freeNode, .sticky, .image, .attachment,
+            .summary, .boundary, .region, .outline, .fit, .mapMode, .focusMode,
+            .immersive, .style, .theme, .about, .find, .png, .pdf, .markdownExport, .saveFloretta, .xmind
+        ]
+        var actions = FlorettaEditorMenuActions(
+            perform: Dictionary(uniqueKeysWithValues: ids.map { id in (id, { perform(id) }) }),
+            enabled: eligible
+        )
+        actions.hasSelectedTopic = hasSelection
+        actions.hasEditableSelection = hasSelection && !session.isMarkdownDocument
+        actions.showShortcutHelp = { showShortcutHelp = true }
+        let allowsAppearanceWrites = !session.isMarkdownDocument
+        actions.linkTargets = session.editingDocument.linkTargets(excluding: selectedID).map { target in
+            .init(title: target.text.isEmpty ? "未命名" : target.text) {
+                session.linkSelectedTopic(to: target.id)
+            }
+        }
+        actions.setFont = { font in
+            guard let selectedID else { return }
+            session.editActive { document in
+                _ = InspectorStyle.apply(.fontDesign(font), nodeID: selectedID, document: &document, allowsAppearanceWrites: allowsAppearanceWrites)
+            }
+        }
+        actions.setFontSize = { size in
+            guard let selectedID else { return }
+            session.editActive { document in
+                _ = InspectorStyle.apply(.fontSize(size), nodeID: selectedID, document: &document, allowsAppearanceWrites: allowsAppearanceWrites)
+            }
+        }
+        actions.toggleTextFlag = { flag in
+            guard let selectedID else { return }
+            let current = InspectorStyle.isOn(flag, style: session.editingDocument.node(selectedID)?.style)
+            session.editActive { document in
+                _ = InspectorStyle.apply(.flag(flag, !current), nodeID: selectedID, document: &document, allowsAppearanceWrites: allowsAppearanceWrites)
+            }
+        }
+        actions.shortcuts = [
+            .child: KeyboardShortcut(.return, modifiers: .command),
+            .sibling: KeyboardShortcut(.return, modifiers: [.command, .shift]),
+            .fit: KeyboardShortcut("0", modifiers: .command),
+            .find: KeyboardShortcut("f", modifiers: .command)
+        ]
+        actions.zoomIn = { camera.stepZoom(1) }
+        actions.zoomOut = { camera.stepZoom(-1) }
+        actions.zoomActual = { camera.resetZoom() }
+        return actions
+    }
+    #endif
 
     private func commandLabel(_ id: EditorToolbarCommandID, surface: EditorCommandSurface) -> EditorCommandLabel {
         let command = EditorToolbarCatalog.command(id)
@@ -2804,6 +2872,34 @@ private extension View {
         modifier(ExplainedChrome(sentence: sentence))
     }
 }
+
+#if os(macOS)
+private struct ShortcutsHelpSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                LabeledContent("插入子节点", value: "⌘↩")
+                LabeledContent("插入同级节点", value: "⌘⇧↩")
+                LabeledContent("适应窗口", value: "⌘0")
+                LabeledContent("放大 / 缩小", value: "⌘+ / ⌘-")
+                LabeledContent("实际大小", value: "⌘=")
+                LabeledContent("加粗 / 斜体", value: "⌘B / ⌘I")
+                LabeledContent("查找", value: "⌘F")
+                LabeledContent("新建 / 保存", value: "⌘N / ⌘S")
+            }
+            .navigationTitle("快捷键一览")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") { dismiss() }
+                }
+            }
+        }
+        .frame(minWidth: 360, minHeight: 360)
+    }
+}
+#endif
 
 private struct MacEditorWindowTitle: ViewModifier {
     func body(content: Content) -> some View {

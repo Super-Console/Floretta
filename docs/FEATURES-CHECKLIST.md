@@ -34,6 +34,7 @@
 - [x] A23 `docs/DESIGN-RULES.md`（唯一入口、退出可达、图标优先、禁止重复控件、禁止占位假数据；六条规矩已在该文件，前五条与本行一致）
 - [~] A24 `docs/SMOKE.md` + XCUITest 冒烟（13 条可达性路径，打包前必跑）
 - [x] A25 模板库重做（12 个真模板，结构各不相同，禁止同树换色）（`TemplateKind` 十二个；`ShellTests.testMenusAndTemplatesOmitDeadActions` 断言名称与 `TemplateKind.shape` 均不重复）
+- [~] A26 iOS 编辑器返回按钮点击区域：独立的系统工具栏按钮，圆盘点击区域宽高均 ≥ 44 且接近（`DocumentEditor` 的 iOS `ToolbarItem`，不再嵌在文件名 `HStack` 里）。macOS 工具栏返回未改。`EditorBackButtonHitAreaTests`。设备上的实测帧还没记。
 
 ## B. 附件（核心差异化）
 
@@ -130,7 +131,7 @@
 ## 统计
 
 - 已完成并验过：**61** 项
-- 已派未合并/未验：**6** 项
+- 已派未合并/未验：**7** 项
 - 未开始：**13** 项
-- 合计：**80** 项
+- 合计：**81** 项
 - 已知阻塞：**3** 项

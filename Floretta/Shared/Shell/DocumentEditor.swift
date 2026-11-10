@@ -76,6 +76,33 @@ struct DocumentEditor: View {
             }
             .toolbar {
                 if session.zen.chrome.showsToolbar {
+                    // A chevron nested in the filename stack is custom bar content:
+                    // the glass platter is decoration, and the hit target shrinks to
+                    // the glyph. Its own toolbar button is a system bar item, whose
+                    // platter is a circle of at least 44pt and owns the hit testing.
+                    #if os(iOS)
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(action: onClose) {
+                            Image(systemName: "chevron.backward")
+                        }
+                        .accessibilityLabel(text("返回"))
+                        .accessibilityIdentifier("basicChain.back")
+                        .help(Text(verbatim: text("返回导图列表")))
+                    }
+                    ToolbarSpacer(.fixed, placement: .cancellationAction)
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(action: beginRename) {
+                            Text(verbatim: documentTitle)
+                                .lineLimit(1)
+                        }
+                        .buttonStyle(.borderless)
+                        .help(Text(verbatim: text("为这份导图重新命名")))
+                        .accessibilityLabel(documentTitle)
+                        .accessibilityHint(text("为这份导图重新命名"))
+                        .accessibilityIdentifier("document.title")
+                    }
+                    .sharedBackgroundVisibility(.hidden)
+                    #else
                     ToolbarItem(placement: .cancellationAction) {
                         HStack(spacing: 8) {
                             Button(action: onClose) {
@@ -94,6 +121,7 @@ struct DocumentEditor: View {
                             .accessibilityIdentifier("document.title")
                         }
                     }
+                    #endif
                     ToolbarItemGroup(placement: .principal) {
                         Button { session.undo() } label: {
                             Image(systemName: "arrow.uturn.backward")

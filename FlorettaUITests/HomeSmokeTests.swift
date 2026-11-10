@@ -84,3 +84,50 @@ final class HomeSmokeTests: XCTestCase {
         }
     }
 }
+
+/// The editor back button used to be a chevron nested in the filename stack.
+/// That glyph's accessibility frame is well under 44pt and not square. A
+/// system toolbar button's frame is the circular platter: at least 44×44.
+final class EditorBackButtonHitAreaTests: XCTestCase {
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+    }
+
+    @MainActor
+    func testEditorBackButtonHitAreaIsAtLeastFortyFourPointsAndRoughlyCircular() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-FlorettaUITest",
+            "-FlorettaLanguage", "zh-Hans",
+            "-AppleLanguages", "(zh-Hans)",
+            "-AppleLocale", "zh_CN",
+        ]
+        app.launch()
+
+        let newMap = app.buttons["home.newMap"]
+        XCTAssertTrue(newMap.waitForExistence(timeout: 15), "首页没有「新建导图」")
+        newMap.tap()
+
+        let back = app.buttons["basicChain.back"]
+        XCTAssertTrue(back.waitForExistence(timeout: 8), "新建导图后没有左上返回按钮")
+        let frame = back.frame
+        XCTAssertGreaterThanOrEqual(
+            frame.width,
+            44,
+            "返回按钮点击宽度 \(frame.width) pt，小于 44"
+        )
+        XCTAssertGreaterThanOrEqual(
+            frame.height,
+            44,
+            "返回按钮点击高度 \(frame.height) pt，小于 44"
+        )
+        let longSide = max(frame.width, frame.height)
+        let shortSide = min(frame.width, frame.height)
+        XCTAssertGreaterThan(shortSide, 0)
+        XCTAssertLessThanOrEqual(
+            longSide / shortSide,
+            1.15,
+            "返回按钮点击区域应接近圆形，宽 \(frame.width) 高 \(frame.height)"
+        )
+    }
+}

@@ -17,6 +17,7 @@ jobs:
           xcodebuild build -project Floretta.xcodeproj -scheme Floretta-macOS \
             -destination 'platform=macOS' \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            'OTHER_SWIFT_FLAGS=$(inherited) -Xfrontend -solver-expression-time-threshold=100' \
             -quiet
 
   boundaries:

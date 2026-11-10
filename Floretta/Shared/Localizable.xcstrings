@@ -3269,19 +3269,19 @@
         }
       }
     },
-    "在这份导图里再加一个中心主题": {
+    "在这份文档里再加一张画布": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Add another central topic to this map"
+            "value": "Add another canvas to this document"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在这份导图里再加一个中心主题"
+            "value": "在这份文档里再加一张画布"
           }
         }
       }

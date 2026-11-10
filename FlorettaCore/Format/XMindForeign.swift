@@ -1,26 +1,132 @@
 import Foundation
 
+/// Zoom and pan for one canvas. Scale 1 is 100%. Offsets are the viewport's
+/// screen-space pan, the same numbers `CanvasViewport` stores.
+/// Identity (scale 1, no pan) is omitted from JSON.
+public struct CanvasViewportState: Equatable, Sendable, Codable {
+    public var scale: Double
+    public var offsetX: Double
+    public var offsetY: Double
+
+    public static let minimumScale = Double(ZoomStop.fifty.scale)
+    public static let maximumScale = Double(ZoomStop.fourHundred.scale)
+    public static let standard = CanvasViewportState(scale: 1, offsetX: 0, offsetY: 0)
+
+    public init(scale: Double, offsetX: Double, offsetY: Double) {
+        self.scale = Self.clampScale(scale)
+        self.offsetX = offsetX.isFinite ? offsetX : 0
+        self.offsetY = offsetY.isFinite ? offsetY : 0
+    }
+
+    public var isStandard: Bool {
+        scale == 1 && offsetX == 0 && offsetY == 0
+    }
+
+    public static func clampScale(_ scale: Double) -> Double {
+        guard scale.isFinite else { return 1 }
+        return min(max(scale, minimumScale), maximumScale)
+    }
+
+    public static func clamped(_ state: CanvasViewportState) -> CanvasViewportState {
+        CanvasViewportState(scale: state.scale, offsetX: state.offsetX, offsetY: state.offsetY)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case scale
+        case offsetX
+        case offsetY
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let scale = try container.decode(Double.self, forKey: .scale)
+        let offsetX = try container.decode(Double.self, forKey: .offsetX)
+        let offsetY = try container.decode(Double.self, forKey: .offsetY)
+        self.init(scale: scale, offsetX: offsetX, offsetY: offsetY)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(scale, forKey: .scale)
+        try container.encode(offsetX, forKey: .offsetX)
+        try container.encode(offsetY, forKey: .offsetY)
+    }
+}
+
 /// One canvas after the first sheet. The first sheet stays on `MindMapDocument`
-/// (`title`, `roots`, `freeNodes`, `relationships`) so existing callers keep working.
+/// (`title`, `roots`, `freeNodes`, `relationships`, `stickies`) so existing callers keep working.
 public struct MindMapCanvas: Equatable, Sendable, Codable, Identifiable {
     public var id: UUID
     public var title: String
     public var roots: [MindMapNode]
     public var freeNodes: [MindMapNode]
     public var relationships: [TopicRelationship]
+    /// Cards on this sheet. Empty is omitted from JSON.
+    public var stickies: [StickyNote]
+    /// Zones on this sheet. Empty is omitted from JSON. Not topics.
+    public var regions: [CanvasRegion]
+    /// This sheet's zoom and pan. Identity is omitted from JSON.
+    public var viewport: CanvasViewportState
 
     public init(
         id: UUID = UUID(),
         title: String,
         roots: [MindMapNode] = [],
         freeNodes: [MindMapNode] = [],
-        relationships: [TopicRelationship] = []
+        relationships: [TopicRelationship] = [],
+        stickies: [StickyNote] = [],
+        regions: [CanvasRegion] = [],
+        viewport: CanvasViewportState = .standard
     ) {
         self.id = id
         self.title = title
         self.roots = roots
         self.freeNodes = freeNodes
         self.relationships = relationships
+        self.stickies = stickies
+        self.regions = regions
+        self.viewport = viewport
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case roots
+        case freeNodes
+        case relationships
+        case stickies
+        case regions
+        case viewport
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        roots = try container.decodeIfPresent([MindMapNode].self, forKey: .roots) ?? []
+        freeNodes = try container.decodeIfPresent([MindMapNode].self, forKey: .freeNodes) ?? []
+        relationships = try container.decodeIfPresent([TopicRelationship].self, forKey: .relationships) ?? []
+        stickies = try container.decodeIfPresent([StickyNote].self, forKey: .stickies) ?? []
+        regions = try container.decodeIfPresent([CanvasRegion].self, forKey: .regions) ?? []
+        viewport = try container.decodeIfPresent(CanvasViewportState.self, forKey: .viewport) ?? .standard
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(title, forKey: .title)
+        try container.encode(roots, forKey: .roots)
+        try container.encode(freeNodes, forKey: .freeNodes)
+        try container.encode(relationships, forKey: .relationships)
+        if !stickies.isEmpty {
+            try container.encode(stickies, forKey: .stickies)
+        }
+        if !regions.isEmpty {
+            try container.encode(regions, forKey: .regions)
+        }
+        if !viewport.isStandard {
+            try container.encode(viewport, forKey: .viewport)
+        }
     }
 }
 
@@ -163,7 +269,7 @@ public struct XMindMappedSnapshot: Equatable, Sendable, Codable {
     public init(document: MindMapDocument) {
         var sheets = [
             XMindSheetSnapshot(
-                title: document.title,
+                title: document.canvasTitle(at: 0),
                 roots: document.roots,
                 freeNodes: document.freeNodes,
                 relationships: document.relationships

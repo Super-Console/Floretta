@@ -35,6 +35,15 @@ struct CanvasViewport: Equatable, Sendable {
 
     var scale: CGFloat { flow.zoom }
 
+    var persisted: CanvasViewportState {
+        CanvasViewportState(scale: Double(scale), offsetX: Double(offset.x), offsetY: Double(offset.y))
+    }
+
+    mutating func restore(_ state: CanvasViewportState) {
+        let state = CanvasViewportState.clamped(state)
+        flow = Viewport(x: CGFloat(state.offsetX), y: CGFloat(state.offsetY), zoom: CGFloat(state.scale))
+    }
+
     /// Visible canvas rectangle for a view of `viewSize`.
     /// Inverse of SwiftFlow's `screen = flow * zoom + offset`.
     func canvasRect(in viewSize: CGSize) -> CGRect {

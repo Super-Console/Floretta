@@ -29,6 +29,7 @@ public enum FlorettaOPMLCodec {
     }
 
     public static func export(_ document: MindMapDocument) throws -> Data {
+        let document = document.singleTreeExport()
         if let foreign = document.opmlForeign, foreign.snapshot == OPMLMappedSnapshot(document: document) {
             return foreign.sourceXML
         }

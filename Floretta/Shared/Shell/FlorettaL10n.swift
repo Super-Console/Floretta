@@ -247,7 +247,7 @@ enum FlorettaL10n {
         "用整张地图查看导图": "Show the whole map",
         "只看当前选中的这一支": "Show only the selected branch",
         "在地图模式和聚焦模式之间切换": "Switch between map and focus",
-        "在这份导图里再加一个中心主题": "Add another central topic to this map",
+        "在这份文档里再加一张画布": "Add another canvas to this document",
         "按文字或标签查找节点": "Find a topic by its text or label",
         "把剪贴板里的图片放进节点；没有图片时粘贴文字": "Put a clipboard image into a topic. If there is no image, paste text.",
         "查看版本号和开源致谢": "Show the version and open-source notices",

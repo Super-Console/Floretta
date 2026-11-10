@@ -98,6 +98,7 @@ public enum FlorettaMarkdownDocumentCodec {
 
     /// Canonical Markdown projection. Fields the format cannot express are omitted.
     public static func save(_ document: MindMapDocument) -> String {
+        let document = document.singleTreeExport()
         var lines: [String] = []
         if let frontMatter = canonicalFrontMatter(document.markdownFrontMatter) {
             lines.append(frontMatter)

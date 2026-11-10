@@ -34,6 +34,7 @@ public enum FlorettaMMCodec {
     }
 
     public static func export(_ document: MindMapDocument) throws -> Data {
+        let document = document.singleTreeExport()
         if let foreign = document.mmForeign, foreign.snapshot == MMMappedSnapshot(document: document) {
             return foreign.sourceXML
         }

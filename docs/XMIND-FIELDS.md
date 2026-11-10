@@ -33,7 +33,7 @@
 | `content.xml` | gap | 只有 XMind 8 的 content.xml、没有 content.json 时导入失败 |
 | `sheet.id` | mapped | UUID 照用；否则稳定派生 UUID，导出写原字符串 |
 | `sheet.class` | mapped | 固定为 sheet |
-| `sheet.title` | mapped | 第一张画布是文档标题，其余是 MindMapCanvas.title |
+| `sheet.title` | mapped | 第一张画布标题默认是文档标题，primaryCanvasTitle 可另起；其余是 MindMapCanvas.title |
 | `sheet.rootTopic` | mapped | 第一张画布的 roots[0]，其余画布同理 |
 | `sheet.relationships` | mapped | TopicRelationship，端点必须在同一张画布 |
 | `sheet.topicPositioning` | passthrough | 不覆盖导入文件里的原值 |
@@ -41,7 +41,7 @@
 | `sheet.legend` | passthrough | 不解释 |
 | `sheet.topicOverlapping` | passthrough | 不解释 |
 | `sheet.revisionId` | passthrough | 不解释 |
-| `additional sheets` | mapped | MindMapDocument.additionalCanvases，编辑器仍只改第一张 |
+| `additional sheets` | mapped | MindMapDocument.additionalCanvases。编辑器按 activeCanvasIndex 改其中一张，.xmind 导出仍写全部画布 |
 | `topic.id` | mapped | UUID 照用；其他字符串稳定派生，导出写原字符串 |
 | `topic.class` | mapped | 固定为 topic |
 | `topic.title` | mapped | text |

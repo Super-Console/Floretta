@@ -890,7 +890,11 @@ public extension MindMapDocument {
             }
             return nil
         }
-        return walk(roots) ?? walk(freeNodes)
+        if let found = walk(roots) ?? walk(freeNodes) { return found }
+        for canvas in additionalCanvases {
+            if let found = walk(canvas.roots) ?? walk(canvas.freeNodes) { return found }
+        }
+        return nil
     }
 
     @discardableResult
@@ -905,8 +909,13 @@ public extension MindMapDocument {
             }
             return false
         }
-        if walk(&roots) { return true }
-        return walk(&freeNodes)
+        if walk(&roots) || walk(&freeNodes) { return true }
+        for index in additionalCanvases.indices {
+            if walk(&additionalCanvases[index].roots) || walk(&additionalCanvases[index].freeNodes) {
+                return true
+            }
+        }
+        return false
     }
 
     @discardableResult

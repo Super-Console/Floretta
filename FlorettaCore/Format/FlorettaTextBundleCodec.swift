@@ -118,8 +118,10 @@ public enum FlorettaTextBundleCodec {
     }
 
     /// `assets` are keyed by sha256. The first payload for a hash wins.
-    /// Bytes no tree node on the first sheet references are left out.
+    /// Bytes no topic on the active canvas references are left out.
+    /// The active canvas defaults to the first sheet. Other canvases stay on the native document.
     public static func export(_ document: MindMapDocument, assets: [FlorettaAsset] = []) -> TextBundlePackage {
+        let document = document.singleTreeExport()
         let plan = planAssets(document: document, assets: assets)
         let markdown = markdownText(document: document, references: plan.references)
         var files = [

@@ -158,7 +158,7 @@ public enum AttachmentReferences {
     public static func counts(in document: MindMapDocument) -> [AttachmentReferenceCount] {
         var order: [String] = []
         var tally: [String: AttachmentReferenceCount] = [:]
-        document.walkTopics { node in
+        document.walkAllCanvasTopics { node in
             for attachment in node.attachments {
                 if var existing = tally[attachment.sha256] {
                     existing.count += 1
@@ -194,7 +194,7 @@ public enum AttachmentReferences {
 public enum AttachmentTotals {
     public static func uniqueReferencedBytes(_ document: MindMapDocument) -> Int64 {
         var seen: [String: Int64] = [:]
-        document.walkTopics { node in
+        document.walkAllCanvasTopics { node in
             for attachment in node.attachments where seen[attachment.sha256] == nil {
                 seen[attachment.sha256] = max(0, attachment.byteCount)
             }

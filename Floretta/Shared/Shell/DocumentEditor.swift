@@ -38,6 +38,9 @@ struct DocumentEditor: View {
     @State private var didAutoOpenInspector = false
     @State private var showRename = false
     @State private var renameText = ""
+    @State private var showCanvasRename = false
+    @State private var canvasRenameText = ""
+    @State private var canvasRenameIndex = 0
     @State private var showFind = false
     @State private var findQuery = ""
     @State private var showTagFilter = false
@@ -189,11 +192,24 @@ struct DocumentEditor: View {
             .onChange(of: session.viewMode) { _, mode in
                 guard mode == .focus else { return }
                 if session.focusNodeID == nil {
-                    session.focusNodeID = session.keyboard.selectedNodeID ?? session.document.roots.first?.id
+                    session.focusNodeID = session.keyboard.selectedNodeID ?? session.editingDocument.roots.first?.id
                 }
             }
-            .onChange(of: session.document) { _, updated in
-                onEdit(updated)
+            .onChange(of: session.document) { _, _ in
+                session.flushLiveViewport()
+                onEdit(session.document)
+            }
+            .onAppear {
+                camera.restore(session.document.viewport(forCanvas: session.document.clampedCanvasIndex))
+            }
+            .onChange(of: session.document.activeCanvasIndex) { _, _ in
+                camera.restore(session.document.viewport(forCanvas: session.document.clampedCanvasIndex))
+            }
+            .onChange(of: session.canvasCameraToken) { _, _ in
+                camera.restore(session.document.viewport(forCanvas: session.document.clampedCanvasIndex))
+            }
+            .onChange(of: camera.viewport) { _, viewport in
+                session.noteViewport(viewport.persisted)
             }
             .onChange(of: session.zen.isActive) { _, active in
                 syncFullScreen(active)
@@ -350,7 +366,7 @@ struct DocumentEditor: View {
             .alert(Text(verbatim: text("查找")), isPresented: $showFind) {
                 TextField(text("文字"), text: $findQuery)
                 Button(text("查找")) {
-                    if let id = CanvasEditCommands.find(in: session.document, query: findQuery) {
+                    if let id = CanvasEditCommands.find(in: session.editingDocument, query: findQuery) {
                         session.keyboard.selectedNodeID = id
                     } else {
                         exportError = "没有找到。"
@@ -363,7 +379,7 @@ struct DocumentEditor: View {
     private var canvasStack: some View {
         ZStack(alignment: .leading) {
             InfiniteCanvas(
-                document: $session.document,
+                document: session.activeCanvasDocument,
                 keyboard: $session.keyboard,
                 camera: camera,
                 focusNodeID: session.viewMode == .focus ? session.focusNodeID : nil,
@@ -385,7 +401,7 @@ struct DocumentEditor: View {
                 dictationToken: session.dictationToken,
                 dictationReplacesPlaceholder: session.dictationReplacesPlaceholder
             )
-            .ignoresSafeArea()
+            .ignoresSafeArea(edges: showsCanvasTabs ? .top.union(.horizontal) : .all)
             if showOutline, session.zen.chrome.showsSidebar {
                 outlinePanel
                     .frame(width: outlineWide ? nil : 300)
@@ -414,13 +430,16 @@ struct DocumentEditor: View {
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if session.zen.chrome.showsStatusBar {
+            VStack(spacing: 0) {
+                if showsCanvasTabs { canvasTabBar }
+                if session.zen.chrome.showsStatusBar {
                 HStack(spacing: 8) {
                     #if os(macOS)
                     Spacer(minLength: 8)
                     #endif
+
                     TopicStatusBar(
-                        census: topicCensus.census(of: session.document),
+                        census: topicCensus.census(of: session.editingDocument),
                         locale: settings.resolvedLocale
                     )
                     #if !os(macOS)
@@ -437,8 +456,67 @@ struct DocumentEditor: View {
                 .background(.bar)
                 .overlay(alignment: .top) { Divider() }
                 .accessibilityIdentifier("statusBar")
+                }
             }
         }
+    }
+
+    /// One row of sheet titles. Only the visible canvas is mounted, so switching
+    /// sheets lays that sheet out once and leaves the others off the frame path.
+    private var showsCanvasTabs: Bool {
+        !session.isMarkdownDocument && !session.zen.isActive
+    }
+
+    private var canvasTabBar: some View {
+        HStack(spacing: 6) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(0..<session.document.canvasCount, id: \.self) { index in
+                        canvasTab(index)
+                    }
+                }
+            }
+            Button {
+                session.addCanvas(viewport: camera.viewport.persisted)
+            } label: {
+                Image(systemName: "plus")
+            }
+            .buttonStyle(.bordered)
+            .accessibilityLabel(text("新建画布"))
+            .accessibilityIdentifier("canvas.tab.add")
+            .help(Text(verbatim: text("在这份文档里再加一张画布")))
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.bar)
+        .accessibilityIdentifier("canvas.tabs")
+        .alert(Text(verbatim: text("重新命名")), isPresented: $showCanvasRename) {
+            TextField(text("名称"), text: $canvasRenameText)
+            Button(text("确定")) {
+                session.renameCanvas(at: canvasRenameIndex, to: canvasRenameText)
+            }
+            Button(text("取消"), role: .cancel) {}
+        }
+    }
+
+    private func canvasTab(_ index: Int) -> some View {
+        let selected = index == session.document.clampedCanvasIndex
+        return Button {
+            session.activateCanvas(index, viewport: camera.viewport.persisted)
+        } label: {
+            Text(verbatim: session.document.canvasTitle(at: index))
+                .lineLimit(1)
+        }
+        .buttonStyle(.bordered)
+        .tint(selected ? Color.accentColor : Color.secondary)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier("canvas.tab.\(index)")
+        .simultaneousGesture(TapGesture(count: 2).onEnded {
+            canvasRenameIndex = index
+            canvasRenameText = session.document.canvasTitle(at: index)
+            showCanvasRename = true
+        })
     }
 
     private var tagFilterBanner: some View {
@@ -506,7 +584,7 @@ struct DocumentEditor: View {
                     .accessibilityHint(text(MarkdownModePolicy.reason(.collapse)))
             }
             OutlineView(
-                document: $session.document,
+                document: session.activeCanvasDocument,
                 keyboard: $session.keyboard,
                 tagFilter: session.tagFilter,
                 locksCollapse: session.isMarkdownDocument
@@ -615,7 +693,7 @@ struct DocumentEditor: View {
             .accessibilityHint(text(markdownHelp(.sticky, otherwise: "在画布上放一张便签。最多五种颜色，不计入节点，可以拖动，大小有上限")))
             Menu {
                 let source = session.keyboard.selectedNodeID
-                let targets = session.document.linkTargets(excluding: source)
+                let targets = session.editingDocument.linkTargets(excluding: source)
                 if targets.isEmpty {
                     Button(text("没有其他节点")) {}
                         .disabled(true)
@@ -634,13 +712,13 @@ struct DocumentEditor: View {
             Button { session.addSummaryFromToolbar() } label: {
                 Label(text("概要"), systemImage: "curlybraces")
             }
-            .disabled(session.isMarkdownDocument || !session.document.canEnclose(session.keyboard.selectedNodeID))
+            .disabled(session.isMarkdownDocument || !session.editingDocument.canEnclose(session.keyboard.selectedNodeID))
             .help(Text(verbatim: text(markdownHelp(.summary, otherwise: "为选中的节点生成概要，并画出括住它的括号"))))
             .accessibilityHint(text(markdownHelp(.summary, otherwise: "为选中的节点生成概要，并画出括住它的括号")))
             Button { session.addBoundaryFromToolbar() } label: {
                 Label(text("边界"), systemImage: "rectangle.dashed")
             }
-            .disabled(session.isMarkdownDocument || !session.document.canEnclose(session.keyboard.selectedNodeID))
+            .disabled(session.isMarkdownDocument || !session.editingDocument.canEnclose(session.keyboard.selectedNodeID))
             .help(Text(verbatim: text(markdownHelp(.boundary, otherwise: "用边界圈住选中的节点"))))
             .accessibilityHint(text(markdownHelp(.boundary, otherwise: "用边界圈住选中的节点")))
             Button { session.addRegionFromToolbar() } label: {
@@ -726,8 +804,7 @@ struct DocumentEditor: View {
             .help(Text(verbatim: text(markdownHelp(.themeColor, otherwise: "为各分支自动配色，浅色和深色各用一套"))))
             .accessibilityHint(text(markdownHelp(.themeColor, otherwise: "为各分支自动配色，浅色和深色各用一套")))
             .accessibilityIdentifier("theme.menu")
-            Button(text("新建画布")) { session.addCanvas() }
-                .explained("在这份导图里再加一个中心主题")
+
             Button(text("查找")) {
                 findQuery = ""
                 showFind = true
@@ -823,6 +900,7 @@ struct DocumentEditor: View {
                     .contentShape(Rectangle())
                     .accessibilityLabel("关闭检查器")
                     .highPriorityGesture(sheetDismissDrag)
+
             }
             inspectorTabPicker
                 .padding(.horizontal)
@@ -886,11 +964,13 @@ struct DocumentEditor: View {
             regionStyleForm
         } else {
             StyleInspector(
-                document: $session.document,
+                document: session.activeCanvasDocument,
                 nodeID: session.keyboard.selectedNodeID,
                 locksAppearance: session.isMarkdownDocument,
                 onSelectRelationship: { id in
-                    InspectorStyle.selectLink(id, document: &session.document, keyboard: &session.keyboard)
+                    session.editActive { document in
+                        InspectorStyle.selectLink(id, document: &document, keyboard: &session.keyboard)
+                    }
                 }
             )
         }
@@ -908,7 +988,7 @@ struct DocumentEditor: View {
 
     private var documentInfo: some View {
         let facts = InspectorStyle.mapFacts(
-            document: session.document,
+            document: session.editingDocument,
             storedAttachmentBytes: session.attachmentCatalog.storedAttachmentBytes,
             archiveByteCount: session.archiveByteCount
         )
@@ -920,9 +1000,9 @@ struct DocumentEditor: View {
                             .monospacedDigit()
                     }
                 }
-            }
-            LabeledContent(text("专区")) {
-                Text(verbatim: "\(session.document.regions.count)").monospacedDigit()
+                LabeledContent(text("专区")) {
+                    Text(verbatim: "\(session.editingDocument.regions.count)").monospacedDigit()
+                }
             }
         }
         .formStyle(.grouped)
@@ -947,18 +1027,21 @@ struct DocumentEditor: View {
                 InspectorMarkField.text(
                     .relationship,
                     id: session.keyboard.selectedRelationshipID,
-                    document: session.document,
+                    document: session.editingDocument,
                     keyboard: session.keyboard
                 )
             },
             set: { newValue in
-                InspectorMarkField.replace(
-                    newValue,
-                    kind: .relationship,
-                    id: session.keyboard.selectedRelationshipID,
-                    document: &session.document,
-                    keyboard: &session.keyboard
-                )
+                session.editActive { document in
+                    InspectorMarkField.replace(
+                        newValue,
+                        kind: .relationship,
+                        id: session.keyboard.selectedRelationshipID,
+                        document: &document,
+                        keyboard: &session.keyboard
+                    )
+                }
+
             }
         )
     }
@@ -981,18 +1064,21 @@ struct DocumentEditor: View {
                 InspectorMarkField.text(
                     .summary,
                     id: session.keyboard.selectedSummaryID,
-                    document: session.document,
+                    document: session.editingDocument,
                     keyboard: session.keyboard
                 )
             },
             set: { newValue in
-                InspectorMarkField.replace(
-                    newValue,
-                    kind: .summary,
-                    id: session.keyboard.selectedSummaryID,
-                    document: &session.document,
-                    keyboard: &session.keyboard
-                )
+                session.editActive { document in
+                    InspectorMarkField.replace(
+                        newValue,
+                        kind: .summary,
+                        id: session.keyboard.selectedSummaryID,
+                        document: &document,
+                        keyboard: &session.keyboard
+                    )
+                }
+
             }
         )
     }
@@ -1015,18 +1101,20 @@ struct DocumentEditor: View {
                 InspectorMarkField.text(
                     .boundary,
                     id: session.keyboard.selectedBoundaryID,
-                    document: session.document,
+                    document: session.editingDocument,
                     keyboard: session.keyboard
                 )
             },
             set: { newValue in
-                InspectorMarkField.replace(
-                    newValue,
-                    kind: .boundary,
-                    id: session.keyboard.selectedBoundaryID,
-                    document: &session.document,
-                    keyboard: &session.keyboard
-                )
+                session.editActive { document in
+                    InspectorMarkField.replace(
+                        newValue,
+                        kind: .boundary,
+                        id: session.keyboard.selectedBoundaryID,
+                        document: &document,
+                        keyboard: &session.keyboard
+                    )
+                }
             }
         )
     }
@@ -1078,12 +1166,12 @@ struct DocumentEditor: View {
     }
 
     private var regionDraftToken: String {
-        guard let id = session.keyboard.selectedRegionID, let region = session.document.region(id) else { return "" }
+        guard let id = session.keyboard.selectedRegionID, let region = session.editingDocument.region(id) else { return "" }
         return "\(id.uuidString)|\(region.width)|\(region.height)|\(region.strokeWidth)"
     }
 
     private func syncRegionDrafts(includingFocused: Bool = false) {
-        guard let id = session.keyboard.selectedRegionID, let region = session.document.region(id) else { return }
+        guard let id = session.keyboard.selectedRegionID, let region = session.editingDocument.region(id) else { return }
         if includingFocused || regionMetric != .width {
             regionWidthDraft = formatRegionPx(region.width)
         }
@@ -1116,15 +1204,15 @@ struct DocumentEditor: View {
             return
         }
         if session.keyboard.mode == .edit, !session.keyboard.isComposing {
-            session.keyboard.apply(.commitEdit, document: &session.document, frames: [])
+            session.editActive { document in session.keyboard.apply(.commitEdit, document: &document, frames: []) }
         }
         switch metric {
         case .width:
-            _ = session.keyboard.setRegionLength(value, axis: .width, id: id, document: &session.document)
+            session.editActive { document in _ = session.keyboard.setRegionLength(value, axis: .width, id: id, document: &document) }
         case .height:
-            _ = session.keyboard.setRegionLength(value, axis: .height, id: id, document: &session.document)
+            session.editActive { document in _ = session.keyboard.setRegionLength(value, axis: .height, id: id, document: &document) }
         case .stroke:
-            _ = session.keyboard.setRegionStroke(value, id: id, document: &session.document)
+            session.editActive { document in _ = session.keyboard.setRegionStroke(value, id: id, document: &document) }
         }
         syncRegionDrafts(includingFocused: includingFocused)
     }
@@ -1136,14 +1224,12 @@ struct DocumentEditor: View {
                 if session.keyboard.editingRegionID == id {
                     return session.keyboard.editingText
                 }
-                return session.document.region(id)?.label ?? ""
+                return session.editingDocument.region(id)?.label ?? ""
             },
             set: { newValue in
                 guard let id = session.keyboard.selectedRegionID else { return }
                 if session.keyboard.editingRegionID != id {
-                    session.keyboard.apply(.beginEdit, document: &session.document, frames: [])
-                }
-                session.keyboard.replaceEditingText(newValue, document: &session.document)
+                    session.editActive { document in session.keyboard.apply(.beginEdit, document: &document, frames: []) }                }
             }
         )
     }
@@ -1152,14 +1238,14 @@ struct DocumentEditor: View {
         Binding(
             get: {
                 guard let id = session.keyboard.selectedRegionID else { return false }
-                return session.document.region(id)?.aspectLocked ?? false
+                return session.editingDocument.region(id)?.aspectLocked ?? false
             },
             set: { locked in
                 guard let id = session.keyboard.selectedRegionID else { return }
                 if session.keyboard.mode == .edit, !session.keyboard.isComposing {
-                    session.keyboard.apply(.commitEdit, document: &session.document, frames: [])
+                    session.editActive { document in session.keyboard.apply(.commitEdit, document: &document, frames: []) }
                 }
-                _ = session.keyboard.setRegionAspectLocked(locked, id: id, document: &session.document)
+                session.editActive { document in _ = session.keyboard.setRegionAspectLocked(locked, id: id, document: &document) }
             }
         )
     }
@@ -1167,7 +1253,7 @@ struct DocumentEditor: View {
     private var regionFill: Binding<Color> {
         Binding(
             get: {
-                guard let id = session.keyboard.selectedRegionID, let region = session.document.region(id) else {
+                guard let id = session.keyboard.selectedRegionID, let region = session.editingDocument.region(id) else {
                     return StyleColor.color(hex: CanvasRegionLimits.defaultFill.hexRGB)
                 }
                 return StyleColor.color(hex: region.fill.hexRGB)
@@ -1176,7 +1262,7 @@ struct DocumentEditor: View {
                 guard let id = session.keyboard.selectedRegionID, let parsed = BranchColor(hex: StyleColor.hex(color)) else {
                     return
                 }
-                _ = session.document.setRegionFill(id, parsed)
+                session.editActive { document in _ = document.setRegionFill(id, parsed) }
             }
         )
     }
@@ -1184,7 +1270,7 @@ struct DocumentEditor: View {
     private var regionBorder: Binding<Color> {
         Binding(
             get: {
-                guard let id = session.keyboard.selectedRegionID, let region = session.document.region(id) else {
+                guard let id = session.keyboard.selectedRegionID, let region = session.editingDocument.region(id) else {
                     return StyleColor.color(hex: CanvasRegionLimits.defaultBorder.hexRGB)
                 }
                 return StyleColor.color(hex: region.border.hexRGB)
@@ -1193,17 +1279,21 @@ struct DocumentEditor: View {
                 guard let id = session.keyboard.selectedRegionID, let parsed = BranchColor(hex: StyleColor.hex(color)) else {
                     return
                 }
-                _ = session.document.setRegionBorder(id, parsed)
+                session.editActive { document in _ = document.setRegionBorder(id, parsed) }
             }
         )
     }
 
     private func commitMarkText() {
-        InspectorMarkField.commit(document: &session.document, keyboard: &session.keyboard)
+        session.editActive { document in
+            InspectorMarkField.commit(document: &document, keyboard: &session.keyboard)
+        }
     }
 
     private func commitRelationshipTitle() {
-        InspectorMarkField.commit(document: &session.document, keyboard: &session.keyboard)
+        session.editActive { document in
+            InspectorMarkField.commit(document: &document, keyboard: &session.keyboard)
+        }
     }
 
     private var insertDialogPresented: Binding<Bool> {
@@ -1411,7 +1501,7 @@ struct DocumentEditor: View {
             exportError = "先把导图存成文件。"
             return
         }
-        let nodeID = session.keyboard.selectedNodeID ?? session.document.roots.first?.id
+        let nodeID = session.keyboard.selectedNodeID ?? session.editingDocument.roots.first?.id
         guard let nodeID else {
             source.stopAccessingSecurityScopedResource()
             if ownsCopy { try? FileManager.default.removeItem(at: source) }
@@ -1486,6 +1576,7 @@ struct DocumentEditor: View {
     }
 
     private func export(_ kind: String) {
+        session.prepareToSave()
         let title = session.document.title.isEmpty ? "Floretta" : session.document.title
         let type = FlorettaFileTypes.contentType(forExport: kind)
         do {
@@ -1625,7 +1716,7 @@ struct DocumentEditor: View {
             session.selectCurrent()
         case "拷贝样式":
             if let id = session.keyboard.selectedNodeID,
-               let style = session.document.node(id)?.style {
+               let style = session.editingDocument.node(id)?.style {
                 writePasteboard(style.fillHex ?? style.colorHex)
             }
         default:
@@ -2326,7 +2417,7 @@ private struct TagFilterSheet: View {
 
     private var selectedNode: MindMapNode? {
         guard let id = session.keyboard.selectedNodeID else { return nil }
-        return session.document.node(id)
+        return session.editingDocument.node(id)
     }
 
     private var queryTrims: String {
@@ -2334,11 +2425,11 @@ private struct TagFilterSheet: View {
     }
 
     private var filteredLabels: [String] {
-        TopicTagIndex.labels(in: session.document).filter { TopicTagIndex.contains(query, in: $0) }
+        TopicTagIndex.labels(in: session.editingDocument).filter { TopicTagIndex.contains(query, in: $0) }
     }
 
     private var filteredMarkers: [String] {
-        TopicTagIndex.markerIDs(in: session.document).filter { markerId in
+        TopicTagIndex.markerIDs(in: session.editingDocument).filter { markerId in
             TopicTagIndex.contains(query, in: title(markerId))
         }
     }

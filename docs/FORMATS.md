@@ -152,7 +152,7 @@ AI 路径定位见 **[FORMAT-FOR-AI.md](./FORMAT-FOR-AI.md)**。
 
 ZIP 内的 `content.json` 可以导入再导出。字段对照表在 **[XMIND-FIELDS.md](./XMIND-FIELDS.md)**。样本在 `Tests/FlorettaCoreTests/Fixtures/XMind/`。
 
-第一张画布落在文档的 `title` / `roots` / `freeNodes` / `relationships`。后面的画布落在 `additionalCanvases`。编辑器仍只改第一张；导出时其余画布按导入时的样子写回。
+第一张画布落在文档的 `title` / `roots` / `freeNodes` / `relationships` / `stickies`。后面的画布落在 `additionalCanvases`。`activeCanvasIndex` 是当前页签，缺省 0，不写进 JSON。每张画布有自己的缩放和平移（第一张是 `primaryCanvasViewport`，其余在画布的 `viewport`）；100% 且没有平移时省略。编辑器改当前这张。`.xmind` 导出仍写每一张。Markdown、OPML、FreeMind、TextBundle、PNG、PDF 各只写当前画布，不改原生文档里的其余画布。
 
 自由节点仍是根主题的 `children.detached`，并带 `position`。嵌套的 detached 不进树，留在 pass-through 里。关系在画布的 `relationships`（`end1Id` = source，`end2Id` = target）。画布上先不画线。
 
@@ -162,7 +162,7 @@ ZIP 内的 `content.json` 可以导入再导出。字段对照表在 **[XMIND-FI
 
 主题 id 不是 UUID 时，模型里用稳定派生的 UUID，导出写回原来的字符串。只有 `content.xml`、没有 `content.json` 的文件直接失败。便签和专区不是主题，不写进 `.xmind`。
 
-从 Floretta 新建、没有 `xmindForeign` 的文档，导出仍是一张画布。多个根时用文档标题包一层。没有根时同样包一层，避免自由节点被塞进树。
+从 Floretta 新建、没有 `xmindForeign` 的文档，每一张画布各写成一个 sheet。只有一张时和以前一样。多个根时用该画布标题包一层。没有根时同样包一层，避免自由节点被塞进树。
 
 ## TextBundle 导出
 
@@ -174,7 +174,7 @@ ZIP 内的 `content.json` 可以导入再导出。字段对照表在 **[XMIND-FI
 
 ## PNG / PDF 本批
 
-用系统 `ImageRenderer` 把当前导图画成图。PDF 走 `renderer.render { size, draw in }`，把 SwiftUI 画进 PDF 页。没有自写光栅器，也没有第三方导出库。
+用系统 `ImageRenderer` 把当前画布画成图。多张画布时 PNG 和 PDF 只画 `activeCanvasIndex` 那一张，其余仍留在 `.floretta`。PDF 走 `renderer.render { size, draw in }`，把 SwiftUI 画进 PDF 页。没有自写光栅器，也没有第三方导出库。
 
 画面是节点、连线、专区和（用户打开开关时）便签。专区画在节点下面。不含工具栏、侧栏大纲、点阵、选中蓝框和缩放手柄。范围是这些内容的外接矩形再加固定留白（默认 32pt）。便签默认画进 PNG 和 PDF；设置里的「导出包含便签」可以关掉，关掉后便签仍留在 `.floretta`。专区没有单独开关。
 

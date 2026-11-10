@@ -44,6 +44,7 @@ public enum FlorettaMarkdown {
     public static let maxNodes = 100_000
 
     public static func export(_ document: MindMapDocument) -> String {
+        let document = document.singleTreeExport()
         var lines: [String] = []
         func walk(_ nodes: [MindMapNode], depth: Int) {
             for node in nodes {

@@ -183,6 +183,7 @@
 		C4A100000000000000000001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A100000000000000000001 /* main.swift */; };
 		C4A100000000000000000002 /* FlorettaCore in Frameworks */ = {isa = PBXBuildFile; productRef = D4A100000000000000000001 /* FlorettaCore */; };
 		C4A200000000000000000001 /* AIAdaptationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A200000000000000000001 /* AIAdaptationTests.swift */; };
+		C4B100000000000000000001 /* CanvasSheetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4B100000000000000000001 /* CanvasSheetTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -287,6 +288,7 @@
 		F4A100000000000000000001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = main.swift; path = FlorettaCLI/main.swift; sourceTree = SOURCE_ROOT; };
 		F4A100000000000000000002 /* floretta */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = floretta; sourceTree = BUILT_PRODUCTS_DIR; };
 		F4A200000000000000000001 /* AIAdaptationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AIAdaptationTests.swift; path = Tests/FlorettaCoreTests/AIAdaptationTests.swift; sourceTree = SOURCE_ROOT; };
+		F4B100000000000000000001 /* CanvasSheetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CanvasSheetTests.swift; path = Tests/FlorettaCoreTests/CanvasSheetTests.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -377,6 +379,7 @@
 				A10000000000000000000003 /* Floretta */,
 				F4A100000000000000000001 /* main.swift */,
 				F4A200000000000000000001 /* AIAdaptationTests.swift */,
+				F4B100000000000000000001 /* CanvasSheetTests.swift */,
 				F1000000000000000000000C /* MindMapDocumentTests.swift */,
 			F50000000000000000000004 /* ContainerTests.swift */,
 			F50000000000000000000005 /* StreamingTests.swift */,
@@ -1160,6 +1163,7 @@
 				C31000000000000000000014 /* ShareCatalogStore.swift in Sources */,
 				C31000000000000000000011 /* ShareIngressTests.swift in Sources */,
 				C4A200000000000000000001 /* AIAdaptationTests.swift in Sources */,
+				C4B100000000000000000001 /* CanvasSheetTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

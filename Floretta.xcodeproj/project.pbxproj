@@ -1728,7 +1728,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = net.timhuang.floretta.quicklook.thumbnail;
+				PRODUCT_BUNDLE_IDENTIFIER = net.timhuang.floretta.qlthumbnail;
 				PRODUCT_MODULE_NAME = FlorettaQuickLookThumbnail;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -1760,7 +1760,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = net.timhuang.floretta.quicklook.thumbnail;
+				PRODUCT_BUNDLE_IDENTIFIER = net.timhuang.floretta.qlthumbnail;
 				PRODUCT_MODULE_NAME = FlorettaQuickLookThumbnail;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -1793,7 +1793,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = net.timhuang.floretta.quicklook.preview;
+				PRODUCT_BUNDLE_IDENTIFIER = net.timhuang.floretta.qlpreview;
 				PRODUCT_MODULE_NAME = FlorettaQuickLookPreview;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -1825,7 +1825,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = net.timhuang.floretta.quicklook.preview;
+				PRODUCT_BUNDLE_IDENTIFIER = net.timhuang.floretta.qlpreview;
 				PRODUCT_MODULE_NAME = FlorettaQuickLookPreview;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;

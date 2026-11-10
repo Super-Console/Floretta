@@ -57,62 +57,68 @@ struct InfiniteCanvas: View {
 
     var body: some View {
         GeometryReader { geo in
-            ZStack {
-                paperLayer
-                    .contentShape(Rectangle())
-                    .accessibilityIdentifier("editor.canvas")
-                TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !petal.isPlaying)) { timeline in
-                    Canvas { context, size in
-                        draw(
-                            in: context,
-                            size: size,
-                            at: timeline.date.timeIntervalSinceReferenceDate
-                        )
+            observeCanvas(canvasSurface(size: geo.size), size: geo.size)
+        }
+        .focusEffectDisabled(true)
+    }
+
+    private func canvasSurface(size: CGSize) -> some View {
+        ZStack {
+            paperLayer
+                .contentShape(Rectangle())
+                .accessibilityIdentifier("editor.canvas")
+            TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !petal.isPlaying)) { timeline in
+                Canvas { context, size in
+                    draw(in: context, size: size, at: timeline.date.timeIntervalSinceReferenceDate)
+                }
+                .allowsHitTesting(false)
+                .onChange(of: timeline.date) { _, date in
+                    let time = date.timeIntervalSinceReferenceDate
+                    let extra = petal.layoutExtra(comparedTo: laidOut.layoutPassCount)
+                    if extra != petal.layoutPassesDuringPlayback {
+                        petal.noteLayoutExtra(extra)
                     }
-                    .allowsHitTesting(false)
-                    .onChange(of: timeline.date) { _, date in
-                        let time = date.timeIntervalSinceReferenceDate
-                        let extra = petal.layoutExtra(comparedTo: laidOut.layoutPassCount)
-                        if extra != petal.layoutPassesDuringPlayback {
-                            petal.noteLayoutExtra(extra)
-                        }
-                        if petal.playbackDidFinish(at: time) {
-                            petal.settle()
-                        }
+                    if petal.playbackDidFinish(at: time) {
+                        petal.settle()
                     }
                 }
             }
-            .gesture(dragGesture)
-            .simultaneousGesture(pinchGesture(in: geo.size))
-            .overlay {
-                CanvasScrollCatcher { delta, location, command in
-                    camera.viewport.applyScroll(delta: delta, around: location, command: command)
-                    camera.chrome.syncZoomPercent(toScale: camera.viewport.scale)
-                }
+        }
+        .gesture(dragGesture)
+        .simultaneousGesture(pinchGesture(in: size))
+        .overlay {
+            CanvasScrollCatcher { delta, location, command in
+                camera.viewport.applyScroll(delta: delta, around: location, command: command)
+                camera.chrome.syncZoomPercent(toScale: camera.viewport.scale)
             }
-            .overlay { if !zenActive { hoverAddButtons } }
-            .overlay { editField }
-            .overlay { nodeChromeProbe }
-            .overlay { stickyChrome }
-            .overlay { stickyEditor }
-            .overlay { regionToolbar }
-            .overlay { regionEditor }
-            .overlay { relationshipEditor }
-            .overlay { summaryEditor }
-            .overlay { boundaryEditor }
-            .overlay { audioPlaybackOverlay }
-            .canvasHover { location in
-                guard let location else {
-                    interaction.hoveredNodeID = nil
-                    return
-                }
-                let point = camera.viewport.canvasPoint(fromView: location)
-                interaction.hoveredNodeID = CanvasPlacement.nodeID(at: point, in: layoutSource())
+        }
+        .overlay { if !zenActive { hoverAddButtons } }
+        .overlay { editField }
+        .overlay { nodeChromeProbe }
+        .overlay { stickyChrome }
+        .overlay { stickyEditor }
+        .overlay { regionToolbar }
+        .overlay { regionEditor }
+        .overlay { relationshipEditor }
+        .overlay { summaryEditor }
+        .overlay { boundaryEditor }
+        .overlay { audioPlaybackOverlay }
+        .canvasHover { location in
+            guard let location else {
+                interaction.hoveredNodeID = nil
+                return
             }
-            .focusable(keyboard.mode == .command)
-            .focusEffectDisabled(true)
-            .background { CanvasFocusRingSuppressor() }
-            .focused($canvasFocused)
+            let point = camera.viewport.canvasPoint(fromView: location)
+            interaction.hoveredNodeID = CanvasPlacement.nodeID(at: point, in: layoutSource())
+        }
+        .focusable(keyboard.mode == .command)
+        .focusEffectDisabled(true)
+        .background { CanvasFocusRingSuppressor() }
+        .focused($canvasFocused)
+    }
+
+    private func observeCanvas<V: View>(_ view: V, size: CGSize) -> some View {
+        view
             .onKeyPress { press in
                 if press.key == .escape, !keyboard.isComposing, onEscape() {
                     return .handled
@@ -128,15 +134,15 @@ struct InfiniteCanvas: View {
                     keyboard.selectedNodeID = document.roots.first?.id
                     interaction.selectedNodeID = keyboard.selectedNodeID
                 }
-                camera.viewSize = geo.size
+                camera.viewSize = size
                 publishBounds()
                 camera.chrome.syncZoomPercent(toScale: camera.viewport.scale)
                 refreshThumbnails()
                 openPetalMap()
                 canvasFocused = true
             }
-            .onChange(of: geo.size) { _, size in
-                camera.viewSize = size
+            .onChange(of: size) { _, newSize in
+                camera.viewSize = newSize
                 refreshThumbnails()
             }
             .onChange(of: document) { _, newDocument in
@@ -184,8 +190,6 @@ struct InfiniteCanvas: View {
             }
             .simultaneousGesture(canvasTapGesture)
             .simultaneousGesture(canvasDoubleTapGesture)
-        }
-        .focusEffectDisabled(true)
     }
 
     private var canvasTapGesture: some Gesture {

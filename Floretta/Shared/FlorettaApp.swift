@@ -55,6 +55,7 @@ struct FlorettaApp: App {
 private struct FlorettaCommands: Commands {
     @Bindable var settings: AppSettings
     @Bindable var library: LibraryModel
+    @FocusedValue(\.florettaEditorCommands) private var editorCommands
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
@@ -71,6 +72,97 @@ private struct FlorettaCommands: Commands {
             .disabled(!library.canSaveActiveFile)
         }
         #if os(macOS)
+        if let editorCommands {
+            CommandGroup(after: .textEditing) {
+                editorCommand(.find, actions: editorCommands)
+            }
+        }
+        SidebarCommands()
+        if let editorCommands {
+            CommandMenu("插入") {
+                ForEach([EditorToolbarCommandID.child, .sibling, .freeNode, .sticky, .image, .attachment, .summary, .boundary, .region], id: \.self) { id in
+                    editorCommand(id, actions: editorCommands)
+                }
+                Menu {
+                    ForEach(Array(editorCommands.linkTargets.enumerated()), id: \.offset) { _, target in
+                        Button {
+                            target.action()
+                        } label: {
+                            Label(target.title, systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                        }
+                    }
+                    if editorCommands.linkTargets.isEmpty {
+                        Button("没有其他节点") {}.disabled(true)
+                    }
+                } label: {
+                    Label("关系线", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                }
+                .disabled(!editorCommands.hasSelectedTopic)
+            }
+            CommandMenu("视图") {
+                ForEach([EditorToolbarCommandID.fit, .outline, .mapMode, .focusMode, .immersive, .style], id: \.self) { id in
+                    editorCommand(id, actions: editorCommands)
+                }
+                Divider()
+                Button("放大") { editorCommands.zoomIn?() }.keyboardShortcut("+", modifiers: .command).disabled(editorCommands.zoomIn == nil)
+                Button("缩小") { editorCommands.zoomOut?() }.keyboardShortcut("-", modifiers: .command).disabled(editorCommands.zoomOut == nil)
+                Button("实际大小") { editorCommands.zoomActual?() }.keyboardShortcut("=", modifiers: .command).disabled(editorCommands.zoomActual == nil)
+            }
+            CommandMenu("格式") {
+                editorCommand(.theme, actions: editorCommands)
+                Menu {
+                    ForEach(InspectorFontDesign.allCases) { font in
+                        Button {
+                            editorCommands.setFont?(font)
+                        } label: {
+                            Label(FlorettaL10n.string(font.titleKey, language: settings.language), systemImage: "textformat")
+                        }
+                        .disabled(!editorCommands.hasEditableSelection)
+                    }
+                } label: {
+                    Label("字体", systemImage: "textformat")
+                }
+                Menu {
+                    ForEach([14.0, 18.0, 24.0, 32.0, 48.0], id: \.self) { size in
+                        Button("\(Int(size)) pt") { editorCommands.setFontSize?(size) }
+                            .disabled(!editorCommands.hasEditableSelection)
+                    }
+                } label: {
+                    Label("字号", systemImage: "textformat.size")
+                }
+                Button {
+                    editorCommands.toggleTextFlag?(.bold)
+                } label: {
+                    Label("加粗", systemImage: "bold")
+                }
+                .keyboardShortcut("b", modifiers: .command)
+                .disabled(!editorCommands.hasEditableSelection)
+                Button {
+                    editorCommands.toggleTextFlag?(.italic)
+                } label: {
+                    Label("斜体", systemImage: "italic")
+                }
+                .keyboardShortcut("i", modifiers: .command)
+                .disabled(!editorCommands.hasEditableSelection)
+            }
+            CommandMenu("导出") {
+                ForEach([EditorToolbarCommandID.png, .pdf, .markdownExport, .saveFloretta, .xmind], id: \.self) { id in
+                    editorCommand(id, actions: editorCommands)
+                }
+            }
+            CommandMenu("帮助") {
+                Button {
+                    editorCommands.showShortcutHelp?()
+                } label: {
+                    Label("快捷键一览", systemImage: "keyboard")
+                }
+                Button {
+                    editorCommands.perform[.about]?()
+                } label: {
+                    Label("关于 Floretta", systemImage: "info.circle")
+                }
+            }
+        }
         CommandGroup(before: .windowList) {
             OpenSameDocumentWindowButton(settings: settings, library: library)
         }
@@ -83,7 +175,58 @@ private struct FlorettaCommands: Commands {
         }
         #endif
     }
+
+    #if os(macOS)
+    @ViewBuilder
+    private func editorCommand(_ id: EditorToolbarCommandID, actions: FlorettaEditorMenuActions) -> some View {
+        let command = EditorToolbarCatalog.command(id)
+        let item = Button {
+            actions.perform[id]?()
+        } label: {
+            Label(command.title, systemImage: command.symbol)
+        }
+        .disabled(!actions.enabled.contains(id) || actions.perform[id] == nil)
+        if let shortcut = actions.shortcuts[id] {
+            item.keyboardShortcut(shortcut)
+        } else {
+            item
+        }
+    }
+    #endif
 }
+
+#if os(macOS)
+struct FlorettaEditorMenuActions {
+    struct LinkTarget {
+        var title: String
+        var action: () -> Void
+    }
+    var perform: [EditorToolbarCommandID: () -> Void]
+    var enabled: Set<EditorToolbarCommandID>
+    var shortcuts: [EditorToolbarCommandID: KeyboardShortcut] = [:]
+    var hasSelectedTopic = false
+    var hasEditableSelection = false
+    var linkTargets: [LinkTarget] = []
+    var setFont: ((InspectorFontDesign) -> Void)?
+    var setFontSize: ((Double) -> Void)?
+    var toggleTextFlag: ((InspectorTextFlag) -> Void)?
+    var showShortcutHelp: (() -> Void)?
+    var zoomIn: (() -> Void)?
+    var zoomOut: (() -> Void)?
+    var zoomActual: (() -> Void)?
+}
+
+private struct FlorettaEditorMenuActionsKey: FocusedValueKey {
+    typealias Value = FlorettaEditorMenuActions
+}
+
+extension FocusedValues {
+    var florettaEditorCommands: FlorettaEditorMenuActions? {
+        get { self[FlorettaEditorMenuActionsKey.self] }
+        set { self[FlorettaEditorMenuActionsKey.self] = newValue }
+    }
+}
+#endif
 
 #if os(macOS)
 private struct OpenSameDocumentWindowButton: View {

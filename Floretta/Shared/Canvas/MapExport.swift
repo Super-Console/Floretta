@@ -3,6 +3,11 @@ import CoreGraphics
 import ImageIO
 import SwiftUI
 import UniformTypeIdentifiers
+#if os(macOS)
+import AppKit
+#elseif os(iOS)
+import UIKit
+#endif
 
 enum MapExportScale: CGFloat, Equatable, Sendable {
     /// 1 render pixel per logical point. No extra scale coefficient.
@@ -589,3 +594,92 @@ enum ImageExportLoader {
         return nil
     }
 }
+
+/// The hierarchy curve already stored on the frame.
+/// A taper fills the outline of that cubic. A constant width strokes it.
+enum ThemeCurvePath {
+    static func make(link: LinkCurve, straight: Bool, map: (CGPoint) -> CGPoint) -> (path: Path, tapered: Bool) {
+        if !straight, link.isTapered {
+            let placed = LinkCurve(
+                start: map(link.start),
+                control1: map(link.control1),
+                control2: map(link.control2),
+                end: map(link.end),
+                lineWidth: link.lineWidth,
+                endWidth: link.endWidth,
+                color: link.color
+            )
+            var path = Path()
+            let outline = placed.taperedOutline()
+            guard let first = outline.first else { return (path, true) }
+            path.move(to: first)
+            for point in outline.dropFirst() {
+                path.addLine(to: point)
+            }
+            path.closeSubpath()
+            return (path, true)
+        }
+        var path = Path()
+        path.move(to: map(link.start))
+        if straight {
+            path.addLine(to: map(link.end))
+        } else {
+            path.addCurve(
+                to: map(link.end),
+                control1: map(link.control1),
+                control2: map(link.control2)
+            )
+        }
+        return (path, false)
+    }
+}
+
+/// Root serif is New York through the system serif design. Georgia is the named face
+/// when that design cannot be built. Every other design stays on the system font.
+enum FlorettaTitleFont {
+    static func font(design: String, size: CGFloat) -> Font {
+        switch design {
+        case "serif":
+            return serif(size: size)
+        case "rounded":
+            return .system(size: size, design: .rounded)
+        case "monospaced":
+            return .system(size: size, design: .monospaced)
+        default:
+            return .system(size: size, design: .default)
+        }
+    }
+
+    private static func serif(size: CGFloat) -> Font {
+        let point = max(size, 1)
+        #if os(macOS)
+        if let font = newYork(size: point, base: NSFont.systemFont(ofSize: point)) {
+            return Font(font)
+        }
+        if let georgia = NSFont(name: "Georgia", size: point) {
+            return Font(georgia)
+        }
+        #else
+        if let font = newYork(size: point, base: UIFont.systemFont(ofSize: point)) {
+            return Font(font)
+        }
+        if let georgia = UIFont(name: "Georgia", size: point) {
+            return Font(georgia)
+        }
+        #endif
+        return .system(size: point, design: .serif)
+    }
+
+    #if os(macOS)
+    private static func newYork(size: CGFloat, base: NSFont) -> NSFont? {
+        guard let descriptor = base.fontDescriptor.withDesign(.serif) else { return nil }
+        return NSFont(descriptor: descriptor, size: size)
+    }
+    #else
+    private static func newYork(size: CGFloat, base: UIFont) -> UIFont? {
+        guard let descriptor = base.fontDescriptor.withDesign(.serif) else { return nil }
+        return UIFont(descriptor: descriptor, size: size)
+    }
+    #endif
+}
+

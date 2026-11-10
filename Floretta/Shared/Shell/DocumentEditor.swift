@@ -27,7 +27,7 @@ struct DocumentEditor: View {
     @State private var exportError: String?
     @State private var showOutline = false
     @State private var outlineWide = false
-    @State private var showInspector = AppLaunch.opensInspector
+    @State private var showInspector = false
     @State private var showRename = false
     @State private var renameText = ""
     @State private var showFind = false
@@ -75,6 +75,7 @@ struct DocumentEditor: View {
                 inspectorBody
                     .inspectorColumnWidth(min: 280, ideal: 320, max: 440)
             }
+            .onAppear(perform: openInspectorForUITest)
             .toolbar {
                 if session.zen.chrome.showsToolbar {
                     ToolbarItem(placement: .cancellationAction) {
@@ -717,6 +718,17 @@ struct DocumentEditor: View {
             get: { showInspector && !session.zen.isActive },
             set: { showInspector = $0 }
         )
+    }
+
+    /// Compact width shows `.inspector` as a sheet. That sheet does not present
+    /// when the binding is already true on the editor's first appearance, which
+    /// is how a new map arrives. Flip it after this turn so the sheet runs.
+    private func openInspectorForUITest() {
+        guard AppLaunch.opensInspector, !showInspector else { return }
+        Task { @MainActor in
+            await Task.yield()
+            showInspector = true
+        }
     }
 
     private var inspectorBody: some View {

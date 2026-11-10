@@ -64,7 +64,7 @@
 - [~] D2 pass-through（读不懂的字段原样保留，未改动则原样写回）
 - [~] D3 fixture 往返测试集（简单/多层/带样式/带关系线/带附件/多画布六类）
 - [~] D4 OPML / FreeMind / Markdown 保真度对齐
-- [~] D5 Markdown 一等文档：可直接打开编辑保存，纯结构投影（不含附件/颜色/关系线），顶部标注「Markdown 模式」，可一键升级为 `.floretta`，AI 用路径定位（root/3/1）（S2 UI 在本 PR，未合并未验；路径 API 仍是 S3）
+- [~] D5 Markdown 一等文档：可直接打开编辑保存，纯结构投影（不含附件/颜色/关系线），顶部标注「Markdown 模式」，可一键升级为 `.floretta`，AI 用路径定位（root/3/1）（S2 UI 为 PR #62，未合并未验；路径 API 仍是 S3）
 - [ ] D6 导出 TextBundle（带附件，便于带走）
 
 ## E. AI 适配

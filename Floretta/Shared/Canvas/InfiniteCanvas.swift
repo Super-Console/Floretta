@@ -27,6 +27,8 @@ struct InfiniteCanvas: View {
     var attachmentEntries: [ZipStoredEntry] = []
     var onPreviewFile: (UUID, FileBadge) -> Void = { _, _ in }
     var tagFilter: TopicTagFilter = TopicTagFilter()
+    /// Markdown documents do not store free positions. Blank double-tap and root drag stay off.
+    var persistsPlacement: Bool = true
     var dictationToken: Int = 0
     var dictationReplacesPlaceholder: Bool = false
     @State private var compositionWidth: CGFloat = 0
@@ -195,6 +197,7 @@ struct InfiniteCanvas: View {
                 if keyboard.mode == .edit {
                     keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
                 }
+                guard persistsPlacement else { return }
                 let placed = MindMapPoint(x: Double(point.x), y: Double(point.y))
                 if let id = keyboard.addFreeNode(at: placed, document: &document) {
                     keyboard.selectedNodeID = id
@@ -765,11 +768,12 @@ struct InfiniteCanvas: View {
                         && stickyHit(at: start) == keyboard.selectedStickyID
                     if stickyChromeContains(value.startLocation) || onEditedSticky {
                         ignoreDrag = true
-                    } else if keyboard.mode != .edit, let claim = beginStickyDrag(at: start) {
+                    } else if persistsPlacement, keyboard.mode != .edit, let claim = beginStickyDrag(at: start) {
                         stickyDrag = claim
-                    } else if let id = CanvasPlacement.draggableID(at: start, in: layoutSource()),
-                       document.parentID(of: id) == nil,
-                       let frame = placedFrames().first(where: { $0.id == id })?.frame {
+                    } else if persistsPlacement,
+                              let id = CanvasPlacement.draggableID(at: start, in: layoutSource()),
+                              document.parentID(of: id) == nil,
+                              let frame = placedFrames().first(where: { $0.id == id })?.frame {
                         drag = RootDrag(
                             id: id,
                             grabX: start.x - frame.minX,

@@ -31,6 +31,8 @@ enum SharePayload {
         case "floretta":
             return try ZipContainer().write(FlorettaPackage(document: document))
         case "md":
+            // Heading-depth 「导出为…」 preset. A `.md` document open/save uses
+            // `FlorettaMarkdownDocumentCodec`, not this export.
             return Data(FlorettaMarkdown.export(document).utf8)
         case "opml":
             return try FlorettaOPMLCodec.export(document)
@@ -106,24 +108,60 @@ enum DocumentOpenError: Error, Equatable, LocalizedError {
     }
 }
 
+struct DocumentOpenPayload: Equatable, Sendable {
+    var document: MindMapDocument
+    var markdownWarnings: [FlorettaMarkdownDocumentWarning]
+    /// True only when `FlorettaMarkdownDocumentCodec` opened the bytes.
+    /// A `.md` name whose bytes are OPML or FreeMind stays on that format.
+    var openedAsMarkdown: Bool
+}
+
 enum DocumentOpener {
     /// Bytes win over the filename. The open panel can label a FreeMind or OPML
     /// file as Markdown because `.mm` is also plain text on macOS.
     static func open(data: Data, filename: String) throws -> MindMapDocument {
+        try openPayload(data: data, filename: filename).document
+    }
+
+    /// `.md` / `.markdown` opens through `FlorettaMarkdownDocumentCodec`.
+    /// Failures keep the codec's `errorDescription`, including its line number.
+    /// The heading-depth preset stays on `FlorettaMarkdown.importOutline`.
+    static func openPayload(data: Data, filename: String) throws -> DocumentOpenPayload {
         let ext = (filename as NSString).pathExtension.lowercased()
         let format = sniffedFormat(data) ?? format(forExtension: ext)
         do {
             switch format {
             case .floretta:
-                return try FlorettaDocumentFile.read(data: data).package.document
+                return DocumentOpenPayload(
+                    document: try FlorettaDocumentFile.read(data: data).package.document,
+                    markdownWarnings: [],
+                    openedAsMarkdown: false
+                )
             case .mm:
-                return try FlorettaMMCodec.importMap(data)
+                return DocumentOpenPayload(
+                    document: try FlorettaMMCodec.importMap(data),
+                    markdownWarnings: [],
+                    openedAsMarkdown: false
+                )
             case .opml:
-                return try FlorettaOPMLCodec.importOutline(data)
+                return DocumentOpenPayload(
+                    document: try FlorettaOPMLCodec.importOutline(data),
+                    markdownWarnings: [],
+                    openedAsMarkdown: false
+                )
             case .markdown:
-                return try FlorettaMarkdown.importOutline(data)
+                let opened = try FlorettaMarkdownDocumentCodec.open(data)
+                return DocumentOpenPayload(
+                    document: opened.document,
+                    markdownWarnings: opened.warnings,
+                    openedAsMarkdown: true
+                )
             case .xmind:
-                return try FlorettaXMindCodec.importMap(data)
+                return DocumentOpenPayload(
+                    document: try FlorettaXMindCodec.importMap(data),
+                    markdownWarnings: [],
+                    openedAsMarkdown: false
+                )
             case nil:
                 throw DocumentOpenError.unsupported(ext.isEmpty ? filename : ext)
             }
@@ -274,6 +312,14 @@ final class EditorSession {
     var zenEnteredFullScreen = false
     var attachmentCatalog = ZipDirectory(entries: [])
     var archiveByteCount: Int64 = 0
+    /// Set from the open result. A `.md` filename is not enough: sniffed OPML or FreeMind is not Markdown mode.
+    private(set) var markdownDocument: Bool
+    private var savedProjection: MarkdownPersistableProjection?
+    private var autosaveProjection: MarkdownPersistableProjection?
+    private var warningPresentation = MarkdownWarningPresentation()
+    private(set) var markdownWarningText: String?
+    private(set) var markdownWarningDismissed = false
+    var blockedNotice: String?
     /// Document at the last load or save. Used to tell a share on disk from an unsaved edit.
     var shareBase: MindMapDocument
     /// Bumps when the insert menu asks the focused field to start system dictation.
@@ -285,15 +331,81 @@ final class EditorSession {
         document: MindMapDocument,
         url: URL?,
         sourceExtension: String,
-        viewMode: DocumentViewMode
+        viewMode: DocumentViewMode,
+        markdownDocument: Bool? = nil
     ) {
         self.document = document
         self.url = url
         self.sourceExtension = sourceExtension
         self.viewMode = viewMode
+        let markdown = markdownDocument ?? MarkdownModePolicy.isDocumentExtension(sourceExtension)
+        self.markdownDocument = markdown
         self.shareBase = document
         focusNodeID = document.roots.first?.id
         keyboard.selectedNodeID = document.roots.first?.id
+        if markdown {
+            let projection = MarkdownPersistableProjection(document)
+            savedProjection = projection
+            autosaveProjection = projection
+        }
+    }
+
+    var isMarkdownDocument: Bool { markdownDocument }
+
+    /// The mode strip is visible for the whole time this session is a `.md` file.
+    var markdownBannerVisible: Bool { isMarkdownDocument }
+
+    var visibleMarkdownWarning: String? {
+        guard isMarkdownDocument, !markdownWarningDismissed else { return nil }
+        return markdownWarningText
+    }
+
+    var isMarkdownDirty: Bool {
+        guard isMarkdownDocument, let savedProjection else { return false }
+        return MarkdownPersistableProjection(document) != savedProjection
+    }
+
+    var acceptsAttachmentDrop: Bool { !isMarkdownDocument }
+
+    func installMarkdownWarnings(_ warnings: [FlorettaMarkdownDocumentWarning]) {
+        guard isMarkdownDocument else {
+            markdownWarningText = nil
+            return
+        }
+        markdownWarningText = warningPresentation.present(MarkdownModePolicy.notice(for: warnings))
+        markdownWarningDismissed = markdownWarningText == nil
+    }
+
+    func dismissMarkdownWarning() {
+        markdownWarningDismissed = true
+    }
+
+    func revealBlocked(_ reason: String) {
+        blockedNotice = reason
+    }
+
+    func dismissBlockedNotice() {
+        blockedNotice = nil
+    }
+
+    /// Crash recovery only notes a Markdown edit when the file's fields changed.
+    func consumeAutosaveEdit(_ document: MindMapDocument) -> Bool {
+        guard isMarkdownDocument else { return true }
+        let next = MarkdownPersistableProjection(document)
+        if next == autosaveProjection { return false }
+        autosaveProjection = next
+        return true
+    }
+
+    func markMarkdownSaved() {
+        let projection = MarkdownPersistableProjection(document)
+        savedProjection = projection
+        autosaveProjection = projection
+    }
+
+    /// The session is now a `.floretta` file. The mode strip goes away.
+    func leaveMarkdownMode() {
+        markdownDocument = false
     }
 
     func notePackage(catalog: ZipDirectory, bytes: Int64) {
@@ -331,6 +443,7 @@ final class EditorSession {
 
     @discardableResult
     func updateSelectedTopicTags(_ body: (inout MindMapNode) -> Void) -> Bool {
+        guard !isMarkdownDocument else { return false }
         if keyboard.mode == .edit {
             keyboard.apply(.commitEdit, document: &document, frames: [])
         }
@@ -382,6 +495,7 @@ final class EditorSession {
     }
 
     func addFreeNodeFromToolbar() {
+        guard !isMarkdownDocument else { return }
         finishEditingIfNeeded()
         guard keyboard.mode == .command, !keyboard.isComposing else { return }
         let index = document.freeNodes.count
@@ -390,6 +504,7 @@ final class EditorSession {
     }
 
     func addStickyFromToolbar() {
+        guard !isMarkdownDocument else { return }
         finishEditingIfNeeded()
         guard keyboard.mode == .command, !keyboard.isComposing else { return }
         let index = document.stickies.count
@@ -398,18 +513,21 @@ final class EditorSession {
     }
 
     func linkSelectedTopic(to targetID: UUID) {
+        guard !isMarkdownDocument else { return }
         finishEditingIfNeeded()
         guard keyboard.mode == .command, !keyboard.isComposing else { return }
         _ = keyboard.linkSelectedTopic(to: targetID, document: &document)
     }
 
     func addSummaryFromToolbar() {
+        guard !isMarkdownDocument else { return }
         finishEditingIfNeeded()
         guard keyboard.mode == .command, !keyboard.isComposing else { return }
         _ = keyboard.addSummaryForSelection(document: &document)
     }
 
     func addBoundaryFromToolbar() {
+        guard !isMarkdownDocument else { return }
         finishEditingIfNeeded()
         guard keyboard.mode == .command, !keyboard.isComposing else { return }
         _ = keyboard.addBoundaryForSelection(document: &document)
@@ -462,6 +580,7 @@ final class EditorSession {
     }
 
     func setBranchTheme(_ id: String) {
+        guard !isMarkdownDocument else { return }
         finishEditingIfNeeded()
         guard keyboard.mode == .command, !keyboard.isComposing else { return }
         _ = keyboard.setBranchTheme(id, document: &document)
@@ -489,6 +608,12 @@ final class LibraryModel {
     var showImporter = false
     var alertTitle = "无法打开"
     var openError: String?
+
+    var canSaveActiveFile: Bool {
+        guard let editor else { return false }
+        if editor.isMarkdownDocument { return editor.url != nil }
+        return editor.sourceExtension == "floretta" || editor.url == nil
+    }
     var inventoryError: AssetInventoryError?
     var tab: ShellTab = .home
     var showInterruptedSave = false
@@ -669,17 +794,18 @@ final class LibraryModel {
     }
 
     /// Closes the canvas and returns to the library.
-    /// True when a `.floretta` file was written, so the caller can drop the crash copy.
+    /// True when a `.floretta` or the open `.md` was written, so the caller can drop the crash copy.
     /// A failed write leaves the editor open so the in-memory map is not discarded.
     /// A plain-JSON `.floretta` is not overwritten; the ZIP goes to a new file in the documents folder.
+    /// A Markdown document is written back to the same URL.
     @discardableResult
     func closeEditor() -> Bool {
         guard let current = editor else { return false }
-        let shouldWrite = current.sourceExtension == "floretta" || current.url == nil
+        let shouldWrite = shouldWriteOnClose(current)
         if shouldWrite {
             current.prepareToSave()
             do {
-                try persistFloretta(current)
+                try persist(current)
             } catch {
                 inventoryError = nil
                 alertTitle = "无法保存"
@@ -721,23 +847,89 @@ final class LibraryModel {
             access.end()
             return
         }
-        let adopt = editor.url == nil || editor.sourceExtension != "floretta"
+        // A Markdown document stays open. Upgrade asks before switching; this
+        // share path must not close the `.md` or rewrite it.
+        let adopt = !editor.isMarkdownDocument && (editor.url == nil || editor.sourceExtension != "floretta")
         if adopt {
             scope?.end()
             scope = access
             editor.url = url
             editor.sourceExtension = "floretta"
+            editor.leaveMarkdownMode()
         } else {
             access.end()
         }
         dismissOpenError()
     }
 
-    /// False when the open `.floretta` could not be written. The editor stays.
+    /// ⌘S. A Markdown document is written back to its own URL. A `.floretta` uses the existing package write.
+    func saveActiveFile() {
+        guard let current = editor, canSaveActiveFile else { return }
+        current.prepareToSave()
+        do {
+            try persist(current)
+            dismissOpenError()
+        } catch {
+            inventoryError = nil
+            alertTitle = "无法保存"
+            openError = saveFailureMessage(error)
+        }
+    }
+
+    /// Remembers the Save-panel file. The default choice leaves the `.md` open and does not rewrite it.
+    func finishMarkdownUpgrade(savedAt url: URL, choice: MarkdownUpgradeChoice) {
+        guard let editor, editor.isMarkdownDocument else { return }
+        if let current = editor.url, MarkdownUpgrade.replacesOriginal(destination: url, original: current) {
+            inventoryError = nil
+            alertTitle = "无法保存"
+            openError = "不能覆盖原来的 Markdown 文件。"
+            return
+        }
+        do {
+            try store.remember(url)
+        } catch {
+            inventoryError = nil
+            alertTitle = "无法保存"
+            openError = saveFailureMessage(error)
+            return
+        }
+        reload()
+        switch choice {
+        case .keepMarkdown:
+            break
+        case .openFloretta:
+            openFile(url)
+        }
+    }
+
+    /// False when the open `.floretta` or `.md` could not be written. The editor stays.
     private func finishCurrentEditor() -> Bool {
         guard editor != nil else { return true }
         closeEditor()
         return editor == nil
+    }
+
+    private func shouldWriteOnClose(_ session: EditorSession) -> Bool {
+        if session.isMarkdownDocument { return session.url != nil }
+        return session.sourceExtension == "floretta" || session.url == nil
+    }
+
+    private func persist(_ session: EditorSession) throws {
+        if session.isMarkdownDocument {
+            try persistMarkdown(session)
+            return
+        }
+        try persistFloretta(session)
+    }
+
+    /// Canonical Markdown for this session, written to the file that was opened.
+    private func persistMarkdown(_ session: EditorSession) throws {
+        guard let url = session.url else {
+            throw DocumentOpenError.message("先把导图存成文件。")
+        }
+        let text = FlorettaMarkdownDocumentCodec.save(session.document)
+        try Data(text.utf8).write(to: url, options: .atomic)
+        session.markMarkdownSaved()
     }
 
     private func persistFloretta(_ session: EditorSession) throws {
@@ -915,13 +1107,15 @@ final class LibraryModel {
             return session
         }
         let data = try Data(contentsOf: url)
-        let document = try DocumentOpener.open(data: data, filename: url.lastPathComponent)
+        let payload = try DocumentOpener.openPayload(data: data, filename: url.lastPathComponent)
         let session = EditorSession(
-            document: document,
+            document: payload.document,
             url: url,
             sourceExtension: ext,
-            viewMode: settings.defaultView
+            viewMode: settings.defaultView,
+            markdownDocument: payload.openedAsMarkdown
         )
+        session.installMarkdownWarnings(payload.markdownWarnings)
         session.notePackage(catalog: ZipDirectory(entries: []), bytes: Int64(data.count))
         return session
     }

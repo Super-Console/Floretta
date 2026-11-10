@@ -270,14 +270,19 @@ final class ShellTests: XCTestCase {
           - 孙
         - 乙
         """
-        let opened = try DocumentOpener.open(data: Data(text.utf8), filename: "outline.md")
-        XCTAssertEqual(opened.title, "根")
-        XCTAssertEqual(opened.roots.map(\.text), ["根"])
-        XCTAssertEqual(opened.roots[0].children.map(\.text), ["甲", "乙"])
-        XCTAssertEqual(opened.roots[0].children[0].children.map(\.text), ["孙"])
-        XCTAssertFalse(opened.roots[0].isMarkdownSectionHeading)
-        XCTAssertNil(opened.markdownFrontMatter)
+        let outline = try FlorettaMarkdown.importOutline(Data(text.utf8))
+        XCTAssertEqual(outline.title, "根")
+        XCTAssertEqual(outline.roots.map(\.text), ["根"])
+        XCTAssertEqual(outline.roots[0].children.map(\.text), ["甲", "乙"])
+        XCTAssertEqual(outline.roots[0].children[0].children.map(\.text), ["孙"])
+        XCTAssertFalse(outline.roots[0].isMarkdownSectionHeading)
+        XCTAssertNil(outline.markdownFrontMatter)
+        let document = try DocumentOpener.open(data: Data(text.utf8), filename: "outline.md")
+        XCTAssertEqual(document.roots.map(\.text), ["根"])
+        XCTAssertEqual(document.roots[0].children.map(\.text), ["甲", "乙"])
+        XCTAssertTrue(document.roots[0].isMarkdownSectionHeading)
         XCTAssertThrowsError(try DocumentOpener.open(data: Data("这不是大纲".utf8), filename: "outline.markdown"))
+        XCTAssertThrowsError(try FlorettaMarkdown.importOutline(Data("这不是大纲".utf8)))
     }
 
     func testMapFilesAreNotImportedAsMarkdown() throws {
@@ -577,7 +582,17 @@ final class ShellTests: XCTestCase {
         let md = try SharePayload.bytes(for: "md", document: reopened)
         let mm = try SharePayload.bytes(for: "mm", document: reopened)
         let opml = try SharePayload.bytes(for: "opml", document: reopened)
-        let fromMD = try DocumentOpener.open(data: md, filename: "笔记.md")
+        let heading = try FlorettaMarkdown.importOutline(md)
+        XCTAssertEqual(heading.roots.first?.text, "中文")
+        XCTAssertEqual(heading.roots.first?.children.map(\.text), ["子节点", "同级"])
+        let headingText = try XCTUnwrap(String(data: md, encoding: .utf8))
+        XCTAssertTrue(headingText.contains("# "))
+        XCTAssertThrowsError(try DocumentOpener.open(data: md, filename: "笔记.md")) { error in
+            let message = (error as? LocalizedError)?.errorDescription ?? ""
+            XCTAssertTrue(message.contains("第"), message)
+        }
+        let documentMarkdown = Data(FlorettaMarkdownDocumentCodec.save(reopened).utf8)
+        let fromMD = try DocumentOpener.open(data: documentMarkdown, filename: "笔记.md")
         XCTAssertEqual(fromMD.roots.first?.text, "中文")
         XCTAssertEqual(fromMD.roots.first?.children.map(\.text), ["子节点", "同级"])
         let fromMM = try DocumentOpener.open(data: mm, filename: "notes.md")

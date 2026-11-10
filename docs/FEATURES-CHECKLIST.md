@@ -22,18 +22,18 @@
 - [x] A11 设备标签感知（我的 iPhone / iPad / Mac）
 - [x] A12 三端退出路径（iPad/iPhone 返回按钮 + 右滑手势）
 - [x] A13 Mac/iPad 共用外壳，按可用宽度自适应（宽→侧栏，窄→Tab）
-- [~] A14 Tab 栏恢复（首页 / 设置）
-- [~] A15 设置入口去重（工具栏齿轮 / 更多菜单 / ⌘, / 侧栏 四处收敛）
-- [~] A16 删除重复的侧栏按钮（原来两个一模一样的）
-- [~] A17 侧栏右缘异常竖向阴影修复
-- [~] A18 最近列表真实缩略图（当前是灰色占位）
-- [~] A19 新建面板真实预览（Mac 版）
-- [~] A20 返回键位置：移到文件名左侧、红绿灯右侧
-- [~] A21 文件名嵌套重复（窗口标题与工具栏各一个「未命名」）
-- [~] A22 macOS 菜单栏（文件/编辑/插入/格式/视图/导出/窗口/帮助，图标+文字+快捷键）
-- [~] A23 `docs/DESIGN-RULES.md`（唯一入口、退出可达、图标优先、禁止重复控件、禁止占位假数据）
+- [x] A14 Tab 栏恢复（首页 / 设置）（iOS `ContentView` 的 `TabView` 含首页/设置；`HomeSmokeTests.testHomeTitleSettingsNewMapAndRows` 点这两个页签。祖先 tip `1b900f4` 上该 UITest 为 1/0，此后该测试与 `ContentView` 未改）
+- [x] A15 设置入口去重（工具栏齿轮 / 更多菜单 / ⌘, / 侧栏 四处收敛）（首页工具栏无齿轮；`ShellTab.homeOverflowTitles` 为空；更多菜单无「设置」；⌘, 只在 `FlorettaCommands`。`ShellTests.testMenusAndTemplatesOmitDeadActions`）
+- [x] A16 删除重复的侧栏按钮（原来两个一模一样的）（侧栏没有无操作的「最近」行，也没有自绘 `sidebar.left`。`ShellTests.testCompactHomeShowsTheRecentStackAndSidebarRowsAreNotNoOps`；`HomeSmokeTests` 断言可点的「最近」只在导航栏标题里）
+- [ ] A17 侧栏右缘异常竖向阴影修复
+- [ ] A18 最近列表真实缩略图（当前是灰色占位）
+- [x] A19 新建面板真实预览（Mac 版）（`NewMapPage` / `TemplateThumbnail` 十二种结构各画一套，Mac 与 iOS 共用。`ShellTests.testMenusAndTemplatesOmitDeadActions` 断言 12 张卡片树形签名互不相同）
+- [x] A20 返回键位置：移到文件名左侧、红绿灯右侧（`DocumentEditor` 工具栏 `cancellationAction`：返回按钮在文件名左侧。`EditorChromeContractTests`）
+- [x] A21 文件名嵌套重复（窗口标题与工具栏各一个「未命名」）（`.navigationTitle("")` 且 Mac `titleVisibility = .hidden`，文件名只留在工具栏。`EditorChromeContractTests`）
+- [ ] A22 macOS 菜单栏（文件/编辑/插入/格式/视图/导出/窗口/帮助，图标+文字+快捷键）
+- [x] A23 `docs/DESIGN-RULES.md`（唯一入口、退出可达、图标优先、禁止重复控件、禁止占位假数据；六条规矩已在该文件，前五条与本行一致）
 - [~] A24 `docs/SMOKE.md` + XCUITest 冒烟（13 条可达性路径，打包前必跑）
-- [~] A25 模板库重做（12 个真模板，结构各不相同，禁止同树换色）
+- [x] A25 模板库重做（12 个真模板，结构各不相同，禁止同树换色）（`TemplateKind` 十二个；`ShellTests.testMenusAndTemplatesOmitDeadActions` 断言名称与 `TemplateKind.shape` 均不重复）
 
 ## B. 附件（核心差异化）
 
@@ -41,12 +41,12 @@
 - [x] B2 流式写入/读取（实测 1GiB 与 10GiB 增量均 448KB；测试：10GB 打开不读正文）
 - [x] B3 图片插入三条入口（文件选择 / 拖放 / 剪贴板粘贴；等比不裁切；异步解码；PDF/PNG 按页面分辨率）。待 Censor
 - [x] B4 任意文件附件（PSD / PDF / DMG / 任意类型），UTType 图标（无系统图标则通用文件图标）+ 文件名 + 大小角标；QuickLook。待 Censor
-- [~] B5 节点级音频（插入已有音频 + 播放条，不做录音机）
-- [~] B6 节点级视频（插入 + 播放）
+- [ ] B5 节点级音频（插入已有音频 + 播放条，不做录音机）
+- [ ] B6 节点级视频（插入 + 播放）
 - [~] B7 节点内预览：文件类已接 QLPreviewPanel/QuickLook；音频视频待 1.5 之后
-- [~] B8 体积提示（插入前弹窗告知单文件与文档总体积）
+- [x] B8 体积提示（插入前弹窗告知单文件与文档总体积）（`AttachmentInsertProposal.confirmationMessage`；`FileAttachmentTests.testConfirmDialogShowsFileSizeAndProjectedTotal`、`StreamingTests.testProposalUsesSizesOnly`；`DocumentEditor` 确认框展示该文案，取消走 `cancelInsert`）
 - [x] B9 零压缩零转码硬规则（字节一致，sha256 只做去重与校验）—— 已写进规格
-- [~] B10 软上限 10GB（用户塞进去就有预期，不做硬拦截）
+- [x] B10 软上限 10GB（用户塞进去就有预期，不做硬拦截）（`StreamingBudget.softCapBytes`；超限只在确认文案加一句，`FileAttachmentRoute.proposal` 仍返回提案。`FileAttachmentTests.testSoftCapDoesNotRefuseAnInsertProposal`、`StreamingTests.testProposalUsesSizesOnly`。流式写入只拒绝超过 Int64 的长度）
 
 ## C. 结构与表达力
 
@@ -60,10 +60,10 @@
 
 ## D. 格式与互通（T0）
 
-- [~] D1 `.xmind` 双向导入导出
-- [~] D2 pass-through（读不懂的字段原样保留，未改动则原样写回）
-- [~] D3 fixture 往返测试集（简单/多层/带样式/带关系线/带附件/多画布六类）
-- [~] D4 OPML / FreeMind / Markdown 保真度对齐
+- [x] D1 `.xmind` 双向导入导出（PR #43 → main `4aed816`。`XMindRoundTripTests`：六类样本未改则 `content.json` 与其余条目字节不变，改标题后再导入能读回。只有 `content.xml` 的文件拒绝导入）
+- [x] D2 pass-through（读不懂的字段原样保留，未改动则原样写回）（`.xmind` `xmindForeign`、`.opml` `opmlForeign`、`.mm` `mmForeign`。`XMindRoundTripTests.testSixFixturesRoundTripUnchangedBytesAndEditedFields`、`OPMLRoundTripTests.testPassthroughSurvivesAnEditAndComesBackWhenReverted`、`MMRoundTripTests.testPassthroughSurvivesAnEditAndComesBackWhenReverted`。Markdown 按规格丢掉认不出的行，不走 pass-through）
+- [x] D3 fixture 往返测试集（简单/多层/带样式/带关系线/带附件/多画布六类）（`Tests/FlorettaCoreTests/Fixtures/XMind/` 的 simple、nested、styled、relationships、attachments、multi-sheet。`XMindRoundTripTests.testSixFixturesRoundTripUnchangedBytesAndEditedFields` 与 `testFieldCatalogMatchesTheInRepoTable`）
+- [x] D4 OPML / FreeMind / Markdown 保真度对齐（PR #44 → main `0c05171`。字段表 `docs/OPML-FIELDS.md`、`docs/MM-FIELDS.md`、`docs/MARKDOWN-FIELDS.md` 与 catalog 单测对照：`OPMLRoundTripTests`、`MMRoundTripTests`、`MarkdownFieldTests`、`MarkdownAsDocumentTests`。对方软件打开仍记在 `docs/FORMATS.md` 验收表，不在这次单测里）
 - [x] D5 Markdown 一等文档：可直接打开编辑保存，纯结构投影（不含附件/颜色/关系线），顶部标注「Markdown 模式」，可一键升级为 `.floretta`，AI 用路径定位（root/3/1）（PR #62 → main `5631b42`，tip `ba0e893`；路径 API（`root/3/1`）仍是 S3，不在这次合并）
 - [ ] D6 导出 TextBundle（带附件，便于带走）
 
@@ -79,13 +79,13 @@
 - [x] F1 `FlorettaCore` 抽取（PR #29 已合入 `eb83ef2`，macOS 104/0）
 - [x] F2 `docs/ADR-021-platform-layering.md`（三层结构 + 平台优先级）
 - [~] F3 平台能力协议注入（FileAccess / Pasteboard / DeviceInfo / Clock / FontMetrics）
-- [~] F4 CI 检查：Core 内禁止 SwiftUI/AppKit/UIKit 与 `#if os`
+- [x] F4 CI 检查：Core 内禁止 SwiftUI/AppKit/UIKit 与 `#if os`（`.github/workflows/floretta-core.yml` 在 `ubuntu-24.04` 跑 `scripts/check-floretta-core-imports.sh`，命中 `import SwiftUI|AppKit|UIKit|SwiftData` 或 `#if os(` 即失败）
 - [x] F5 Windows / Linux 预留评估（结论：核心 65% 可复用，UI 必须重写）
 
 ## G. 性能与可信度
 
 - [x] G1 `docs/PERF-BUDGET.md`（九条硬门槛）
-- [~] G2 PR 必带「性能影响三行」（内存/帧率/包体），缺失即打回
+- [ ] G2 PR 必带「性能影响三行」（内存/帧率/包体），缺失即打回
 - [x] G3 原子写入（临时文件 + fsync + rename）+ 按附件点名的 sha256 清单
 - [x] G4 版本快照与回滚（1.7 `document.json` 旁路快照与回滚数据层，以及 4.1 历史列表、回滚确认、对比 UI，均已合并）（PR #64 → main `b0fb7fc`，tip `d681bf3`）
 - [x] G5 Quick Look 插件（macOS，Finder 里可预览 .floretta）（PR #67 → main `a9ad9b92`，tip `1b900f4`）
@@ -98,14 +98,14 @@
 - [x] H3 删除「一张会呼吸的思维导图」（标题、meta、根节点副标题、manifest 全清）
 - [x] H4 展厅卡片图标换成真 App 图标（原为 PWA 占位图）
 - [x] H5 Markdown 一等文档分支补进网站（PR #6 合并 + 已部署，页面含 Markdown×4 / .md / Obsidian）
-- [~] H6 `docs/WEB-PARITY.md` 同步表（Mac 功能 ↔ 网页状态）
+- [ ] H6 `docs/WEB-PARITY.md` 同步表（Mac 功能 ↔ 网页状态）
 
 ## I. 流程与交付
 
 - [x] I1 Censor 审查 bot + `docs/REVIEW-WORKFLOW.md`（19 条清单、报告格式、阻断项带证据）
 - [x] I2 竞品调研 `docs/RESEARCH-COMPETITORS.md`（321 行，44 个来源）
 - [x] I3 夜间工作单 `docs/TASKBOOK-007-overnight.md`（Phase 1–4）
-- [~] I4 交接文档 `docs/HANDOFF-WINDOWS-ANDROID.md`
+- [ ] I4 交接文档 `docs/HANDOFF-WINDOWS-ANDROID.md`
 - [ ] I5 版本号纪律（每次上传 build +1；设置页显示版本）
 - [ ] I6 TestFlight 统一安装 + 旧版本清理（只移废纸篓，先列清单）
 - [ ] I7 工作区旧构件清理（build/archive/DerivedData，先列清单再动）
@@ -129,8 +129,8 @@
 
 ## 统计
 
-- 已完成并验过：**44** 项
-- 已派未合并/未验：**29** 项
-- 未开始：**7** 项
+- 已完成并验过：**59** 项
+- 已派未合并/未验：**6** 项
+- 未开始：**15** 项
 - 合计：**80** 项
 - 已知阻塞：**3** 项

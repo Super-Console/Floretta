@@ -15,11 +15,17 @@ struct ContentView: View {
     @State private var browseRoot: URL?
     @State private var browseTitle = LocalDeviceLabel.current.title
     @State private var notice: String?
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         root
             .preferredColorScheme(settings.appearance.colorScheme)
             .onAppear { recovery.checkOnLaunch() }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active {
+                    library.absorbExternalShare()
+                }
+            }
             .onChange(of: recovery.restoredDocument) { _, restored in
                 if let restored {
                     library.openRecovered(restored)

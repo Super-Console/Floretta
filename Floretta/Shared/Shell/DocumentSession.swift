@@ -320,6 +320,12 @@ final class EditorSession {
     private(set) var markdownWarningText: String?
     private(set) var markdownWarningDismissed = false
     var blockedNotice: String?
+    /// Document at the last load or save. Used to tell a share on disk from an unsaved edit.
+    var shareBase: MindMapDocument
+    /// Bumps when the insert menu asks the focused field to start system dictation.
+    var dictationToken = 0
+    /// The new child still shows the placeholder, so the field selects it first.
+    var dictationReplacesPlaceholder = false
 
     init(
         document: MindMapDocument,
@@ -334,6 +340,7 @@ final class EditorSession {
         self.viewMode = viewMode
         let markdown = markdownDocument ?? MarkdownModePolicy.isDocumentExtension(sourceExtension)
         self.markdownDocument = markdown
+        self.shareBase = document
         focusNodeID = document.roots.first?.id
         keyboard.selectedNodeID = document.roots.first?.id
         if markdown {
@@ -470,6 +477,21 @@ final class EditorSession {
         guard keyboard.mode == .command, !keyboard.isComposing else { return }
         let event = KeyEvent(key: .enter, modifiers: [], mode: .command, isComposing: false)
         _ = keyboard.handle(event, document: &document, frames: [])
+    }
+
+    /// Opens a child, or the editor already on screen, then asks for system dictation.
+    /// The spoken string is written by the text view the same way typed text is.
+    func beginDictation() {
+        let preparation = DictationNodeInput.prepare(session: &keyboard, document: &document)
+        guard preparation.target != .unavailable else { return }
+        dictationReplacesPlaceholder = preparation.replacesPlaceholder
+        dictationToken &+= 1
+        if dictationToken == 0 { dictationToken = 1 }
+    }
+
+    /// Writes a finished system transcript. Blank speech does not create a topic.
+    func applyDictatedText(_ phrase: String) {
+        _ = DictationNodeInput.apply(phrase: phrase, session: &keyboard, document: &document)
     }
 
     func addFreeNodeFromToolbar() {
@@ -911,10 +933,12 @@ final class LibraryModel {
     }
 
     private func persistFloretta(_ session: EditorSession) throws {
+        absorbExternalShare()
         if let url = session.url {
             do {
                 let catalog = try write(session.document, to: url)
                 session.notePackage(catalog: catalog, bytes: (try? ports.streaming.byteCount(at: url)) ?? 0)
+                session.shareBase = session.document
                 return
             } catch DocumentContainerError.refusesToOverwriteLegacy {
                 // The original JSON bytes stay put. The edited map goes to a new ZIP.
@@ -925,6 +949,7 @@ final class LibraryModel {
         session.url = created
         session.sourceExtension = "floretta"
         session.notePackage(catalog: catalog, bytes: (try? ports.streaming.byteCount(at: created)) ?? 0)
+        session.shareBase = session.document
     }
 
     private func saveFailureMessage(_ error: Error) -> String {
@@ -966,7 +991,94 @@ final class LibraryModel {
 
     @discardableResult
     private func write(_ document: MindMapDocument, to url: URL) throws -> ZipDirectory {
-        try FlorettaStreamingDocument.save(document: document, to: url, files: ports.streaming)
+        let directory = try FlorettaStreamingDocument.save(document: document, to: url, files: ports.streaming)
+        ShareCatalogStore.publish(url: url, document: document)
+        return directory
+    }
+
+    /// Pulls a share that landed on disk while this editor was open.
+    /// Unsaved topics stay. A topic deleted here is not put back.
+    func absorbExternalShare() {
+        guard let session = editor, let url = session.url, session.sourceExtension == "floretta" else { return }
+        guard (try? ports.streaming.isZip(at: url)) == true else { return }
+        let reader: RandomAccessReader
+        do {
+            reader = try ports.streaming.openReader(at: url)
+        } catch {
+            return
+        }
+        let opened: OpenedFloretta
+        do {
+            opened = try FlorettaStreamingDocument.open(reader)
+            try reader.close()
+        } catch {
+            try? reader.close()
+            return
+        }
+        let merged = ShareAbsorb.absorb(base: session.shareBase, mine: session.document, theirs: opened.document)
+        // The baseline is the package just read. It still names topics this editor
+        // deleted, so the next absorb does not put those topics back.
+        session.shareBase = opened.document
+        guard merged != session.document else { return }
+        session.document = merged
+        session.notePackage(
+            catalog: opened.directory,
+            bytes: (try? ports.streaming.byteCount(at: url)) ?? session.archiveByteCount
+        )
+    }
+
+    /// Shortcuts entry. An open editor on the same file is updated in memory so a later save
+    /// does not drop the topic or the unsaved edits around it.
+    func saveShared(
+        draft: ShareDraft,
+        onto query: String,
+        archive: URL,
+        fileURL: URL?
+    ) async throws -> ShareResult {
+        absorbExternalShare()
+        let files = ports.streaming
+        let reader = try files.openReader(at: archive)
+        let opened: OpenedFloretta
+        do {
+            opened = try FlorettaStreamingDocument.open(reader)
+            try reader.close()
+        } catch {
+            try? reader.close()
+            throw error
+        }
+        let sameEditor = editor?.url?.standardizedFileURL.path == archive.standardizedFileURL.path
+        let memory = sameEditor ? editor?.document : nil
+        let basis = memory ?? opened.document
+        let nodeID: UUID
+        switch ShareIngress.match(query, in: basis) {
+        case .found(let id):
+            nodeID = id
+        case .none:
+            throw ShareIngressError.unknownNode
+        case .ambiguous:
+            throw ShareIngressError.ambiguousNode
+        }
+        let result = try await Task.detached {
+            try ShareCommit.commit(
+                draft,
+                onto: nodeID,
+                archive: archive,
+                fileURL: fileURL,
+                files: FoundationStreamingFiles(),
+                memory: memory,
+                snapshots: .standard
+            )
+        }.value
+        if sameEditor, let session = editor {
+            session.document = result.document
+            session.shareBase = result.document
+            session.notePackage(
+                catalog: result.directory,
+                bytes: (try? files.byteCount(at: archive)) ?? session.archiveByteCount
+            )
+        }
+        ShareCatalogStore.publish(url: archive, document: result.document)
+        return result
     }
 
     private func openSession(at url: URL, access: SecurityScopedURL) throws -> EditorSession {
@@ -983,6 +1095,7 @@ final class LibraryModel {
             }
             let bytes = reader.count
             try reader.close()
+            ShareCatalogStore.publish(url: url, document: opened.document)
             let session = EditorSession(
                 document: opened.document,
                 url: url,
@@ -1244,7 +1357,7 @@ enum HomePage: String, Hashable, Sendable {
 /// Menu rows that are allowed to appear. Disabled rows are listed separately.
 enum CanvasMenus {
     static let immersive = "全屏沉浸"
-    static let insert = ["子节点", "同级", "自由节点", "连到", "图片", "附件", "从文件导入"]
+    static let insert = ["子节点", "同级", "语音输入", "自由节点", "连到", "图片", "附件", "从文件导入"]
     static let share = ["PDF", "PNG", "Markdown", "保存为 Floretta", ".mm", "OPML", ".xmind", "打印"]
     static let zoom = ["50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%", "适应窗口"]
     static let more = ["大纲", "样式", "配色", "查看模式", "新建画布", "查找", "标签筛选", "粘贴", "关于"]

@@ -1174,6 +1174,40 @@
         }
       }
     },
+    "语音输入": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dictation"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "语音输入"
+          }
+        }
+      }
+    },
+    "用系统听写新建子节点。正在编辑或选中自由节点时，听写写进当前文字。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dictate a new child with system dictation. While editing, or when a free topic is selected, dictation goes into the current text."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用系统听写新建子节点。正在编辑或选中自由节点时，听写写进当前文字。"
+          }
+        }
+      }
+    },
     "子节点": {
       "extractionState": "manual",
       "localizations": {
@@ -1357,6 +1391,74 @@
           "stringUnit": {
             "state": "translated",
             "value": "分享"
+          }
+        }
+      }
+    },
+    "存入节点": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save to Topic"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "存入节点"
+          }
+        }
+      }
+    },
+    "链接": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "链接"
+          }
+        }
+      }
+    },
+    "文件": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件"
+          }
+        }
+      }
+    },
+    "把链接、文字或图片存进指定主题。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save a link, text, or picture onto a chosen topic."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "把链接、文字或图片存进指定主题。"
           }
         }
       }
@@ -2721,19 +2823,19 @@
         }
       }
     },
-    "插入子节点、同级、自由节点、便签、概要、边界、图片、附件，或从文件导入": {
+    "插入子节点、同级、语音输入、自由节点、便签、概要、边界、图片、附件，或从文件导入": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Insert a child, sibling, free topic, sticky, summary, boundary, image, or attachment, or import from a file"
+            "value": "Insert a child, sibling, dictation, free topic, sticky, summary, boundary, image, or attachment, or import from a file"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "插入子节点、同级、自由节点、便签、概要、边界、图片、附件，或从文件导入"
+            "value": "插入子节点、同级、语音输入、自由节点、便签、概要、边界、图片、附件，或从文件导入"
           }
         }
       }

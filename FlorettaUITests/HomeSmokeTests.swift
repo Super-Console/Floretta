@@ -9,16 +9,7 @@ final class HomeSmokeTests: XCTestCase {
 
     @MainActor
     func testHomeTitleSettingsNewMapAndRows() throws {
-        let app = XCUIApplication()
-        // Pin the smoke suite to Simplified Chinese. The language setting can
-        // switch these labels; the assertions below still check the source strings.
-        app.launchArguments = [
-            "-FlorettaUITest",
-            "-FlorettaLanguage", "zh-Hans",
-            "-AppleLanguages", "(zh-Hans)",
-            "-AppleLocale", "zh_CN",
-        ]
-        app.launch()
+        let app = launchHome()
 
         let titleBar = homeTitle(app)
         XCTAssertTrue(titleBar.waitForExistence(timeout: 15), "首页导航标题「最近」不可见")
@@ -62,6 +53,54 @@ final class HomeSmokeTests: XCTestCase {
         back.tap()
         XCTAssertTrue(homeTitle(app).waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["home.newMap"].waitForExistence(timeout: 5))
+    }
+
+    /// The home chrome is a system tab bar, a toolbar menu, and `.searchable`.
+    /// The old three-icon capsule kept 「模板库」 as a visible toolbar button.
+    @MainActor
+    func testHomeUsesSystemTabBarMenuAndSearchNotACapsule() throws {
+        let app = launchHome()
+        let titleBar = homeTitle(app)
+        XCTAssertTrue(titleBar.waitForExistence(timeout: 15), "首页导航标题「最近」不可见")
+
+        XCTAssertTrue(app.tabBars.buttons["首页"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["设置"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["home.actionCapsule"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["home.tabCapsule"].exists)
+        XCTAssertFalse(
+            titleBar.buttons["home.templates"].exists,
+            "模板库仍是工具栏上的独立按钮，三图标胶囊还在"
+        )
+
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5), "首页没有系统搜索框")
+        XCTAssertTrue(search.isHittable)
+
+        XCTAssertTrue(titleBar.buttons["home.newMap"].exists)
+        let menu = titleBar.buttons["home.toolbarMenu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 5))
+        menu.tap()
+        XCTAssertTrue(app.buttons["home.templates"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["home.open"].waitForExistence(timeout: 5))
+        app.buttons["home.templates"].tap()
+        XCTAssertTrue(app.navigationBars["模板库"].waitForExistence(timeout: 5))
+        app.buttons["关闭"].tap()
+        XCTAssertTrue(titleBar.waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    private func launchHome() -> XCUIApplication {
+        let app = XCUIApplication()
+        // Pin the smoke suite to Simplified Chinese. The language setting can
+        // switch these labels; the assertions below still check the source strings.
+        app.launchArguments = [
+            "-FlorettaUITest",
+            "-FlorettaLanguage", "zh-Hans",
+            "-AppleLanguages", "(zh-Hans)",
+            "-AppleLocale", "zh_CN",
+        ]
+        app.launch()
+        return app
     }
 
     @MainActor

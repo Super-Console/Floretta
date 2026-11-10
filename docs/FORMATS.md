@@ -163,6 +163,14 @@ ZIP 内的 `content.json` 可以导入再导出。字段对照表在 **[XMIND-FI
 
 从 Floretta 新建、没有 `xmindForeign` 的文档，导出仍是一张画布。多个根时用文档标题包一层。没有根时同样包一层，避免自由节点被塞进树。
 
+## TextBundle 导出
+
+`.textbundle` 是目录，`.textpack` 是同一批文件的 zip。规格见 <http://textbundle.org/spec/>。只导出，不导入。字段对照在 **[TEXTBUNDLE-FIELDS.md](./TEXTBUNDLE-FIELDS.md)**。样本在 `Tests/FlorettaCoreTests/Fixtures/TextBundle/`。
+
+`text.md` 用 `FlorettaMarkdownDocumentCodec.save`，也就是导图的 Markdown 文档（嵌套列表、可选一级分区、备注、单个链接、front matter）。不走标题深度的 `FlorettaMarkdown`。那个 codec 不写附件。能写成 Markdown 的附件，在节点备注后面加相对路径：图片是 `![...](assets/...)`，其他文件是 `[...](assets/...)`，字节在 `assets/`。
+
+自由节点、其他画布、便签、关系线、样式、坐标、折叠和节点 id 写不进去。没给字节的附件不写坏链接。`info.json` 的 `version` 是 2，`type` 是 `net.daringfireball.markdown`，`creatorIdentifier` 是 `net.timhuang.floretta`。
+
 ## PNG / PDF 本批
 
 用系统 `ImageRenderer` 把当前导图画成图。PDF 走 `renderer.render { size, draw in }`，把 SwiftUI 画进 PDF 页。没有自写光栅器，也没有第三方导出库。
@@ -184,5 +192,6 @@ PNG 可选 2x 或 3x，底可以是白的或透明的。
 | Markdown | 一等文档读写 + 纯标题预设 | 见 MD-AS-DOCUMENT 与 `Fixtures/MarkdownHeading/` | 文档：层级、顺序、text、note、单一 link、front-matter。预设：标题深度、text、note、单一 link | 附件、颜色、关系线、位置、折叠、UUID；`##`+ 拒开；预设认不出的行失败。不把这些补成假保真 | 文档 codec 未改；字段表见 MARKDOWN-FIELDS | 2026-11-10 |
 | PNG / PDF | 仅导出 | 单测把 PNG 读回并抽样像素；PDF 看页数和 mediaBox | 当前可见节点和连线；2x/3x；白底或透明 | 工具栏、侧栏、选中框、点阵；折叠起来的子树；超出像素上限的部分 | 代码与单测已落盘；本机未打开文件 | 2026-11-09 |
 | `.xmind` | 导入 + 导出 + 再导入 | `Tests/FlorettaCoreTests/Fixtures/XMind/` 六类样本，加单测里的 `MindMapDocument` | 层级、文字、备注、链接、根上的自由节点、关系线、已映射的样式、xap 附件引用和字节、多画布；未知字段在未改映射时按原 `content.json` 字节写回 | 折叠不进 `isCollapsed`、标签/标记/概要/边界没有一等字段、嵌套浮动主题不可编辑、XMind 8 仅 `content.xml`、便签；改映射字段后数字会按 JSON 数字重写。详见 `docs/XMIND-FIELDS.md` | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-10 |
+| TextBundle | 仅导出 | `Tests/FlorettaCoreTests/Fixtures/TextBundle/` 的 simple、nested、attachments | 第一张画布的层级、文字、备注、链接、front matter、一级分区；有字节的树上图片和文件，相对路径进 text.md，字节进 assets/ | 不导入。自由节点、其他画布、便签、关系线、样式、坐标、折叠、节点 id、文档标题、缺字节的附件。详见 `docs/TEXTBUNDLE-FIELDS.md` | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-10 |
 
 > 空白 = 未验证。不要预填"通过"。

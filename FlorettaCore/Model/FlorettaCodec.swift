@@ -172,6 +172,9 @@ public enum FlorettaCodec {
         if let foreign = object["xmindForeign"], !(foreign is NSNull), !(foreign is [String: Any]) {
             throw FlorettaCodecError.wrongJSONType(at: "xmindForeign")
         }
+        if let themeID = object["themeID"], !(themeID is NSNull) {
+            try expect(object, key: "themeID", at: "themeID") { isJSONString($0) }
+        }
     }
 
     private static func preflightRelationships(_ value: Any, at path: String) throws {

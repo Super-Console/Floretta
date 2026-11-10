@@ -364,7 +364,23 @@ public struct LayoutEngine: Sendable {
         metrics.fontSize(depth: depth)
     }
 
-    public func layout(_ document: MindMapDocument) -> [NodeFrame] {
+    /// `scheme` selects the light or dark set of the document's preset.
+    /// An unset theme in light mode keeps `appearance`, so existing maps stay on `LayoutAppearance.standard`.
+    public func layout(_ document: MindMapDocument, scheme: MapColorScheme = .light) -> [NodeFrame] {
+        let resolved = MapThemeCatalog.appearance(
+            themeID: document.themeID,
+            scheme: scheme,
+            fallback: appearance
+        )
+        if resolved == appearance {
+            return placed(document)
+        }
+        var themed = self
+        themed.appearance = resolved
+        return themed.placed(document)
+    }
+
+    private func placed(_ document: MindMapDocument) -> [NodeFrame] {
         switch kind {
         case .bilateral:
             return bilateral(document)

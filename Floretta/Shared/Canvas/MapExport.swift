@@ -48,20 +48,21 @@ enum MapExporter {
     static let clippingNotice = "导出已按最大尺寸裁切，超出的内容没有画进文件。"
     static let emptyNotice = "没有可导出的节点。"
 
-    static func visibleFrames(in document: MindMapDocument) -> [NodeFrame] {
-        CanvasPlacement.nodes(in: document)
+    static func visibleFrames(in document: MindMapDocument, scheme: MapColorScheme = .light) -> [NodeFrame] {
+        CanvasPlacement.nodes(in: document, scheme: scheme)
     }
 
     static func png(
         document: MindMapDocument,
         options: MapExportOptions = MapExportOptions(),
-        images: [String: CGImage] = [:]
+        images: [String: CGImage] = [:],
+        scheme: MapColorScheme = .light
     ) -> MapExportResult {
-        let plan = plan(document: document, options: options)
+        let plan = plan(document: document, options: options, scheme: scheme)
         guard plan.pointSize.width > 1, plan.pointSize.height > 1 else {
             return empty(plan)
         }
-        let renderer = makeRenderer(plan: plan, options: options, document: document, images: images)
+        let renderer = makeRenderer(plan: plan, options: options, document: document, images: images, scheme: scheme)
         guard let image = renderer.cgImage else {
             return failed(plan)
         }
@@ -81,13 +82,14 @@ enum MapExporter {
     static func pdf(
         document: MindMapDocument,
         options: MapExportOptions = MapExportOptions(),
-        images: [String: CGImage] = [:]
+        images: [String: CGImage] = [:],
+        scheme: MapColorScheme = .light
     ) -> MapExportResult {
-        let plan = plan(document: document, options: options)
+        let plan = plan(document: document, options: options, scheme: scheme)
         guard plan.pointSize.width > 1, plan.pointSize.height > 1 else {
             return empty(plan)
         }
-        let renderer = makeRenderer(plan: plan, options: options, document: document, images: images)
+        let renderer = makeRenderer(plan: plan, options: options, document: document, images: images, scheme: scheme)
         let data = NSMutableData()
         guard let consumer = CGDataConsumer(data: data as CFMutableData) else {
             return failed(plan)
@@ -123,8 +125,8 @@ enum MapExporter {
         var visibleNodeIDs: [UUID]
     }
 
-    private static func plan(document: MindMapDocument, options: MapExportOptions) -> Plan {
-        let frames = visibleFrames(in: document)
+    private static func plan(document: MindMapDocument, options: MapExportOptions, scheme: MapColorScheme) -> Plan {
+        let frames = visibleFrames(in: document, scheme: scheme)
         let ids = frames.map(\.id)
         guard let content = CanvasPlacement.contentBounds(
             in: document,
@@ -158,9 +160,10 @@ enum MapExporter {
         plan: Plan,
         options: MapExportOptions,
         document: MindMapDocument,
-        images: [String: CGImage]
+        images: [String: CGImage],
+        scheme: MapColorScheme
     ) -> ImageRenderer<MapExportView> {
-        let frames = visibleFrames(in: document)
+        let frames = visibleFrames(in: document, scheme: scheme)
         let view = MapExportView(
             frames: frames,
             lines: RelationshipGeometry.lines(for: document.relationships, frames: frames),

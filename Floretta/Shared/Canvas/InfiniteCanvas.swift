@@ -708,7 +708,11 @@ struct InfiniteCanvas: View {
     }
 
     private func placedFrames() -> [NodeFrame] {
-        laidOut.frames(for: layoutSource())
+        laidOut.frames(for: layoutSource(), scheme: branchScheme)
+    }
+
+    private var branchScheme: MapColorScheme {
+        colorScheme == .dark ? .dark : .light
     }
 
     @discardableResult
@@ -1187,7 +1191,7 @@ struct InfiniteCanvas: View {
             maxX: view.maxX,
             maxY: view.maxY
         )
-        let nodes = laidOut.frames(for: document).map { frame in
+        let nodes = laidOut.frames(for: document, scheme: branchScheme).map { frame in
             (
                 AttachmentViewportRect(
                     minX: frame.origin.x,
@@ -1588,10 +1592,13 @@ final class LaidOutFrames {
     private var source: MindMapDocument?
     private var cached: [NodeFrame] = []
 
-    func frames(for document: MindMapDocument) -> [NodeFrame] {
-        if let source, source == document { return cached }
-        cached = CanvasPlacement.nodes(in: document)
+    private var cachedScheme: MapColorScheme?
+
+    func frames(for document: MindMapDocument, scheme: MapColorScheme) -> [NodeFrame] {
+        if let source, source == document, cachedScheme == scheme { return cached }
+        cached = CanvasPlacement.nodes(in: document, scheme: scheme)
         source = document
+        cachedScheme = scheme
         return cached
     }
 }

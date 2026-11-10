@@ -2,6 +2,32 @@ import FlorettaCore
 import XCTest
 
 final class KeyboardTests: XCTestCase {
+    func testBranchThemeIsOneUndoStepAndLeavesNodeStyle() {
+        var session = MindMapKeyboardSession()
+        let styled = MindMapNode(
+            text: "根",
+            style: MindMapNodeStyle(colorHex: "#112233", fillHex: "#112233"),
+            children: [MindMapNode(text: "甲"), MindMapNode(text: "乙")]
+        )
+        var document = MindMapDocument(title: "色", roots: [styled])
+        session.mode = .edit
+        XCTAssertFalse(session.setBranchTheme("grove", document: &document))
+        XCTAssertNil(document.themeID)
+        session.mode = .command
+        XCTAssertFalse(session.setBranchTheme("not-a-theme", document: &document))
+        XCTAssertTrue(session.setBranchTheme("grove", document: &document))
+        XCTAssertEqual(document.themeID, "grove")
+        XCTAssertEqual(document.roots[0].style?.fillHex, "#112233")
+        XCTAssertTrue(session.setBranchTheme("grove", document: &document))
+        XCTAssertTrue(session.setBranchTheme("ink", document: &document))
+        XCTAssertNil(document.themeID)
+        XCTAssertEqual(press(.character("z"), .command, session: &session, document: &document), .undo)
+        XCTAssertEqual(document.themeID, "grove")
+        XCTAssertEqual(press(.character("z"), .command, session: &session, document: &document), .undo)
+        XCTAssertNil(document.themeID)
+        XCTAssertEqual(document.roots[0].style, styled.style)
+    }
+
     func testCommandModeMapsStructureKeys() {
         XCTAssertEqual(map(.tab), .createChild)
         XCTAssertEqual(map(.enter), .createSibling)

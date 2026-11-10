@@ -42,6 +42,7 @@
 | `position` | gap | 没有 x/y |
 | `freeNodes` | gap | 不写进 .opml |
 | `stickies` | gap | 便签不是大纲节点 |
+| `regions` | gap | 专区不是大纲节点 |
 | `relationships` | gap | 不写 |
 | `style` | gap | 不映射到 MindMapNodeStyle，导出也不发明样式 |
 | `node id` | gap | OPML 没有节点 id；每次导入新的 UUID |

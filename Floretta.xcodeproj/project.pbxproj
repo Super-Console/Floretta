@@ -61,6 +61,7 @@
 		C67000000000000000000001 /* SummaryBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F67000000000000000000001 /* SummaryBoundaryTests.swift */; };
 		C68000000000000000000001 /* TagFilterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F68000000000000000000001 /* TagFilterTests.swift */; };
 		C62000000000000000000001 /* StickyNoteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F62000000000000000000001 /* StickyNoteTests.swift */; };
+		C6C100000000000000000001 /* CanvasRegionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6C100000000000000000001 /* CanvasRegionTests.swift */; };
 		C63000000000000000000001 /* SnapshotRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F63000000000000000000001 /* SnapshotRecoveryTests.swift */; };
 		C70000000000000000000004 /* NodeTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000004 /* NodeTextEditor.swift */; };
 		C70000000000000000000008 /* NodeTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000004 /* NodeTextEditor.swift */; };
@@ -217,6 +218,7 @@
 		F67000000000000000000001 /* SummaryBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SummaryBoundaryTests.swift; path = Tests/FlorettaCoreTests/SummaryBoundaryTests.swift; sourceTree = SOURCE_ROOT; };
 		F68000000000000000000001 /* TagFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TagFilterTests.swift; path = Tests/FlorettaCoreTests/TagFilterTests.swift; sourceTree = SOURCE_ROOT; };
 		F62000000000000000000001 /* StickyNoteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = StickyNoteTests.swift; path = Tests/FlorettaCoreTests/StickyNoteTests.swift; sourceTree = SOURCE_ROOT; };
+		F6C100000000000000000001 /* CanvasRegionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CanvasRegionTests.swift; path = Tests/FlorettaCoreTests/CanvasRegionTests.swift; sourceTree = SOURCE_ROOT; };
 		F63000000000000000000001 /* SnapshotRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SnapshotRecoveryTests.swift; path = Tests/FlorettaCoreTests/SnapshotRecoveryTests.swift; sourceTree = SOURCE_ROOT; };
 		F70000000000000000000004 /* NodeTextEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeTextEditor.swift; sourceTree = "<group>"; };
 		F70000000000000000000005 /* KeyboardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = KeyboardTests.swift; path = Tests/FlorettaCoreTests/KeyboardTests.swift; sourceTree = SOURCE_ROOT; };
@@ -378,6 +380,7 @@
 			F67000000000000000000001 /* SummaryBoundaryTests.swift */,
 			F68000000000000000000001 /* TagFilterTests.swift */,
 			F62000000000000000000001 /* StickyNoteTests.swift */,
+			F6C100000000000000000001 /* CanvasRegionTests.swift */,
 			F63000000000000000000001 /* SnapshotRecoveryTests.swift */,
 			F70000000000000000000005 /* KeyboardTests.swift */,
 			F73000000000000000000002 /* DictationTests.swift */,
@@ -1104,6 +1107,7 @@
 				C67000000000000000000001 /* SummaryBoundaryTests.swift in Sources */,
 				C68000000000000000000001 /* TagFilterTests.swift in Sources */,
 				C62000000000000000000001 /* StickyNoteTests.swift in Sources */,
+				C6C100000000000000000001 /* CanvasRegionTests.swift in Sources */,
 				C63000000000000000000001 /* SnapshotRecoveryTests.swift in Sources */,
 				C7000000000000000000000C /* NodeTextEditor.swift in Sources */,
 				C73000000000000000000003 /* SystemDictation.swift in Sources */,

@@ -125,6 +125,8 @@ public enum DictationNodeInput {
         if let id = session.editingRelationshipID { return id }
         if let id = session.editingSummaryID { return id }
         if let id = session.editingBoundaryID { return id }
+        if let id = session.editingRegionID { return id }
+        if let id = session.selectedRegionID { return id }
         if let id = session.selectedStickyID { return id }
         return session.selectedNodeID
     }

@@ -9,6 +9,12 @@ import PDFKit
 import UIKit
 #endif
 
+private enum RegionMetric: Hashable {
+    case width
+    case height
+    case stroke
+}
+
 struct DocumentEditor: View {
     @Bindable var session: EditorSession
     @Bindable var settings: AppSettings
@@ -54,6 +60,10 @@ struct DocumentEditor: View {
     @State private var upgradeName = "Floretta"
     @State private var askOpenUpgrade = false
     @State private var upgradedURL: URL?
+    @State private var regionWidthDraft = ""
+    @State private var regionHeightDraft = ""
+    @State private var regionStrokeDraft = ""
+    @FocusState private var regionMetric: RegionMetric?
 
     var body: some View {
         canvasStack
@@ -70,6 +80,12 @@ struct DocumentEditor: View {
         #endif
         .modifier(MacEditorWindowTitle())
         .zenChrome(session.zen.chrome)
+        .onChange(of: regionDraftToken) { _, _ in
+            syncRegionDrafts()
+        }
+        .onChange(of: regionMetric) { previous, _ in
+            if let previous { commitRegionMetric(previous) }
+        }
             .inspector(isPresented: inspectorPresented) {
                 inspectorBody
                     .inspectorColumnWidth(min: 280, ideal: 320, max: 440)
@@ -109,7 +125,7 @@ struct DocumentEditor: View {
                             Image(systemName: "trash")
                         }
                         .accessibilityLabel(text("删除"))
-                        .help(Text(verbatim: text("删除选中的节点、便签、关系、概要或边界")))
+                        .help(Text(verbatim: text("删除选中的节点、便签、关系、概要、边界或专区")))
                     }
                     ToolbarItemGroup(placement: .primaryAction) {
                         insertMenu
@@ -557,6 +573,13 @@ struct DocumentEditor: View {
             .disabled(session.isMarkdownDocument || !session.document.canEnclose(session.keyboard.selectedNodeID))
             .help(Text(verbatim: text(markdownHelp(.boundary, otherwise: "用边界圈住选中的节点"))))
             .accessibilityHint(text(markdownHelp(.boundary, otherwise: "用边界圈住选中的节点")))
+            Button { session.addRegionFromToolbar() } label: {
+                Label(text("专区"), systemImage: "rectangle")
+            }
+            .disabled(session.isMarkdownDocument)
+            .help(Text(verbatim: text(markdownHelp(.region, otherwise: "在画布上放一个矩形区域。它可以圈住节点，但不会改变节点层级。"))))
+            .accessibilityHint(text(markdownHelp(.region, otherwise: "在画布上放一个矩形区域。它可以圈住节点，但不会改变节点层级。")))
+            .accessibilityIdentifier("insert.region")
             Button { showImageImporter = true } label: {
                 Label(text("图片"), systemImage: "photo")
             }
@@ -577,7 +600,7 @@ struct DocumentEditor: View {
             Image(systemName: "plus")
         }
         .accessibilityLabel(text("插入"))
-        .help(Text(verbatim: text("插入子节点、同级、语音输入、自由节点、便签、概要、边界、图片、附件，或从文件导入")))
+        .help(Text(verbatim: text("插入子节点、同级、语音输入、自由节点、便签、概要、边界、专区、图片、附件，或从文件导入")))
     }
 
     private var zoomMenu: some View {
@@ -724,6 +747,8 @@ struct DocumentEditor: View {
                     summaryTextForm
                 } else if session.keyboard.selectedBoundaryID != nil {
                     boundaryTitleForm
+                } else if session.keyboard.selectedRegionID != nil {
+                    regionStyleForm
                 } else {
                     StyleInspector(
                         document: $session.document,
@@ -778,6 +803,9 @@ struct DocumentEditor: View {
             }
             LabeledContent(text("边界")) {
                 Text(verbatim: "\(session.document.boundaryCount)").monospacedDigit()
+            }
+            LabeledContent(text("专区")) {
+                Text(verbatim: "\(session.document.regions.count)").monospacedDigit()
             }
         }
         .formStyle(.grouped)
@@ -872,6 +900,173 @@ struct DocumentEditor: View {
                     session.keyboard.apply(.beginEdit, document: &session.document, frames: [])
                 }
                 session.keyboard.replaceEditingText(newValue, document: &session.document)
+            }
+        )
+    }
+
+    private var regionStyleForm: some View {
+        Form {
+            Section(text("专区")) {
+                TextField(text("标题"), text: regionLabel)
+                    .onSubmit { commitMarkText() }
+                    .help(Text(verbatim: text("编辑专区标题")))
+                    .accessibilityIdentifier("region.label")
+                HStack {
+                    TextField(text("宽度"), text: $regionWidthDraft)
+                        .focused($regionMetric, equals: .width)
+                        .onSubmit { commitRegionMetric(.width, includingFocused: true) }
+                        .accessibilityIdentifier("region.width")
+                    Text("px")
+                        .foregroundStyle(.secondary)
+                }
+                HStack {
+                    TextField(text("高度"), text: $regionHeightDraft)
+                        .focused($regionMetric, equals: .height)
+                        .onSubmit { commitRegionMetric(.height, includingFocused: true) }
+                        .accessibilityIdentifier("region.height")
+                    Text("px")
+                        .foregroundStyle(.secondary)
+                }
+                Toggle(text("锁定"), isOn: regionAspectLocked)
+                    .accessibilityIdentifier("region.lockInspector")
+                HStack {
+                    TextField(text("描边"), text: $regionStrokeDraft)
+                        .focused($regionMetric, equals: .stroke)
+                        .onSubmit { commitRegionMetric(.stroke, includingFocused: true) }
+                        .accessibilityIdentifier("region.stroke")
+                    Text("px")
+                        .foregroundStyle(.secondary)
+                }
+                ColorPicker(selection: regionFill, supportsOpacity: false) {
+                    Text(verbatim: text("填充颜色"))
+                }
+                .accessibilityIdentifier("region.fill")
+                ColorPicker(selection: regionBorder, supportsOpacity: false) {
+                    Text(verbatim: text("颜色"))
+                }
+                .accessibilityIdentifier("region.border")
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var regionDraftToken: String {
+        guard let id = session.keyboard.selectedRegionID, let region = session.document.region(id) else { return "" }
+        return "\(id.uuidString)|\(region.width)|\(region.height)|\(region.strokeWidth)"
+    }
+
+    private func syncRegionDrafts(includingFocused: Bool = false) {
+        guard let id = session.keyboard.selectedRegionID, let region = session.document.region(id) else { return }
+        if includingFocused || regionMetric != .width {
+            regionWidthDraft = formatRegionPx(region.width)
+        }
+        if includingFocused || regionMetric != .height {
+            regionHeightDraft = formatRegionPx(region.height)
+        }
+        if includingFocused || regionMetric != .stroke {
+            regionStrokeDraft = formatRegionPx(region.strokeWidth)
+        }
+    }
+
+    private func formatRegionPx(_ value: Double) -> String {
+        if value.rounded() == value {
+            return String(Int(value.rounded()))
+        }
+        return String(format: "%.1f", value)
+    }
+
+    private func commitRegionMetric(_ metric: RegionMetric, includingFocused: Bool = false) {
+        guard let id = session.keyboard.selectedRegionID else { return }
+        let raw: String
+        switch metric {
+        case .width: raw = regionWidthDraft
+        case .height: raw = regionHeightDraft
+        case .stroke: raw = regionStrokeDraft
+        }
+        let trimmed = raw.trimmingCharacters(in: .whitespaces)
+        guard let value = Double(trimmed) else {
+            syncRegionDrafts(includingFocused: true)
+            return
+        }
+        if session.keyboard.mode == .edit, !session.keyboard.isComposing {
+            session.keyboard.apply(.commitEdit, document: &session.document, frames: [])
+        }
+        switch metric {
+        case .width:
+            _ = session.keyboard.setRegionLength(value, axis: .width, id: id, document: &session.document)
+        case .height:
+            _ = session.keyboard.setRegionLength(value, axis: .height, id: id, document: &session.document)
+        case .stroke:
+            _ = session.keyboard.setRegionStroke(value, id: id, document: &session.document)
+        }
+        syncRegionDrafts(includingFocused: includingFocused)
+    }
+
+    private var regionLabel: Binding<String> {
+        Binding(
+            get: {
+                guard let id = session.keyboard.selectedRegionID else { return "" }
+                if session.keyboard.editingRegionID == id {
+                    return session.keyboard.editingText
+                }
+                return session.document.region(id)?.label ?? ""
+            },
+            set: { newValue in
+                guard let id = session.keyboard.selectedRegionID else { return }
+                if session.keyboard.editingRegionID != id {
+                    session.keyboard.apply(.beginEdit, document: &session.document, frames: [])
+                }
+                session.keyboard.replaceEditingText(newValue, document: &session.document)
+            }
+        )
+    }
+
+    private var regionAspectLocked: Binding<Bool> {
+        Binding(
+            get: {
+                guard let id = session.keyboard.selectedRegionID else { return false }
+                return session.document.region(id)?.aspectLocked ?? false
+            },
+            set: { locked in
+                guard let id = session.keyboard.selectedRegionID else { return }
+                if session.keyboard.mode == .edit, !session.keyboard.isComposing {
+                    session.keyboard.apply(.commitEdit, document: &session.document, frames: [])
+                }
+                _ = session.keyboard.setRegionAspectLocked(locked, id: id, document: &session.document)
+            }
+        )
+    }
+
+    private var regionFill: Binding<Color> {
+        Binding(
+            get: {
+                guard let id = session.keyboard.selectedRegionID, let region = session.document.region(id) else {
+                    return StyleColor.color(hex: CanvasRegionLimits.defaultFill.hexRGB)
+                }
+                return StyleColor.color(hex: region.fill.hexRGB)
+            },
+            set: { color in
+                guard let id = session.keyboard.selectedRegionID, let parsed = BranchColor(hex: StyleColor.hex(color)) else {
+                    return
+                }
+                _ = session.document.setRegionFill(id, parsed)
+            }
+        )
+    }
+
+    private var regionBorder: Binding<Color> {
+        Binding(
+            get: {
+                guard let id = session.keyboard.selectedRegionID, let region = session.document.region(id) else {
+                    return StyleColor.color(hex: CanvasRegionLimits.defaultBorder.hexRGB)
+                }
+                return StyleColor.color(hex: region.border.hexRGB)
+            },
+            set: { color in
+                guard let id = session.keyboard.selectedRegionID, let parsed = BranchColor(hex: StyleColor.hex(color)) else {
+                    return
+                }
+                _ = session.document.setRegionBorder(id, parsed)
             }
         )
     }

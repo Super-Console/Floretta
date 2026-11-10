@@ -553,6 +553,15 @@ final class EditorSession {
         _ = keyboard.addBoundaryForSelection(document: &document)
     }
 
+    func addRegionFromToolbar() {
+        guard !isMarkdownDocument else { return }
+        finishEditingIfNeeded()
+        guard keyboard.mode == .command, !keyboard.isComposing else { return }
+        let index = document.regions.count
+        let point = MindMapPoint(x: -40 + Double(index) * 28, y: -240 - Double(index) * 28)
+        _ = keyboard.addRegion(at: point, document: &document)
+    }
+
     func deleteSelection() {
         finishEditingIfNeeded()
         guard keyboard.mode == .command, !keyboard.isComposing else { return }

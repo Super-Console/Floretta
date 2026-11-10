@@ -72,6 +72,7 @@ public enum TextBundleFieldCatalog {
         TextBundleFieldRow(field: "freeNodes", disposition: .gap, detail: "Markdown 文档不写自由节点，文字和附件都不出现"),
         TextBundleFieldRow(field: "additionalCanvases", disposition: .gap, detail: "只导出第一张画布的 roots"),
         TextBundleFieldRow(field: "stickies", disposition: .gap, detail: "便签不是主题，不写"),
+        TextBundleFieldRow(field: "regions", disposition: .gap, detail: "专区不是主题，不写"),
         TextBundleFieldRow(field: "relationships", disposition: .gap, detail: "Markdown 没有关系线"),
         TextBundleFieldRow(field: "style", disposition: .gap, detail: "颜色和样式不写"),
         TextBundleFieldRow(field: "position side", disposition: .gap, detail: "坐标和左右侧不写"),

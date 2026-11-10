@@ -42,6 +42,7 @@
 | `free position` | gap | .mm 没有 x/y |
 | `freeNodes` | gap | 不写进 .mm |
 | `stickies` | gap | 便签不是主题 |
+| `regions` | gap | 专区不是主题 |
 | `model style` | gap | Floretta 自己的样式不写进本来没有这些属性的 .mm |
 | `relationships` | gap | 不写成 TopicRelationship；arrowlink 仍按元素写回 |
 | `multiple roots` | gap | 导出多个根时用文档标题包一层；文件里已有的多个根在映射没变时按原字节写回 |

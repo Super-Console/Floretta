@@ -70,6 +70,7 @@ public enum MarkdownFieldCatalog {
         MarkdownFieldRow(field: "document position side collapse", disposition: .gap, detail: "打开时用模型默认值，保存时丢掉"),
         MarkdownFieldRow(field: "document freeNodes", disposition: .gap, detail: "自由节点不是列表子项"),
         MarkdownFieldRow(field: "document stickies", disposition: .gap, detail: "便签不是列表子项"),
+        MarkdownFieldRow(field: "document regions", disposition: .gap, detail: "专区不是列表子项"),
         MarkdownFieldRow(field: "document unrecognized line", disposition: .gap, detail: "认不出的行打开失败，不猜"),
         MarkdownFieldRow(field: "heading depth", disposition: .mapped, detail: "标题层级是树深；写出 # 的个数等于深度"),
         MarkdownFieldRow(field: "heading text", disposition: .mapped, detail: "标题文字是 text"),
@@ -82,6 +83,7 @@ public enum MarkdownFieldCatalog {
         MarkdownFieldRow(field: "heading id style position", disposition: .gap, detail: "不写 UUID、颜色、坐标、左右侧、折叠"),
         MarkdownFieldRow(field: "heading freeNodes", disposition: .gap, detail: "自由节点不写"),
         MarkdownFieldRow(field: "heading stickies", disposition: .gap, detail: "便签不写"),
+        MarkdownFieldRow(field: "heading regions", disposition: .gap, detail: "专区不写"),
         MarkdownFieldRow(field: "heading document title", disposition: .gap, detail: "单个根的标题就是根文字；多个根没有单独的文档标题"),
         MarkdownFieldRow(field: "heading newline in text", disposition: .gap, detail: "标题里的换行写成空格"),
     ]

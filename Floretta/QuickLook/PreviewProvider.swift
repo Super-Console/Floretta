@@ -1,5 +1,5 @@
 import Foundation
-import QuickLook
+import QuickLookUI
 import UniformTypeIdentifiers
 
 /// Spacebar preview for `.floretta`. Same picture as the Finder thumbnail, at a larger edge.

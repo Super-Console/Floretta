@@ -5,10 +5,12 @@ import XCTest
 final class EditorChromeContractTests: XCTestCase {
     func testBackButtonPrecedesTheFilenameInTheLeadingToolbar() throws {
         let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        XCTAssertTrue(source.contains("ToolbarItem(placement: .cancellationAction)"))
+        XCTAssertTrue(source.contains("leadingDocumentChrome"))
         let leading = try slice(
             source,
-            from: "ToolbarItem(placement: .cancellationAction)",
-            until: "ToolbarItemGroup(placement: .principal)"
+            from: "private var leadingDocumentChrome",
+            until: "private var toolbarContext"
         )
         let back = try XCTUnwrap(leading.range(of: "\"basicChain.back\""))
         let title = try XCTUnwrap(leading.range(of: "\"document.title\""))

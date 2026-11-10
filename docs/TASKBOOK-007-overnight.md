@@ -12,7 +12,7 @@
 3. 每个 PR 描述必须附**性能影响三行**：内存 / 帧率 / 包体。缺一行直接打回。
 4. 所有性能门槛见 `docs/PERF-BUDGET.md`，达标才算完成。
 5. 不许删已有测试、不许降级断言、不许把 `#if os` 写进 FlorettaCore。
-6. 每完成一项，更新 `docs/STATUS.md` 一行：功能名 / PR 号 / 验收结论。
+6. 每完成一项，更新 `docs/STATUS.md` 一行：功能名 / PR 号 / 验收结论。同一变更集或紧随其后的跟进里同步更新 `docs/FEATURES-CHECKLIST.md`，不能只改 STATUS。
 7. 附件策略：零压缩零转码、字节一致、软上限 10GB、流式写入、sha256 去重。
 
 ## Phase 1 — 能不能用（最高优先，全部做完再进 Phase 2）

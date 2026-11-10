@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0">
+<head><title>五层</title></head>
+<body>
+<outline text="第1层" _note="根注">
+  <outline text="第2层" url="https://example.com/two">
+    <outline text="第3层">
+      <outline text="第4层" note="第四">
+        <outline text="第5层"/>
+      </outline>
+    </outline>
+  </outline>
+</outline>
+</body>
+</opml>

@@ -64,19 +64,24 @@
 | `FOLDED="true"` | `isCollapsed` |
 | `POSITION="left"` / `"right"` | `side` |
 
-HTML 标签去掉，只留文字。`p` / `br` 变成换行。`richcontent` 必须是良构 XML。
+HTML 标签去掉，只留文字进模型。`p` / `br` 变成换行。`richcontent` 必须是良构 XML。原来的标记留在 `mmForeign`，映射出的纯文本没变就原样写回。
+
+字段对照见 **[MM-FIELDS.md](./MM-FIELDS.md)**。
+
+### 原样写回
+
+不进模型、但文件里还在的：`ID`（不是本 codec 的 `ID_` + 32 位十六进制时）、`CREATED`、`MODIFIED`、颜色和样式属性，以及 `icon`、`font`、`edge`、`cloud`、`arrowlink`、`attribute`、`hook`、`encrypted_content`、`richcontent` 整段（含 `DETAILS` 和加粗）。用户没改映射字段时，导出是导入的原字节。改了文字或备注之后，这些属性仍写回；变过的备注改写成纯文本 `<p>`。
+
+`ID_` + 32 位十六进制复用为节点 UUID，所以本程序写出的文件再导入，节点 id 不变。
 
 ### 有意丢掉
 
-不静默：下面这些不进文档，也不在导出时发明。
-
-- `richcontent` 里的字体、颜色、加粗等标记；`TYPE="DETAILS"` 整段
-- `icon`、`font`、`edge`、`cloud`、`arrowlink`、`attribute`、`hook`、`encrypted_content`
-- 节点上的 `ID`、`CREATED`、`MODIFIED`、颜色和样式属性（导入时新生成 UUID，导出时写新的 `ID_`）
 - 自由坐标（`.mm` 没有 x/y）
-- 自由节点（`freeNodes`）。写进 `.mm` 会变成树里的子主题，所以这一版不写。坐标和连线关系一起留在 `.floretta` / `.xmind`
-- 便签（`stickies`）。不是主题，不写进 `.mm`。颜色和矩形只留在 `.floretta`
+- 自由节点（`freeNodes`）。写进 `.mm` 会变成树里的子主题，所以不写
+- 便签（`stickies`）。不是主题，不写进 `.mm`
+- Floretta 自己的 `MindMapNodeStyle`、关系线。文件里原来就有的颜色和图标写回，不会把模型样式发明进一个本来没有它们的 `.mm`
 - 未知的 `POSITION` 值：导入直接报错，不猜
+- 注释和 DOCTYPE：映射没变时留在原字节里；改过映射之后不重写
 
 `.opml` 与 Markdown 见下一节。PNG / PDF 见再下一节。
 
@@ -98,7 +103,13 @@ HTML 标签去掉，只留文字。`p` / `br` 变成换行。`richcontent` 必�
 | `url` | `link` |
 | `head/title` | 文档 `title` |
 
-导出写 `text`、`_note`、`url`。不再另写 `title` / `note` 属性。
+导出：映射没变时写回原字节。这一项的 `text` / `note` / `link` 没变时，`title` 和 `note` 属性按读入时的样子留下。变了就写 `text`、`_note`、`url`，并保留不认识的属性。
+
+字段对照见 **[OPML-FIELDS.md](./OPML-FIELDS.md)**。
+
+### 原样写回
+
+`head` 里除标题外的元素（`expansionState`、`ownerName`、日期），以及 `outline` 上未映射的属性（`type`、`xmlUrl`、`htmlUrl`、`description`、`category`）和非 `outline` 子元素（例如 `hook`）。它们不变成节点。用户没改映射字段时，导出是导入的原字节。
 
 ### 导入默认（OPML 没有这些字段）
 
@@ -112,9 +123,10 @@ HTML 标签去掉，只留文字。`p` / `br` 变成换行。`richcontent` 必�
 
 ### 有意丢掉
 
-- `head` 里除标题外的元数据（`expansionState`、日期、`ownerName` 等）
-- `outline` 上未列出的属性（`type`、`xmlUrl`、`htmlUrl`、`description`、`category` 等）
-- 非 `outline` 的子元素（例如 `hook`）不变成节点
+- 折叠、左右侧、画布坐标、自由节点、便签、关系线、样式。OPML 没有这些字段，导出不发明
+- 节点 id。每次导入新的 UUID
+- 注释和 DOCTYPE：映射没变时留在原字节里；改过映射之后不重写
+- `head/title` 内部的标签：改过映射之后只写纯文本标题
 
 外部实体拒绝解析。
 
@@ -129,7 +141,9 @@ HTML 标签去掉，只留文字。`p` / `br` 变成换行。`richcontent` 必�
 - 主层级：嵌套列表（写出只 `- ` + 2 空格缩进）；标题仅可选 **一级**（`# `）分区；列表外 `##`+ 打开失败。
 - 可选：备注（`>`）、YAML front-matter 原样保留、整项恰好一个行内链接。
 - **不保真**：不写附件、颜色、关系线、位置、折叠、节点 UUID、自由节点、便签；禁止 sidecar / HTML 注释藏数据。自由节点不是列表子项。便签也不是。
-- 旧「纯标题树」导出仅作为「导出为…」可选预设，与打开/保存 `.md` 路径分离。
+- 旧「纯标题树」导出仅作为「导出为…」可选预设，与打开/保存 `.md` 路径分离。认不出的行失败，不把多余内容原样留下。
+
+字段对照见 **[MARKDOWN-FIELDS.md](./MARKDOWN-FIELDS.md)**。文档 codec 这一轮没有改写；上表的不保真是规格，不是漏映射。
 
 AI 路径定位见 **[FORMAT-FOR-AI.md](./FORMAT-FOR-AI.md)**。
 
@@ -165,9 +179,9 @@ PNG 可选 2x 或 3x，底可以是白的或透明的。
 
 | 格式 | 方向 | 样本来源 | 保留项 | 丢失项 | 结论 | 日期 |
 |---|---|---|---|---|---|---|
-| `.mm` | 导入 + 导出 | 测试里的 XML 与 `MindMapDocument` 往返 | 层级、顺序、TEXT、richcontent 纯文本、NOTE、LINK、FOLDED、POSITION | 样式、图标、箭头、属性、钩子、DETAILS、自由坐标、原 ID | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-09 |
-| `.opml` | 导入 + 导出 | 测试里的 OPML 与文档往返 | 层级、顺序、text、_note/note、url、文档标题 | 折叠、左右侧、画布坐标、head 元数据、未列出的属性 | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-09 |
-| Markdown | 一等文档读写 | 见 MD-AS-DOCUMENT fixture | 层级、顺序、text、note、单一 link、front-matter | 附件、颜色、关系线、位置、折叠、UUID；`##`+ 拒开 | 规格已通过（Censor）；实现见 S1+ | 2026-11-10 |
+| `.mm` | 导入 + 导出 | `Fixtures/MM/` 与文档往返 | 层级、顺序、TEXT、richcontent 纯文本、NOTE、LINK、FOLDED、POSITION、`ID_`+32hex；其余属性和元素原样写回 | 自由坐标、自由节点、便签、模型样式、关系线；未知 POSITION 报错；注释在改过映射后不重写 | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-10 |
+| `.opml` | 导入 + 导出 | `Fixtures/OPML/` 与文档往返 | 层级、顺序、text、title/_note/note、url、文档标题；head 其余元素和未知属性原样写回 | 折叠、左右侧、画布坐标、自由节点、便签、样式、节点 id；注释在改过映射后不重写 | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-10 |
+| Markdown | 一等文档读写 + 纯标题预设 | 见 MD-AS-DOCUMENT 与 `Fixtures/MarkdownHeading/` | 文档：层级、顺序、text、note、单一 link、front-matter。预设：标题深度、text、note、单一 link | 附件、颜色、关系线、位置、折叠、UUID；`##`+ 拒开；预设认不出的行失败。不把这些补成假保真 | 文档 codec 未改；字段表见 MARKDOWN-FIELDS | 2026-11-10 |
 | PNG / PDF | 仅导出 | 单测把 PNG 读回并抽样像素；PDF 看页数和 mediaBox | 当前可见节点和连线；2x/3x；白底或透明 | 工具栏、侧栏、选中框、点阵；折叠起来的子树；超出像素上限的部分 | 代码与单测已落盘；本机未打开文件 | 2026-11-09 |
 | `.xmind` | 导入 + 导出 + 再导入 | `Tests/FlorettaCoreTests/Fixtures/XMind/` 六类样本，加单测里的 `MindMapDocument` | 层级、文字、备注、链接、根上的自由节点、关系线、已映射的样式、xap 附件引用和字节、多画布；未知字段在未改映射时按原 `content.json` 字节写回 | 折叠不进 `isCollapsed`、标签/标记/概要/边界没有一等字段、嵌套浮动主题不可编辑、XMind 8 仅 `content.xml`、便签；改映射字段后数字会按 JSON 数字重写。详见 `docs/XMIND-FIELDS.md` | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-10 |
 

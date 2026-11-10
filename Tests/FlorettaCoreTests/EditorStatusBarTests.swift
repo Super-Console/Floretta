@@ -53,8 +53,8 @@ final class EditorStatusBarTests: XCTestCase {
         XCTAssertTrue(inset.contains("EditorStatusControls("))
         XCTAssertTrue(inset.contains("accessibilityIdentifier(\"statusBar\")"))
         XCTAssertTrue(editor.contains("session.zen.chrome.showsStatusBar"))
-        XCTAssertFalse(editor.contains("camera.zoom"))
-        XCTAssertFalse(editor.contains("zoomMenu"))
+        XCTAssertFalse(inset.contains("camera.zoom"))
+        XCTAssertFalse(inset.contains("zoomMenu"))
         XCTAssertFalse(editor.contains(".editorStatusBar("))
 
         XCTAssertTrue(bar.contains("accessibilityIdentifier(\"statusBar.zoom\")"))

@@ -1,3 +1,4 @@
+import FlorettaCore
 import SwiftUI
 
 /// One label for both toolbar states.

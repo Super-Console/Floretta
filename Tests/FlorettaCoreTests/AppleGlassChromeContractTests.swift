@@ -41,6 +41,7 @@ final class AppleGlassChromeContractTests: XCTestCase {
         let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
         let plate = try slice(glass, from: "var body: some View", until: "private func hosted")
         XCTAssertTrue(plate.contains("role == .inspectorPanel"))
+        XCTAssertTrue(plate.contains("role == .toolbarFloatingButton"))
         XCTAssertTrue(plate.contains("content"))
         XCTAssertTrue(glass.contains("inspector.panel.glass"))
         XCTAssertFalse(glass.contains("struct AppleGlassPanel"))

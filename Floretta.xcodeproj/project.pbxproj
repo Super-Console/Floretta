@@ -170,6 +170,9 @@
 		CB2100000000000000000002 /* SnapshotHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB2100000000000000000001 /* SnapshotHistory.swift */; };
 		CB2100000000000000000003 /* SnapshotHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB2100000000000000000001 /* SnapshotHistory.swift */; };
 		CB2200000000000000000001 /* SnapshotHistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB2200000000000000000001 /* SnapshotHistoryTests.swift */; };
+		C4A100000000000000000001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A100000000000000000001 /* main.swift */; };
+		C4A100000000000000000002 /* FlorettaCore in Frameworks */ = {isa = PBXBuildFile; productRef = D4A100000000000000000001 /* FlorettaCore */; };
+		C4A200000000000000000001 /* AIAdaptationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A200000000000000000001 /* AIAdaptationTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -262,6 +265,9 @@
 		F4200000000000000000000C /* FlorettaQuickLookPreview-macOS.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "FlorettaQuickLookPreview-macOS.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		FB2100000000000000000001 /* SnapshotHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotHistory.swift; sourceTree = "<group>"; };
 		FB2200000000000000000001 /* SnapshotHistoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotHistoryTests.swift; sourceTree = "<group>"; };
+		F4A100000000000000000001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = main.swift; path = FlorettaCLI/main.swift; sourceTree = SOURCE_ROOT; };
+		F4A100000000000000000002 /* floretta */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = floretta; sourceTree = BUILT_PRODUCTS_DIR; };
+		F4A200000000000000000001 /* AIAdaptationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AIAdaptationTests.swift; path = Tests/FlorettaCoreTests/AIAdaptationTests.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -317,6 +323,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B4A100000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C4A100000000000000000002 /* FlorettaCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		B42000000000000000000002 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -342,6 +356,8 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000003 /* Floretta */,
+				F4A100000000000000000001 /* main.swift */,
+				F4A200000000000000000001 /* AIAdaptationTests.swift */,
 				F1000000000000000000000C /* MindMapDocumentTests.swift */,
 			F50000000000000000000004 /* ContainerTests.swift */,
 			F50000000000000000000005 /* StreamingTests.swift */,
@@ -385,6 +401,7 @@
 				F4200000000000000000000C /* FlorettaQuickLookPreview-macOS.appex */,
 				F1000000000000000000000D /* FlorettaTests.xctest */,
 				F72000000000000000000002 /* FlorettaUITests.xctest */,
+				F4A100000000000000000002 /* floretta */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -704,6 +721,25 @@
 			productReference = F3100000000000000000000C /* FlorettaShare-macOS.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		E4A100000000000000000001 /* floretta */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 84A100000000000000000001 /* Build configuration list for PBXNativeTarget "floretta" */;
+			buildPhases = (
+				B4A100000000000000000001 /* Sources */,
+				B4A100000000000000000002 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = floretta;
+			packageProductDependencies = (
+				D4A100000000000000000001 /* FlorettaCore */,
+			);
+			productName = floretta;
+			productReference = F4A100000000000000000002 /* floretta */;
+			productType = "com.apple.product-type.tool";
+		};
 		E42000000000000000000001 /* FlorettaQuickLookThumbnail-macOS */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 850000000000000000000001 /* Build configuration list for PBXNativeTarget "FlorettaQuickLookThumbnail-macOS" */;
@@ -780,6 +816,10 @@
 						CreatedOnToolsVersion = 16.0;
 						ProvisioningStyle = Automatic;
 					};
+					E4A100000000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+						ProvisioningStyle = Automatic;
+					};
 					E42000000000000000000001 = {
 						CreatedOnToolsVersion = 16.0;
 						ProvisioningStyle = Automatic;
@@ -810,6 +850,7 @@
 			projectRoot = "";
 			targets = (
 				E10000000000000000000001 /* Floretta-macOS */,
+				E4A100000000000000000001 /* floretta */,
 				E10000000000000000000002 /* Floretta-iOS */,
 				E31000000000000000000002 /* FlorettaShare-macOS */,
 				E31000000000000000000001 /* FlorettaShare-iOS */,
@@ -1082,6 +1123,15 @@
 				CB2200000000000000000001 /* SnapshotHistoryTests.swift in Sources */,
 				C31000000000000000000014 /* ShareCatalogStore.swift in Sources */,
 				C31000000000000000000011 /* ShareIngressTests.swift in Sources */,
+				C4A200000000000000000001 /* AIAdaptationTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B4A100000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C4A100000000000000000001 /* main.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1833,6 +1883,63 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		D4A100000000000000000011 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 9;
+				DEVELOPMENT_TEAM = JY5U4D6JD3;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = net.timhuang.floretta.cli;
+				PRODUCT_NAME = floretta;
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		D4A100000000000000000012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 9;
+				DEVELOPMENT_TEAM = JY5U4D6JD3;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = net.timhuang.floretta.cli;
+				PRODUCT_NAME = floretta;
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		84A100000000000000000001 /* Build configuration list for PBXNativeTarget "floretta" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D4A100000000000000000011 /* Debug */,
+				D4A100000000000000000012 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		840000000000000000000002 /* Build configuration list for PBXNativeTarget "FlorettaShare-macOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -1927,6 +2034,11 @@
 			productName = FlorettaCore;
 		};
 		D81000000000000000000007 /* FlorettaCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A81000000000000000000001 /* XCLocalSwiftPackageReference "." */;
+			productName = FlorettaCore;
+		};
+		D4A100000000000000000001 /* FlorettaCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A81000000000000000000001 /* XCLocalSwiftPackageReference "." */;
 			productName = FlorettaCore;

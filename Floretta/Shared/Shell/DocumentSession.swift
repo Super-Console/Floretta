@@ -439,6 +439,7 @@ final class LibraryModel {
     var showImporter = false
     var alertTitle = "无法打开"
     var openError: String?
+    var inventoryError: AssetInventoryError?
     var tab: ShellTab = .home
     var showInterruptedSave = false
     var interruptedTitle: String { interruptedPayload?.promptTitle ?? "保存未完成" }
@@ -556,14 +557,16 @@ final class LibraryModel {
             try store.remember(url)
             reload()
             scope = access
-            openError = nil
+            dismissOpenError()
             editor = session
         } catch let inventory as AssetInventoryError {
             access.end()
+            inventoryError = inventory
             alertTitle = inventory.promptTitle
             openError = inventory.promptMessage
         } catch {
             access.end()
+            inventoryError = nil
             alertTitle = "无法打开"
             openError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
@@ -576,6 +579,7 @@ final class LibraryModel {
         do {
             _ = try SaveRecovery.restorePrevious(documentAt: url, files: ports.streaming)
         } catch {
+            inventoryError = nil
             alertTitle = "无法恢复"
             openError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             return
@@ -606,6 +610,7 @@ final class LibraryModel {
         guard let url = store.resolve(entry) else {
             store.remove(id: entry.id)
             reload()
+            inventoryError = nil
             alertTitle = "无法打开"
             openError = "无法打开最近文件。"
             return
@@ -626,6 +631,7 @@ final class LibraryModel {
             do {
                 try persistFloretta(current)
             } catch {
+                inventoryError = nil
                 alertTitle = "无法保存"
                 openError = saveFailureMessage(error)
                 return false
@@ -638,8 +644,13 @@ final class LibraryModel {
             try? store.remember(url)
         }
         reload()
-        openError = nil
+        dismissOpenError()
         return shouldWrite
+    }
+
+    func dismissOpenError() {
+        openError = nil
+        inventoryError = nil
     }
 
     /// Share sheet "保存为 Floretta" already wrote `url`. Remember it, and if this
@@ -650,6 +661,7 @@ final class LibraryModel {
             try store.remember(url)
         } catch {
             access.end()
+            inventoryError = nil
             alertTitle = "无法保存"
             openError = saveFailureMessage(error)
             return
@@ -668,7 +680,7 @@ final class LibraryModel {
         } else {
             access.end()
         }
-        openError = nil
+        dismissOpenError()
     }
 
     /// False when the open `.floretta` could not be written. The editor stays.
@@ -710,7 +722,7 @@ final class LibraryModel {
             let catalog = try write(document, to: url)
             try store.remember(url)
             reload()
-            openError = nil
+            dismissOpenError()
             let session = EditorSession(
                 document: document,
                 url: url,
@@ -720,6 +732,7 @@ final class LibraryModel {
             session.notePackage(catalog: catalog, bytes: (try? ports.streaming.byteCount(at: url)) ?? 0)
             editor = session
         } catch {
+            inventoryError = nil
             alertTitle = "无法保存"
             openError = saveFailureMessage(error)
             editor = EditorSession(

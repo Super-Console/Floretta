@@ -19,44 +19,44 @@ struct ContentView: View {
     var body: some View {
         root
             .preferredColorScheme(settings.appearance.colorScheme)
-            .environment(\.locale, settings.resolvedLocale)
             .onAppear { recovery.checkOnLaunch() }
             .onChange(of: recovery.restoredDocument) { _, restored in
                 if let restored {
                     library.openRecovered(restored)
                 }
             }
-            .alert("Recover unsaved mind map?", isPresented: $recovery.showOffer) {
-                Button("Recover") { recovery.restore() }
-                Button("Discard", role: .destructive) { recovery.discard() }
+            .alert(Text(verbatim: text("要恢复未保存的导图吗？")), isPresented: $recovery.showOffer) {
+                Button(text("恢复")) { recovery.restore() }
+                Button(text("丢弃"), role: .destructive) { recovery.discard() }
             } message: {
-                Text(recovery.offerMessage)
+                Text(verbatim: FlorettaL10n.recoveryMessage(title: recovery.offeredTitle, locale: settings.resolvedLocale))
             }
-            .alert("Couldn't recover autosave", isPresented: $recovery.showFailure) {
-                Button("OK", role: .cancel) { recovery.acknowledgeFailure() }
+            .alert(Text(verbatim: text("无法恢复自动保存")), isPresented: $recovery.showFailure) {
+                Button(text("好"), role: .cancel) { recovery.acknowledgeFailure() }
             } message: {
-                Text(recovery.failureMessage)
+                Text(verbatim: FlorettaL10n.present(recovery.failureMessage, locale: settings.resolvedLocale))
             }
-            .alert(library.interruptedTitle, isPresented: $library.showInterruptedSave) {
+            .alert(Text(verbatim: text(library.interruptedTitle)), isPresented: $library.showInterruptedSave) {
                 if library.interruptedCanRestore {
-                    Button("恢复上一版") { library.restoreInterruptedSave() }
-                    Button("丢弃未完成的写入", role: .destructive) { library.discardInterruptedPartial() }
+                    Button(text("恢复上一版")) { library.restoreInterruptedSave() }
+                    Button(text("丢弃未完成的写入"), role: .destructive) { library.discardInterruptedPartial() }
                 } else {
-                    Button("好", role: .cancel) { library.discardInterruptedPartial() }
+                    Button(text("好"), role: .cancel) { library.discardInterruptedPartial() }
                 }
             } message: {
-                Text(library.interruptedMessage)
+                Text(verbatim: FlorettaL10n.present(library.interruptedMessage, locale: settings.resolvedLocale))
             }
-            .alert(library.alertTitle, isPresented: openErrorPresented) {
-                Button("好", role: .cancel) {}
+            .alert(Text(verbatim: text(library.alertTitle)), isPresented: openErrorPresented) {
+                Button(text("好"), role: .cancel) {}
             } message: {
-                Text(library.openError ?? "")
+                Text(verbatim: openErrorMessage)
             }
-            .alert("提示", isPresented: noticePresented) {
-                Button("好", role: .cancel) {}
+            .alert(Text(verbatim: text("提示")), isPresented: noticePresented) {
+                Button(text("好"), role: .cancel) {}
             } message: {
-                Text(notice ?? "")
+                Text(verbatim: FlorettaL10n.present(notice ?? "", locale: settings.resolvedLocale))
             }
+            .environment(\.locale, settings.resolvedLocale)
             .fileImporter(
                 isPresented: $showImporter,
                 allowedContentTypes: FlorettaFileTypes.allowedContentTypes,
@@ -66,6 +66,7 @@ struct ContentView: View {
                 case .success(let urls):
                     if let url = urls.first { library.openFile(url) }
                 case .failure(let error):
+                    library.inventoryError = nil
                     library.openError = error.localizedDescription
                 }
             }
@@ -96,12 +97,12 @@ struct ContentView: View {
         TabView(selection: $library.tab) {
             iosHome
                 .tabItem {
-                    Label(ShellTab.home.title, systemImage: ShellTab.home.systemImage)
+                    Label(text(ShellTab.home.title), systemImage: ShellTab.home.systemImage)
                 }
                 .tag(ShellTab.home)
             SettingsView(settings: settings)
                 .tabItem {
-                    Label(ShellTab.settings.title, systemImage: ShellTab.settings.systemImage)
+                    Label(text(ShellTab.settings.title), systemImage: ShellTab.settings.systemImage)
                 }
                 .tag(ShellTab.settings)
         }
@@ -110,7 +111,7 @@ struct ContentView: View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             List(selection: macSelection) {
                 ForEach(ShellTab.destinations, id: \.self) { destination in
-                    Label(destination.title, systemImage: destination.systemImage)
+                    Label(text(destination.title), systemImage: destination.systemImage)
                         .tag(destination)
                 }
             }
@@ -214,7 +215,7 @@ struct ContentView: View {
     private var openErrorPresented: Binding<Bool> {
         Binding(
             get: { library.openError != nil },
-            set: { if !$0 { library.openError = nil } }
+            set: { if !$0 { library.dismissOpenError() } }
         )
     }
 
@@ -247,6 +248,17 @@ struct ContentView: View {
         browseRoot = directory
         browseTitle = "iCloud云盘"
         page = .browse
+    }
+
+    private func text(_ key: String) -> String {
+        FlorettaL10n.string(key, language: settings.language)
+    }
+
+    private var openErrorMessage: String {
+        if let inventory = library.inventoryError {
+            return FlorettaL10n.inventoryMessage(inventory, locale: settings.resolvedLocale)
+        }
+        return FlorettaL10n.present(library.openError ?? "", locale: settings.resolvedLocale)
     }
 
 }

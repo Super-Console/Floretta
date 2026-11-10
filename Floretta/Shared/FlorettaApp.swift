@@ -34,14 +34,14 @@ struct FlorettaApp: App {
         .defaultSize(width: 960, height: 680)
         .commands {
             CommandGroup(replacing: .newItem) {
-                Button("新建") {
+                Button(FlorettaL10n.string("新建", language: settings.language)) {
                     library.makeNew()
                 }
                 .keyboardShortcut("n", modifiers: .command)
             }
             #if os(macOS)
             CommandGroup(replacing: .appSettings) {
-                Button(ShellTab.settings.title) {
+                Button(FlorettaL10n.string(ShellTab.settings.title, language: settings.language)) {
                     library.tab = .settings
                 }
                 .keyboardShortcut(",", modifiers: .command)
@@ -63,8 +63,13 @@ enum AppLaunch {
 
     @MainActor
     static func make() -> Session {
-        guard ProcessInfo.processInfo.arguments.contains(uiTestArgument) else {
-            return Session(recovery: RecoveryPresenter(), settings: .shared, library: .shared)
+        let arguments = ProcessInfo.processInfo.arguments
+        guard arguments.contains(uiTestArgument) else {
+            let session = Session(recovery: RecoveryPresenter(), settings: .shared, library: .shared)
+            if let language = AppLanguage.fromLaunchArguments(arguments) {
+                session.settings.language = language
+            }
+            return session
         }
         let id = UUID().uuidString
         let root = FileManager.default.temporaryDirectory
@@ -83,6 +88,7 @@ enum AppLaunch {
         }
         defaults.removePersistentDomain(forName: suite)
         let settings = AppSettings(defaults: defaults)
+        settings.language = AppLanguage.fromLaunchArguments(arguments) ?? .simplifiedChinese
         let library = LibraryModel(
             settings: settings,
             store: RecentMapsStore(defaults: defaults),

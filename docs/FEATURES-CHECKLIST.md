@@ -22,7 +22,7 @@
 - [x] A11 设备标签感知（我的 iPhone / iPad / Mac）
 - [x] A12 三端退出路径（iPad/iPhone 返回按钮 + 右滑手势）
 - [x] A13 Mac/iPad 共用外壳，按可用宽度自适应（宽→侧栏，窄→Tab）
-- [x] A14 Tab 栏恢复（首页 / 设置）（iOS `ContentView` 的 `TabView` 含首页/设置；`HomeSmokeTests.testHomeTitleSettingsNewMapAndRows` 点这两个页签。祖先 tip `1b900f4` 上该 UITest 为 1/0，此后该测试与 `ContentView` 未改）
+- [x] A14 Tab 栏恢复（首页 / 设置）（iOS `ContentView` 用系统 `TabView` + `Tab`，不自绘底栏胶囊；`HomeSmokeTests` 点首页/设置。首页工具栏是系统 `ToolbarItem` + `Menu`，搜索是 `.searchable`）
 - [x] A15 设置入口去重（工具栏齿轮 / 更多菜单 / ⌘, / 侧栏 四处收敛）（首页工具栏无齿轮；`ShellTab.homeOverflowTitles` 为空；更多菜单无「设置」；⌘, 只在 `FlorettaCommands`。`ShellTests.testMenusAndTemplatesOmitDeadActions`）
 - [x] A16 删除重复的侧栏按钮（原来两个一模一样的）（侧栏没有无操作的「最近」行，也没有自绘 `sidebar.left`。`ShellTests.testCompactHomeShowsTheRecentStackAndSidebarRowsAreNotNoOps`；`HomeSmokeTests` 断言可点的「最近」只在导航栏标题里）
 - [ ] A17 侧栏右缘异常竖向阴影修复

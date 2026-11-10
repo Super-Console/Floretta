@@ -16,35 +16,89 @@ struct RecentPage: View {
             .navigationTitle(text(HomeLibrary.navigationTitle))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
-            #endif
+            .searchable(
+                text: $searchText,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: Text(verbatim: text("搜索"))
+            )
+            #else
             .searchable(text: $searchText, prompt: Text(verbatim: text("搜索")))
+            #endif
             .toolbar {
-                ToolbarItemGroup(placement: .primaryAction) {
-                    Button {
-                        library.makeNew()
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .accessibilityLabel(text("新建导图"))
-                    .accessibilityIdentifier("home.newMap")
-                    Button {
-                        page = .newMap
-                    } label: {
-                        Image(systemName: "square.grid.2x2")
-                    }
-                    .accessibilityLabel(text("模板库"))
-                    .accessibilityIdentifier("home.templates")
-                    Menu {
-                        Button(text("从文件应用打开"), action: openFiles)
-                        Button(text("从 iCloud 云盘打开"), action: openICloud)
-                        Button(text(LocalDeviceLabel.current.title), action: browseLocal)
-                    } label: {
-                        Image(systemName: "folder")
-                    }
-                    .accessibilityLabel(text("打开"))
-                }
+                #if os(iOS)
+                iosHomeToolbar
+                #else
+                macHomeToolbar
+                #endif
             }
     }
+
+    #if os(iOS)
+    /// System navigation-bar items. One toolbar button and one menu; the system
+    /// draws their glass. No custom capsule, blur, or background.
+    @ToolbarContentBuilder
+    private var iosHomeToolbar: some ToolbarContent {
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                library.makeNew()
+            } label: {
+                Image(systemName: "plus")
+            }
+            .accessibilityLabel(text("新建导图"))
+            .accessibilityIdentifier("home.newMap")
+        }
+        ToolbarItem(placement: .primaryAction) {
+            Menu {
+                Button {
+                    page = .newMap
+                } label: {
+                    Label(text("模板库"), systemImage: "square.grid.2x2")
+                }
+                .accessibilityIdentifier("home.templates")
+                Menu {
+                    Button(text("从文件应用打开"), action: openFiles)
+                    Button(text("从 iCloud 云盘打开"), action: openICloud)
+                    Button(text(LocalDeviceLabel.current.title), action: browseLocal)
+                } label: {
+                    Label(text("打开"), systemImage: "folder")
+                }
+                .accessibilityIdentifier("home.open")
+            } label: {
+                Image(systemName: "ellipsis")
+            }
+            .accessibilityLabel(text("更多"))
+            .accessibilityIdentifier("home.toolbarMenu")
+        }
+    }
+    #else
+    @ToolbarContentBuilder
+    private var macHomeToolbar: some ToolbarContent {
+        ToolbarItemGroup(placement: .primaryAction) {
+            Button {
+                library.makeNew()
+            } label: {
+                Image(systemName: "plus")
+            }
+            .accessibilityLabel(text("新建导图"))
+            .accessibilityIdentifier("home.newMap")
+            Button {
+                page = .newMap
+            } label: {
+                Image(systemName: "square.grid.2x2")
+            }
+            .accessibilityLabel(text("模板库"))
+            .accessibilityIdentifier("home.templates")
+            Menu {
+                Button(text("从文件应用打开"), action: openFiles)
+                Button(text("从 iCloud 云盘打开"), action: openICloud)
+                Button(text(LocalDeviceLabel.current.title), action: browseLocal)
+            } label: {
+                Image(systemName: "folder")
+            }
+            .accessibilityLabel(text("打开"))
+        }
+    }
+    #endif
 
     private func text(_ key: String) -> String {
         FlorettaL10n.string(key, locale: locale)

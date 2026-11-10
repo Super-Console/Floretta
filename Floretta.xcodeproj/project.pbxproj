@@ -54,6 +54,7 @@
 		C52100000000000000000006 /* FileQuickLook.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52100000000000000000002 /* FileQuickLook.swift */; };
 		C52100000000000000000007 /* FileAttachmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52100000000000000000003 /* FileAttachmentTests.swift */; };
 		C52100000000000000000009 /* EditorChromeContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52100000000000000000005 /* EditorChromeContractTests.swift */; };
+		C5210000000000000000000A /* HomeChromeContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52100000000000000000006 /* HomeChromeContractTests.swift */; };
 		C52100000000000000000008 /* FileTypeIconTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52100000000000000000004 /* FileTypeIconTests.swift */; };
 		C60000000000000000000007 /* LayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000003 /* LayoutTests.swift */; };
 		C61000000000000000000001 /* FreeNodeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F61000000000000000000001 /* FreeNodeTests.swift */; };
@@ -213,6 +214,7 @@
 		F52100000000000000000002 /* FileQuickLook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileQuickLook.swift; sourceTree = "<group>"; };
 		F52100000000000000000003 /* FileAttachmentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FileAttachmentTests.swift; path = Tests/FlorettaCoreTests/FileAttachmentTests.swift; sourceTree = SOURCE_ROOT; };
 		F52100000000000000000005 /* EditorChromeContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EditorChromeContractTests.swift; path = Tests/FlorettaCoreTests/EditorChromeContractTests.swift; sourceTree = SOURCE_ROOT; };
+		F52100000000000000000006 /* HomeChromeContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HomeChromeContractTests.swift; path = Tests/FlorettaCoreTests/HomeChromeContractTests.swift; sourceTree = SOURCE_ROOT; };
 		F52100000000000000000004 /* FileTypeIconTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTypeIconTests.swift; sourceTree = "<group>"; };
 		F60000000000000000000003 /* LayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LayoutTests.swift; path = Tests/FlorettaCoreTests/LayoutTests.swift; sourceTree = SOURCE_ROOT; };
 		F61000000000000000000001 /* FreeNodeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FreeNodeTests.swift; path = Tests/FlorettaCoreTests/FreeNodeTests.swift; sourceTree = SOURCE_ROOT; };
@@ -370,6 +372,7 @@
 			F51000000000000000000006 /* ImageInsertTests.swift */,
 			F52100000000000000000003 /* FileAttachmentTests.swift */,
 			F52100000000000000000005 /* EditorChromeContractTests.swift */,
+			F52100000000000000000006 /* HomeChromeContractTests.swift */,
 			F91000000000000000000002 /* MMTests.swift */,
 			F92000000000000000000003 /* OPMLMarkdownTests.swift */,
 			F64000000000000000000001 /* XMindRoundTripTests.swift */,
@@ -1106,6 +1109,7 @@
 				C52100000000000000000006 /* FileQuickLook.swift in Sources */,
 				C52100000000000000000007 /* FileAttachmentTests.swift in Sources */,
 				C52100000000000000000009 /* EditorChromeContractTests.swift in Sources */,
+				C5210000000000000000000A /* HomeChromeContractTests.swift in Sources */,
 				C52100000000000000000008 /* FileTypeIconTests.swift in Sources */,
 				C60000000000000000000007 /* LayoutTests.swift in Sources */,
 				C61000000000000000000001 /* FreeNodeTests.swift in Sources */,

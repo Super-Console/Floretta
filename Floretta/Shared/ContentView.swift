@@ -115,17 +115,19 @@ struct ContentView: View {
     @ViewBuilder
     private var shell: some View {
         #if os(iOS)
+        // System tab bar. `.tabBarOnly` keeps iPhone and iPad on that bar
+        // instead of an iPad sidebar. No custom glass, blur, or capsule.
         TabView(selection: $library.tab) {
-            iosHome
-                .tabItem {
-                    Label(text(ShellTab.home.title), systemImage: ShellTab.home.systemImage)
-                }
-                .tag(ShellTab.home)
-            SettingsView(settings: settings)
-                .tabItem {
-                    Label(text(ShellTab.settings.title), systemImage: ShellTab.settings.systemImage)
-                }
-                .tag(ShellTab.settings)
+            Tab(value: ShellTab.home) {
+                iosHome
+            } label: {
+                Label(text(ShellTab.home.title), systemImage: ShellTab.home.systemImage)
+            }
+            Tab(value: ShellTab.settings) {
+                SettingsView(settings: settings)
+            } label: {
+                Label(text(ShellTab.settings.title), systemImage: ShellTab.settings.systemImage)
+            }
         }
         .tabViewStyle(.tabBarOnly)
         #else

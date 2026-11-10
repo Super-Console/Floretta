@@ -477,11 +477,14 @@ public struct MindMapKeyboardSession {
         return true
     }
 
-    /// One undo step. Stores the preset id only. Branch colors stay computed from that id.
+    /// One undo step. Stores the id only. Branch colors, canvas paper, and line thickness
+    /// are read from that id. A color scheme and a branch theme share this write, so one
+    /// Undo restores all three. Node styles are left as the user set them.
     @discardableResult
     public mutating func setBranchTheme(_ id: String, document: inout MindMapDocument) -> Bool {
         guard mode == .command, editOrigin == nil, pendingChange == nil else { return false }
-        guard MapThemeCatalog.all.contains(where: { $0.id == id }) else { return false }
+        let knownTheme = MapThemeCatalog.all.contains(where: { $0.id == id })
+        guard knownTheme || MapColorPresetCatalog.preset(id: id) != nil else { return false }
         let stored = MapThemeCatalog.persistedID(id)
         if document.themeID == stored { return true }
         record(document)

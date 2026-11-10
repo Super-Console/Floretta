@@ -1802,6 +1802,49 @@ private struct BranchThemeSheet: View {
         NavigationStack {
             List {
                 Section {
+                    ForEach(MapColorPresetCatalog.all) { preset in
+                        Button {
+                            onSelect(preset.id)
+                        } label: {
+                            HStack(spacing: 12) {
+                                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                    .fill(ink(preset.canvasBackground))
+                                    .frame(width: 22, height: 22)
+                                    .overlay {
+                                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                            .strokeBorder(
+                                                ink(preset.branchColors.first ?? .black),
+                                                lineWidth: min(max(preset.lineWidth, 1), 3)
+                                            )
+                                    }
+                                    .accessibilityHidden(true)
+                                HStack(spacing: 4) {
+                                    ForEach(Array(preset.branchColors.enumerated()), id: \.offset) { _, swatch in
+                                        Circle()
+                                            .fill(ink(swatch))
+                                            .frame(width: 14, height: 14)
+                                    }
+                                }
+                                .accessibilityHidden(true)
+                                Text(verbatim: text(preset.nameKey))
+                                Spacer(minLength: 8)
+                                if isSelected(preset.id) {
+                                    Image(systemName: "checkmark")
+                                        .accessibilityHidden(true)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(text(preset.nameKey))
+                        .accessibilityAddTraits(isSelected(preset.id) ? .isSelected : AccessibilityTraits())
+                        .accessibilityIdentifier("preset.\(preset.id)")
+                    }
+                } header: {
+                    Text(verbatim: text("配色方案"))
+                } footer: {
+                    Text(verbatim: text("一次换上分支色、画布背景和线条粗细"))
+                }
+                Section {
                     ForEach(MapThemeCatalog.all) { theme in
                         Button {
                             onSelect(theme.id)
@@ -1817,7 +1860,7 @@ private struct BranchThemeSheet: View {
                                 .accessibilityHidden(true)
                                 Text(verbatim: text(theme.nameKey))
                                 Spacer(minLength: 8)
-                                if isSelected(theme) {
+                                if isSelected(theme.id) {
                                     Image(systemName: "checkmark")
                                         .accessibilityHidden(true)
                                 }
@@ -1825,7 +1868,7 @@ private struct BranchThemeSheet: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(text(theme.nameKey))
-                        .accessibilityAddTraits(isSelected(theme) ? .isSelected : AccessibilityTraits())
+                        .accessibilityAddTraits(isSelected(theme.id) ? .isSelected : AccessibilityTraits())
                         .accessibilityIdentifier("theme.\(theme.id)")
                     }
                 } footer: {
@@ -1863,8 +1906,8 @@ private struct BranchThemeSheet: View {
         Color(red: color.red, green: color.green, blue: color.blue)
     }
 
-    private func isSelected(_ theme: MapTheme) -> Bool {
-        MapThemeCatalog.persistedID(theme.id) == MapThemeCatalog.persistedID(themeID)
+    private func isSelected(_ id: String) -> Bool {
+        MapThemeCatalog.persistedID(id) == MapThemeCatalog.persistedID(themeID)
     }
 }
 

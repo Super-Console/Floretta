@@ -71,8 +71,8 @@
 ## E. AI 适配
 
 - [~] E1 `docs/FORMAT-FOR-AI.md`（明文 JSON、稳定 ID、字段说明）
-- [~] E2 CLI（与 MCP 同一个原生二进制，`floretta tree / node add / export`）（已派，未合并未验）
-- [~] E3 MCP stdio server（可选组件，不常驻不联网）（已派，未合并未验）
+- [x] E2 CLI（与 MCP 同一个原生二进制，`floretta tree / node add / export`）（PR #71 → main `dbde570c`，tip `af2ea145`）
+- [x] E3 MCP stdio server（可选组件，不常驻不联网）（PR #71 → main `dbde570c`，tip `af2ea145`）
 - [~] E4 体积约束：禁止引入 Node/Python 运行时；增量控制在一两 MB
 
 ## F. 平台与架构
@@ -130,8 +130,8 @@
 
 ## 统计
 
-- 已完成并验过：**59** 项
-- 已派未合并/未验：**9** 项
+- 已完成并验过：**61** 项
+- 已派未合并/未验：**7** 项
 - 未开始：**13** 项
 - 合计：**81** 项
 - 已知阻塞：**3** 项

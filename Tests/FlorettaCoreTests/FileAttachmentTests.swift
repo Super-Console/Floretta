@@ -2,6 +2,72 @@ import FlorettaCore
 import XCTest
 
 final class FileAttachmentTests: XCTestCase {
+    func testNodeMediaInsertAcceptsCommonAudioAndVideoExtensions() {
+        for filename in ["voice.mp3", "voice.m4a", "voice.wav", "clip.mp4", "clip.mov"] {
+            XCTAssertTrue(NodeMediaInsertRoute.accepts(filename: filename), filename)
+        }
+        XCTAssertFalse(NodeMediaInsertRoute.accepts(filename: "notes.pdf"))
+        XCTAssertEqual(NodeMediaKind.classify(filename: "MOVIE.MOV"), .video)
+        XCTAssertEqual(NodeMediaKind.classify(filename: "voice.m4a"), .audio)
+    }
+
+    func testNodeMediaInsertProposalUsesOrdinaryAttachmentBudget() {
+        let proposal = NodeMediaInsertRoute.proposal(
+            filename: "clip.mp4",
+            byteCount: 123,
+            currentDocumentByteCount: 456
+        )
+        XCTAssertEqual(proposal?.projectedDocumentByteCount, 579)
+        XCTAssertNil(NodeMediaInsertRoute.proposal(
+            filename: "cover.png",
+            byteCount: 123,
+            currentDocumentByteCount: 456
+        ))
+    }
+
+    func testVideoAttachmentKeepsRawByteHashAndDedupKey() throws {
+        let directory = try makeDirectory()
+        let bytes = Data([0, 0, 0, 24, 102, 116, 121, 112, 109, 112, 52, 50, 0x11, 0x22])
+        let original = directory.appendingPathComponent("clip.mp4")
+        let duplicate = directory.appendingPathComponent("copy.mp4")
+        try bytes.write(to: original)
+        try bytes.write(to: duplicate)
+        let first = try hashed(original, files: HandleFiles())
+        let second = try hashed(duplicate, files: HandleFiles())
+        XCTAssertEqual(first.sha256, second.sha256)
+        XCTAssertEqual(first.byteCount, UInt64(bytes.count))
+        XCTAssertEqual(first.fileExtension, "mp4")
+    }
+
+    func testVideoAttachmentRequestsAnAsyncThumbnailByHashInLayout() {
+        let hash = String(repeating: "b", count: 64)
+        let video = NodeAttachment(sha256: hash, fileExtension: "mov", byteCount: 1024, filename: "clip.mov")
+        let document = MindMapDocument(title: "视频", roots: [MindMapNode(text: "根", attachments: [video])])
+        XCTAssertEqual(LayoutEngine().layout(document).first?.thumbnailHashes, [hash])
+    }
+
+    func testMissingAndUnreadableMediaUseNonfatalFallbackStates() {
+        XCTAssertEqual(MediaFileAvailability.state(fileExists: false, isReadable: false), .missing)
+        XCTAssertEqual(MediaFileAvailability.state(fileExists: true, isReadable: false), .unreadable)
+        XCTAssertEqual(MediaFileAvailability.state(fileExists: true, isReadable: true), .available)
+    }
+
+    @MainActor
+    func testPlaybackRegistryStopsPreviousPlayerAndReleasesOnlyCurrentLease() {
+        let registry = MediaPlaybackRegistry()
+        var firstStops = 0
+        var secondStops = 0
+        let first = registry.acquire { firstStops += 1 }
+        let second = registry.acquire { secondStops += 1 }
+        XCTAssertEqual(firstStops, 1)
+        XCTAssertTrue(registry.hasActivePlayer)
+        registry.release(first)
+        XCTAssertTrue(registry.hasActivePlayer)
+        registry.release(second)
+        XCTAssertEqual(secondStops, 1)
+        XCTAssertFalse(registry.hasActivePlayer)
+    }
+
     private let stamped = Date(timeIntervalSince1970: 1_762_646_400)
 
     func testAnyFileIsAcceptedAndImagesStayOnTheImageRoute() {

@@ -2,6 +2,7 @@ import CoreTransferable
 import FlorettaCore
 import SwiftUI
 import UniformTypeIdentifiers
+import AVKit
 #if os(macOS)
 import AppKit
 import PDFKit
@@ -64,6 +65,11 @@ struct DocumentEditor: View {
     @State private var insertAccepted = false
     @State private var insertStoredName: String?
     @State private var previewPhase = FilePreviewPhase.idle
+    @State private var mediaPlayer: AVPlayer?
+    @State private var mediaPlayerURL: URL?
+    @State private var mediaPlayerKind: NodeMediaKind = .other
+    @State private var mediaPlaybackLease: UUID?
+    @State private var audioNodeID: UUID?
     @State private var previewToken = 0
     @State private var thumbnails = AttachmentThumbnailMemory()
     @State private var showUpgrade = false
@@ -370,6 +376,25 @@ struct DocumentEditor: View {
             } message: {
                 Text(verbatim: FlorettaL10n.present(previewPhase.alertMessage ?? "", locale: settings.resolvedLocale))
             }
+            .sheet(isPresented: Binding(
+                get: { mediaPlayer != nil && mediaPlayerKind == .video },
+                set: { if !$0 { closeMediaPlayer() } }
+            )) {
+                if let mediaPlayer {
+                    Group {
+                        TimelineView(.periodic(from: .now, by: 0.5)) { _ in
+                            if mediaPlayer.currentItem?.status == .failed {
+                                ContentUnavailableView("视频无法播放", systemImage: "exclamationmark.triangle")
+                                    .frame(minWidth: 320, minHeight: 180)
+                            } else {
+                                MediaVideoPlayer(player: mediaPlayer)
+                                    .frame(minWidth: 320, minHeight: 180)
+                            }
+                        }
+                    }
+                    .padding()
+                }
+            }
             .background {
                 #if os(macOS)
                 MacQuickLookBridge(
@@ -438,6 +463,9 @@ struct DocumentEditor: View {
                 onPreviewFile: { nodeID, badge in
                     previewFile(nodeID: nodeID, badge: badge)
                 },
+                audioPlayer: mediaPlayerKind == .audio ? mediaPlayer : nil,
+                audioNodeID: audioNodeID,
+                onDismissAudio: closeMediaPlayer,
                 tagFilter: session.tagFilter,
                 persistsPlacement: !session.isMarkdownDocument,
                 dictationToken: session.dictationToken,
@@ -1716,6 +1744,30 @@ struct DocumentEditor: View {
             }
             switch outcome {
             case .success(let url):
+                if NodeMediaInsertRoute.accepts(filename: filename) {
+                    closeMediaPlayer()
+                    mediaPlayerURL = url
+                    mediaPlayerKind = NodeMediaKind.classify(filename: filename)
+                    audioNodeID = mediaPlayerKind == .audio ? nodeID : nil
+                    let item = AVPlayerItem(url: url)
+                    guard MediaFileAvailability.state(
+                        fileExists: FileManager.default.fileExists(atPath: url.path),
+                        isReadable: FileManager.default.isReadableFile(atPath: url.path)
+                    ) == .available else {
+                        try? FileManager.default.removeItem(at: url)
+                        mediaPlayerURL = nil
+                        exportError = "媒体文件缺失或无法读取。"
+                        return
+                    }
+                    let player = AVPlayer(playerItem: item)
+                    mediaPlaybackLease = MediaPlaybackRegistry.shared.acquire { [weak player] in
+                        player?.pause()
+                        player?.replaceCurrentItem(with: nil)
+                    }
+                    mediaPlayer = player
+                    player.play()
+                    return
+                }
                 let ticket = FilePreviewTicket(
                     nodeID: nodeID,
                     sha256: sha,
@@ -1741,6 +1793,21 @@ struct DocumentEditor: View {
                 previewPhase = FilePreviewSession.begin(ticket, fileExists: false)
             }
         }
+    }
+
+    private func closeMediaPlayer() {
+        mediaPlayer?.pause()
+        mediaPlayer?.replaceCurrentItem(with: nil)
+        if MediaPlaybackRegistry.shared.hasActivePlayer {
+            // Releasing the registry lease stops the current AVPlayer and clears ownership.
+            // The callback is idempotent with the explicit teardown above.
+            mediaPlaybackLease.map { MediaPlaybackRegistry.shared.release($0) }
+        }
+        mediaPlayer = nil
+        if let mediaPlayerURL { try? FileManager.default.removeItem(at: mediaPlayerURL) }
+        mediaPlayerURL = nil
+        mediaPlaybackLease = nil
+        audioNodeID = nil
     }
 
     private func cancelInsert() {

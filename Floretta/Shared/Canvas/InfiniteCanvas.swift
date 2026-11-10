@@ -1,6 +1,9 @@
 import FlorettaCore
 import Observation
 import SwiftUI
+import AVKit
+import AVFoundation
+import ImageIO
 #if os(macOS)
 import AppKit
 #elseif os(iOS)
@@ -29,6 +32,9 @@ struct InfiniteCanvas: View {
     var spillDirectory: URL? = nil
     var attachmentEntries: [ZipStoredEntry] = []
     var onPreviewFile: (UUID, FileBadge) -> Void = { _, _ in }
+    var audioPlayer: AVPlayer? = nil
+    var audioNodeID: UUID? = nil
+    var onDismissAudio: () -> Void = {}
     var tagFilter: TopicTagFilter = TopicTagFilter()
     /// Markdown documents do not store free positions. Blank double-tap and root drag stay off.
     var persistsPlacement: Bool = true
@@ -94,6 +100,7 @@ struct InfiniteCanvas: View {
             .overlay { relationshipEditor }
             .overlay { summaryEditor }
             .overlay { boundaryEditor }
+            .overlay { audioPlaybackOverlay }
             .canvasHover { location in
                 guard let location else {
                     interaction.hoveredNodeID = nil
@@ -1065,6 +1072,20 @@ struct InfiniteCanvas: View {
     }
 
     @ViewBuilder
+    @ViewBuilder
+    private var audioPlaybackOverlay: some View {
+        if let audioPlayer, let audioNodeID,
+           let node = placedFrames().first(where: { $0.id == audioNodeID }) {
+            let center = camera.viewport.viewPoint(fromCanvas: CGPoint(
+                x: node.origin.x + node.size.width / 2,
+                y: node.origin.y + node.size.height - 12
+            ))
+            CanvasAudioPlaybackBar(player: audioPlayer, onClose: onDismissAudio)
+                .frame(width: min(280, max(180, node.size.width)))
+                .position(center)
+        }
+    }
+
     private var paperLayer: some View {
         if let paper = resolvedAppearance.canvasBackground {
             Rectangle().fill(color(paper))
@@ -2236,7 +2257,7 @@ final class AttachmentThumbnailMemory {
             let entry = entries.first { $0.sha256 == hash }
             guard let entry,
                   let ext = AttachmentNames.parseAsset(entry.name)?.fileExtension,
-                  AttachmentKind.isImageExtension(ext) else { continue }
+                  AttachmentKind.isImageExtension(ext) || ext == "mp4" || ext == "mov" else { continue }
             guard cache != nil, archiveURL != nil, spillDirectory != nil else { continue }
             inFlight.insert(hash)
             let cache = cache
@@ -2269,6 +2290,15 @@ final class AttachmentThumbnailMemory {
             return try? Data(contentsOf: cache.fileURL(for: hash))
         }
         guard let cache, let archiveURL, let spillDirectory else { return nil }
+        if let ext = AttachmentNames.parseAsset(entry.name)?.fileExtension, ext == "mp4" || ext == "mov" {
+            return produceVideoThumbnail(
+                entry: entry,
+                hash: entry.sha256 ?? "",
+                cache: cache,
+                archiveURL: archiveURL,
+                spillDirectory: spillDirectory
+            )
+        }
         return try? ThumbnailPipeline.materialize(
             entry: entry,
             archiveURL: archiveURL,
@@ -2277,6 +2307,35 @@ final class AttachmentThumbnailMemory {
             decoder: ImageIOThumbnailDecoder(),
             files: FoundationStreamingFiles()
         )
+    }
+
+    nonisolated private static func produceVideoThumbnail(
+        entry: ZipStoredEntry,
+        hash: String,
+        cache: ThumbnailFileCache,
+        archiveURL: URL,
+        spillDirectory: URL
+    ) -> Data? {
+        let url = spillDirectory.appendingPathComponent("\(UUID().uuidString).\(AttachmentNames.parseAsset(entry.name)?.fileExtension ?? "mov")")
+        do {
+            try FileManager.default.createDirectory(at: spillDirectory, withIntermediateDirectories: true)
+            try FilePreviewSpill.write(entry: entry, archiveURL: archiveURL, to: url, files: FoundationStreamingFiles())
+            defer { try? FileManager.default.removeItem(at: url) }
+            let asset = AVURLAsset(url: url)
+            let generator = AVAssetImageGenerator(asset: asset)
+            generator.appliesPreferredTrackTransform = true
+            generator.maximumSize = CGSize(width: StreamingBudget.thumbnailLongestEdge, height: StreamingBudget.thumbnailLongestEdge)
+            let frame = try generator.copyCGImage(at: .zero, actualTime: nil)
+            let data = NSMutableData()
+            guard let destination = CGImageDestinationCreateWithData(data, "public.jpeg" as CFString, 1, nil) else { return nil }
+            CGImageDestinationAddImage(destination, frame, [kCGImageDestinationLossyCompressionQuality: 0.82] as CFDictionary)
+            guard CGImageDestinationFinalize(destination) else { return nil }
+            let bytes = data as Data
+            try cache.store(bytes, for: hash)
+            return bytes
+        } catch {
+            return nil
+        }
     }
 
     /// File-visible so `ThumbnailPublish` can hop the decoded image back onto this actor.

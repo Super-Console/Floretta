@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C8B500000000000000000001 /* CanvasAudioPlaybackBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8B500000000000000000001 /* CanvasAudioPlaybackBar.swift */; };
+		C8B500000000000000000002 /* CanvasAudioPlaybackBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8B500000000000000000001 /* CanvasAudioPlaybackBar.swift */; };
+		C8B500000000000000000003 /* CanvasAudioPlaybackBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8B500000000000000000001 /* CanvasAudioPlaybackBar.swift */; };
+		C8B600000000000000000001 /* MediaVideoPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8B600000000000000000001 /* MediaVideoPlayer.swift */; };
+		C8B600000000000000000002 /* MediaVideoPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8B600000000000000000001 /* MediaVideoPlayer.swift */; };
 		C10000000000000000000001 /* FlorettaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000001 /* FlorettaApp.swift */; };
 		C10000000000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000002 /* ContentView.swift */; };
 		C10000000000000000000003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000003 /* Assets.xcassets */; };
@@ -218,6 +223,8 @@
 		F30000000000000000000001 /* CanvasViewport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasViewport.swift; sourceTree = "<group>"; };
 		F30000000000000000000002 /* CanvasPlacement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasPlacement.swift; sourceTree = "<group>"; };
 		F30000000000000000000003 /* InfiniteCanvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfiniteCanvas.swift; sourceTree = "<group>"; };
+		F8B500000000000000000001 /* CanvasAudioPlaybackBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasAudioPlaybackBar.swift; sourceTree = "<group>"; };
+		F8B600000000000000000001 /* MediaVideoPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaVideoPlayer.swift; sourceTree = "<group>"; };
 		F93000000000000000000001 /* MapExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapExport.swift; sourceTree = "<group>"; };
 		F93000000000000000000002 /* MapExportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapExportTests.swift; sourceTree = "<group>"; };
 		F30000000000000000000004 /* CanvasScrollInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasScrollInput.swift; sourceTree = "<group>"; };
@@ -482,6 +489,7 @@
 		A52100000000000000000001 /* Attachments */ = {
 			isa = PBXGroup;
 			children = (
+				F8B600000000000000000001 /* MediaVideoPlayer.swift */,
 				F52100000000000000000001 /* FileTypeIcon.swift */,
 				F52100000000000000000002 /* FileQuickLook.swift */,
 			);
@@ -499,6 +507,7 @@
 		A30000000000000000000001 /* Canvas */ = {
 			isa = PBXGroup;
 			children = (
+				F8B500000000000000000001 /* CanvasAudioPlaybackBar.swift */,
 				F30000000000000000000002 /* CanvasPlacement.swift */,
 				F30000000000000000000004 /* CanvasScrollInput.swift */,
 				F30000000000000000000001 /* CanvasViewport.swift */,
@@ -1053,6 +1062,8 @@
 				C40000000000000000000001 /* CanvasViewport.swift in Sources */,
 				C40000000000000000000002 /* CanvasPlacement.swift in Sources */,
 				C40000000000000000000003 /* InfiniteCanvas.swift in Sources */,
+				C8B500000000000000000001 /* CanvasAudioPlaybackBar.swift in Sources */,
+				C8B600000000000000000001 /* MediaVideoPlayer.swift in Sources */,
 				C93000000000000000000001 /* MapExport.swift in Sources */,
 				C42000000000000000000001 /* MapPictureMarks.swift in Sources */,
 				C40000000000000000000004 /* CanvasScrollInput.swift in Sources */,
@@ -1090,6 +1101,8 @@
 				C40000000000000000000005 /* CanvasViewport.swift in Sources */,
 				C40000000000000000000006 /* CanvasPlacement.swift in Sources */,
 				C40000000000000000000007 /* InfiniteCanvas.swift in Sources */,
+				C8B500000000000000000002 /* CanvasAudioPlaybackBar.swift in Sources */,
+				C8B600000000000000000002 /* MediaVideoPlayer.swift in Sources */,
 				C93000000000000000000002 /* MapExport.swift in Sources */,
 				C42000000000000000000002 /* MapPictureMarks.swift in Sources */,
 				C40000000000000000000008 /* CanvasScrollInput.swift in Sources */,
@@ -1136,6 +1149,7 @@
 				C40000000000000000000009 /* CanvasViewport.swift in Sources */,
 				C4000000000000000000000A /* CanvasPlacement.swift in Sources */,
 				C4000000000000000000000B /* InfiniteCanvas.swift in Sources */,
+				C8B500000000000000000003 /* CanvasAudioPlaybackBar.swift in Sources */,
 				C93000000000000000000003 /* MapExport.swift in Sources */,
 				C42000000000000000000003 /* MapPictureMarks.swift in Sources */,
 				C93000000000000000000004 /* MapExportTests.swift in Sources */,

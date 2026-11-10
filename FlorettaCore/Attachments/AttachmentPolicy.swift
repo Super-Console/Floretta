@@ -77,6 +77,42 @@ public enum AttachmentKind {
     }
 }
 
+/// Media classification uses only the stored filename; it never opens or copies payload bytes.
+public enum NodeMediaKind: Equatable, Sendable {
+    case audio
+    case video
+    case other
+
+    public static func classify(filename: String) -> NodeMediaKind {
+        switch AttachmentNames.fileExtension(of: filename) {
+        case "mp3", "m4a", "wav", "aiff", "aif", "aac", "flac", "ogg": .audio
+        case "mp4", "mov": .video
+        default: .other
+        }
+    }
+}
+
+/// Import policy for the node-level media controls. The ordinary attachment writer remains
+/// responsible for streaming, hashing and storing the exact source bytes.
+public enum NodeMediaInsertRoute {
+    public static func accepts(filename: String) -> Bool {
+        NodeMediaKind.classify(filename: filename) != .other
+    }
+
+    public static func proposal(
+        filename: String,
+        byteCount: Int64,
+        currentDocumentByteCount: Int64
+    ) -> AttachmentInsertProposal? {
+        guard accepts(filename: filename) else { return nil }
+        return AttachmentInsertProposal(
+            filename: filename,
+            fileByteCount: byteCount,
+            currentDocumentByteCount: currentDocumentByteCount
+        )
+    }
+}
+
 /// Shown before any byte of the file is read. Sizes come from `stat`.
 public struct AttachmentInsertProposal: Equatable, Sendable {
     public var filename: String

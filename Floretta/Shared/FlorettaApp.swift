@@ -39,6 +39,13 @@ struct FlorettaApp: App {
                 }
                 .keyboardShortcut("n", modifiers: .command)
             }
+            CommandGroup(replacing: .saveItem) {
+                Button(FlorettaL10n.string("保存", language: settings.language)) {
+                    library.saveActiveFile()
+                }
+                .keyboardShortcut("s", modifiers: .command)
+                .disabled(!library.canSaveActiveFile)
+            }
             #if os(macOS)
             CommandGroup(replacing: .appSettings) {
                 Button(FlorettaL10n.string(ShellTab.settings.title, language: settings.language)) {

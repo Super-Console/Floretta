@@ -85,6 +85,10 @@
 		CA3100000000000000000001 /* DocumentSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA3100000000000000000001 /* DocumentSession.swift */; };
 		CA3100000000000000000002 /* DocumentSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA3100000000000000000001 /* DocumentSession.swift */; };
 		CA3100000000000000000003 /* DocumentSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA3100000000000000000001 /* DocumentSession.swift */; };
+		CA3200000000000000000001 /* MarkdownDocumentUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA3200000000000000000001 /* MarkdownDocumentUI.swift */; };
+		CA3200000000000000000002 /* MarkdownDocumentUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA3200000000000000000001 /* MarkdownDocumentUI.swift */; };
+		CA3200000000000000000003 /* MarkdownDocumentUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA3200000000000000000001 /* MarkdownDocumentUI.swift */; };
+		CA7200000000000000000001 /* MarkdownDocumentUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7200000000000000000001 /* MarkdownDocumentUITests.swift */; };
 		CA4100000000000000000001 /* LibraryHome.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4100000000000000000001 /* LibraryHome.swift */; };
 		CA4100000000000000000002 /* LibraryHome.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4100000000000000000001 /* LibraryHome.swift */; };
 		CA4200000000000000000001 /* LocalDeviceLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4200000000000000000001 /* LocalDeviceLabel.swift */; };
@@ -157,11 +161,13 @@
 		FA1100000000000000000001 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		FA2100000000000000000001 /* RecentMapsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentMapsStore.swift; sourceTree = "<group>"; };
 		FA3100000000000000000001 /* DocumentSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentSession.swift; sourceTree = "<group>"; };
+		FA3200000000000000000001 /* MarkdownDocumentUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownDocumentUI.swift; sourceTree = "<group>"; };
 		FA4100000000000000000001 /* LibraryHome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryHome.swift; sourceTree = "<group>"; };
 		FA4200000000000000000001 /* LocalDeviceLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDeviceLabel.swift; sourceTree = "<group>"; };
 		FA4300000000000000000001 /* TemplateThumbnail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateThumbnail.swift; sourceTree = "<group>"; };
 		FA5100000000000000000001 /* DocumentEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentEditor.swift; sourceTree = "<group>"; };
 		FA7100000000000000000001 /* ShellTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellTests.swift; sourceTree = "<group>"; };
+		FA7200000000000000000001 /* MarkdownDocumentUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownDocumentUITests.swift; sourceTree = "<group>"; };
 		FA8100000000000000000001 /* NOTICE */ = {isa = PBXFileReference; lastKnownFileType = text; path = NOTICE; sourceTree = SOURCE_ROOT; };
 		FA4400000000000000000001 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		FA4400000000000000000002 /* FlorettaL10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlorettaL10n.swift; sourceTree = "<group>"; };
@@ -333,6 +339,7 @@
 				FA1100000000000000000001 /* AppSettings.swift */,
 				FA5100000000000000000001 /* DocumentEditor.swift */,
 				FA3100000000000000000001 /* DocumentSession.swift */,
+				FA3200000000000000000001 /* MarkdownDocumentUI.swift */,
 				FA4100000000000000000001 /* LibraryHome.swift */,
 				FA4200000000000000000001 /* LocalDeviceLabel.swift */,
 				FA2100000000000000000001 /* RecentMapsStore.swift */,
@@ -349,6 +356,7 @@
 				F52100000000000000000004 /* FileTypeIconTests.swift */,
 				F93000000000000000000002 /* MapExportTests.swift */,
 				FA7100000000000000000001 /* ShellTests.swift */,
+				FA7200000000000000000001 /* MarkdownDocumentUITests.swift */,
 				F20000000000000000000005 /* RecoveryPresenterTests.swift */,
 			);
 			path = FlorettaTests;
@@ -588,6 +596,7 @@
 				CA1100000000000000000001 /* AppSettings.swift in Sources */,
 				CA2100000000000000000001 /* RecentMapsStore.swift in Sources */,
 				CA3100000000000000000001 /* DocumentSession.swift in Sources */,
+				CA3200000000000000000001 /* MarkdownDocumentUI.swift in Sources */,
 				CA4100000000000000000001 /* LibraryHome.swift in Sources */,
 				CA4200000000000000000001 /* LocalDeviceLabel.swift in Sources */,
 				CA4300000000000000000001 /* TemplateThumbnail.swift in Sources */,
@@ -616,6 +625,7 @@
 				CA1100000000000000000002 /* AppSettings.swift in Sources */,
 				CA2100000000000000000002 /* RecentMapsStore.swift in Sources */,
 				CA3100000000000000000002 /* DocumentSession.swift in Sources */,
+				CA3200000000000000000002 /* MarkdownDocumentUI.swift in Sources */,
 				CA4100000000000000000002 /* LibraryHome.swift in Sources */,
 				CA4200000000000000000002 /* LocalDeviceLabel.swift in Sources */,
 				CA4300000000000000000002 /* TemplateThumbnail.swift in Sources */,
@@ -671,6 +681,8 @@
 				CA4200000000000000000003 /* LocalDeviceLabel.swift in Sources */,
 				CA2100000000000000000003 /* RecentMapsStore.swift in Sources */,
 				CA3100000000000000000003 /* DocumentSession.swift in Sources */,
+				CA3200000000000000000003 /* MarkdownDocumentUI.swift in Sources */,
+				CA7200000000000000000001 /* MarkdownDocumentUITests.swift in Sources */,
 				CA4400000000000000000006 /* FlorettaL10n.swift in Sources */,
 				CA7100000000000000000001 /* ShellTests.swift in Sources */,
 			);

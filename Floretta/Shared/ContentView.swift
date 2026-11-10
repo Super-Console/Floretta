@@ -80,9 +80,16 @@ struct ContentView: View {
                     session: editor,
                     settings: settings,
                     onClose: dismissEditor,
-                    onEdit: { recovery.noteEdit($0) },
+                    onEdit: { updated in
+                        if library.editor?.consumeAutosaveEdit(updated) != false {
+                            recovery.noteEdit(updated)
+                        }
+                    },
                     onImport: { showImporter = true },
                     onSavedCopy: { library.noteExportedCopy($0) },
+                    onMarkdownUpgrade: { url, choice in
+                        library.finishMarkdownUpgrade(savedAt: url, choice: choice)
+                    },
                     thumbnailCache: library.thumbnailCache
                 )
             }

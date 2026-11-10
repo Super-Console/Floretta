@@ -537,7 +537,17 @@ final class ShellTests: XCTestCase {
         let md = try SharePayload.bytes(for: "md", document: reopened)
         let mm = try SharePayload.bytes(for: "mm", document: reopened)
         let opml = try SharePayload.bytes(for: "opml", document: reopened)
-        let fromMD = try DocumentOpener.open(data: md, filename: "笔记.md")
+        let heading = try FlorettaMarkdown.importOutline(md)
+        XCTAssertEqual(heading.roots.first?.text, "中文")
+        XCTAssertEqual(heading.roots.first?.children.map(\.text), ["子节点", "同级"])
+        let headingText = try XCTUnwrap(String(data: md, encoding: .utf8))
+        XCTAssertTrue(headingText.contains("# "))
+        XCTAssertThrowsError(try DocumentOpener.open(data: md, filename: "笔记.md")) { error in
+            let message = (error as? LocalizedError)?.errorDescription ?? ""
+            XCTAssertTrue(message.contains("第"), message)
+        }
+        let documentMarkdown = Data(FlorettaMarkdownDocumentCodec.save(reopened).utf8)
+        let fromMD = try DocumentOpener.open(data: documentMarkdown, filename: "笔记.md")
         XCTAssertEqual(fromMD.roots.first?.text, "中文")
         XCTAssertEqual(fromMD.roots.first?.children.map(\.text), ["子节点", "同级"])
         let fromMM = try DocumentOpener.open(data: mm, filename: "notes.md")

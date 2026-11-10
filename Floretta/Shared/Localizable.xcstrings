@@ -4658,6 +4658,160 @@
           }
         }
       }
+    },
+    "保存": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Save" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "保存" } }
+      }
+    },
+    "Markdown 模式": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Markdown Mode" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Markdown 模式" } }
+      }
+    },
+    "本文件只保存层级与文字；不含附件、颜色、关系线、自由位置与折叠态。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This file only saves hierarchy and text. It does not include attachments, colors, relationships, free positions, or collapse state." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "本文件只保存层级与文字；不含附件、颜色、关系线、自由位置与折叠态。" } }
+      }
+    },
+    "Markdown 模式无法保存附件": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Markdown Mode can't save attachments" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Markdown 模式无法保存附件" } }
+      }
+    },
+    "Markdown 模式无法保存颜色": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Markdown Mode can't save colors" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Markdown 模式无法保存颜色" } }
+      }
+    },
+    "Markdown 模式无法保存关系线": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Markdown Mode can't save relationships" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Markdown 模式无法保存关系线" } }
+      }
+    },
+    "Markdown 模式无法保存自由位置": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Markdown Mode can't save free positions" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Markdown 模式无法保存自由位置" } }
+      }
+    },
+    "Markdown 模式无法保存折叠态": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Markdown Mode can't save collapse state" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Markdown 模式无法保存折叠态" } }
+      }
+    },
+    "Markdown 模式无法保存便签": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Markdown Mode can't save sticky notes" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Markdown 模式无法保存便签" } }
+      }
+    },
+    "Markdown 模式无法保存概要": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Markdown Mode can't save summaries" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Markdown 模式无法保存概要" } }
+      }
+    },
+    "Markdown 模式无法保存边界": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Markdown Mode can't save boundaries" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Markdown 模式无法保存边界" } }
+      }
+    },
+    "Markdown 模式无法保存标签": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Markdown Mode can't save tags" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Markdown 模式无法保存标签" } }
+      }
+    },
+    "升级为完整工程": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Upgrade to full project" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "升级为完整工程" } }
+      }
+    },
+    "把当前导图另存为 Floretta 工程。原来的 Markdown 文件不会被改掉。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Save this map as a Floretta project. The Markdown file is left as it is." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "把当前导图另存为 Floretta 工程。原来的 Markdown 文件不会被改掉。" } }
+      }
+    },
+    "要打开新的 Floretta 文件吗？": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Open the new Floretta file?" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "要打开新的 Floretta 文件吗？" } }
+      }
+    },
+    "保持当前 Markdown": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Keep this Markdown file" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "保持当前 Markdown" } }
+      }
+    },
+    "打开新的 Floretta 文件": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Open the new Floretta file" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "打开新的 Floretta 文件" } }
+      }
+    },
+    "升级后的文件已保存。当前 Markdown 仍打开着。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The upgraded file is saved. This Markdown file stays open." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "升级后的文件已保存。当前 Markdown 仍打开着。" } }
+      }
+    },
+    "关闭提示": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Dismiss notice" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "关闭提示" } }
+      }
+    },
+    "不能覆盖原来的 Markdown 文件。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The original Markdown file can't be overwritten." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "不能覆盖原来的 Markdown 文件。" } }
+      }
+    },
+    "已将 *、+ 或有序列表标记规范为无序列表（- ）。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Markers *, +, and ordered lists were read as unordered lists (- )." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "已将 *、+ 或有序列表标记规范为无序列表（- ）。" } }
+      }
+    },
+    "已将 Tab 缩进按 1 个 Tab = 2 个空格规范化。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Tab indents were read as two spaces per tab." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "已将 Tab 缩进按 1 个 Tab = 2 个空格规范化。" } }
+      }
     }
   },
   "version": "1.0"

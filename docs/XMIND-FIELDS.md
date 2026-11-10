@@ -54,8 +54,8 @@
 | `topic.notes other` | passthrough | realHTML 和其他 notes 键 |
 | `topic.href web` | mapped | http、https、mailto 写入 link |
 | `topic.href xap` | mapped | 对应 zip 条目写成 NodeAttachment，href 在导出时写回 |
-| `topic.labels` | passthrough | 没有标签模型字段 |
-| `topic.markers` | passthrough | 没有标记模型字段 |
+| `topic.labels` | mapped | MindMapNode.labels，用户原文，顺序保持 |
+| `topic.markers` | mapped | markerId 写入 MindMapNode.markers，优先级、进度、旗帜和其他 id 同一份数组 |
 | `topic.image` | passthrough | 图片对象不进附件槽，zip 字节仍写回 |
 | `topic.branch` | passthrough | 不映射到 isCollapsed |
 | `topic.structureClass` | passthrough | 不解释 |
@@ -89,7 +89,7 @@
 | `relationship.controlPoints` | passthrough | 不解释 |
 | `relationship.style` | passthrough | 不解释 |
 | `isCollapsed` | gap | branch 会写回，但不会变成折叠状态 |
-| `labels model` | gap | 标签只做 pass-through，没有一等字段 |
+| `labels model` | mapped | 标签和标记写在主题上，不另建一份标签表 |
 | `stickies` | gap | 便签不是主题，不写入 .xmind |
 | `one href` | gap | 一个主题只有一个 href，网页链接和 xap 不能同时留在 href 上 |
 

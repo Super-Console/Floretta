@@ -591,6 +591,22 @@ public struct MindMapKeyboardSession {
         return true
     }
 
+    /// One undo step for a label or marker edit. A no-op does not touch the stack.
+    @discardableResult
+    public mutating func updateTopicTags(
+        _ id: UUID,
+        document: inout MindMapDocument,
+        _ body: (inout MindMapNode) -> Void
+    ) -> Bool {
+        guard mode == .command, editOrigin == nil, pendingChange == nil else { return false }
+        var copy = document
+        guard copy.mutateNode(id, body) else { return false }
+        if copy == document { return true }
+        record(document)
+        document = copy
+        return true
+    }
+
     private mutating func record(_ document: MindMapDocument) {
         undoStack.append(capture(document))
         redoStack.removeAll()

@@ -151,9 +151,13 @@ public struct XMindStyleTokens: Equatable, Sendable, Codable {
 
 public struct XMindMappedSnapshot: Equatable, Sendable, Codable {
     public var sheets: [XMindSheetSnapshot]
+    /// False on a file saved before `topic.labels` and `topic.markers` were mapped.
+    /// Missing from the JSON means the same thing. New snapshots always write true.
+    public var tagsMapped: Bool
 
-    public init(sheets: [XMindSheetSnapshot]) {
+    public init(sheets: [XMindSheetSnapshot], tagsMapped: Bool = true) {
         self.sheets = sheets
+        self.tagsMapped = tagsMapped
     }
 
     public init(document: MindMapDocument) {
@@ -174,6 +178,24 @@ public struct XMindMappedSnapshot: Equatable, Sendable, Codable {
             ))
         }
         self.sheets = sheets
+        self.tagsMapped = true
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case sheets
+        case tagsMapped
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        sheets = try container.decode([XMindSheetSnapshot].self, forKey: .sheets)
+        tagsMapped = try container.decodeIfPresent(Bool.self, forKey: .tagsMapped) ?? false
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(sheets, forKey: .sheets)
+        try container.encode(tagsMapped, forKey: .tagsMapped)
     }
 }
 
@@ -206,6 +228,8 @@ public struct XMindNodeSnapshot: Equatable, Sendable, Codable {
     public var attachments: [NodeAttachment]
     public var summaries: [TopicSummary]
     public var boundaries: [TopicBoundary]
+    public var labels: [String]
+    public var markers: [TopicMarker]
     public var children: [XMindNodeSnapshot]
 
     public init(_ node: MindMapNode) {
@@ -218,11 +242,13 @@ public struct XMindNodeSnapshot: Equatable, Sendable, Codable {
         attachments = node.attachments
         summaries = node.summaries
         boundaries = node.boundaries
+        labels = node.labels
+        markers = node.markers
         children = node.children.map(XMindNodeSnapshot.init)
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, text, note, link, position, style, attachments, summaries, boundaries, children
+        case id, text, note, link, position, style, attachments, summaries, boundaries, labels, markers, children
     }
 
     public init(from decoder: Decoder) throws {
@@ -236,6 +262,8 @@ public struct XMindNodeSnapshot: Equatable, Sendable, Codable {
         attachments = try container.decodeIfPresent([NodeAttachment].self, forKey: .attachments) ?? []
         summaries = try container.decodeIfPresent([TopicSummary].self, forKey: .summaries) ?? []
         boundaries = try container.decodeIfPresent([TopicBoundary].self, forKey: .boundaries) ?? []
+        labels = try container.decodeIfPresent([String].self, forKey: .labels) ?? []
+        markers = try container.decodeIfPresent([TopicMarker].self, forKey: .markers) ?? []
         children = try container.decode([XMindNodeSnapshot].self, forKey: .children)
     }
 
@@ -253,6 +281,12 @@ public struct XMindNodeSnapshot: Equatable, Sendable, Codable {
         }
         if !boundaries.isEmpty {
             try container.encode(boundaries, forKey: .boundaries)
+        }
+        if !labels.isEmpty {
+            try container.encode(labels, forKey: .labels)
+        }
+        if !markers.isEmpty {
+            try container.encode(markers, forKey: .markers)
         }
         try container.encode(children, forKey: .children)
     }

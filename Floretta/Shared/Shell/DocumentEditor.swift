@@ -31,6 +31,7 @@ struct DocumentEditor: View {
     @State private var renameText = ""
     @State private var showFind = false
     @State private var findQuery = ""
+    @State private var showTagFilter = false
     @State private var inspectorTab = 0
     @State private var showAbout = false
     @State private var camera = CanvasCamera()
@@ -224,6 +225,10 @@ struct DocumentEditor: View {
                 }
             }
             #endif
+            .sheet(isPresented: $showTagFilter) {
+                TagFilterSheet(session: session, text: { self.text($0) }, locale: settings.resolvedLocale)
+                    .accessibilityIdentifier("tagFilter.sheet")
+            }
             .alert(Text(verbatim: text("查找")), isPresented: $showFind) {
                 TextField(text("文字"), text: $findQuery)
                 Button(text("查找")) {
@@ -256,7 +261,8 @@ struct DocumentEditor: View {
                 attachmentEntries: session.attachmentCatalog.attachments,
                 onPreviewFile: { nodeID, badge in
                     previewFile(nodeID: nodeID, badge: badge)
-                }
+                },
+                tagFilter: session.tagFilter
             )
             .ignoresSafeArea()
             if showOutline, session.zen.chrome.showsSidebar {
@@ -265,6 +271,48 @@ struct DocumentEditor: View {
                     .frame(maxWidth: outlineWide ? .infinity : 300, maxHeight: .infinity)
                     .background(.regularMaterial)
             }
+        }
+        .overlay(alignment: .top) {
+            if session.tagFilter.isActive {
+                tagFilterBanner
+            }
+        }
+    }
+
+    private var tagFilterBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "tag.fill")
+            Text(verbatim: tagFilterCaption)
+                .lineLimit(1)
+            Button {
+                session.tagFilter.choice = nil
+            } label: {
+                Image(systemName: "xmark")
+            }
+            .accessibilityLabel(text("清除筛选"))
+            .accessibilityIdentifier("tagFilter.clear")
+        }
+        .font(.callout)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(.regularMaterial, in: Capsule())
+        .padding(.top, session.zen.isActive ? 56 : 8)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("tagFilter.banner")
+    }
+
+    private var tagFilterCaption: String {
+        switch session.tagFilter.choice {
+        case .label(let label):
+            return FlorettaL10n.format("正在筛选「%@」", locale: settings.resolvedLocale, arguments: [label])
+        case .marker(let markerId):
+            return FlorettaL10n.format(
+                "正在筛选「%@」",
+                locale: settings.resolvedLocale,
+                arguments: [TagMarkerTitle.text(markerId, text: { self.text($0) }, locale: settings.resolvedLocale)]
+            )
+        case nil:
+            return ""
         }
     }
 
@@ -287,7 +335,11 @@ struct DocumentEditor: View {
                 .explained("关闭大纲")
             }
             .padding(12)
-            OutlineView(document: $session.document, keyboard: $session.keyboard)
+            OutlineView(
+                document: $session.document,
+                keyboard: $session.keyboard,
+                tagFilter: session.tagFilter
+            )
         }
     }
 
@@ -443,7 +495,14 @@ struct DocumentEditor: View {
                 findQuery = ""
                 showFind = true
             }
-            .explained("按文字查找节点")
+            .explained("按文字或标签查找节点")
+            Button {
+                showTagFilter = true
+            } label: {
+                Label(text("标签筛选"), systemImage: "tag")
+            }
+            .explained("给选中的主题加上优先级、进度、旗帜或标签，并按标签高亮")
+            .accessibilityIdentifier("tagFilter.open")
             Button(text("粘贴")) { pasteFromClipboard() }
                 .explained("把剪贴板里的图片放进节点；没有图片时粘贴文字")
             Button(text("关于")) { showAbout = true }
@@ -452,7 +511,7 @@ struct DocumentEditor: View {
             Image(systemName: "ellipsis")
         }
         .accessibilityLabel(text("更多"))
-        .help(Text(verbatim: text("大纲、样式和关于")))
+        .help(Text(verbatim: text("大纲、样式、标签筛选和关于")))
     }
 
     private var inspectorPresented: Binding<Bool> {
@@ -1389,6 +1448,224 @@ private struct AboutSheet: View {
                 .padding()
             }
             .navigationTitle(FlorettaL10n.string("关于", locale: locale))
+        }
+    }
+}
+
+private enum TagMarkerTitle {
+    static func text(_ markerId: String, text: (String) -> String, locale: Locale) -> String {
+        if let number = TopicMarkerCatalog.priorityNumber(markerId) {
+            return FlorettaL10n.format("优先级 %lld", locale: locale, arguments: [Int64(number)])
+        }
+        switch markerId {
+        case "task-start": return text("未开始")
+        case "task-oct": return text("1/8")
+        case "task-quarter": return text("1/4")
+        case "task-3oct": return text("3/8")
+        case "task-half": return text("1/2")
+        case "task-5oct": return text("5/8")
+        case "task-3quar": return text("3/4")
+        case "task-7oct": return text("7/8")
+        case "task-done": return text("完成")
+        case "flag-red": return text("红旗")
+        case "flag-orange": return text("橙旗")
+        case "flag-yellow": return text("黄旗")
+        case "flag-green": return text("绿旗")
+        case "flag-blue": return text("蓝旗")
+        case "flag-purple": return text("紫旗")
+        case "flag-gray": return text("灰旗")
+        default: return markerId
+        }
+    }
+}
+
+private struct TagFilterSheet: View {
+    @Bindable var session: EditorSession
+    var text: (String) -> String
+    var locale: Locale
+    @Environment(\.dismiss) private var dismiss
+    @State private var draft = ""
+    @State private var query = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if let node = selectedNode {
+                    Section(text("标记")) {
+                        markerPicker(text("优先级"), group: .priority, selection: markerID(in: .priority, on: node)) {
+                            Text(verbatim: text("无")).tag("")
+                            ForEach(TopicMarkerCatalog.priorityIDs, id: \.self) { id in
+                                Text(verbatim: title(id)).tag(id)
+                            }
+                        }
+                        markerPicker(text("进度"), group: .progress, selection: markerID(in: .progress, on: node)) {
+                            Text(verbatim: text("无")).tag("")
+                            ForEach(TopicMarkerCatalog.progressIDs, id: \.self) { id in
+                                Text(verbatim: title(id)).tag(id)
+                            }
+                        }
+                        markerPicker(text("旗帜"), group: .flag, selection: markerID(in: .flag, on: node)) {
+                            Text(verbatim: text("无")).tag("")
+                            ForEach(TopicMarkerCatalog.flagIDs, id: \.self) { id in
+                                Text(verbatim: title(id)).tag(id)
+                            }
+                        }
+                    }
+                    Section(text("标签")) {
+                        if node.labels.isEmpty {
+                            Text(verbatim: text("无"))
+                                .foregroundStyle(.secondary)
+                        }
+                        ForEach(Array(node.labels.enumerated()), id: \.offset) { _, label in
+                            HStack {
+                                Text(verbatim: label)
+                                Spacer()
+                                Button {
+                                    session.updateSelectedTopicTags { topic in
+                                        topic.labels = TopicLabels.removing(label, from: topic.labels)
+                                    }
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                }
+                                .buttonStyle(.borderless)
+                                .accessibilityLabel(text("移除标签"))
+                            }
+                        }
+                        HStack {
+                            TextField(text("添加标签"), text: $draft)
+                                .onSubmit(addDraft)
+                                .accessibilityIdentifier("tagFilter.labelField")
+                            Button(action: addDraft) {
+                                Image(systemName: "plus")
+                            }
+                            .accessibilityLabel(text("添加标签"))
+                            .accessibilityIdentifier("tagFilter.addLabel")
+                        }
+                    }
+                } else {
+                    Section {
+                        Text(verbatim: text("选择一个主题"))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Section {
+                    TextField(text("搜索标签"), text: $query)
+                        .accessibilityIdentifier("tagFilter.search")
+                    Text(verbatim: text("匹配的主题会高亮，其余变淡。"))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    if filteredLabels.isEmpty && filteredMarkers.isEmpty {
+                        Text(verbatim: text(queryTrims.isEmpty ? "这张导图还没有标签。" : "没有找到。"))
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(filteredLabels, id: \.self) { label in
+                        filterButton(title: label, chosen: session.tagFilter.choice == .label(label)) {
+                            toggle(.label(label))
+                        }
+                    }
+                    ForEach(filteredMarkers, id: \.self) { markerId in
+                        filterButton(title: title(markerId), chosen: session.tagFilter.choice == .marker(markerId)) {
+                            toggle(.marker(markerId))
+                        }
+                    }
+                    if session.tagFilter.isActive {
+                        Button(text("清除筛选")) { session.tagFilter.choice = nil }
+                    }
+                } header: {
+                    Text(verbatim: text("筛选"))
+                }
+            }
+            .formStyle(.grouped)
+            .navigationTitle(text("标签筛选"))
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(text("关闭")) { dismiss() }
+                        .accessibilityIdentifier("tagFilter.close")
+                }
+            }
+        }
+    }
+
+    private var selectedNode: MindMapNode? {
+        guard let id = session.keyboard.selectedNodeID else { return nil }
+        return session.document.node(id)
+    }
+
+    private var queryTrims: String {
+        query.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var filteredLabels: [String] {
+        TopicTagIndex.labels(in: session.document).filter { TopicTagIndex.contains(query, in: $0) }
+    }
+
+    private var filteredMarkers: [String] {
+        TopicTagIndex.markerIDs(in: session.document).filter { markerId in
+            TopicTagIndex.contains(query, in: title(markerId))
+        }
+    }
+
+    private func title(_ markerId: String) -> String {
+        TagMarkerTitle.text(markerId, text: text, locale: locale)
+    }
+
+    private func markerID(in group: TopicMarkerGroup, on node: MindMapNode) -> String {
+        node.markers.first { TopicMarkerCatalog.group(of: $0.markerId) == group }?.markerId ?? ""
+    }
+
+    private func markerPicker<Content: View>(
+        _ label: String,
+        group: TopicMarkerGroup,
+        selection: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        Picker(selection: Binding(
+            get: { selection },
+            set: { newValue in
+                session.updateSelectedTopicTags { topic in
+                    topic.markers = TopicMarkerCatalog.assign(
+                        topic.markers,
+                        markerID: newValue.isEmpty ? nil : newValue,
+                        group: group
+                    )
+                }
+            }
+        )) {
+            content()
+        } label: {
+            Text(verbatim: label)
+        }
+    }
+
+    private func filterButton(title: String, chosen: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Text(verbatim: title)
+                Spacer()
+                if chosen {
+                    Image(systemName: "checkmark")
+                }
+            }
+        }
+    }
+
+    private func toggle(_ choice: TopicTagFilter.Choice) {
+        if session.tagFilter.choice == choice {
+            session.tagFilter.choice = nil
+        } else {
+            session.tagFilter.choice = choice
+        }
+    }
+
+    private func addDraft() {
+        let label = draft
+        draft = ""
+        guard !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        session.updateSelectedTopicTags { topic in
+            topic.labels = TopicLabels.inserting(label, into: topic.labels)
         }
     }
 }

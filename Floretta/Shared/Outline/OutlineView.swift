@@ -5,6 +5,7 @@ import SwiftUI
 struct OutlineView: View {
     @Binding var document: MindMapDocument
     @Binding var keyboard: MindMapKeyboardSession
+    var tagFilter: TopicTagFilter = TopicTagFilter()
     #if os(iOS)
     @State private var reorderMode: EditMode = .inactive
     #endif
@@ -43,11 +44,11 @@ struct OutlineView: View {
 
     private var outlineList: some View {
         let list = List(selection: selection) {
-            OutlineLevel(document: $document, keyboard: $keyboard, parentID: nil)
+            OutlineLevel(document: $document, keyboard: $keyboard, tagFilter: tagFilter, parentID: nil)
             if !document.freeNodes.isEmpty {
                 Section(text("自由节点")) {
                     ForEach(document.freeNodes.map(\.id), id: \.self) { id in
-                        OutlineRow(document: $document, keyboard: $keyboard, id: id)
+                        OutlineRow(document: $document, keyboard: $keyboard, tagFilter: tagFilter, id: id)
                             .tag(id)
                     }
                 }
@@ -78,6 +79,7 @@ struct OutlineView: View {
 private struct OutlineLevel: View {
     @Binding var document: MindMapDocument
     @Binding var keyboard: MindMapKeyboardSession
+    var tagFilter: TopicTagFilter
     var parentID: UUID?
 
     var body: some View {
@@ -85,10 +87,10 @@ private struct OutlineLevel: View {
         ForEach(ids, id: \.self) { id in
             DisclosureGroup(isExpanded: expanded(id)) {
                 if document.node(id)?.isCollapsed == false {
-                    OutlineLevel(document: $document, keyboard: $keyboard, parentID: id)
+                    OutlineLevel(document: $document, keyboard: $keyboard, tagFilter: tagFilter, parentID: id)
                 }
             } label: {
-                OutlineRow(document: $document, keyboard: $keyboard, id: id)
+                OutlineRow(document: $document, keyboard: $keyboard, tagFilter: tagFilter, id: id)
             }
             .tag(id)
             .draggable(id.uuidString)
@@ -121,6 +123,7 @@ private struct OutlineLevel: View {
 private struct OutlineRow: View {
     @Binding var document: MindMapDocument
     @Binding var keyboard: MindMapKeyboardSession
+    var tagFilter: TopicTagFilter
     var id: UUID
     @State private var minimumWidth: CGFloat = 0
 
@@ -143,6 +146,12 @@ private struct OutlineRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(document.node(id)?.text ?? "")
                     .lineLimit(3)
+                if let labels = document.node(id)?.labels, !labels.isEmpty {
+                    Text(verbatim: labels.joined(separator: " · "))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
                 if let label = document.node(id)?.attachmentSizeLabel {
                     Text(label)
                         .font(.caption)
@@ -150,6 +159,13 @@ private struct OutlineRow: View {
                         .lineLimit(4)
                 }
             }
+            .opacity(rowOpacity)
         }
+    }
+
+    private var rowOpacity: Double {
+        guard tagFilter.isActive, let node = document.node(id) else { return 1 }
+        if tagFilter.matches(node) || keyboard.selectedNodeID == id { return 1 }
+        return TopicTagCanvas.dimOpacity
     }
 }

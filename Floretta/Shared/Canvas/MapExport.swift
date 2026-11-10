@@ -188,6 +188,11 @@ enum MapExporter {
         scheme: MapColorScheme
     ) -> ImageRenderer<MapExportView> {
         let frames = visibleFrames(in: document, scheme: scheme)
+        let paper = MapThemeCatalog.appearance(
+            themeID: document.themeID,
+            scheme: scheme,
+            fallback: .standard
+        ).canvasBackground
         let view = MapExportView(
             frames: frames,
             lines: RelationshipGeometry.lines(for: document.relationships, frames: frames),
@@ -196,6 +201,7 @@ enum MapExporter {
             stickies: document.stickiesForPictureExport(included: options.includeStickies),
             renderBounds: plan.renderBounds,
             background: options.background,
+            paper: options.background == .white ? paper : nil,
             images: images
         )
         let renderer = ImageRenderer(content: view)
@@ -241,6 +247,8 @@ private struct MapExportView: View {
     var stickies: [StickyNote]
     var renderBounds: CGRect
     var background: MapExportBackground
+    /// Solid paper from the applied color scheme. Nil keeps white or clear.
+    var paper: BranchColor? = nil
     var images: [String: CGImage]
 
     var body: some View {
@@ -377,8 +385,14 @@ private struct MapExportView: View {
             }
         }
         .frame(width: renderBounds.width, height: renderBounds.height)
-        .background(background == .white ? Color.white : Color.clear)
+        .background(exportPaper)
         .clipped()
+    }
+
+    private var exportPaper: Color {
+        if background == .transparent { return .clear }
+        if let paper { return color(paper) }
+        return .white
     }
 
     private func local(_ point: CGPoint) -> CGPoint {

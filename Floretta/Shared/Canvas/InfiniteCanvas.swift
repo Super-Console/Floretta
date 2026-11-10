@@ -42,8 +42,7 @@ struct InfiniteCanvas: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                Rectangle()
-                    .fill(.background)
+                paperLayer
                     .contentShape(Rectangle())
                 Canvas { context, size in
                     draw(in: context, size: size)
@@ -730,6 +729,32 @@ struct InfiniteCanvas: View {
         colorScheme == .dark ? .dark : .light
     }
 
+    /// The color scheme's paper, or the system background when the map has no scheme.
+    private var resolvedAppearance: LayoutAppearance {
+        MapThemeCatalog.appearance(
+            themeID: document.themeID,
+            scheme: branchScheme,
+            fallback: .standard
+        )
+    }
+
+    @ViewBuilder
+    private var paperLayer: some View {
+        if let paper = resolvedAppearance.canvasBackground {
+            Rectangle().fill(color(paper))
+        } else {
+            Rectangle().fill(.background)
+        }
+    }
+
+    private var paperIsDark: Bool {
+        guard let paper = resolvedAppearance.canvasBackground else {
+            return colorScheme == .dark
+        }
+        let luminance = 0.2126 * paper.red + 0.7152 * paper.green + 0.0722 * paper.blue
+        return luminance < 0.4
+    }
+
     @discardableResult
     private func handleKey(_ event: KeyEvent) -> Bool {
         if event.key == .escape, event.modifiers.isEmpty, !event.isComposing, !keyboard.isComposing, onEscape() {
@@ -1264,7 +1289,7 @@ struct InfiniteCanvas: View {
             scale: camera.viewport.scale,
             viewSize: size
         ) else { return }
-        let tile = dotTiles.image(step: layout.step, scheme: colorScheme)
+        let tile = dotTiles.image(step: layout.step, scheme: paperIsDark ? .dark : .light)
         context.fill(
             Path(CGRect(origin: .zero, size: size)),
             with: .tiledImage(tile, origin: layout.tileOrigin, scale: 1)

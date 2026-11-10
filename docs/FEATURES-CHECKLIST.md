@@ -56,6 +56,7 @@
 - [x] C4 概要 + 边界（选区生成概要节点；边界视觉圈定；PR #51 合入 main `37a97aa`，tip `571746f`；Censor 通过；Pro 双验绿）
 - [x] C5 标签 / 标记（优先级、进度、旗帜）+ 按标签筛选（PR #53 合入 main `fd97255`，tip `942f46b`；Censor 通过；Pro 双验绿，macOS 258/0 含 `TagFilterTests`）
 - [x] C6 分支配色 / 主题预设（≤8 套，深浅色各一套；PR #55 合入 main `88d50e9`，tip `4b6bc5b`；Censor 通过；FlorettaCore CI 绿；Pro 双验绿，macOS 263/0 含 `testPNGAndPDFKeepBranchThemeColors`）
+- [~] C8 配色方案（晨曦、极简灰、海盐、橘叶、夜紫、森林；一次套用分支色、画布背景和线条粗细，一次撤销还原）
 - [~] C7 多画布（Sheet）
 
 ## D. 格式与互通（T0）

@@ -96,6 +96,12 @@ public struct LayoutAppearance: Equatable, Sendable {
     public var showsShadows: Bool = false
     public var palette: BranchPalette = .standard
     public var cornerRadius: CGFloat = 8
+    /// Nil keeps the depth-based width from `LayoutMetrics.linkWidth`.
+    /// A color preset sets one thickness for every link, and for any topic
+    /// that does not already store its own `borderWidth`.
+    public var linkStroke: CGFloat? = nil
+    /// Nil keeps the system canvas color. A color preset paints this paper.
+    public var canvasBackground: BranchColor? = nil
 
     public static let standard = LayoutAppearance()
 }
@@ -674,7 +680,7 @@ public struct LayoutEngine: Sendable {
             border: border,
             textColor: text,
             cornerRadius: CGFloat(stored?.cornerRadius ?? Double(appearance.cornerRadius)),
-            borderWidth: CGFloat(stored?.borderWidth ?? 1.5),
+            borderWidth: CGFloat(stored?.borderWidth ?? appearance.linkStroke ?? 1.5),
             hidesFill: stored?.fillStyle == "none",
             bold: stored?.bold ?? false,
             italic: stored?.italic ?? false,
@@ -733,7 +739,7 @@ public struct LayoutEngine: Sendable {
             control1: CGPoint(x: start.x + dx * 0.5, y: start.y),
             control2: CGPoint(x: end.x - dx * 0.5, y: end.y),
             end: end,
-            lineWidth: metrics.linkWidth(depth: depth),
+            lineWidth: appearance.linkStroke ?? metrics.linkWidth(depth: depth),
             color: color
         )
     }

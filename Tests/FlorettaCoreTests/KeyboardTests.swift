@@ -28,6 +28,93 @@ final class KeyboardTests: XCTestCase {
         XCTAssertEqual(document.roots[0].style, styled.style)
     }
 
+    func testEachColorPresetApplyIsOneUndoOfBranchColorBackgroundAndLineWidth() throws {
+        let paintedStyle = MindMapNodeStyle(colorHex: "#112233", fillHex: "#ED0DB8", borderWidth: 4)
+        for preset in MapColorPresetCatalog.all {
+            var session = MindMapKeyboardSession()
+            let first = MindMapNode(text: "甲")
+            let grandchild = MindMapNode(text: "孙")
+            let second = MindMapNode(text: "乙", children: [grandchild])
+            let painted = MindMapNode(text: "丙", style: paintedStyle)
+            let root = MindMapNode(text: "根", children: [first, second, painted])
+            var document = MindMapDocument(title: "色", roots: [root])
+            document.themeID = "grove"
+            let beforeLight = LayoutEngine().layout(document, scheme: .light)
+            let beforeDark = LayoutEngine().layout(document, scheme: .dark)
+            let beforePaper = MapThemeCatalog.appearance(
+                themeID: document.themeID,
+                scheme: .dark,
+                fallback: .standard
+            )
+            XCTAssertNil(beforePaper.canvasBackground)
+            XCTAssertNil(beforePaper.linkStroke)
+            let beforeFirst = try XCTUnwrap(beforeLight.first { $0.id == first.id })
+            let beforeGrand = try XCTUnwrap(beforeLight.first { $0.id == grandchild.id })
+            XCTAssertGreaterThan(try XCTUnwrap(beforeFirst.link).lineWidth, try XCTUnwrap(beforeGrand.link).lineWidth)
+
+            session.mode = .edit
+            XCTAssertFalse(session.setBranchTheme(preset.id, document: &document))
+            XCTAssertEqual(document.themeID, "grove")
+            session.mode = .command
+            XCTAssertFalse(session.setBranchTheme("not-a-preset", document: &document))
+            XCTAssertEqual(document.themeID, "grove")
+
+            XCTAssertTrue(session.setBranchTheme(preset.id, document: &document))
+            XCTAssertEqual(document.themeID, preset.id)
+            XCTAssertEqual(document.roots[0].children[2].style, paintedStyle)
+            XCTAssertTrue(session.setBranchTheme(preset.id, document: &document))
+
+            for scheme in [MapColorScheme.light, MapColorScheme.dark] {
+                let frames = LayoutEngine().layout(document, scheme: scheme)
+                let appearance = MapThemeCatalog.appearance(
+                    themeID: document.themeID,
+                    scheme: scheme,
+                    fallback: .standard
+                )
+                XCTAssertEqual(appearance.canvasBackground, preset.canvasBackground)
+                XCTAssertEqual(appearance.linkStroke, preset.lineWidth)
+                XCTAssertEqual(appearance.palette.colors, preset.branchColors)
+                let firstFrame = try XCTUnwrap(frames.first { $0.id == first.id })
+                let secondFrame = try XCTUnwrap(frames.first { $0.id == second.id })
+                let grandFrame = try XCTUnwrap(frames.first { $0.id == grandchild.id })
+                let paintedFrame = try XCTUnwrap(frames.first { $0.id == painted.id })
+                XCTAssertEqual(firstFrame.fill, preset.branchColors[0])
+                XCTAssertEqual(firstFrame.link?.color, firstFrame.fill)
+                XCTAssertEqual(firstFrame.link?.lineWidth, preset.lineWidth)
+                XCTAssertEqual(firstFrame.borderWidth, preset.lineWidth)
+                XCTAssertEqual(secondFrame.fill, preset.branchColors[1])
+                XCTAssertEqual(secondFrame.link?.lineWidth, preset.lineWidth)
+                XCTAssertEqual(grandFrame.link?.lineWidth, preset.lineWidth)
+                XCTAssertEqual(grandFrame.link?.color, secondFrame.link?.color)
+                XCTAssertEqual(paintedFrame.fill, try XCTUnwrap(BranchColor(hex: "#ED0DB8")))
+                XCTAssertEqual(paintedFrame.borderWidth, 4)
+                XCTAssertNotEqual(firstFrame.fill, beforeFirst.fill)
+                XCTAssertNotEqual(firstFrame.link?.lineWidth, beforeFirst.link?.lineWidth)
+            }
+
+            let saved = try FlorettaCodec.decode(try FlorettaCodec.encode(document))
+            XCTAssertEqual(saved.themeID, preset.id)
+            XCTAssertEqual(saved.formatVersion, 1)
+            XCTAssertEqual(
+                LayoutEngine().layout(saved, scheme: .light).first { $0.id == first.id }?.fill,
+                preset.branchColors[0]
+            )
+
+            XCTAssertEqual(press(.character("z"), .command, session: &session, document: &document), .undo)
+            XCTAssertEqual(document.themeID, "grove")
+            XCTAssertEqual(document.roots[0].children[2].style, paintedStyle)
+            XCTAssertEqual(LayoutEngine().layout(document, scheme: .light), beforeLight)
+            XCTAssertEqual(LayoutEngine().layout(document, scheme: .dark), beforeDark)
+            let restored = MapThemeCatalog.appearance(themeID: document.themeID, scheme: .dark, fallback: .standard)
+            XCTAssertEqual(restored.canvasBackground, beforePaper.canvasBackground)
+            XCTAssertEqual(restored.linkStroke, beforePaper.linkStroke)
+            XCTAssertEqual(restored.palette, beforePaper.palette)
+            XCTAssertEqual(press(.character("z"), .command, session: &session, document: &document), .undo)
+            XCTAssertEqual(document.themeID, "grove")
+            XCTAssertEqual(LayoutEngine().layout(document, scheme: .light), beforeLight)
+        }
+    }
+
     func testCommandModeMapsStructureKeys() {
         XCTAssertEqual(map(.tab), .createChild)
         XCTAssertEqual(map(.enter), .createSibling)

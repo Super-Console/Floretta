@@ -37,6 +37,13 @@ struct InfiniteCanvas: View {
     @State private var fileIcons = FileIconCache()
     @State private var dotTiles = DotTileCache()
     @State private var laidOut = LaidOutFrames()
+    /// One petal plan for map open and branch expand/collapse. Pan, zoom, and typing do not start it.
+    @State private var petal = PetalExpandDirector(reduceMotion: false)
+    @State private var petalFrames: [NodeFrame] = []
+    @State private var petalPrint = CollapseFingerprint.empty
+    /// False until the open transition is armed, so the first frame is not a fully drawn map that then snaps into a bud.
+    @State private var petalMapOpened = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.locale) private var locale
     @FocusState private var canvasFocused: Bool
@@ -48,10 +55,26 @@ struct InfiniteCanvas: View {
                     .fill(.background)
                     .contentShape(Rectangle())
                     .accessibilityIdentifier("editor.canvas")
-                Canvas { context, size in
-                    draw(in: context, size: size)
+                TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !petal.isPlaying)) { timeline in
+                    Canvas { context, size in
+                        draw(
+                            in: context,
+                            size: size,
+                            at: timeline.date.timeIntervalSinceReferenceDate
+                        )
+                    }
+                    .allowsHitTesting(false)
+                    .onChange(of: timeline.date) { _, date in
+                        let time = date.timeIntervalSinceReferenceDate
+                        let extra = petal.layoutExtra(comparedTo: laidOut.layoutPassCount)
+                        if extra != petal.layoutPassesDuringPlayback {
+                            petal.noteLayoutExtra(extra)
+                        }
+                        if petal.playbackDidFinish(at: time) {
+                            petal.settle()
+                        }
+                    }
                 }
-                .allowsHitTesting(false)
             }
             .gesture(dragGesture)
             .simultaneousGesture(pinchGesture(in: geo.size))
@@ -100,18 +123,37 @@ struct InfiniteCanvas: View {
                 publishBounds()
                 camera.chrome.syncZoomPercent(toScale: camera.viewport.scale)
                 refreshThumbnails()
+                openPetalMap()
                 canvasFocused = true
             }
             .onChange(of: geo.size) { _, size in
                 camera.viewSize = size
                 refreshThumbnails()
             }
-            .onChange(of: document) { _, _ in
+            .onChange(of: document) { _, newDocument in
+                let nextPrint = CollapseFingerprint.capture(newDocument)
+                let frames = placedFrames()
+                petal.noteDocumentChange(
+                    from: petalPrint,
+                    to: nextPrint,
+                    previousFrames: petalFrames,
+                    finalFrames: frames,
+                    now: Date().timeIntervalSinceReferenceDate,
+                    layoutPassCount: laidOut.layoutPassCount
+                )
+                petalPrint = nextPrint
+                petalFrames = frames
                 publishBounds()
                 refreshThumbnails()
             }
             .onChange(of: focusNodeID) { _, _ in
+                petal.settle()
+                petalFrames = placedFrames()
                 publishBounds()
+            }
+            .onChange(of: reduceMotion) { _, enabled in
+                petal.setReduceMotion(enabled)
+                if enabled { petalMapOpened = true }
             }
             .onChange(of: camera.viewport.scale) { _, scale in
                 camera.chrome.syncZoomPercent(toScale: scale)
@@ -380,6 +422,22 @@ struct InfiniteCanvas: View {
 
     private func layoutSource() -> MindMapDocument {
         FocusLayout.focusedDocument(document, focus: focusNodeID)
+    }
+
+    /// Map open. A later collapse toggle goes through `noteDocumentChange`.
+    /// Reduce Motion settles on the layout with no clock.
+    private func openPetalMap() {
+        let frames = placedFrames()
+        petalFrames = frames
+        petalPrint = CollapseFingerprint.capture(document)
+        guard !petalMapOpened else { return }
+        petal.setReduceMotion(reduceMotion)
+        petal.openMap(
+            frames: frames,
+            now: Date().timeIntervalSinceReferenceDate,
+            layoutPassCount: laidOut.layoutPassCount
+        )
+        petalMapOpened = true
     }
 
     private func publishBounds() {
@@ -873,13 +931,16 @@ struct InfiniteCanvas: View {
         CGPoint(x: size.width / 2, y: size.height / 2)
     }
 
-    private func draw(in context: GraphicsContext, size: CGSize) {
+    private func draw(in context: GraphicsContext, size: CGSize, at time: TimeInterval) {
         drawGrid(in: context, size: size)
+        // The open petal starts from a bud. Don't paint the settled tree for one frame first.
+        if !petalMapOpened && !reduceMotion { return }
         let placed = placedFrames()
-        let boundaryMarks = document.hasBoundaries
+        let blooming = petal.isActive(at: time)
+        let boundaryMarks = !blooming && document.hasBoundaries
             ? SummaryGeometry.boundaries(in: document, frames: placed)
             : []
-        let summaryMarks = document.hasSummaries
+        let summaryMarks = !blooming && document.hasSummaries
             ? SummaryGeometry.summaries(in: document, frames: placed)
             : []
         let scale = camera.viewport.scale
@@ -892,17 +953,52 @@ struct InfiniteCanvas: View {
             }
         }
         let viewport = camera.viewport.canvasRect(in: size).insetBy(dx: -48, dy: -48)
-        let visible = CanvasPlacement.frames(placed, intersectingCanvas: viewport)
+        var visible = CanvasPlacement.frames(placed, intersectingCanvas: viewport)
         let linkIDs = CanvasPlacement.nodeIDsWithVisibleLinks(placed, viewport: viewport)
-        for node in placed where linkIDs.contains(node.id) {
-            guard let link = node.link else { continue }
-            stroke(
-                link,
-                straight: CanvasDrawPolicy.useStraightLink(nodeCount: placed.count, link: link),
-                in: context
-            )
+        let ghosts: [PetalGhost]
+        if blooming {
+            let visibleIDs = Set(visible.map(\.id))
+            for node in placed where !visibleIDs.contains(node.id) {
+                guard let pose = petal.pose(for: node.id, at: time), pose.draws else { continue }
+                visible.append(node)
+            }
+            for node in placed {
+                guard let link = node.link else { continue }
+                if petal.hides(node.id, at: time) { continue }
+                let pose = petal.pose(for: node.id, at: time)
+                if let pose, !pose.draws { continue }
+                if pose == nil && !linkIDs.contains(node.id) { continue }
+                let curve = pose.map { PetalExpandGeometry.grow(link, from: $0.origin, growth: $0.growth) } ?? link
+                stroke(
+                    curve,
+                    straight: CanvasDrawPolicy.useStraightLink(nodeCount: placed.count, link: link),
+                    opacity: pose?.opacity ?? 1,
+                    in: context
+                )
+            }
+            ghosts = petal.ghosts(at: time)
+            for ghost in ghosts {
+                guard let link = ghost.frame.link else { continue }
+                let curve = PetalExpandGeometry.grow(link, from: ghost.pose.origin, growth: ghost.pose.growth)
+                stroke(
+                    curve,
+                    straight: CanvasDrawPolicy.useStraightLink(nodeCount: placed.count, link: link),
+                    opacity: ghost.pose.opacity,
+                    in: context
+                )
+            }
+        } else {
+            ghosts = []
+            for node in placed where linkIDs.contains(node.id) {
+                guard let link = node.link else { continue }
+                stroke(
+                    link,
+                    straight: CanvasDrawPolicy.useStraightLink(nodeCount: placed.count, link: link),
+                    in: context
+                )
+            }
         }
-        let relationships = relationshipLines(in: placed)
+        let relationships = blooming ? [] : relationshipLines(in: placed)
         let straightRelationship: (RelationshipLine) -> Bool = { line in
             CanvasDrawPolicy.useStraightLink(nodeCount: placed.count, link: line.curve)
         }
@@ -921,7 +1017,15 @@ struct InfiniteCanvas: View {
         }
         let highlightedIDs = tagFilter.isActive ? tagFilter.highlightedIDs(in: document) : []
         for node in visible {
-            let onScreen = min(node.size.width, node.size.height) * scale
+            let pose: PetalPose?
+            if blooming {
+                if petal.hides(node.id, at: time) { continue }
+                pose = petal.pose(for: node.id, at: time)
+                if let pose, !pose.draws { continue }
+            } else {
+                pose = nil
+            }
+            let onScreen = min(node.size.width, node.size.height) * scale * (pose?.scale ?? 1)
             let highlighted = tagFilter.isActive && highlightedIDs.contains(node.id)
             let dimmed = tagFilter.isActive && !highlighted && interaction.selectedNodeID != node.id
             draw(
@@ -930,6 +1034,19 @@ struct InfiniteCanvas: View {
                 scale: scale,
                 highlighted: highlighted,
                 dimmed: dimmed,
+                pose: pose,
+                in: context
+            )
+        }
+        for ghost in ghosts {
+            let onScreen = min(ghost.frame.size.width, ghost.frame.size.height) * scale * ghost.pose.scale
+            draw(
+                ghost.frame,
+                detail: CanvasDetail.level(scale: scale, onScreenHeight: onScreen),
+                scale: scale,
+                highlighted: false,
+                dimmed: false,
+                pose: ghost.pose,
                 in: context
             )
         }
@@ -961,7 +1078,7 @@ struct InfiniteCanvas: View {
         }
     }
 
-    private func stroke(_ link: LinkCurve, straight: Bool, in context: GraphicsContext) {
+    private func stroke(_ link: LinkCurve, straight: Bool, opacity: Double = 1, in context: GraphicsContext) {
         var path = Path()
         let start = camera.viewport.viewPoint(fromCanvas: link.start)
         let end = camera.viewport.viewPoint(fromCanvas: link.end)
@@ -975,7 +1092,7 @@ struct InfiniteCanvas: View {
                 control2: camera.viewport.viewPoint(fromCanvas: link.control2)
             )
         }
-        context.stroke(path, with: .color(color(link.color)), lineWidth: link.lineWidth)
+        context.stroke(path, with: .color(color(link.color).opacity(opacity)), lineWidth: link.lineWidth)
     }
 
     private func stroke(_ line: RelationshipLine, straight: Bool, selected: Bool, in context: GraphicsContext) {
@@ -1119,16 +1236,28 @@ struct InfiniteCanvas: View {
         scale: CGFloat,
         highlighted: Bool,
         dimmed: Bool,
+        pose: PetalPose? = nil,
         in context: GraphicsContext
     ) {
-        let rect = camera.viewport.viewRect(fromCanvas: node.frame)
-        let path = Path(roundedRect: rect, cornerRadius: detail == .far ? min(node.cornerRadius, 4) : node.cornerRadius)
+        let rect = camera.viewport.viewRect(fromCanvas: posedCanvasRect(node, pose: pose))
+        let normalRadius: CGFloat = detail == .far ? min(node.cornerRadius, 4) : node.cornerRadius
+        let radius: CGFloat
+        if let pose {
+            let circle = min(rect.width, rect.height) / 2
+            let mix = CGFloat(pose.cornerCircle)
+            radius = circle * mix + normalRadius * (1 - mix)
+        } else {
+            radius = normalRadius
+        }
+        let path = Path(roundedRect: rect, cornerRadius: radius)
         let selected = interaction.selectedNodeID == node.id
         var layer = context
-        if dimmed { layer.opacity = TopicTagCanvas.dimOpacity }
+        var opacity = pose?.opacity ?? 1
+        if dimmed { opacity *= TopicTagCanvas.dimOpacity }
+        if opacity < 0.999 { layer.opacity = opacity }
         let editing = keyboard.mode == .edit && selected
         if !node.hidesFill {
-            if detail.drawsShadow {
+            if pose == nil, detail.drawsShadow {
                 var shadowed = layer
                 shadowed.addFilter(.shadow(color: .black.opacity(0.22), radius: 3, x: 0, y: 1.5))
                 shadowed.fill(path, with: .color(color(node.fill)))
@@ -1150,11 +1279,12 @@ struct InfiniteCanvas: View {
         if highlighted, detail != .far {
             context.stroke(path, with: .color(color(TopicTagCanvas.highlight)), lineWidth: 2.5)
         }
-        if selected, detail.drawsSelectionHandles, NodeEditChrome.showsSelectionHandles(editing: editing) {
+        if pose == nil, selected, detail.drawsSelectionHandles, NodeEditChrome.showsSelectionHandles(editing: editing) {
             drawHandles(around: rect, in: context)
         }
         var textRect = rect.insetBy(dx: 6, dy: 4)
-        if detail != .far,
+        if pose == nil,
+           detail != .far,
            let hash = node.thumbnailHashes.first,
            let image = thumbnails?.image(for: hash) {
             let imageRect = ImagePlacement.rect(for: image, in: rect)
@@ -1166,30 +1296,38 @@ struct InfiniteCanvas: View {
                 height: max(0, rect.maxY - imageRect.maxY - 6)
             )
         }
-        if detail.drawsText, let first = node.fileBadges.first {
+        if pose == nil, detail.drawsText, let first = node.fileBadges.first {
             let badgeTop = camera.viewport.viewPoint(fromCanvas: CGPoint(
                 x: node.origin.x,
                 y: node.origin.y + CGFloat(first.row.y)
             )).y
             textRect.size.height = max(0, min(textRect.maxY, badgeTop - 2) - textRect.minY)
         }
-        if detail.drawsText, node.tagBandHeight > 0 {
+        if pose == nil, detail.drawsText, node.tagBandHeight > 0 {
             let fileBand = CGFloat(FileBadgeMetrics.bandHeight(count: node.fileBadges.count))
             let tagTop = node.origin.y + node.size.height - fileBand - node.tagBandHeight
             let tagY = camera.viewport.viewPoint(fromCanvas: CGPoint(x: node.origin.x, y: tagTop)).y
             textRect.size.height = max(0, min(textRect.maxY, tagY - 2) - textRect.minY)
         }
         let pointSize = CanvasTextScale.onScreenPointSize(fontSize: node.fontSize, scale: scale)
-        if !editing, CanvasTextLOD.level(onScreenPointSize: pointSize).drawsTitle, textRect.height > 1, textRect.width > 1 {
+        let showTitle = (pose?.showsText ?? true) && !editing
+        if showTitle, CanvasTextLOD.level(onScreenPointSize: pointSize).drawsTitle, textRect.height > 1, textRect.width > 1 {
             let text = styledText(node, pointSize: pointSize)
             var textLayer = layer
             textLayer.clip(to: Path(textRect))
             textLayer.draw(text, at: CGPoint(x: textRect.midX, y: textRect.midY), anchor: .center)
         }
-        if detail.drawsText {
+        if pose == nil, detail.drawsText {
             drawFileBadges(node, scale: scale, pointSize: pointSize, in: layer)
             TopicTagCanvas.draw(node: node, in: rect, context: layer, color: color, ink: color(node.textColor))
         }
+    }
+
+    private func posedCanvasRect(_ node: NodeFrame, pose: PetalPose?) -> CGRect {
+        guard let pose, pose.draws else { return node.frame }
+        let width = node.size.width * pose.scale
+        let height = node.size.height * pose.scale
+        return CGRect(x: pose.center.x - width / 2, y: pose.center.y - height / 2, width: width, height: height)
     }
 
     private func drawFileBadges(_ node: NodeFrame, scale: CGFloat, pointSize: CGFloat, in context: GraphicsContext) {
@@ -1717,11 +1855,13 @@ private enum DotTileImage {
 final class LaidOutFrames {
     private var source: MindMapDocument?
     private var cached: [NodeFrame] = []
-
     private var cachedScheme: MapColorScheme?
+    /// Increments only when the cache misses. Petal playback must not move this.
+    private(set) var layoutPassCount = 0
 
     func frames(for document: MindMapDocument, scheme: MapColorScheme) -> [NodeFrame] {
         if let source, source == document, cachedScheme == scheme { return cached }
+        layoutPassCount += 1
         cached = CanvasPlacement.nodes(in: document, scheme: scheme)
         source = document
         cachedScheme = scheme

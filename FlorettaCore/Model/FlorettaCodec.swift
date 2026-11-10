@@ -85,6 +85,16 @@ public enum FlorettaCodec {
         if let frontMatter = object["markdownFrontMatter"], !(frontMatter is NSNull) {
             try expect(object, key: "markdownFrontMatter", at: "markdownFrontMatter") { isJSONString($0) }
         }
+        if let opmlForeign = object["opmlForeign"], !(opmlForeign is NSNull) {
+            guard opmlForeign is [String: Any] else {
+                throw FlorettaCodecError.wrongJSONType(at: "opmlForeign")
+            }
+        }
+        if let mmForeign = object["mmForeign"], !(mmForeign is NSNull) {
+            guard mmForeign is [String: Any] else {
+                throw FlorettaCodecError.wrongJSONType(at: "mmForeign")
+            }
+        }
         if let roots = object["roots"] {
             guard let array = roots as? [Any] else {
                 throw FlorettaCodecError.wrongJSONType(at: "roots")

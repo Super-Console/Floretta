@@ -266,12 +266,12 @@ struct DocumentEditor: View {
                     .deletingLastPathComponent()
                     .appendingPathComponent("spill", isDirectory: true),
                 attachmentEntries: session.attachmentCatalog.attachments,
-                dictationToken: session.dictationToken,
-                dictationReplacesPlaceholder: session.dictationReplacesPlaceholder,
                 onPreviewFile: { nodeID, badge in
                     previewFile(nodeID: nodeID, badge: badge)
                 },
-                tagFilter: session.tagFilter
+                tagFilter: session.tagFilter,
+                dictationToken: session.dictationToken,
+                dictationReplacesPlaceholder: session.dictationReplacesPlaceholder
             )
             .ignoresSafeArea()
             if showOutline, session.zen.chrome.showsSidebar {

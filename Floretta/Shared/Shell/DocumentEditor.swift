@@ -28,6 +28,8 @@ struct DocumentEditor: View {
     @State private var showOutline = false
     @State private var outlineWide = false
     @State private var showInspector = false
+    /// One shot. A later dismissal must stay dismissed; appearing again must not force the sheet back open.
+    @State private var didAutoOpenInspector = false
     @State private var showRename = false
     @State private var renameText = ""
     @State private var showFind = false
@@ -38,6 +40,9 @@ struct DocumentEditor: View {
     @State private var showThemes = false
     @State private var showHistory = false
     @Environment(\.colorScheme) private var colorScheme
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    #endif
     @State private var camera = CanvasCamera()
     @State private var showAttachmentImporter = false
     @State private var showImageImporter = false
@@ -119,8 +124,18 @@ struct DocumentEditor: View {
                         zoomMenu
                         Button(text(CanvasMenus.immersive)) { session.enterZen() }
                             .explained("进入全屏沉浸模式，暂时只留下导图")
+                        #if !os(iOS)
+                        moreMenu
+                        #endif
+                    }
+                    #if os(iOS)
+                    // A primary-action group collapses into TopOverflowBarButtonItem on a
+                    // compact phone, which hides editor.more. confirmationAction stays
+                    // on screen as its own button.
+                    ToolbarItem(placement: .confirmationAction) {
                         moreMenu
                     }
+                    #endif
                 }
             }
             #if os(macOS)
@@ -723,8 +738,10 @@ struct DocumentEditor: View {
     /// Compact width shows `.inspector` as a sheet. That sheet does not present
     /// when the binding is already true on the editor's first appearance, which
     /// is how a new map arrives. Flip it after this turn so the sheet runs.
+    /// Only once: dismissing the sheet must not open it again.
     private func openInspectorForUITest() {
-        guard AppLaunch.opensInspector, !showInspector else { return }
+        guard AppLaunch.opensInspector, !didAutoOpenInspector else { return }
+        didAutoOpenInspector = true
         Task { @MainActor in
             await Task.yield()
             showInspector = true
@@ -747,13 +764,45 @@ struct DocumentEditor: View {
     }
 
     private var inspectorHeader: some View {
-        inspectorTabPicker
-            .padding(.horizontal)
-            .padding(.top, 12)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity)
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("inspector.header")
+        VStack(spacing: 8) {
+            if showsSheetDismissHandle {
+                // Taller than the segmented control, so the header's center is this
+                // handle. A downward drag here dismisses the compact sheet. The same
+                // drag on the segments selects 演说 instead, because that control
+                // takes the touch on contact.
+                Capsule()
+                    .fill(.secondary)
+                    .frame(width: 36, height: 5)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 96)
+                    .contentShape(Rectangle())
+                    .accessibilityLabel("关闭检查器")
+                    .highPriorityGesture(sheetDismissDrag)
+            }
+            inspectorTabPicker
+                .padding(.horizontal)
+        }
+        .padding(.top, 12)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("inspector.header")
+    }
+
+    private var showsSheetDismissHandle: Bool {
+        #if os(iOS)
+        horizontalSizeClass != .regular
+        #else
+        false
+        #endif
+    }
+
+    private var sheetDismissDrag: some Gesture {
+        DragGesture(minimumDistance: 8)
+            .onEnded { value in
+                guard value.translation.height > 24, abs(value.translation.height) > abs(value.translation.width) else { return }
+                showInspector = false
+            }
     }
 
     private var inspectorTabPicker: some View {

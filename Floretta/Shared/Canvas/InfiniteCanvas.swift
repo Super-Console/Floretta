@@ -3,6 +3,8 @@ import Observation
 import SwiftUI
 #if os(macOS)
 import AppKit
+#else
+import UIKit
 #endif
 
 struct InfiniteCanvas: View {
@@ -455,18 +457,12 @@ struct InfiniteCanvas: View {
            let id = keyboard.selectedNodeID,
            let frame = placedFrames().first(where: { $0.id == id }) {
             let rect = camera.viewport.viewRect(fromCanvas: frame.frame)
-            Text(verbatim: " ")
-                .font(.system(size: 1))
-                .foregroundStyle(.clear)
-                .frame(width: rect.width, height: rect.height)
-                .position(x: rect.midX, y: rect.midY)
-                .accessibilityElement()
-                .accessibilityLabel("node")
-                .accessibilityIdentifier(NodeEditChrome.accessibilityIdentifier)
-                .accessibilityValue(
-                    NodeEditChrome.accessibilityValue(editing: false, fill: frame.fill, size: rect.size)
-                )
-                .allowsHitTesting(false)
+            NodeChromeProbeBox(
+                value: NodeEditChrome.accessibilityValue(editing: false, fill: frame.fill, size: rect.size)
+            )
+            .frame(width: rect.width, height: rect.height)
+            .position(x: rect.midX, y: rect.midY)
+            .allowsHitTesting(false)
         }
     }
 
@@ -1320,6 +1316,115 @@ struct InfiniteCanvas: View {
     }
 
 }
+
+/// Full-size accessibility box for the idle topic. A text glyph collapses to one pixel,
+/// so XCUI would compare that sliver with the editing field.
+private struct NodeChromeProbeBox: View {
+    var value: String
+
+    var body: some View {
+        #if os(macOS)
+        MacNodeChromeProbe(value: value)
+        #else
+        IOSNodeChromeProbe(value: value)
+        #endif
+    }
+}
+
+#if os(macOS)
+private struct MacNodeChromeProbe: NSViewRepresentable {
+    var value: String
+
+    func makeNSView(context: Context) -> NodeChromeProbeNSView {
+        let view = NodeChromeProbeNSView()
+        view.probeValue = value
+        return view
+    }
+
+    func updateNSView(_ nsView: NodeChromeProbeNSView, context: Context) {
+        nsView.probeValue = value
+        nsView.publish()
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NodeChromeProbeNSView, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? nsView.bounds.width, height: proposal.height ?? nsView.bounds.height)
+    }
+}
+
+private final class NodeChromeProbeNSView: NSView {
+    var probeValue = "" {
+        didSet { publish() }
+    }
+
+    override var isFlipped: Bool { true }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func layout() {
+        super.layout()
+        publish()
+    }
+
+    func publish() {
+        guard bounds.width > 1, bounds.height > 1 else { return }
+        setAccessibilityElement(true)
+        setAccessibilityIdentifier(NodeEditChrome.accessibilityIdentifier)
+        setAccessibilityLabel("node")
+        if accessibilityValue() as? String != probeValue {
+            setAccessibilityValue(probeValue)
+        }
+        guard let window else { return }
+        setAccessibilityFrame(window.convertToScreen(convert(bounds, to: nil)))
+    }
+}
+#else
+private struct IOSNodeChromeProbe: UIViewRepresentable {
+    var value: String
+
+    func makeUIView(context: Context) -> NodeChromeProbeUIView {
+        let view = NodeChromeProbeUIView()
+        view.probeValue = value
+        view.isUserInteractionEnabled = false
+        view.backgroundColor = .clear
+        view.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        view.setContentHuggingPriority(.defaultLow, for: .vertical)
+        view.setContentCompressionResistancePriority(.required, for: .horizontal)
+        view.setContentCompressionResistancePriority(.required, for: .vertical)
+        return view
+    }
+
+    func updateUIView(_ uiView: NodeChromeProbeUIView, context: Context) {
+        uiView.probeValue = value
+        uiView.publish()
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: NodeChromeProbeUIView, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? uiView.bounds.width, height: proposal.height ?? uiView.bounds.height)
+    }
+}
+
+private final class NodeChromeProbeUIView: UIView {
+    var probeValue = "" {
+        didSet { publish() }
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        publish()
+    }
+
+    func publish() {
+        guard bounds.width > 1, bounds.height > 1 else { return }
+        isAccessibilityElement = true
+        accessibilityIdentifier = NodeEditChrome.accessibilityIdentifier
+        accessibilityLabel = "node"
+        if (accessibilityValue as? String) != probeValue {
+            accessibilityValue = probeValue
+        }
+        accessibilityFrame = UIAccessibility.convertToScreenCoordinates(bounds, in: self)
+    }
+}
+#endif
 
 /// How a topic looks while its text field is open.
 /// The field keeps the node's fill, type, and frame. One accent stroke is added.

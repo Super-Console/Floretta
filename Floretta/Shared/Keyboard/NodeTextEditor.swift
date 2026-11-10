@@ -282,7 +282,8 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         if let design, let descriptor = base.fontDescriptor.withDesign(design) {
             font = NSFont(descriptor: descriptor, size: size) ?? base
         }
-        if chrome.italic, let descriptor = font.fontDescriptor.withSymbolicTraits(.italic) {
+        if chrome.italic {
+            let descriptor = font.fontDescriptor.withSymbolicTraits(.italic)
             font = NSFont(descriptor: descriptor, size: size) ?? font
         }
         return font
@@ -393,7 +394,7 @@ private final class EditingTextView: NSTextView {
     var lockedFont: NSFont?
     private var applyingChrome = false
 
-    override var backgroundColor: NSColor? {
+    override var backgroundColor: NSColor {
         get { super.backgroundColor }
         set { super.backgroundColor = locksChrome ? lockedBackground : newValue }
     }
@@ -466,17 +467,17 @@ private final class EditingTextView: NSTextView {
 
     func publishChromeProbe() {
         guard locksChrome, bounds.width > 1, bounds.height > 1 else { return }
-        let rgb = (backgroundColor ?? lockedBackground).usingColorSpace(.sRGB) ?? lockedBackground
+        let rgb = backgroundColor.usingColorSpace(.sRGB) ?? lockedBackground
         let fill = BranchColor(
             red: Double(rgb.redComponent),
             green: Double(rgb.greenComponent),
             blue: Double(rgb.blueComponent)
         )
         let value = NodeEditChrome.accessibilityValue(editing: true, fill: fill, size: bounds.size)
-        accessibilityIdentifier = NodeEditChrome.accessibilityIdentifier
-        accessibilityLabel = "node"
-        if (accessibilityValue as? String) != value {
-            accessibilityValue = value
+        setAccessibilityIdentifier(NodeEditChrome.accessibilityIdentifier)
+        setAccessibilityLabel("node")
+        if accessibilityValue() as? String != value {
+            setAccessibilityValue(value)
         }
     }
 

@@ -117,7 +117,10 @@ final class AppleGlassChromeContractTests: XCTestCase {
         )
         XCTAssertTrue(leading.contains("chevron.backward"))
         XCTAssertTrue(leading.contains("basicChain.back"))
-        XCTAssertFalse(leading.contains("appleGlassChrome"))
+        XCTAssertTrue(leading.contains(".frame(width: 44, height: 44)"))
+        XCTAssertTrue(leading.contains("contentShape(Circle())"))
+        XCTAssertTrue(leading.contains(".appleGlassChrome(.iconButton)"))
+        XCTAssertFalse(leading.contains("ultraThinMaterial"))
     }
 
     func testInspectorFormsKeepNativeControls() throws {

@@ -154,7 +154,12 @@ final class InspectorTabPinUITests: XCTestCase {
             }
         }
 
-        app.descendants(matching: .any)["inspector.header"].swipeDown()
+        let dismiss = app.descendants(matching: .any)["inspector.dismiss"]
+        if dismiss.waitForExistence(timeout: 1) {
+            dismiss.tap()
+        } else {
+            app.descendants(matching: .any)["inspector.header"].swipeDown()
+        }
         for offset in [CGVector(dx: 0.07, dy: 0.16), CGVector(dx: 0.5, dy: 0.12)] {
             guard canvas.isHittable else { break }
             canvas.coordinate(withNormalizedOffset: offset).tap()
@@ -164,7 +169,7 @@ final class InspectorTabPinUITests: XCTestCase {
            marker(app, "选择一个主题").exists {
             return
         }
-        let more = app.buttons["editor.more"]
+        let more = app.descendants(matching: .any)["editor.more"]
         XCTAssertTrue(more.waitForExistence(timeout: 5), "更多菜单没有出现")
         more.tap()
         let open = app.buttons["inspector.open"]

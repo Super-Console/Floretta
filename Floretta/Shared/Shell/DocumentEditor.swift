@@ -100,16 +100,19 @@ struct DocumentEditor: View {
                         }
                         .accessibilityLabel(text("撤销"))
                         .help(Text(verbatim: text("撤销上一步编辑")))
+                        .appleGlassChrome(.toolbarFloatingButton)
                         Button { session.redo() } label: {
                             Image(systemName: "arrow.uturn.forward")
                         }
                         .accessibilityLabel(text("重做"))
                         .help(Text(verbatim: text("恢复刚刚撤销的编辑")))
+                        .appleGlassChrome(.toolbarFloatingButton)
                         Button { session.deleteSelection() } label: {
                             Image(systemName: "trash")
                         }
                         .accessibilityLabel(text("删除"))
                         .help(Text(verbatim: text("删除选中的节点、便签、关系、概要或边界")))
+                        .appleGlassChrome(.toolbarFloatingButton)
                     }
                     ToolbarItemGroup(placement: .primaryAction) {
                         insertMenu
@@ -117,6 +120,7 @@ struct DocumentEditor: View {
                         zoomMenu
                         Button(text(CanvasMenus.immersive)) { session.enterZen() }
                             .explained("进入全屏沉浸模式，暂时只留下导图")
+                            .appleGlassChrome(.toolbarFloatingButton)
                         moreMenu
                     }
                 }
@@ -333,6 +337,9 @@ struct DocumentEditor: View {
                     .background(.regularMaterial)
             }
         }
+        .overlay(alignment: .bottom) {
+            bottomSheetCapsules
+        }
         .overlay(alignment: .top) {
             VStack(spacing: 8) {
                 if session.markdownBannerVisible {
@@ -371,7 +378,7 @@ struct DocumentEditor: View {
         .font(.callout)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.regularMaterial, in: Capsule())
+        .appleGlassChrome(.bottomBarCapsule)
         .padding(.top, session.zen.isActive ? 56 : 8)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("tagFilter.banner")
@@ -403,12 +410,14 @@ struct DocumentEditor: View {
                     Image(systemName: "arrow.up.left.and.arrow.down.right")
                 }
                 .explained("让大纲占满或恢复原来的宽度")
+                .appleGlassChrome(.iconButton)
                 Button {
                     showOutline = false
                 } label: {
                     Image(systemName: "xmark")
                 }
                 .explained("关闭大纲")
+                .appleGlassChrome(.iconButton)
             }
             .padding(12)
             if session.isMarkdownDocument {
@@ -493,8 +502,7 @@ struct DocumentEditor: View {
             Image(systemName: "xmark")
         }
         .buttonStyle(.plain)
-        .padding(10)
-        .background { Circle().fill(.ultraThinMaterial) }
+        .appleGlassChrome(.iconButton)
         .explained("退出沉浸模式，恢复工具栏")
         .accessibilityIdentifier("zen.exit")
     }
@@ -578,6 +586,7 @@ struct DocumentEditor: View {
         }
         .accessibilityLabel(text("插入"))
         .help(Text(verbatim: text("插入子节点、同级、语音输入、自由节点、便签、概要、边界、图片、附件，或从文件导入")))
+        .appleGlassChrome(.toolbarFloatingButton)
     }
 
     private var zoomMenu: some View {
@@ -594,6 +603,7 @@ struct DocumentEditor: View {
                 .monospacedDigit()
         }
         .explained("选择缩放比例，或让导图适应窗口")
+        .appleGlassChrome(.toolbarFloatingButton)
     }
 
     private var shareMenu: some View {
@@ -629,6 +639,7 @@ struct DocumentEditor: View {
         }
         .accessibilityLabel(text("分享"))
         .help(Text(verbatim: text("把导图导出为 PDF、PNG、Markdown，或保存为已支持的文件")))
+        .appleGlassChrome(.toolbarFloatingButton)
     }
 
     private var moreMenu: some View {
@@ -689,6 +700,7 @@ struct DocumentEditor: View {
         }
         .accessibilityLabel(text("更多"))
         .help(Text(verbatim: text("大纲、样式、配色、标签筛选、版本历史和关于")))
+        .appleGlassChrome(.toolbarFloatingButton)
     }
 
     private var snapshotHistoryHelp: String {
@@ -716,7 +728,9 @@ struct DocumentEditor: View {
                 Text(verbatim: text("导图")).tag(2)
             }
             .pickerStyle(.segmented)
+            .appleGlassChrome(.segmentedContainer)
             .padding(.horizontal)
+            .accessibilityIdentifier("inspector.segments")
             if inspectorTab == 0 {
                 if session.keyboard.selectedRelationshipID != nil {
                     relationshipLabelForm
@@ -748,6 +762,43 @@ struct DocumentEditor: View {
             }
         }
         .padding(.top, 12)
+        .appleGlassChrome(.inspectorPanel)
+    }
+
+    /// Page capsules on the bottom edge. Titles and selection are the existing
+    /// `CanvasChrome` sheets. A single page is not drawn: selecting it would
+    /// not change the canvas, and this is not a word-count bar or a second
+    /// zoom control. The tag-filter capsule and the sticky-color capsule use
+    /// the same official glass.
+    @ViewBuilder
+    private var bottomSheetCapsules: some View {
+        if !session.zen.isActive, camera.chrome.sheets.count > 1 {
+            HStack(spacing: 8) {
+                ForEach(Array(camera.chrome.sheets.enumerated()), id: \.element.id) { index, sheet in
+                    let selected = index == camera.chrome.activeSheetIndex
+                    Button {
+                        camera.chrome.selectSheet(index)
+                    } label: {
+                        Text(verbatim: bottomSheetTitle(sheet))
+                            .font(.caption.weight(selected ? .semibold : .regular))
+                            .lineLimit(1)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .appleGlassChrome(.bottomBarCapsule)
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                    .accessibilityIdentifier("editor.bottomBar.capsule.\(index)")
+                }
+            }
+            .padding(.bottom, 12)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("editor.bottomBar")
+        }
+    }
+
+    private func bottomSheetTitle(_ sheet: CanvasSheet) -> String {
+        sheet.title == "Canvas" ? text("导图") : sheet.title
     }
 
     private var documentInfo: some View {
@@ -781,6 +832,7 @@ struct DocumentEditor: View {
             }
         }
         .formStyle(.grouped)
+        .appleGlassInspectorFormPlate()
     }
 
     private var relationshipLabelForm: some View {
@@ -793,6 +845,7 @@ struct DocumentEditor: View {
             }
         }
         .formStyle(.grouped)
+        .appleGlassInspectorFormPlate()
     }
 
     private var relationshipTitle: Binding<String> {
@@ -824,6 +877,7 @@ struct DocumentEditor: View {
             }
         }
         .formStyle(.grouped)
+        .appleGlassInspectorFormPlate()
     }
 
     private var summaryText: Binding<String> {
@@ -855,6 +909,7 @@ struct DocumentEditor: View {
             }
         }
         .formStyle(.grouped)
+        .appleGlassInspectorFormPlate()
     }
 
     private var boundaryTitle: Binding<String> {
@@ -1371,7 +1426,13 @@ private struct StyleInspector: View {
             }
         } else {
             ContentUnavailableView {
-                Label(text("选择一个主题"), systemImage: "paintbrush")
+                Label {
+                    Text(verbatim: text("选择一个主题"))
+                } icon: {
+                    Image(systemName: "paintbrush")
+                        .appleGlassChrome(.iconButton)
+                        .accessibilityIdentifier("inspector.empty.brush")
+                }
             } description: {
                 Text(verbatim: text(locksAppearance ? MarkdownModePolicy.reason(.nodeColor) : "样式会写进导图文件。"))
             }
@@ -1462,6 +1523,7 @@ private struct StyleInspector: View {
                 }
             }
             .formStyle(.grouped)
+            .appleGlassInspectorFormPlate()
             .disabled(locksAppearance)
     }
 

@@ -206,4 +206,5 @@ Cloud cannot run Xcode; local Mac will pull and xcodebuild; build errors will be
 | 2026-11-10 | 1.6 便签 | 已合并 | PR #38 → main `dfd7af9`（tip `92b6f782`）。Censor 通过；Pro macOS 175/0、iOS EXIT=0。多行便签；≤5 色；不进节点计数、层级、`.xmind`；PNG/PDF 可选含；有限尺寸；与自由节点、附件共存；撤销重做。未开 1.7。 |
 | 2026-11-10 | 1.7 版本快照 | 已合并 | PR #40 → main `20ffc7b`（tip `579703b`）。Censor 通过；Pro macOS 186/0、iOS EXIT=0。原子写入（临时文件 + fsync + rename）、打开时按附件点名 sha256 清单、`document.json` 快照（默认 8、硬顶 32）可回滚、半截写入提示恢复上一版。formatVersion 仍为 1。随后 1.0(6) 已上传（iOS `bb67d0bf` / macOS `24561e09`）；未开 4.1。 |
 | 2026-11-10 | XMind 双向读写 | 已合并 | PR #43 → main `4aed816`。`.xmind` 的 `content.json` 可导入再导出；未知字段原样写回。字段表 `docs/XMIND-FIELDS.md`。Apple UI 未改。 |
+| 2026-11-10 | OPML / FreeMind / Markdown 保真 | 已合并 | PR #44 → main `0c05171`。`.opml` 与 `.mm` 未知字段原样写回；Markdown 字段表把文档投影和纯标题导出分开。字段表 `docs/OPML-FIELDS.md`、`docs/MM-FIELDS.md`、`docs/MARKDOWN-FIELDS.md`。 |
 | 2026-11-10 | TextBundle 导出 | 已提交，云端 swift test | 仅导出 `.textbundle` 目录和 `.textpack`。`text.md` 走 `FlorettaMarkdownDocumentCodec`，第一张画布树上有字节的附件进 `assets/`。不导入。不改 Apple UI。字段表 `docs/TEXTBUNDLE-FIELDS.md`。云上无 `xcodebuild`。 |

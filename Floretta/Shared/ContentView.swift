@@ -140,6 +140,8 @@ struct ContentView: View {
             }
             .navigationTitle("Floretta")
             .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
+            .background(.sidebar)
         } detail: {
             switch library.tab {
             case .home:

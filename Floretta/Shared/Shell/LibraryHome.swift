@@ -1,5 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import FlorettaCore
 
 /// Home from the iPad reference: centered title「最近」, not a large title.
 struct RecentPage: View {
@@ -129,13 +130,7 @@ struct RecentPage: View {
                             library.openRecent(entry)
                         } label: {
                             VStack(alignment: .leading, spacing: 8) {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(.quaternary)
-                                    .frame(height: 110)
-                                    .overlay {
-                                        Image(systemName: "map")
-                                            .foregroundStyle(.secondary)
-                                    }
+                                RecentDocumentThumbnail(entry: entry, library: library)
                                 Text(entry.filename)
                                     .lineLimit(1)
                                 Text(entry.modifiedAt, format: .dateTime.year().month().day().hour().minute())
@@ -208,6 +203,46 @@ struct HomeSidebar: View {
 
     private func text(_ key: String) -> String {
         FlorettaL10n.string(key, locale: locale)
+    }
+}
+
+/// Loads the recent-file image without blocking scrolling. Quick Look's async
+/// generator renders the actual package preview; a missing/invalid preview keeps
+/// the system map glyph visible instead of leaving a blank tile.
+private struct RecentDocumentThumbnail: View {
+    let entry: RecentMapEntry
+    let library: LibraryModel
+    @State private var imageData: Data?
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12).fill(.quaternary)
+            if let image = RecentThumbnailFallback.image(imageData) {
+                Image(platformImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(8)
+            } else {
+                Image(systemName: "map")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(height: 110)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .task(id: entry.id) {
+            imageData = await library.recentThumbnail(for: entry)
+        }
+    }
+
+}
+
+private extension Image {
+    init(platformImage: PlatformThumbnailImage) {
+        #if os(macOS)
+        self.init(nsImage: platformImage)
+        #else
+        self.init(uiImage: platformImage)
+        #endif
     }
 }
 
@@ -378,4 +413,3 @@ struct SettingsView: View {
         FlorettaL10n.string(key, language: settings.language)
     }
 }
-

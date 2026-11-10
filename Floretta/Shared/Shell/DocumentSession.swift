@@ -1550,12 +1550,6 @@ enum CanvasEditCommands {
     }
 
     static func setFill(hex: String, nodeID: UUID, document: inout MindMapDocument) -> Bool {
-        document.mutateNode(nodeID) { node in
-            var style = node.style ?? MindMapNodeStyle(colorHex: hex)
-            style.fillHex = hex
-            style.colorHex = hex
-            style.fillStyle = "solid"
-            node.style = style
-        }
+        InspectorStyle.apply(.fillHex(hex), nodeID: nodeID, document: &document, allowsAppearanceWrites: true)
     }
 }

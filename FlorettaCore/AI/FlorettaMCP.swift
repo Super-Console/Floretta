@@ -253,7 +253,7 @@ public enum FlorettaMCP {
     }
 
     private static func encode(_ object: [String: Any]) -> Data? {
-        try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+        try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys, .withoutEscapingSlashes])
     }
 
     private static func jsonString(_ value: Any?) -> String? {

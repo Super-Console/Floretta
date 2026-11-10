@@ -138,6 +138,10 @@ public struct MindMapNode: Equatable, Sendable, Identifiable {
     public var summaries: [TopicSummary]
     /// Visual enclosures for contiguous runs of `children`.
     public var boundaries: [TopicBoundary]
+    /// XMind `topic.labels`, in file order. User text. Empty is omitted from JSON.
+    public var labels: [String]
+    /// XMind `topic.markers` (`markerId`). Empty is omitted from JSON.
+    public var markers: [TopicMarker]
 
     public init(
         id: UUID = UUID(),
@@ -152,7 +156,9 @@ public struct MindMapNode: Equatable, Sendable, Identifiable {
         children: [MindMapNode] = [],
         isMarkdownSectionHeading: Bool = false,
         summaries: [TopicSummary] = [],
-        boundaries: [TopicBoundary] = []
+        boundaries: [TopicBoundary] = [],
+        labels: [String] = [],
+        markers: [TopicMarker] = []
     ) {
         self.id = id
         self.text = text
@@ -167,6 +173,8 @@ public struct MindMapNode: Equatable, Sendable, Identifiable {
         self.isMarkdownSectionHeading = isMarkdownSectionHeading
         self.summaries = summaries
         self.boundaries = boundaries
+        self.labels = labels
+        self.markers = markers
     }
 }
 
@@ -185,6 +193,8 @@ extension MindMapNode: Codable {
         case isMarkdownSectionHeading
         case summaries
         case boundaries
+        case labels
+        case markers
     }
 
     public init(from decoder: Decoder) throws {
@@ -206,6 +216,8 @@ extension MindMapNode: Codable {
         isMarkdownSectionHeading = try container.decodeIfPresent(Bool.self, forKey: .isMarkdownSectionHeading) ?? false
         summaries = try container.decodeIfPresent([TopicSummary].self, forKey: .summaries) ?? []
         boundaries = try container.decodeIfPresent([TopicBoundary].self, forKey: .boundaries) ?? []
+        labels = try container.decodeIfPresent([String].self, forKey: .labels) ?? []
+        markers = try container.decodeIfPresent([TopicMarker].self, forKey: .markers) ?? []
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -230,6 +242,12 @@ extension MindMapNode: Codable {
         }
         if !boundaries.isEmpty {
             try container.encode(boundaries, forKey: .boundaries)
+        }
+        if !labels.isEmpty {
+            try container.encode(labels, forKey: .labels)
+        }
+        if !markers.isEmpty {
+            try container.encode(markers, forKey: .markers)
         }
     }
 }

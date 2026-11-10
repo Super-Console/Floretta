@@ -268,6 +268,7 @@ final class EditorSession {
     var sourceExtension: String
     var viewMode: DocumentViewMode
     var keyboard = MindMapKeyboardSession()
+    var tagFilter = TopicTagFilter()
     var zen = ZenFlags()
     var focusNodeID: UUID?
     var zenEnteredFullScreen = false
@@ -319,6 +320,15 @@ final class EditorSession {
         guard zen.isActive else { return false }
         exitZen()
         return true
+    }
+
+    @discardableResult
+    func updateSelectedTopicTags(_ body: (inout MindMapNode) -> Void) -> Bool {
+        if keyboard.mode == .edit {
+            keyboard.apply(.commitEdit, document: &document, frames: [])
+        }
+        guard let id = keyboard.selectedNodeID else { return false }
+        return keyboard.updateTopicTags(id, document: &document, body)
     }
 
     func undo() {
@@ -1037,7 +1047,7 @@ enum CanvasMenus {
     static let insert = ["子节点", "同级", "自由节点", "连到", "图片", "附件", "从文件导入"]
     static let share = ["PDF", "PNG", "Markdown", "保存为 Floretta", ".mm", "OPML", ".xmind", "打印"]
     static let zoom = ["50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%", "适应窗口"]
-    static let more = ["大纲", "样式", "查看模式", "新建画布", "查找", "粘贴", "关于"]
+    static let more = ["大纲", "样式", "查看模式", "新建画布", "查找", "标签筛选", "粘贴", "关于"]
     static let moreDisabled: [String] = []
     static let file = ["重新命名"]
     static let fileDisabled: [String] = []

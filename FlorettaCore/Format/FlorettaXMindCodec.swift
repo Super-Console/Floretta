@@ -320,6 +320,8 @@ private func importTopic(
     }
     // `acceptDetached` is only the sheet root. Its detached children are free nodes
     // and get a point below when the file omitted one. The root itself keeps the file point.
+    let labels = try XMindTopicTags.labels(object["labels"])
+    let markers = try XMindTopicTags.markers(object["markers"])
     let marks = parsedMarks(object, childCount: childNodes.count)
     for summary in marks.summaries {
         _ = try claim(summary.id, used: &used)
@@ -337,7 +339,9 @@ private func importTopic(
         attachments: attachments,
         children: childNodes,
         summaries: marks.summaries,
-        boundaries: marks.boundaries
+        boundaries: marks.boundaries,
+        labels: labels,
+        markers: markers
     )
     topics[modelID.uuidString] = XMindTopicForeign(
         originalID: rawID,
@@ -870,6 +874,8 @@ private enum XMindRebuild {
         object["title"] = .string(node.text)
         object["position"] = positionValue(source: object, position: node.position)
         object["notes"] = notesValue(source: object, note: node.note)
+        object["labels"] = XMindTopicTags.labelsValue(source: object, labels: node.labels)
+        object["markers"] = XMindTopicTags.markersValue(source: object, markers: node.markers)
         applyHref(&object, node: node, topic: topic)
         let attached = node.children.map { buildTopic($0, detached: nil, foreign: foreign) }
         let detachedValues = detached?.map { buildTopic($0, detached: nil, foreign: foreign) }
@@ -1126,6 +1132,74 @@ private func canonicalPoints(_ value: Double) -> String {
     return "\(value)pt"
 }
 
+enum XMindTopicTags {
+    static func labels(in source: XMindJSONObject) -> [String] {
+        (try? labels(source["labels"])) ?? []
+    }
+
+    static func markers(in source: XMindJSONObject) -> [TopicMarker] {
+        (try? markers(source["markers"])) ?? []
+    }
+
+    static func labels(_ value: XMindJSONValue?) throws -> [String] {
+        guard let value else { return [] }
+        guard case .array(let items) = value else {
+            throw FlorettaXMindError.corrupt("topic.labels is not an array.")
+        }
+        return try items.map { item in
+            guard let string = item.stringValue else {
+                throw FlorettaXMindError.corrupt("topic.labels is not a string.")
+            }
+            return string
+        }
+    }
+
+    static func markers(_ value: XMindJSONValue?) throws -> [TopicMarker] {
+        guard let value else { return [] }
+        guard case .array(let items) = value else {
+            throw FlorettaXMindError.corrupt("topic.markers is not an array.")
+        }
+        return try items.map { item in
+            guard let markerId = item.objectValue?["markerId"]?.stringValue, !markerId.isEmpty else {
+                throw FlorettaXMindError.corrupt("topic.markers is missing markerId.")
+            }
+            return TopicMarker(markerId: markerId)
+        }
+    }
+
+    static func labelsValue(source: XMindJSONObject, labels model: [String]) -> XMindJSONValue? {
+        if let existing = try? labels(source["labels"]), existing == model {
+            return source["labels"]
+        }
+        if model.isEmpty { return nil }
+        return .array(model.map { .string($0) })
+    }
+
+    static func markersValue(source: XMindJSONObject, markers model: [TopicMarker]) -> XMindJSONValue? {
+        let modelIDs = model.map(\.markerId)
+        if let existing = try? markers(source["markers"]), existing.map(\.markerId) == modelIDs {
+            return source["markers"]
+        }
+        if model.isEmpty { return nil }
+        var unused: [XMindJSONObject] = []
+        if case .array(let items) = source["markers"] {
+            unused = items.compactMap(\.objectValue)
+        }
+        var written: [XMindJSONValue] = []
+        written.reserveCapacity(model.count)
+        for marker in model {
+            if let index = unused.firstIndex(where: { $0["markerId"]?.stringValue == marker.markerId }) {
+                written.append(.object(unused.remove(at: index)))
+            } else {
+                var object = XMindJSONObject()
+                object["markerId"] = .string(marker.markerId)
+                written.append(.object(object))
+            }
+        }
+        return .array(written)
+    }
+}
+
 private struct XSheet: Codable {
     var id: String
     var kind: String
@@ -1180,6 +1254,8 @@ private struct XTopic: Codable {
     var children: XChildren?
     var extensions: [XExtension]?
     var boundaries: [XBoundary]? = nil
+    var labels: [String]? = nil
+    var markers: [XMarker]? = nil
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -1191,6 +1267,8 @@ private struct XTopic: Codable {
         case children
         case extensions
         case boundaries
+        case labels
+        case markers
     }
 
     init(node: MindMapNode, floating: Bool, detached: [MindMapNode]) {
@@ -1228,6 +1306,8 @@ private struct XTopic: Codable {
                 title: boundary.title.isEmpty ? nil : boundary.title
             )
         }
+        labels = node.labels.isEmpty ? nil : node.labels
+        markers = node.markers.isEmpty ? nil : node.markers.map { XMarker(markerId: $0.markerId) }
         if node.attachments.isEmpty {
             extensions = nil
         } else {
@@ -1274,6 +1354,10 @@ private struct XBoundary: Codable {
     var id: String
     var range: String
     var title: String?
+}
+
+private struct XMarker: Codable {
+    var markerId: String
 }
 
 private struct XPoint: Codable {

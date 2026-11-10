@@ -266,6 +266,11 @@ private struct MapExportView: View {
                         height: max(0, rect.maxY - top - 4)
                     )
                 }
+                if node.tagBandHeight > 0 {
+                    let fileBand = CGFloat(FileBadgeMetrics.bandHeight(count: node.fileBadges.count))
+                    let tagTop = rect.maxY - fileBand - node.tagBandHeight
+                    textRect.size.height = max(0, min(textRect.maxY, tagTop - 2) - textRect.minY)
+                }
                 if textRect.width > 1, textRect.height > 1 {
                     context.draw(
                         Text(node.text)
@@ -274,6 +279,13 @@ private struct MapExportView: View {
                         in: textRect
                     )
                 }
+                TopicTagCanvas.draw(
+                    node: node,
+                    in: rect,
+                    context: context,
+                    color: color,
+                    ink: color(node.textColor)
+                )
             }
             for line in lines where !line.title.isEmpty {
                 let canvasRect = RelationshipLine.labelRect(

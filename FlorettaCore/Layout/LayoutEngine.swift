@@ -154,6 +154,12 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
     public var thumbnailHashes: [String] = []
     /// Non-image attachments. Each row is a type icon, the filename, and the size.
     public var fileBadges: [FileBadge] = []
+    /// User-written topic labels. Drawn under the title. Empty when the topic has none.
+    public var labels: [String] = []
+    /// Marker ids from the topic, in file order.
+    public var markerIDs: [String] = []
+    /// Extra height already included in `size` for labels and markers. Zero when there are none.
+    public var tagBandHeight: CGFloat = 0
 
     public init(
         id: UUID,
@@ -179,7 +185,10 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
         caption: String = "",
         isFree: Bool = false,
         thumbnailHashes: [String] = [],
-        fileBadges: [FileBadge] = []
+        fileBadges: [FileBadge] = [],
+        labels: [String] = [],
+        markerIDs: [String] = [],
+        tagBandHeight: CGFloat = 0
     ) {
         self.id = id
         self.text = text
@@ -205,6 +214,9 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
         self.caption = caption
         self.thumbnailHashes = thumbnailHashes
         self.fileBadges = fileBadges
+        self.labels = labels
+        self.markerIDs = markerIDs
+        self.tagBandHeight = tagBandHeight
     }
 
     public var rect: CGRect { CGRect(origin: origin, size: size) }
@@ -461,6 +473,7 @@ public struct LayoutEngine: Sendable {
         let band = thumbnailBand(node)
         let files = FileBadgeLayout.fileAttachments(in: node)
         let fileBand = CGFloat(FileBadgeMetrics.bandHeight(count: files.count))
+        let tagBand = CGFloat(TopicTagLayout.bandHeight(labelCount: node.labels.count, markerCount: node.markers.count))
         let imageWidth = band > 0 ? CGFloat(ImageSlot.maxWidth + ImageSlot.horizontalInset * 2) : 0
         var fileWidth: CGFloat = 0
         if !files.isEmpty {
@@ -469,7 +482,7 @@ public struct LayoutEngine: Sendable {
             fileWidth = measured.width + CGFloat(FileBadgeMetrics.iconSide + FileBadgeMetrics.gap + FileBadgeMetrics.horizontalInset * 2)
         }
         let width = max(raw.width, CGFloat(node.style?.topicWidth ?? 0), imageWidth, fileWidth)
-        return CGSize(width: width, height: (heights[depth] ?? raw.height) + band + fileBand)
+        return CGSize(width: width, height: (heights[depth] ?? raw.height) + band + fileBand + tagBand)
     }
 
     private func thumbnailBand(_ node: MindMapNode) -> CGFloat {
@@ -662,7 +675,13 @@ public struct LayoutEngine: Sendable {
                 attachments: node.attachments,
                 nodeWidth: Double(size.width),
                 nodeHeight: Double(size.height)
-            )
+            ),
+            labels: node.labels,
+            markerIDs: node.markers.map(\.markerId),
+            tagBandHeight: CGFloat(TopicTagLayout.bandHeight(
+                labelCount: node.labels.count,
+                markerCount: node.markers.count
+            ))
         )
     }
 

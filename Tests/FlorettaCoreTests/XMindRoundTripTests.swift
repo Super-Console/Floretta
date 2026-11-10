@@ -40,10 +40,14 @@ final class XMindRoundTripTests: XCTestCase {
         }
     }
 
-    func testSimpleMapsNoteAndLinkAndKeepsLabelsOutOfTheModel() throws {
+    func testSimpleMapsNoteLinkLabelsAndPriorityMarker() throws {
         let imported = try FlorettaXMindCodec.importMap(try load("simple.xmind"))
         XCTAssertEqual(row("topic.title").disposition, .mapped)
-        XCTAssertEqual(row("topic.labels").disposition, .passthrough)
+        XCTAssertEqual(row("topic.labels").disposition, .mapped)
+        XCTAssertEqual(row("topic.markers").disposition, .mapped)
+        XCTAssertEqual(row("labels model").disposition, .mapped)
+        XCTAssertEqual(imported.roots[0].labels, ["想法"])
+        XCTAssertEqual(imported.roots[0].children[0].markers.map(\.markerId), ["priority-1"])
         XCTAssertEqual(imported.title, "简单")
         XCTAssertEqual(imported.roots.map(\.text), ["中心"])
         XCTAssertEqual(imported.roots[0].children.map(\.text), ["分支"])

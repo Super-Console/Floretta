@@ -177,6 +177,7 @@ extension MindMapDocument: Codable {
         self.xmindForeign = xmindForeign
         self.opmlForeign = opmlForeign
         self.mmForeign = mmForeign
+        promoteUnmappedTopicTags()
         try FlorettaTree.validate(self)
     }
 
@@ -412,11 +413,30 @@ public extension MindMapDocument {
         guard !needle.isEmpty else { return [] }
         var ids: [UUID] = []
         walkTopics { node in
-            if node.text.localizedCaseInsensitiveContains(needle) {
+            if node.text.localizedCaseInsensitiveContains(needle)
+                || node.labels.contains(where: { $0.localizedCaseInsensitiveContains(needle) }) {
                 ids.append(node.id)
             }
         }
         return ids
+    }
+
+    /// Writes user-typed labels. Trims and drops blanks. Returns false when `id` is missing.
+    @discardableResult
+    public mutating func replaceLabels(_ labels: [String], on id: UUID) -> Bool {
+        let cleaned = TopicLabels.normalized(labels)
+        return mutateNode(id) { node in
+            node.labels = cleaned
+        }
+    }
+
+    /// Sets or clears the priority, progress, or flag on one topic.
+    /// Other marker ids, including ones this app does not draw, stay on the same array.
+    @discardableResult
+    public mutating func setMarker(_ markerID: String?, in group: TopicMarkerGroup, on id: UUID) -> Bool {
+        mutateNode(id) { node in
+            node.markers = TopicMarkerCatalog.assign(node.markers, markerID: markerID, group: group)
+        }
     }
 
     public func linkTargets(excluding id: UUID?) -> [TopicLinkTarget] {
@@ -813,6 +833,44 @@ public extension MindMapDocument {
 
     private mutating func mutateMark(boundary id: UUID, _ body: (inout MindMapNode) -> Void) -> Bool {
         mutateOwningNode(where: { $0.boundaries.contains { $0.id == id } }, body)
+    }
+
+    /// Files saved before labels and markers were mapped keep those arrays only in
+    /// the XMind source bag. Copy them onto the topic once, then refresh the snapshot
+    /// so an unedited export still writes the original `content.json`.
+    mutating func promoteUnmappedTopicTags() {
+        guard var foreign = xmindForeign, !foreign.snapshot.tagsMapped else { return }
+        for sheet in foreign.sheets {
+            for (key, topic) in sheet.topics {
+                guard let id = UUID(uuidString: key) else { continue }
+                let labels = XMindTopicTags.labels(in: topic.source)
+                let markers = XMindTopicTags.markers(in: topic.source)
+                if labels.isEmpty && markers.isEmpty { continue }
+                fillImportedTags(id: id, labels: labels, markers: markers)
+            }
+        }
+        foreign.snapshot = XMindMappedSnapshot(document: self)
+        xmindForeign = foreign
+    }
+
+    private mutating func fillImportedTags(id: UUID, labels: [String], markers: [TopicMarker]) {
+        func walk(_ nodes: inout [MindMapNode]) -> Bool {
+            for index in nodes.indices {
+                if nodes[index].id == id {
+                    if nodes[index].labels.isEmpty { nodes[index].labels = labels }
+                    if nodes[index].markers.isEmpty { nodes[index].markers = markers }
+                    return true
+                }
+                if walk(&nodes[index].children) { return true }
+            }
+            return false
+        }
+        if walk(&roots) || walk(&freeNodes) { return }
+        for index in additionalCanvases.indices {
+            if walk(&additionalCanvases[index].roots) || walk(&additionalCanvases[index].freeNodes) {
+                return
+            }
+        }
     }
 
     private mutating func mutateOwningNode(

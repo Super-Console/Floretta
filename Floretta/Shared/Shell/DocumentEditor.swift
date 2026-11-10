@@ -84,6 +84,10 @@ struct DocumentEditor: View {
     @State private var topicCensus = TopicCensusModel()
 
     var body: some View {
+        editorPresentations
+    }
+
+    private var editorCore: some View {
         canvasStack
             .overlay(alignment: .topTrailing) {
                 if session.zen.isActive {
@@ -107,6 +111,10 @@ struct DocumentEditor: View {
         .onChange(of: regionMetric) { previous, _ in
             if let previous { commitRegionMetric(previous) }
         }
+    }
+
+    private var editorToolbar: some View {
+        editorCore
             .inspector(isPresented: inspectorPresented) {
                 inspectorBody
                     .inspectorColumnWidth(min: 280, ideal: 320, max: 440)
@@ -232,6 +240,10 @@ struct DocumentEditor: View {
             #else
             .toolbarBackground(.hidden, for: .navigationBar)
             #endif
+    }
+
+    private var editorEvents: some View {
+        editorToolbar
             .onChange(of: session.viewMode) { _, mode in
                 guard mode == .focus else { return }
                 if session.focusNodeID == nil {
@@ -267,6 +279,10 @@ struct DocumentEditor: View {
                         .disabled(CanvasMenus.textDisabled.contains(item) || (session.isMarkdownDocument && item == "拷贝样式"))
                 }
             }
+    }
+
+    private var editorExportActions: some View {
+        editorEvents
             .fileExporter(
                 isPresented: $showExport,
                 document: exportFile,
@@ -329,6 +345,10 @@ struct DocumentEditor: View {
                 }
                 Button(text("取消"), role: .cancel) {}
             }
+    }
+
+    private var editorPresentations: some View {
+        editorExportActions
         .sheet(isPresented: $showAbout) {
             AboutSheet()
         }

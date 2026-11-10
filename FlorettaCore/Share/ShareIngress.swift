@@ -599,6 +599,9 @@ public struct ShareDocumentCatalog: Equatable, Sendable, Codable {
 /// Pulls topics and attachments that showed up on disk after `base`.
 /// `mine` wins on text the user already changed. A deletion in `mine` stays deleted
 /// when that topic was already in `base`.
+/// `base` has to be the last on-disk snapshot, not the merged document. The snapshot
+/// still lists a topic the user deleted, so a later absorb of that same package
+/// does not treat the deletion as a new topic.
 public enum ShareAbsorb {
     public static func absorb(
         base: MindMapDocument,

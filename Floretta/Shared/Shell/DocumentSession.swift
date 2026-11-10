@@ -805,9 +805,11 @@ final class LibraryModel {
             return
         }
         let merged = ShareAbsorb.absorb(base: session.shareBase, mine: session.document, theirs: opened.document)
+        // The baseline is the package just read. It still names topics this editor
+        // deleted, so the next absorb does not put those topics back.
+        session.shareBase = opened.document
         guard merged != session.document else { return }
         session.document = merged
-        session.shareBase = merged
         session.notePackage(
             catalog: opened.directory,
             bytes: (try? ports.streaming.byteCount(at: url)) ?? session.archiveByteCount

@@ -321,8 +321,17 @@ final class ShareIngressTests: XCTestCase {
         XCTAssertEqual(root?.attachments.map(\.sha256), [hash])
         XCTAssertNil(merged.node(removed))
 
-        let again = ShareAbsorb.absorb(base: merged, mine: merged, theirs: theirs)
+        // Same package again. The baseline stays `theirs`, which still contains 「删掉」.
+        let again = ShareAbsorb.absorb(base: theirs, mine: merged, theirs: theirs)
         XCTAssertEqual(again, merged)
+        XCTAssertNil(again.node(removed))
+
+        var later = theirs
+        let newer = UUID()
+        XCTAssertTrue(later.insertChild(MindMapNode(id: newer, text: "后又"), under: center))
+        let third = ShareAbsorb.absorb(base: theirs, mine: again, theirs: later)
+        XCTAssertEqual(third.node(center)?.children.map(\.id), [kept, local, shared, newer])
+        XCTAssertNil(third.node(removed))
         XCTAssertEqual(ShareAbsorb.absorb(base: base, mine: mine, theirs: base).node(center)?.children.map(\.id), [kept, local])
     }
 

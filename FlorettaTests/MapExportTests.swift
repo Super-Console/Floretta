@@ -233,13 +233,16 @@ final class MapExportTests: XCTestCase {
         XCTAssertEqual(line.title, "对照")
         XCTAssertFalse(frames.contains { $0.id == link })
 
+        XCTAssertTrue(bare.relationships.isEmpty)
+        XCTAssertTrue(RelationshipGeometry.lines(in: bare, frames: MapExporter.visibleFrames(in: bare)).isEmpty)
+
         let options = MapExportOptions(scale: .two, background: .white)
         let without = MapExporter.png(document: bare, options: options)
         let png = MapExporter.png(document: linked, options: options)
         XCTAssertNil(png.notice)
         XCTAssertFalse(png.visibleNodeIDs.contains(link))
-        XCTAssertFalse(isRelationshipInk(try bitmap(try XCTUnwrap(without.png))))
-        XCTAssertTrue(isRelationshipInk(try bitmap(try XCTUnwrap(png.png))))
+        XCTAssertEqual(relationshipInkCount(try bitmap(try XCTUnwrap(without.png))), 0)
+        XCTAssertGreaterThan(relationshipInkCount(try bitmap(try XCTUnwrap(png.png))), 0)
         assertInside(line, result: png)
 
         let pdf = MapExporter.pdf(document: linked, options: options)
@@ -249,7 +252,7 @@ final class MapExportTests: XCTestCase {
         let page = try XCTUnwrap(PDFDocument(data: try XCTUnwrap(pdf.pdf))?.page(at: 0))
         let media = page.bounds(for: .mediaBox)
         let thumb = page.thumbnail(of: CGSize(width: media.width * 2, height: media.height * 2), for: .mediaBox)
-        XCTAssertTrue(isRelationshipInk(try bitmap(thumb)))
+        XCTAssertGreaterThan(relationshipInkCount(try bitmap(thumb)), 0)
     }
 
     private func assertInside(_ line: RelationshipLine, result: MapExportResult, file: StaticString = #filePath, lineNumber: UInt = #line) {
@@ -263,22 +266,30 @@ final class MapExportTests: XCTestCase {
         }
     }
 
-    private func isRelationshipInk(_ rep: NSBitmapImageRep) -> Bool {
-        let ink = RelationshipGeometry.ink
+    /// Pixels of `RelationshipGeometry.ink` (0.11, 0.46, 0.50). Green and blue stay
+    /// close and both sit above red, including a moderate blend toward white.
+    /// Branch blue is (0.18, 0.52, 0.82): blended with the center node's black
+    /// stroke or the white page, blue stays well above green, so a bare map
+    /// does not match.
+    private func relationshipInkCount(_ rep: NSBitmapImageRep) -> Int {
+        var count = 0
         for y in 0..<rep.pixelsHigh {
             for x in 0..<rep.pixelsWide {
                 guard let color = rep.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { continue }
-                guard color.alphaComponent > 0.45 else { continue }
+                guard color.alphaComponent > 0.55 else { continue }
                 let red = color.redComponent
                 let green = color.greenComponent
                 let blue = color.blueComponent
-                let near = abs(red - ink.red) < 0.16 && abs(green - ink.green) < 0.16 && abs(blue - ink.blue) < 0.16
-                let teal = red < 0.32 && green > 0.30 && green < 0.62 && blue > 0.32 && blue < 0.70
-                    && blue + 0.05 > green && green > red + 0.12 && blue > red + 0.16
-                if near || teal { return true }
+                let matches = abs(blue - green) < 0.10
+                    && green > red + 0.18
+                    && blue > red + 0.18
+                    && green > 0.28 && green < 0.80
+                    && blue > 0.28 && blue < 0.82
+                    && red < 0.50
+                if matches { count += 1 }
             }
         }
-        return false
+        return count
     }
 
     private func sampleMap() -> MindMapDocument {

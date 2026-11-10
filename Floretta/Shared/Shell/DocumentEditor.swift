@@ -1309,6 +1309,8 @@ struct DocumentEditor: View {
 
     private func syncFullScreen(_ active: Bool) {
         #if os(macOS)
+        guard session.zenFullScreenApplied != active else { return }
+        session.zenFullScreenApplied = active
         guard let window = NSApp.keyWindow ?? NSApp.mainWindow else { return }
         let full = window.styleMask.contains(.fullScreen)
         if active, !full {

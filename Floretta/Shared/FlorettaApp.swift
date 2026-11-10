@@ -33,31 +33,75 @@ struct FlorettaApp: App {
         }
         .defaultSize(width: 960, height: 680)
         .commands {
-            CommandGroup(replacing: .newItem) {
-                Button(FlorettaL10n.string("新建", language: settings.language)) {
-                    library.makeNew()
-                }
-                .keyboardShortcut("n", modifiers: .command)
-            }
-            CommandGroup(replacing: .saveItem) {
-                Button(FlorettaL10n.string("保存", language: settings.language)) {
-                    library.saveActiveFile()
-                }
-                .keyboardShortcut("s", modifiers: .command)
-                .disabled(!library.canSaveActiveFile)
-            }
-            #if os(macOS)
-            CommandGroup(replacing: .appSettings) {
-                Button(FlorettaL10n.string(ShellTab.settings.title, language: settings.language)) {
-                    library.tab = .settings
-                }
-                .keyboardShortcut(",", modifiers: .command)
-                .disabled(library.editor != nil)
-            }
-            #endif
+            FlorettaCommands(settings: settings, library: library)
         }
+        #if os(macOS)
+        WindowGroup(id: SameDocumentWindow.sceneID, for: UUID.self) { $windowID in
+            SameDocumentWindow(
+                windowID: windowID,
+                recovery: recovery,
+                settings: settings,
+                library: library
+            )
+        }
+        .defaultSize(width: 960, height: 680)
+        .commands {
+            FlorettaCommands(settings: settings, library: library)
+        }
+        #endif
     }
 }
+
+private struct FlorettaCommands: Commands {
+    @Bindable var settings: AppSettings
+    @Bindable var library: LibraryModel
+
+    var body: some Commands {
+        CommandGroup(replacing: .newItem) {
+            Button(FlorettaL10n.string("新建", language: settings.language)) {
+                library.makeNew()
+            }
+            .keyboardShortcut("n", modifiers: .command)
+        }
+        CommandGroup(replacing: .saveItem) {
+            Button(FlorettaL10n.string("保存", language: settings.language)) {
+                library.saveActiveFile()
+            }
+            .keyboardShortcut("s", modifiers: .command)
+            .disabled(!library.canSaveActiveFile)
+        }
+        #if os(macOS)
+        CommandGroup(before: .windowList) {
+            OpenSameDocumentWindowButton(settings: settings, library: library)
+        }
+        CommandGroup(replacing: .appSettings) {
+            Button(FlorettaL10n.string(ShellTab.settings.title, language: settings.language)) {
+                library.tab = .settings
+            }
+            .keyboardShortcut(",", modifiers: .command)
+            .disabled(library.editor != nil)
+        }
+        #endif
+    }
+}
+
+#if os(macOS)
+private struct OpenSameDocumentWindowButton: View {
+    @Bindable var settings: AppSettings
+    @Bindable var library: LibraryModel
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button(FlorettaL10n.string("新建窗口", language: settings.language)) {
+            guard let id = library.openAnotherWindow() else { return }
+            openWindow(id: SameDocumentWindow.sceneID, value: id)
+        }
+        .keyboardShortcut("n", modifiers: [.command, .shift])
+        .disabled(library.editor == nil)
+        .help(Text(verbatim: FlorettaL10n.string("再开一个窗口，编辑同一份导图。", language: settings.language)))
+    }
+}
+#endif
 
 enum AppLaunch {
     static let uiTestArgument = "-FlorettaUITest"

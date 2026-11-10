@@ -310,6 +310,9 @@ final class EditorSession {
     var zen = ZenFlags()
     var focusNodeID: UUID?
     var zenEnteredFullScreen = false
+    /// Tracks the last Zen fullscreen request this session applied.
+    /// Two windows share the session, so only the first caller toggles the key window.
+    var zenFullScreenApplied = false
     var attachmentCatalog = ZipDirectory(entries: [])
     var archiveByteCount: Int64 = 0
     /// Set from the open result. A `.md` filename is not enough: sniffed OPML or FreeMind is not Markdown mode.
@@ -592,6 +595,14 @@ final class EditorSession {
     }
 }
 
+/// Which open window is asking for the shared document.
+/// `.primary` is the library window. Each `.auxiliary` id is another macOS window
+/// on that same `EditorSession`.
+enum DocumentWindowRef: Hashable, Sendable {
+    case primary
+    case auxiliary(UUID)
+}
+
 @MainActor
 @Observable
 final class LibraryModel {
@@ -604,7 +615,10 @@ final class LibraryModel {
     var documentsRoot: URL { documentsDirectory }
 
     var recents: [RecentMapEntry] = []
+    /// The one open document. Extra windows read this session; they do not keep a copy.
     var editor: EditorSession?
+    /// macOS windows after the primary one. Empty on iOS, and whenever `editor` is nil.
+    private(set) var auxiliaryWindowIDs: [UUID] = []
     var showImporter = false
     var alertTitle = "无法打开"
     var openError: String?
@@ -614,6 +628,50 @@ final class LibraryModel {
         if editor.isMarkdownDocument { return editor.url != nil }
         return editor.sourceExtension == "floretta" || editor.url == nil
     }
+
+    /// Primary window plus one entry per additional window. Zero when no document is open.
+    var documentWindowCount: Int {
+        guard editor != nil else { return 0 }
+        return 1 + auxiliaryWindowIDs.count
+    }
+
+    /// The session a window draws. A closed id returns nil so it cannot keep a private copy.
+    func session(for window: DocumentWindowRef) -> EditorSession? {
+        switch window {
+        case .primary:
+            return editor
+        case .auxiliary(let id):
+            guard auxiliaryWindowIDs.contains(id) else { return nil }
+            return editor
+        }
+    }
+
+    func documentShown(in window: DocumentWindowRef) -> MindMapDocument? {
+        session(for: window)?.document
+    }
+
+    /// Runs `body` on the shared session when `window` is open.
+    @discardableResult
+    func applyEdit(in window: DocumentWindowRef, _ body: (EditorSession) -> Void) -> Bool {
+        guard let session = session(for: window) else { return false }
+        body(session)
+        return true
+    }
+
+    /// Opens another window on the current session. Does not read the file or clone the map.
+    @discardableResult
+    func openAnotherWindow() -> UUID? {
+        guard editor != nil else { return nil }
+        let id = UUID()
+        auxiliaryWindowIDs.append(id)
+        return id
+    }
+
+    /// Drops one extra window. The session and the primary window stay as they are.
+    func closeAuxiliaryWindow(_ id: UUID) {
+        auxiliaryWindowIDs.removeAll { $0 == id }
+    }
+
     var inventoryError: AssetInventoryError?
     var tab: ShellTab = .home
     var showInterruptedSave = false
@@ -715,6 +773,13 @@ final class LibraryModel {
     }
 
     func openFile(_ url: URL) {
+        #if os(macOS)
+        // The file is already this session. Another window shows it; a second read
+        // would replace unsaved edits with whatever is on disk.
+        if isSameOpenFile(url), openAnotherWindow() != nil {
+            return
+        }
+        #endif
         guard finishCurrentEditor() else { return }
         interruptedAccess?.end()
         interruptedAccess = nil
@@ -813,6 +878,7 @@ final class LibraryModel {
                 return false
             }
         }
+        auxiliaryWindowIDs.removeAll()
         editor = nil
         scope?.end()
         scope = nil
@@ -908,6 +974,13 @@ final class LibraryModel {
         closeEditor()
         return editor == nil
     }
+
+    #if os(macOS)
+    private func isSameOpenFile(_ url: URL) -> Bool {
+        guard let current = editor?.url else { return false }
+        return current.standardizedFileURL.path == url.standardizedFileURL.path
+    }
+    #endif
 
     private func shouldWriteOnClose(_ session: EditorSession) -> Bool {
         if session.isMarkdownDocument { return session.url != nil }

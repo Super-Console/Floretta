@@ -915,6 +915,108 @@ final class ShellTests: XCTestCase {
         XCTAssertTrue(project.contains("\"zh-Hans\""))
     }
 
+    func testOpeningASecondWindowUsesTheSameDocumentSession() throws {
+        let directory = try temporaryDirectory()
+        let library = try makeLibrary(directory: directory)
+        XCTAssertNil(library.openAnotherWindow())
+        XCTAssertEqual(library.documentWindowCount, 0)
+
+        library.makeNew()
+        let session = try XCTUnwrap(library.session(for: .primary))
+        let url = try XCTUnwrap(session.url)
+        XCTAssertEqual(url.pathExtension, "floretta")
+        XCTAssertEqual(library.documentWindowCount, 1)
+        XCTAssertNil(library.session(for: .auxiliary(UUID())))
+        XCTAssertEqual(FlorettaL10n.string("新建窗口", language: .english), "New Window")
+        XCTAssertEqual(FlorettaL10n.string("新建窗口", language: .simplifiedChinese), "新建窗口")
+
+        let second = try XCTUnwrap(library.openAnotherWindow())
+        let third = try XCTUnwrap(library.openAnotherWindow())
+        XCTAssertNotEqual(second, third)
+        XCTAssertEqual(library.documentWindowCount, 3)
+        XCTAssertIdentical(library.session(for: .primary), session)
+        XCTAssertIdentical(library.session(for: .auxiliary(second)), session)
+        XCTAssertIdentical(library.session(for: .auxiliary(third)), session)
+
+        session.commitText("还没保存")
+        library.openFile(url)
+        XCTAssertNil(library.openError)
+        XCTAssertEqual(library.documentWindowCount, 4)
+        XCTAssertIdentical(library.session(for: .primary), session)
+        XCTAssertEqual(library.documentShown(in: .auxiliary(second))?.roots.first?.text, "还没保存")
+        let stillOnDisk = try DocumentOpener.open(
+            data: Data(contentsOf: url),
+            filename: url.lastPathComponent
+        )
+        XCTAssertEqual(stillOnDisk.roots.first?.text, "中心")
+
+        library.closeAuxiliaryWindow(second)
+        XCTAssertNil(library.session(for: .auxiliary(second)))
+        XCTAssertEqual(library.documentWindowCount, 3)
+        XCTAssertIdentical(library.session(for: .primary), session)
+        XCTAssertEqual(library.documentShown(in: .primary)?.roots.first?.text, "还没保存")
+
+        let other = directory.appendingPathComponent("另一份.floretta")
+        _ = try FlorettaStreamingDocument.save(
+            document: MindMapDocument(title: "另一份", roots: [MindMapNode(text: "别的")]),
+            to: other,
+            files: FoundationStreamingFiles(),
+            snapshots: .none
+        )
+        library.openFile(other)
+        XCTAssertNil(library.openError)
+        XCTAssertEqual(library.documentWindowCount, 1)
+        XCTAssertNotIdentical(library.session(for: .primary), session)
+        XCTAssertEqual(library.documentShown(in: .primary)?.roots.first?.text, "别的")
+        XCTAssertNil(library.session(for: .auxiliary(third)))
+        let savedFirst = try DocumentOpener.open(data: Data(contentsOf: url), filename: url.lastPathComponent)
+        XCTAssertEqual(savedFirst.roots.first?.text, "还没保存")
+
+        XCTAssertTrue(library.closeEditor())
+        XCTAssertEqual(library.documentWindowCount, 0)
+        XCTAssertNil(library.session(for: .primary))
+        XCTAssertNil(library.openAnotherWindow())
+    }
+
+    func testEditInOneWindowIsVisibleInTheOther() throws {
+        let directory = try temporaryDirectory()
+        let library = try makeLibrary(directory: directory)
+        library.makeNew()
+        let session = try XCTUnwrap(library.session(for: .primary))
+        let url = try XCTUnwrap(session.url)
+        let second = try XCTUnwrap(library.openAnotherWindow())
+        XCTAssertEqual(library.documentWindowCount, 2)
+        XCTAssertFalse(library.applyEdit(in: .auxiliary(UUID())) { _ in })
+
+        XCTAssertTrue(library.applyEdit(in: .primary) { window in
+            window.commitText("窗口甲")
+        })
+        XCTAssertEqual(library.documentShown(in: .auxiliary(second))?.roots.first?.text, "窗口甲")
+        XCTAssertEqual(library.documentShown(in: .primary)?.roots.first?.text, "窗口甲")
+        XCTAssertIdentical(library.session(for: .auxiliary(second)), session)
+
+        XCTAssertTrue(library.applyEdit(in: .auxiliary(second)) { window in
+            window.commitText("窗口乙")
+        })
+        XCTAssertEqual(library.documentShown(in: .primary)?.roots.first?.text, "窗口乙")
+        XCTAssertEqual(library.documentShown(in: .auxiliary(second))?.roots.first?.text, "窗口乙")
+
+        XCTAssertTrue(library.applyEdit(in: .auxiliary(second)) { window in
+            window.undo()
+        })
+        XCTAssertEqual(library.documentShown(in: .primary)?.roots.first?.text, "窗口甲")
+        XCTAssertEqual(library.documentShown(in: .auxiliary(second))?.roots.first?.text, "窗口甲")
+
+        let onDisk = try DocumentOpener.open(data: Data(contentsOf: url), filename: url.lastPathComponent)
+        XCTAssertEqual(onDisk.roots.first?.text, "中心")
+
+        library.closeAuxiliaryWindow(second)
+        XCTAssertNil(library.documentShown(in: .auxiliary(second)))
+        XCTAssertEqual(library.documentWindowCount, 1)
+        XCTAssertEqual(library.documentShown(in: .primary)?.roots.first?.text, "窗口甲")
+        XCTAssertIdentical(library.session(for: .primary), session)
+    }
+
     private func declaredExportType(_ kind: String) -> UTType? {
         switch kind {
         case "png": return .png

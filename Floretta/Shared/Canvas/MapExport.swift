@@ -192,11 +192,12 @@ enum MapExporter {
         scheme: MapColorScheme
     ) -> ImageRenderer<MapExportView> {
         let frames = visibleFrames(in: document, scheme: scheme)
-        let paper = MapThemeCatalog.appearance(
+        let appearance = MapThemeCatalog.appearance(
             themeID: document.themeID,
             scheme: scheme,
             fallback: .standard
-        ).canvasBackground
+        )
+        let paper = exportPaper(options.background, canvas: appearance.canvasBackground)
         let view = MapExportView(
             frames: frames,
             lines: RelationshipGeometry.lines(for: document.relationships, frames: frames),
@@ -205,13 +206,12 @@ enum MapExporter {
             stickies: document.stickiesForPictureExport(included: options.includeStickies),
             regions: document.regions,
             renderBounds: plan.renderBounds,
-            background: options.background,
-            paper: options.background == .white ? paper : nil,
+            paper: paper.color,
             images: images
         )
         let renderer = ImageRenderer(content: view)
         renderer.scale = plan.pixelScale
-        renderer.isOpaque = options.background == .white
+        renderer.isOpaque = paper.opaque
         renderer.proposedSize = ProposedViewSize(width: plan.pointSize.width, height: plan.pointSize.height)
         return renderer
     }
@@ -230,6 +230,21 @@ enum MapExporter {
             renderBounds: plan.renderBounds, truncated: plan.truncated, notice: plan.notice,
             visibleNodeIDs: plan.visibleNodeIDs
         )
+    }
+
+    private static func exportPaper(
+        _ background: MapExportBackground,
+        canvas: BranchColor?
+    ) -> (color: Color, opaque: Bool) {
+        switch background {
+        case .transparent:
+            return (.clear, false)
+        case .white:
+            if let canvas {
+                return (Color(red: canvas.red, green: canvas.green, blue: canvas.blue), true)
+            }
+            return (.white, true)
+        }
     }
 
     private static func pngData(_ image: CGImage) -> Data? {
@@ -252,9 +267,7 @@ private struct MapExportView: View {
     var stickies: [StickyNote]
     var regions: [CanvasRegion]
     var renderBounds: CGRect
-    var background: MapExportBackground
-    /// Solid paper from the applied color scheme. Nil keeps white or clear.
-    var paper: BranchColor? = nil
+    var paper: Color
     var images: [String: CGImage]
 
     var body: some View {
@@ -301,14 +314,13 @@ private struct MapExportView: View {
             }
             for node in frames {
                 guard let link = node.link else { continue }
-                var curve = Path()
-                curve.move(to: local(link.start))
-                curve.addCurve(
-                    to: local(link.end),
-                    control1: local(link.control1),
-                    control2: local(link.control2)
-                )
-                context.stroke(curve, with: .color(color(link.color)), lineWidth: link.lineWidth)
+                let drawn = ThemeCurvePath.make(link: link, straight: false) { local($0) }
+                let ink = color(link.color)
+                if drawn.tapered {
+                    context.fill(drawn.path, with: .color(ink))
+                } else {
+                    context.stroke(drawn.path, with: .color(ink), lineWidth: link.lineWidth)
+                }
             }
             for line in lines {
                 stroke(line, in: context)
@@ -317,7 +329,9 @@ private struct MapExportView: View {
                 let rect = local(node.frame)
                 let path = Path(roundedRect: rect, cornerRadius: node.cornerRadius)
                 context.fill(path, with: .color(color(node.fill)))
-                context.stroke(path, with: .color(color(node.border)), lineWidth: 1.5)
+                if node.borderWidth > 0 {
+                    context.stroke(path, with: .color(color(node.border)), lineWidth: node.borderWidth)
+                }
                 var textRect = rect.insetBy(dx: 8, dy: 4)
                 if let hash = node.thumbnailHashes.first, let image = images[hash] {
                     let imageRect = ImagePlacement.rect(for: image, in: rect)
@@ -335,10 +349,11 @@ private struct MapExportView: View {
                     let tagTop = rect.maxY - fileBand - node.tagBandHeight
                     textRect.size.height = max(0, min(textRect.maxY, tagTop - 2) - textRect.minY)
                 }
+                textRect = excludingChildBadge(textRect, node: node)
                 if textRect.width > 1, textRect.height > 1 {
                     context.draw(
                         Text(node.text)
-                            .font(.system(size: node.fontSize))
+                            .font(FlorettaTitleFont.font(design: node.fontDesign, size: node.fontSize))
                             .foregroundStyle(color(node.textColor)),
                         in: textRect
                     )
@@ -414,14 +429,19 @@ private struct MapExportView: View {
             }
         }
         .frame(width: renderBounds.width, height: renderBounds.height)
-        .background(exportPaper)
+        .background(paper)
         .clipped()
     }
 
-    private var exportPaper: Color {
-        if background == .transparent { return .clear }
-        if let paper { return color(paper) }
-        return .white
+    private func excludingChildBadge(_ textRect: CGRect, node: NodeFrame) -> CGRect {
+        let badge = node.childBadgeInset
+        guard badge > 0, textRect.width > 0 else { return textRect }
+        var rect = textRect
+        if node.childBadgeOnMinX {
+            rect.origin.x += badge
+        }
+        rect.size.width = max(0, rect.width - badge)
+        return rect
     }
 
     private func local(_ point: CGPoint) -> CGPoint {

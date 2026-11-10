@@ -222,6 +222,7 @@ final class ShellTests: XCTestCase {
             documentsDirectory: directory
         )
         library.makeNew()
+        XCTAssertEqual(library.editor?.document.themeID, MapThemeCatalog.defaultThemeID)
         XCTAssertEqual(library.editor?.viewMode, .focus)
         XCTAssertNotNil(library.editor)
         again.defaultView = .map

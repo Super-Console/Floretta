@@ -24,13 +24,48 @@ public struct MapTheme: Equatable, Sendable, Identifiable {
     }
 }
 
-/// At most eight presets. The first is `LayoutAppearance.standard` in light mode,
-/// so an unset document paints the same branches as before.
+/// Eight branch presets, plus the official Floretta theme.
+/// `standardID` is the pair an unset document still paints.
+/// New maps store `defaultThemeID` so opening an older file does not switch it to Floretta.
 public enum MapThemeCatalog {
-    public static let limit = 8
+    public static let limit = 9
     public static let standardID = "ink"
+    public static let florettaID = "floretta"
+    /// Stored on maps the user creates. Decoding leaves a missing id as nil.
+    public static let defaultThemeID = florettaID
+    /// 12pt is the top of the 10–12pt brand range. Library cards already use 12pt.
+    public static let florettaCornerRadius: CGFloat = 12
+    public static let florettaStrokeWidth: CGFloat = 1
+    /// Parent end and child end of the existing cubic. The stroke thins along that curve.
+    public static let florettaEdgeStartWidth: CGFloat = 1.75
+    public static let florettaEdgeEndWidth: CGFloat = 0.75
+    /// Outer slot on a non-root node. No child-count badge is drawn; the width stays empty.
+    public static let florettaChildBadgeInset: CGFloat = 28
+    /// Title ink. The brand sheet names paper, fill, stroke, and edge, and white level-1 text
+    /// would disappear on `#F7EFE1`.
+    public static let florettaTitleHex = "#3A2A22"
 
     public static let all: [MapTheme] = [
+        MapTheme(
+            id: florettaID,
+            nameKey: "Floretta 主题",
+            light: floretta(
+                canvas: "#F5EBDA",
+                fill: "#F7EFE1",
+                stroke: "#C87756",
+                edge: "#BFA893",
+                text: florettaTitleHex,
+                palette: ["#C87756", "#BFA893", "#F7EFE1", "#F5EBDA"]
+            ),
+            dark: floretta(
+                canvas: "#241C17",
+                fill: "#312820",
+                stroke: "#E0A58C",
+                edge: "#A89280",
+                text: "#F7EFE1",
+                palette: ["#E0A58C", "#A89280", "#312820", "#241C17"]
+            )
+        ),
         MapTheme(
             id: standardID,
             nameKey: "墨色",
@@ -225,6 +260,46 @@ public enum MapThemeCatalog {
             return fallback
         }
         return scheme == .dark ? theme.dark : theme.light
+    }
+
+    /// One paper, one node fill, one 1pt stroke, a serif root, and a thin taper on the existing curve.
+    /// Root face is `"serif"` (New York via the system serif design, Georgia when that face is missing).
+    /// Other titles stay `"default"`, the system sans the canvas already uses.
+    private static func floretta(
+        canvas: String,
+        fill: String,
+        stroke: String,
+        edge: String,
+        text: String,
+        palette: [String]
+    ) -> LayoutAppearance {
+        var appearance = LayoutAppearance.standard
+        appearance.canvasBackground = hex(canvas)
+        appearance.uniformFill = hex(fill)
+        appearance.uniformStroke = hex(stroke)
+        appearance.uniformStrokeWidth = florettaStrokeWidth
+        appearance.cornerRadius = florettaCornerRadius
+        appearance.centerFill = hex(fill)
+        appearance.centerBorder = hex(stroke)
+        appearance.centerText = hex(text)
+        appearance.level1Text = hex(text)
+        appearance.deeperText = hex(text)
+        appearance.edgeColor = hex(edge)
+        appearance.edgeStartWidth = florettaEdgeStartWidth
+        appearance.edgeEndWidth = florettaEdgeEndWidth
+        appearance.rootFontDesign = "serif"
+        appearance.bodyFontDesign = "default"
+        appearance.childCountBadgeInset = florettaChildBadgeInset
+        appearance.childCountBadgeColor = hex(stroke)
+        appearance.palette = BranchPalette(colors: palette.map(hex))
+        return appearance
+    }
+
+    private static func hex(_ value: String) -> BranchColor {
+        guard let color = BranchColor(hex: value) else {
+            preconditionFailure("theme color \(value)")
+        }
+        return color
     }
 
     private static func light(colors: [BranchColor]) -> LayoutAppearance {

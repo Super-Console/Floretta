@@ -42,8 +42,9 @@ public struct MindMapDocument: Equatable, Sendable {
     /// FreeMind bytes and unmapped attributes/elements. Nil when the map did not come from `.mm`.
     /// Omitted from JSON when nil.
     public var mmForeign: MMForeign?
-    /// Preset id from `MapThemeCatalog`. Nil is the standard light/dark pair.
+    /// Preset id from `MapThemeCatalog`. Nil is the standard light/dark pair (墨色).
     /// Omitted from JSON when nil. Branch colors are computed at layout time, not copied onto nodes.
+    /// A new map stores `MapThemeCatalog.defaultThemeID`. Opening a file does not fill this in.
     public var themeID: String?
     /// Which canvas the editor shows. 0 is the first sheet (`roots`). Omitted from JSON when 0.
     /// A stored index past the last sheet is read back as 0 so an older file still opens.
@@ -95,6 +96,23 @@ public struct MindMapDocument: Equatable, Sendable {
         self.primaryCanvasTitle = (trimmedTitle?.isEmpty == false) ? trimmedTitle : nil
         self.primaryCanvasViewport = primaryCanvasViewport
         clampActiveCanvasIndex()
+    }
+
+    /// A map the user just created. The official theme id is written on the document.
+    /// Importers and `init(from:)` keep using `init`, so an opened file keeps the theme it saved.
+    public static func newMap(
+        title: String,
+        createdAt: Date = Date(),
+        modifiedAt: Date = Date(),
+        roots: [MindMapNode] = []
+    ) -> MindMapDocument {
+        MindMapDocument(
+            title: title,
+            createdAt: createdAt,
+            modifiedAt: modifiedAt,
+            roots: roots,
+            themeID: MapThemeCatalog.defaultThemeID
+        )
     }
 }
 

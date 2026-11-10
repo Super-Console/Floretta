@@ -100,8 +100,28 @@ public struct LayoutAppearance: Equatable, Sendable {
     /// A color preset sets one thickness for every link, and for any topic
     /// that does not already store its own `borderWidth`.
     public var linkStroke: CGFloat? = nil
-    /// Nil keeps the system canvas color. A color preset paints this paper.
+    /// Nil keeps the platform canvas. A theme paper is one color for the whole map.
     public var canvasBackground: BranchColor? = nil
+    /// Nil keeps the center fill and the branch fills. Set, every depth uses this fill.
+    public var uniformFill: BranchColor? = nil
+    /// Nil keeps the center border and the branch borders.
+    public var uniformStroke: BranchColor? = nil
+    /// Nil keeps the 1.5pt stroke unless the node stores its own width.
+    public var uniformStrokeWidth: CGFloat? = nil
+    /// Nil keeps the branch color on the curve.
+    public var edgeColor: BranchColor? = nil
+    /// Nil keeps `LayoutMetrics.linkWidth`. Set, this is the width at the parent end.
+    public var edgeStartWidth: CGFloat? = nil
+    /// Nil keeps a constant width. A smaller value tapers the same cubic toward the child.
+    public var edgeEndWidth: CGFloat? = nil
+    /// Used when the node does not store a face. "serif" is the root face. "default" is the system sans.
+    public var rootFontDesign: String = "default"
+    public var bodyFontDesign: String = "default"
+    /// Extra width on the outer side of a non-root node. Zero reserves nothing.
+    /// The app has no child-count badge to draw, so this is only the empty slot.
+    public var childCountBadgeInset: CGFloat = 0
+    /// Orange for that slot. Nil when the theme does not name one.
+    public var childCountBadgeColor: BranchColor? = nil
 
     public static let standard = LayoutAppearance()
 }
@@ -112,6 +132,9 @@ public struct LinkCurve: Equatable, Sendable {
     public var control2: CGPoint
     public var end: CGPoint
     public var lineWidth: CGFloat
+    /// Width at `end`. Equal to `lineWidth` for a constant stroke.
+    /// A smaller value is the taper of this cubic, stored with the layout, not a second path.
+    public var endWidth: CGFloat
     public var color: BranchColor
 
     public init(
@@ -120,6 +143,7 @@ public struct LinkCurve: Equatable, Sendable {
         control2: CGPoint,
         end: CGPoint,
         lineWidth: CGFloat,
+        endWidth: CGFloat? = nil,
         color: BranchColor
     ) {
         self.start = start
@@ -127,7 +151,66 @@ public struct LinkCurve: Equatable, Sendable {
         self.control2 = control2
         self.end = end
         self.lineWidth = lineWidth
+        self.endWidth = endWidth ?? lineWidth
         self.color = color
+    }
+
+    public var isTapered: Bool {
+        abs(lineWidth - endWidth) > 0.05
+    }
+
+    public func point(at t: CGFloat) -> CGPoint {
+        let clamped = min(1, max(0, t))
+        let u = 1 - clamped
+        let uu = u * u
+        let tt = clamped * clamped
+        return CGPoint(
+            x: uu * u * start.x + 3 * uu * clamped * control1.x + 3 * u * tt * control2.x + tt * clamped * end.x,
+            y: uu * u * start.y + 3 * uu * clamped * control1.y + 3 * u * tt * control2.y + tt * clamped * end.y
+        )
+    }
+
+    /// Outline of this cubic. The four control points stay the layout curve.
+    /// Callers fill the outline. They do not build another edge.
+    public func taperedOutline(samples: Int = 12) -> [CGPoint] {
+        let count = max(samples, 2)
+        var left: [CGPoint] = []
+        var right: [CGPoint] = []
+        left.reserveCapacity(count)
+        right.reserveCapacity(count)
+        for index in 0..<count {
+            let t = CGFloat(index) / CGFloat(count - 1)
+            let current = point(at: t)
+            let tangent = derivative(at: t)
+            let length = hypot(tangent.x, tangent.y)
+            let nx: CGFloat
+            let ny: CGFloat
+            if length > 0.001 {
+                nx = -tangent.y / length
+                ny = tangent.x / length
+            } else {
+                nx = 0
+                ny = -1
+            }
+            let width = lineWidth + (endWidth - lineWidth) * t
+            let half = width / 2
+            left.append(CGPoint(x: current.x + nx * half, y: current.y + ny * half))
+            right.append(CGPoint(x: current.x - nx * half, y: current.y - ny * half))
+        }
+        return left + right.reversed()
+    }
+
+    private func derivative(at t: CGFloat) -> CGPoint {
+        let clamped = min(1, max(0, t))
+        let u = 1 - clamped
+        return CGPoint(
+            x: 3 * u * u * (control1.x - start.x)
+                + 6 * u * clamped * (control2.x - control1.x)
+                + 3 * clamped * clamped * (end.x - control2.x),
+            y: 3 * u * u * (control1.y - start.y)
+                + 6 * u * clamped * (control2.y - control1.y)
+                + 3 * clamped * clamped * (end.y - control2.y)
+        )
     }
 }
 
@@ -166,6 +249,10 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
     public var markerIDs: [String] = []
     /// Extra height already included in `size` for labels and markers. Zero when there are none.
     public var tagBandHeight: CGFloat = 0
+    /// Outer slot already included in `size`. Zero when the theme reserves none.
+    public var childBadgeInset: CGFloat = 0
+    /// True when that slot sits on `minX`. False puts it on `maxX`.
+    public var childBadgeOnMinX: Bool = false
 
     public init(
         id: UUID,
@@ -194,7 +281,9 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
         fileBadges: [FileBadge] = [],
         labels: [String] = [],
         markerIDs: [String] = [],
-        tagBandHeight: CGFloat = 0
+        tagBandHeight: CGFloat = 0,
+        childBadgeInset: CGFloat = 0,
+        childBadgeOnMinX: Bool = false
     ) {
         self.id = id
         self.text = text
@@ -223,6 +312,8 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
         self.labels = labels
         self.markerIDs = markerIDs
         self.tagBandHeight = tagBandHeight
+        self.childBadgeInset = childBadgeInset
+        self.childBadgeOnMinX = childBadgeOnMinX
     }
 
     public var rect: CGRect { CGRect(origin: origin, size: size) }
@@ -371,7 +462,7 @@ public struct LayoutEngine: Sendable {
     }
 
     /// `scheme` selects the light or dark set of the document's preset.
-    /// An unset theme in light mode keeps `appearance`, so existing maps stay on `LayoutAppearance.standard`.
+    /// An unset theme in light mode keeps `appearance`, so a saved map with no theme id stays on `LayoutAppearance.standard`.
     public func layout(_ document: MindMapDocument, scheme: MapColorScheme = .light) -> [NodeFrame] {
         let resolved = MapThemeCatalog.appearance(
             themeID: document.themeID,
@@ -459,7 +550,7 @@ public struct LayoutEngine: Sendable {
     private func appendFree(_ node: MindMapNode, into frames: inout [NodeFrame]) {
         let font = resolvedFontSize(node, depth: 1)
         let raw = cache.size(text: layoutText(node), fontSize: font, maxWidth: metrics.maxTextWidth)
-        let size = nodeSize(node, depth: 1, heights: [1: raw.height])
+        let size = nodeSize(node, depth: 1, heights: [1: raw.height], reservesChildBadge: false)
         let origin = CGPoint(x: node.position?.x ?? 0, y: node.position?.y ?? 0)
         frames.append(
             makeFrame(
@@ -489,7 +580,12 @@ public struct LayoutEngine: Sendable {
         }
     }
 
-    private func nodeSize(_ node: MindMapNode, depth: Int, heights: [Int: CGFloat]) -> CGSize {
+    private func nodeSize(
+        _ node: MindMapNode,
+        depth: Int,
+        heights: [Int: CGFloat],
+        reservesChildBadge: Bool = false
+    ) -> CGSize {
         let font = resolvedFontSize(node, depth: depth)
         let raw = cache.size(text: layoutText(node), fontSize: font, maxWidth: metrics.maxTextWidth)
         let band = thumbnailBand(node)
@@ -504,7 +600,8 @@ public struct LayoutEngine: Sendable {
             fileWidth = measured.width + CGFloat(FileBadgeMetrics.iconSide + FileBadgeMetrics.gap + FileBadgeMetrics.horizontalInset * 2)
         }
         let width = max(raw.width, CGFloat(node.style?.topicWidth ?? 0), imageWidth, fileWidth)
-        return CGSize(width: width, height: (heights[depth] ?? raw.height) + band + fileBand + tagBand)
+        let badge: CGFloat = reservesChildBadge ? appearance.childCountBadgeInset : 0
+        return CGSize(width: width + badge, height: (heights[depth] ?? raw.height) + band + fileBand + tagBand)
     }
 
     private func thumbnailBand(_ node: MindMapNode) -> CGFloat {
@@ -549,7 +646,12 @@ public struct LayoutEngine: Sendable {
         branch: BranchColor,
         heights: [Int: CGFloat]
     ) -> Measured {
-        let size = nodeSize(node, depth: depth, heights: heights)
+        let size = nodeSize(
+            node,
+            depth: depth,
+            heights: heights,
+            reservesChildBadge: depth > 0 && appearance.childCountBadgeInset > 0
+        )
         let kids = node.isCollapsed ? [] : node.children.filter { $0.position == nil }
         let children = kids.map { measure($0, depth: depth + 1, branch: branch, heights: heights) }
         return Measured(
@@ -597,7 +699,9 @@ public struct LayoutEngine: Sendable {
                 isRoot: false,
                 parentID: parent.id,
                 branch: block.branch,
-                link: curve(from: parent.rect, to: rect, side: side, depth: block.depth, color: block.branch)
+                link: curve(from: parent.rect, to: rect, side: side, depth: block.depth, color: block.branch),
+                childBadgeInset: appearance.childCountBadgeInset,
+                childBadgeOnMinX: side == .left
             )
             frames.append(frame)
             place(block.children, side: side, parent: frame, centerY: rect.midY, heights: heights, into: &frames)
@@ -630,7 +734,8 @@ public struct LayoutEngine: Sendable {
         into frames: inout [NodeFrame]
     ) {
         guard let position = node.position else { return }
-        let size = nodeSize(node, depth: depth, heights: heights)
+        let reserveBadge = !isRoot && appearance.childCountBadgeInset > 0
+        let size = nodeSize(node, depth: depth, heights: heights, reservesChildBadge: reserveBadge)
         let origin = CGPoint(x: position.x, y: position.y)
         let rect = CGRect(origin: origin, size: size)
         let side: Side = rect.midX >= (parentRect?.midX ?? rect.midX) ? .right : .left
@@ -646,7 +751,9 @@ public struct LayoutEngine: Sendable {
                 isRoot: isRoot,
                 parentID: parentID,
                 branch: branch,
-                link: link
+                link: link,
+                childBadgeInset: reserveBadge ? appearance.childCountBadgeInset : 0,
+                childBadgeOnMinX: side == .left
             )
         )
     }
@@ -660,7 +767,9 @@ public struct LayoutEngine: Sendable {
         parentID: UUID?,
         branch: BranchColor,
         link: LinkCurve?,
-        isFree: Bool = false
+        isFree: Bool = false,
+        childBadgeInset: CGFloat = 0,
+        childBadgeOnMinX: Bool = false
     ) -> NodeFrame {
         let palette = colors(depth: depth, branch: branch)
         let stored = node.style
@@ -680,13 +789,13 @@ public struct LayoutEngine: Sendable {
             border: border,
             textColor: text,
             cornerRadius: CGFloat(stored?.cornerRadius ?? Double(appearance.cornerRadius)),
-            borderWidth: CGFloat(stored?.borderWidth ?? appearance.linkStroke ?? 1.5),
+            borderWidth: CGFloat(stored?.borderWidth ?? Double(appearance.uniformStrokeWidth ?? appearance.linkStroke ?? 1.5)),
             hidesFill: stored?.fillStyle == "none",
             bold: stored?.bold ?? false,
             italic: stored?.italic ?? false,
             strikethrough: stored?.strikethrough ?? false,
             underline: stored?.underline ?? false,
-            fontDesign: stored?.fontDesign ?? "default",
+            fontDesign: stored?.fontDesign ?? (isRoot ? appearance.rootFontDesign : appearance.bodyFontDesign),
             link: link,
             caption: node.attachmentSizeLabel ?? "",
             isFree: isFree,
@@ -703,18 +812,49 @@ public struct LayoutEngine: Sendable {
             tagBandHeight: CGFloat(TopicTagLayout.bandHeight(
                 labelCount: node.labels.count,
                 markerCount: node.markers.count
-            ))
+            )),
+            childBadgeInset: childBadgeInset,
+            childBadgeOnMinX: childBadgeOnMinX
         )
     }
 
     private func colors(depth: Int, branch: BranchColor) -> (fill: BranchColor, border: BranchColor, text: BranchColor) {
+        let text: BranchColor
         if depth == 0 {
-            return (appearance.centerFill, appearance.centerBorder, appearance.centerText)
+            text = appearance.centerText
+        } else if depth == 1 {
+            text = appearance.level1Text
+        } else {
+            text = appearance.deeperText
         }
-        if depth == 1 {
-            return (branch, branch, appearance.level1Text)
+        if appearance.uniformFill == nil, appearance.uniformStroke == nil {
+            if depth == 0 {
+                return (appearance.centerFill, appearance.centerBorder, text)
+            }
+            if depth == 1 {
+                return (branch, branch, text)
+            }
+            return (branch.lightened(by: appearance.deeperFillMix), branch, text)
         }
-        return (branch.lightened(by: appearance.deeperFillMix), branch, appearance.deeperText)
+        let fill: BranchColor
+        if let uniform = appearance.uniformFill {
+            fill = uniform
+        } else if depth == 0 {
+            fill = appearance.centerFill
+        } else if depth == 1 {
+            fill = branch
+        } else {
+            fill = branch.lightened(by: appearance.deeperFillMix)
+        }
+        let border: BranchColor
+        if let uniform = appearance.uniformStroke {
+            border = uniform
+        } else if depth == 0 {
+            border = appearance.centerBorder
+        } else {
+            border = branch
+        }
+        return (fill, border, text)
     }
 
     private func curve(
@@ -734,13 +874,16 @@ public struct LayoutEngine: Sendable {
             end = CGPoint(x: child.maxX, y: child.midY)
         }
         let dx = end.x - start.x
+        let startWidth = appearance.edgeStartWidth ?? appearance.linkStroke ?? metrics.linkWidth(depth: depth)
+        let endWidth = appearance.edgeEndWidth ?? startWidth
         return LinkCurve(
             start: start,
             control1: CGPoint(x: start.x + dx * 0.5, y: start.y),
             control2: CGPoint(x: end.x - dx * 0.5, y: end.y),
             end: end,
-            lineWidth: appearance.linkStroke ?? metrics.linkWidth(depth: depth),
-            color: color
+            lineWidth: startWidth,
+            endWidth: endWidth,
+            color: appearance.edgeColor ?? color
         )
     }
 

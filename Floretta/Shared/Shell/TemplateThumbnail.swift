@@ -1,22 +1,49 @@
 import SwiftUI
 
-/// One drawing per template. Colors come from the system palette so dark mode stays readable.
+/// One drawing per template. Colors are the official theme for the current appearance.
 struct TemplateThumbnail: View {
     static let width: CGFloat = 220
     static let height: CGFloat = 132
 
     var kind: TemplateKind
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var theme: LayoutAppearance {
+        MapThemeCatalog.appearance(
+            themeID: MapThemeCatalog.defaultThemeID,
+            scheme: colorScheme == .dark ? .dark : .light,
+            fallback: .standard
+        )
+    }
+
+    private var canvas: Color {
+        guard let paper = theme.canvasBackground else { return Color.primary.opacity(0.04) }
+        return ink(paper)
+    }
+    private var nodeFill: Color {
+        guard let fill = theme.uniformFill else { return Color.primary.opacity(0.08) }
+        return ink(fill)
+    }
+    private var nodeStroke: Color {
+        guard let stroke = theme.uniformStroke else { return Color.primary.opacity(0.45) }
+        return ink(stroke)
+    }
+    private var edge: Color {
+        guard let line = theme.edgeColor else { return Color.accentColor.opacity(0.8) }
+        return ink(line)
+    }
+    private var title: Color { ink(theme.centerText) }
 
     var body: some View {
         ZStack {
-            Color.primary.opacity(0.04)
+            canvas
             content
         }
         .frame(width: Self.width, height: Self.height)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.15), lineWidth: 1)
+                .strokeBorder(nodeStroke.opacity(0.45), lineWidth: 1)
         }
         .accessibilityLabel(kind.name)
     }
@@ -79,7 +106,7 @@ struct TemplateThumbnail: View {
     private var brace: some View {
         ZStack {
             BraceShape()
-                .stroke(Color.primary.opacity(0.45), lineWidth: 1.5)
+                .stroke(edge, lineWidth: 1.5)
                 .frame(width: 18, height: 90)
                 .position(x: 108, y: 66)
             chip("叶菜").position(x: 48, y: 36)
@@ -105,7 +132,7 @@ struct TemplateThumbnail: View {
                 path.move(to: CGPoint(x: 180, y: 62))
                 path.addLine(to: CGPoint(x: 180, y: 86))
             }
-            .stroke(Color.primary.opacity(0.4), lineWidth: 1)
+            .stroke(edge, lineWidth: 1)
             chip("食堂", emphasized: true).position(x: 110, y: 28)
             chip("前厅").position(x: 40, y: 100)
             chip("厨房").position(x: 110, y: 100)
@@ -119,11 +146,11 @@ struct TemplateThumbnail: View {
                 path.move(to: CGPoint(x: 20, y: 78))
                 path.addLine(to: CGPoint(x: 200, y: 78))
             }
-            .stroke(Color.primary.opacity(0.4), lineWidth: 1.5)
+            .stroke(edge, lineWidth: 1.5)
             ForEach(Array(["立项", "设计", "开发", "上架"].enumerated()), id: \.offset) { index, title in
                 let x = CGFloat(36 + index * 48)
                 Circle()
-                    .fill(Color.accentColor)
+                    .fill(nodeStroke)
                     .frame(width: 8, height: 8)
                     .position(x: x, y: 78)
                 chip(title).position(x: x, y: index.isMultiple(of: 2) ? 48 : 104)
@@ -145,7 +172,7 @@ struct TemplateThumbnail: View {
                 path.move(to: CGPoint(x: 170, y: 66))
                 path.addLine(to: CGPoint(x: 194, y: 96))
             }
-            .stroke(Color.primary.opacity(0.4), lineWidth: 1.25)
+            .stroke(edge, lineWidth: 1.25)
             chip("延误", emphasized: true).position(x: 110, y: 66)
             chip("人员").position(x: 36, y: 28)
             chip("设备").position(x: 70, y: 108)
@@ -162,9 +189,12 @@ struct TemplateThumbnail: View {
                     ForEach(0..<2, id: \.self) { column in
                         Text(titles[row * 2 + column])
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(Color.primary)
+                            .foregroundStyle(title)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .background(Color.accentColor.opacity(0.18), in: RoundedRectangle(cornerRadius: 8))
+                            .background(nodeFill, in: RoundedRectangle(cornerRadius: 8))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 8).strokeBorder(nodeStroke, lineWidth: 1)
+                            }
                     }
                 }
             }
@@ -197,9 +227,10 @@ struct TemplateThumbnail: View {
             ForEach(titles, id: \.self) { title in
                 Text(title)
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(Color.primary)
+                    .foregroundStyle(self.title)
                     .frame(width: 22, height: 22)
-                    .background(Color.accentColor.opacity(0.2), in: Circle())
+                    .background(nodeFill, in: Circle())
+                    .overlay { Circle().strokeBorder(nodeStroke, lineWidth: 1) }
             }
         }
     }
@@ -239,15 +270,17 @@ struct TemplateThumbnail: View {
 
     private func chip(_ text: String, emphasized: Bool = false) -> some View {
         Text(text)
-            .font(.system(size: 9, weight: .medium))
-            .foregroundStyle(Color.primary)
+            .font(emphasized
+                ? FlorettaTitleFont.font(design: theme.rootFontDesign, size: 11)
+                : FlorettaTitleFont.font(design: theme.bodyFontDesign, size: 9))
+            .foregroundStyle(title)
             .lineLimit(1)
             .padding(.horizontal, 6)
             .padding(.vertical, 3)
-            .background(
-                emphasized ? Color.accentColor.opacity(0.22) : Color.primary.opacity(0.08),
-                in: Capsule()
-            )
+            .background(nodeFill, in: RoundedRectangle(cornerRadius: 6))
+            .overlay {
+                RoundedRectangle(cornerRadius: 6).strokeBorder(nodeStroke, lineWidth: 1)
+            }
     }
 
     private func curve(_ start: CGPoint, _ end: CGPoint) -> some View {
@@ -256,7 +289,11 @@ struct TemplateThumbnail: View {
             let mid = (start.x + end.x) / 2
             path.addCurve(to: end, control1: CGPoint(x: mid, y: start.y), control2: CGPoint(x: mid, y: end.y))
         }
-        .stroke(Color.accentColor.opacity(0.8), lineWidth: 1.25)
+        .stroke(edge, lineWidth: 1.25)
+    }
+
+    private func ink(_ color: BranchColor) -> Color {
+        Color(red: color.red, green: color.green, blue: color.blue)
     }
 }
 

@@ -927,7 +927,7 @@ final class LibraryModel {
     /// Used by the UI-test launch so the home list does not depend on personal files.
     func installSmokeFixtures() throws {
         for title in HomeLibrary.smokeFixtureTitles {
-            let document = MindMapDocument(title: title, roots: [MindMapNode(text: "中心")])
+            let document = MindMapDocument.newMap(title: title, roots: [MindMapNode(text: "中心")])
             let url = documentsDirectory.appendingPathComponent("\(title).floretta")
             _ = try FlorettaStreamingDocument.save(
                 document: document,
@@ -941,7 +941,7 @@ final class LibraryModel {
     }
 
     func makeNew() {
-        let document = MindMapDocument(title: "未命名", roots: [MindMapNode(text: "中心")])
+        let document = MindMapDocument.newMap(title: "未命名", roots: [MindMapNode(text: "中心")])
         openDocument(document, preferredURL: nil, sourceExtension: "floretta")
     }
 
@@ -1480,7 +1480,7 @@ enum TemplateKind: String, Equatable, Sendable, CaseIterable {
     }
 
     func document() -> MindMapDocument {
-        MindMapDocument(title: name, roots: [root])
+        MindMapDocument.newMap(title: name, roots: [root])
     }
 
     /// Child-count signature. Two templates that only recolor the same tree share a signature.

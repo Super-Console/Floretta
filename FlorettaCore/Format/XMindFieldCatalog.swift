@@ -106,6 +106,7 @@ public enum XMindFieldCatalog {
         XMindFieldRow(field: "isCollapsed", disposition: .gap, detail: "branch 会写回，但不会变成折叠状态"),
         XMindFieldRow(field: "labels model", disposition: .mapped, detail: "标签和标记写在主题上，不另建一份标签表"),
         XMindFieldRow(field: "stickies", disposition: .gap, detail: "便签不是主题，不写入 .xmind"),
+        XMindFieldRow(field: "regions", disposition: .gap, detail: "专区不是主题，不写入 .xmind"),
         XMindFieldRow(field: "one href", disposition: .gap, detail: "一个主题只有一个 href，网页链接和 xap 不能同时留在 href 上"),
     ]
 }

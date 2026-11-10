@@ -12,6 +12,7 @@ struct InfiniteCanvas: View {
 
     @State private var drag: RootDrag?
     @State private var stickyDrag: StickyDrag?
+    @State private var regionDrag: RegionDrag?
     @State private var ignoreDrag = false
     @State private var panAnchor: CGPoint?
     @State private var pinchStartScale: CGFloat?
@@ -88,6 +89,8 @@ struct InfiniteCanvas: View {
             .overlay { nodeChromeProbe }
             .overlay { stickyChrome }
             .overlay { stickyEditor }
+            .overlay { regionToolbar }
+            .overlay { regionEditor }
             .overlay { relationshipEditor }
             .overlay { summaryEditor }
             .overlay { boundaryEditor }
@@ -197,6 +200,10 @@ struct InfiniteCanvas: View {
                     applyBoundaryTap(boundaryID)
                     return
                 }
+                if hit == nil, let regionID = regionHit(at: point) {
+                    applyRegionTap(regionID)
+                    return
+                }
                 if zenActive, hit == nil { return }
                 applyNodeTap(hit)
             })
@@ -235,6 +242,14 @@ struct InfiniteCanvas: View {
                         keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
                     }
                     beginBoundaryEdit(boundaryID)
+                    return
+                }
+                if let regionID = regionHit(at: point),
+                   CanvasPlacement.nodeID(at: point, in: layoutSource()) == nil {
+                    if keyboard.mode == .edit, keyboard.selectedRegionID != regionID {
+                        keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+                    }
+                    beginRegionEdit(regionID)
                     return
                 }
                 if onConsumeBlankDoubleTap() { return }
@@ -365,6 +380,31 @@ struct InfiniteCanvas: View {
 
     private func beginRelationshipEdit(_ id: UUID) {
         keyboard.selectedRelationshipID = id
+        interaction.selectedNodeID = nil
+        canvasFocused = false
+        guard keyboard.mode != .edit else { return }
+        keyboard.apply(.beginEdit, document: &document, frames: placedFrames())
+    }
+
+    private func applyRegionTap(_ id: UUID) {
+        if keyboard.isComposing { return }
+        if keyboard.mode == .edit {
+            if keyboard.selectedRegionID == id { return }
+            keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+            keyboard.selectedRegionID = id
+            interaction.selectedNodeID = nil
+            return
+        }
+        if keyboard.selectedRegionID == id {
+            beginRegionEdit(id)
+            return
+        }
+        keyboard.selectedRegionID = id
+        interaction.selectedNodeID = nil
+    }
+
+    private func beginRegionEdit(_ id: UUID) {
+        keyboard.selectedRegionID = id
         interaction.selectedNodeID = nil
         canvasFocused = false
         guard keyboard.mode != .edit else { return }
@@ -663,6 +703,102 @@ struct InfiniteCanvas: View {
         }
     }
 
+    /// Shown while a region is selected. The three actions are the selection chrome.
+    /// They run on the button, not on a timer.
+    @ViewBuilder
+    private var regionToolbar: some View {
+        if let id = keyboard.selectedRegionID,
+           let region = document.region(id) {
+            let rect = camera.viewport.viewRect(fromCanvas: region.bounds)
+            HStack(spacing: 4) {
+                Button {
+                    performRegionAction {
+                        _ = keyboard.setRegionAspectLocked(!region.aspectLocked, id: id, document: &document)
+                    }
+                } label: {
+                    Text(verbatim: text("锁定"))
+                        .font(.caption)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.borderless)
+                .background {
+                    if region.aspectLocked {
+                        Capsule().fill(Color.accentColor.opacity(0.22))
+                    }
+                }
+                .accessibilityIdentifier("region.lock")
+                .accessibilityAddTraits(region.aspectLocked ? .isSelected : AccessibilityTraits())
+                .help(Text(verbatim: text("锁定专区的宽高比")))
+                Button {
+                    performRegionAction {
+                        _ = keyboard.fitRegion(id, frames: placedFrames(), document: &document)
+                    }
+                } label: {
+                    Text(verbatim: text("适应"))
+                        .font(.caption)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("region.fit")
+                .help(Text(verbatim: text("按当前圈住的节点调整专区")))
+                Button {
+                    performRegionAction {
+                        _ = keyboard.makeRegionCircle(id, document: &document)
+                    }
+                } label: {
+                    Text(verbatim: text("圆形"))
+                        .font(.caption)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("region.circle")
+                .help(Text(verbatim: text("把专区变成圆形")))
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background { Capsule().fill(.ultraThinMaterial) }
+            .position(x: rect.midX, y: max(18, rect.minY - 22))
+        }
+    }
+
+    @ViewBuilder
+    private var regionEditor: some View {
+        if keyboard.mode == .edit,
+           keyboard.editingRegionID != nil,
+           let frame = regionEditFrame() {
+            NodeTextEditor(
+                text: Binding(
+                    get: { keyboard.editingText },
+                    set: { keyboard.replaceEditingText($0, document: &document) }
+                ),
+                isComposing: $keyboard.isComposing,
+                minimumWidth: $compositionWidth,
+                fontSize: CanvasTextScale.onScreenPointSize(fontSize: 14, scale: camera.viewport.scale),
+                onEvent: { handleKey($0) },
+                paper: colorScheme == .dark ? Color(white: 0.16) : Color.white,
+                ink: colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16),
+                dictationToken: dictationToken,
+                dictationReplacesPlaceholder: dictationReplacesPlaceholder
+            )
+            .frame(width: max(frame.width, compositionWidth, 88), height: max(frame.height, 28))
+            .position(x: frame.midX, y: frame.midY)
+        }
+    }
+
+    private func performRegionAction(_ body: () -> Void) {
+        if keyboard.mode == .edit, !keyboard.isComposing {
+            keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+        }
+        body()
+    }
+
+    private func text(_ key: String) -> String {
+        FlorettaL10n.string(key, locale: locale)
+    }
+
     private func stickyChromeContains(_ viewPoint: CGPoint) -> Bool {
         guard keyboard.mode == .command,
               let id = keyboard.selectedStickyID,
@@ -670,6 +806,90 @@ struct InfiniteCanvas: View {
         let rect = camera.viewport.viewRect(fromCanvas: CanvasPlacement.stickyCanvasRect(sticky))
         let chrome = CGRect(x: rect.midX - 70, y: max(0, rect.minY - 34), width: 140, height: 32)
         return chrome.contains(viewPoint)
+    }
+
+    private func regionToolbarContains(_ viewPoint: CGPoint) -> Bool {
+        guard let id = keyboard.selectedRegionID,
+              let region = document.region(id) else { return false }
+        let rect = camera.viewport.viewRect(fromCanvas: region.bounds)
+        let chrome = CGRect(x: rect.midX - 92, y: max(0, rect.minY - 40), width: 184, height: 36)
+        return chrome.contains(viewPoint)
+    }
+
+    private func regionHit(at point: CGPoint) -> UUID? {
+        switch CanvasRegionGeometry.hit(x: Double(point.x), y: Double(point.y), in: document.regions) {
+        case .body(let id), .resize(let id):
+            return id
+        case nil:
+            return nil
+        }
+    }
+
+    private func beginRegionDrag(at start: CGPoint) -> RegionDrag? {
+        guard let hit = CanvasRegionGeometry.hit(x: Double(start.x), y: Double(start.y), in: document.regions) else {
+            return nil
+        }
+        let id: UUID
+        let resizing: Bool
+        switch hit {
+        case .body(let bodyID):
+            id = bodyID
+            resizing = false
+        case .resize(let resizeID):
+            id = resizeID
+            resizing = keyboard.selectedRegionID == resizeID
+        }
+        if !resizing, CanvasPlacement.nodeID(at: start, in: layoutSource()) != nil {
+            return nil
+        }
+        guard let region = document.region(id) else { return nil }
+        keyboard.beginRegionChange(document: document)
+        keyboard.selectedRegionID = id
+        interaction.selectedNodeID = nil
+        return RegionDrag(
+            id: id,
+            resizing: resizing,
+            originX: region.origin.x,
+            originY: region.origin.y,
+            width: region.width,
+            height: region.height,
+            locked: region.aspectLocked,
+            startX: Double(start.x),
+            startY: Double(start.y)
+        )
+    }
+
+    private func updateRegionDrag(_ drag: RegionDrag, to point: CGPoint) {
+        let dx = Double(point.x) - drag.startX
+        let dy = Double(point.y) - drag.startY
+        if drag.resizing {
+            let size = CanvasRegionGeometry.resized(
+                width: drag.width,
+                height: drag.height,
+                dx: dx,
+                dy: dy,
+                locked: drag.locked
+            )
+            _ = document.placeRegion(
+                drag.id,
+                origin: MindMapPoint(x: drag.originX, y: drag.originY),
+                width: size.width,
+                height: size.height
+            )
+        } else {
+            _ = document.moveRegion(
+                drag.id,
+                to: MindMapPoint(x: drag.originX + dx, y: drag.originY + dy)
+            )
+        }
+    }
+
+    private func regionEditFrame() -> CGRect? {
+        guard let id = keyboard.selectedRegionID, let region = document.region(id) else { return nil }
+        let rect = camera.viewport.viewRect(fromCanvas: region.bounds)
+        let height = max(28, min(36, rect.height * 0.45))
+        let width = max(88, min(max(rect.width - 16, 88), max(compositionWidth, 220)))
+        return CGRect(x: rect.minX + 8, y: rect.minY + 8, width: width, height: height)
     }
 
     private func beginStickyDrag(at start: CGPoint) -> StickyDrag? {
@@ -779,6 +999,9 @@ struct InfiniteCanvas: View {
         if keyboard.mode == .edit, keyboard.selectedBoundaryID != nil, let frame = boundaryEditFrame() {
             return frame
         }
+        if keyboard.mode == .edit, keyboard.selectedRegionID != nil, let frame = regionEditFrame() {
+            return frame
+        }
         guard keyboard.mode == .edit,
               let id = keyboard.selectedNodeID,
               let frame = placedFrames().first(where: { $0.id == id }) else { return nil }
@@ -884,7 +1107,7 @@ struct InfiniteCanvas: View {
     private var dragGesture: some Gesture {
         DragGesture(minimumDistance: 2)
             .onChanged { value in
-                if drag == nil && panAnchor == nil && stickyDrag == nil && !ignoreDrag {
+                if drag == nil && panAnchor == nil && stickyDrag == nil && regionDrag == nil && !ignoreDrag {
                     let start = camera.viewport.canvasPoint(fromView: value.startLocation)
                     if keyboard.mode == .edit, let frame = editFieldFrame(), frame.contains(value.startLocation) {
                         ignoreDrag = true
@@ -893,10 +1116,15 @@ struct InfiniteCanvas: View {
                     let onEditedSticky = keyboard.mode == .edit
                         && stickyHit(at: start) != nil
                         && stickyHit(at: start) == keyboard.selectedStickyID
-                    if stickyChromeContains(value.startLocation) || onEditedSticky {
+                    let onEditedRegion = keyboard.mode == .edit
+                        && regionHit(at: start) != nil
+                        && regionHit(at: start) == keyboard.selectedRegionID
+                    if stickyChromeContains(value.startLocation) || regionToolbarContains(value.startLocation) || onEditedSticky || onEditedRegion {
                         ignoreDrag = true
                     } else if persistsPlacement, keyboard.mode != .edit, let claim = beginStickyDrag(at: start) {
                         stickyDrag = claim
+                    } else if persistsPlacement, keyboard.mode != .edit, let claim = beginRegionDrag(at: start) {
+                        regionDrag = claim
                     } else if persistsPlacement,
                               let id = CanvasPlacement.draggableID(at: start, in: layoutSource()),
                               document.parentID(of: id) == nil,
@@ -913,6 +1141,9 @@ struct InfiniteCanvas: View {
                 if let stickyDrag {
                     let point = camera.viewport.canvasPoint(fromView: value.location)
                     updateStickyDrag(stickyDrag, to: point)
+                } else if let regionDrag {
+                    let point = camera.viewport.canvasPoint(fromView: value.location)
+                    updateRegionDrag(regionDrag, to: point)
                 } else if let drag {
                     let point = camera.viewport.canvasPoint(fromView: value.location)
                     let origin = CGPoint(x: point.x - drag.grabX, y: point.y - drag.grabY)
@@ -928,8 +1159,12 @@ struct InfiniteCanvas: View {
                 if stickyDrag != nil {
                     keyboard.commitStickyChange(document: document)
                 }
+                if regionDrag != nil {
+                    keyboard.commitRegionChange(document: document)
+                }
                 drag = nil
                 stickyDrag = nil
+                regionDrag = nil
                 panAnchor = nil
                 ignoreDrag = false
             }
@@ -969,6 +1204,14 @@ struct InfiniteCanvas: View {
             ? SummaryGeometry.summaries(in: document, frames: placed)
             : []
         let scale = camera.viewport.scale
+        if !document.regions.isEmpty {
+            let regionViewport = CGRect(origin: .zero, size: size).insetBy(dx: -48, dy: -48)
+            for region in document.regions {
+                let box = camera.viewport.viewRect(fromCanvas: region.bounds)
+                guard box.intersects(regionViewport) else { continue }
+                draw(region, in: box, scale: scale, context: context)
+            }
+        }
         if !boundaryMarks.isEmpty {
             let viewBounds = CGRect(origin: .zero, size: size).insetBy(dx: -48, dy: -48)
             for mark in boundaryMarks {
@@ -1170,6 +1413,63 @@ struct InfiniteCanvas: View {
                 .foregroundStyle(ink),
             in: textRect
         )
+    }
+
+    private func draw(_ region: CanvasRegion, in rect: CGRect, scale: CGFloat, context: GraphicsContext) {
+        guard rect.width > 1, rect.height > 1 else { return }
+        let path = regionPath(rect, shape: region.shape)
+        context.fill(path, with: .color(color(region.fill)))
+        if region.strokeWidth > 0 {
+            let width = max(CGFloat(region.strokeWidth) * scale, 0.5)
+            context.stroke(path, with: .color(color(region.border)), lineWidth: width)
+        }
+        let selected = keyboard.selectedRegionID == region.id
+        if selected {
+            context.stroke(path, with: .color(color(interaction.selectionBorder)), lineWidth: 1.5)
+        }
+        let editing = keyboard.editingRegionID == region.id
+        let pointSize = CanvasTextScale.onScreenPointSize(fontSize: 14, scale: scale)
+        if !editing, CanvasTextLOD.level(onScreenPointSize: pointSize).drawsTitle, !region.label.isEmpty {
+            let insetX = 12 * max(scale, 0.5)
+            let insetY = 8 * max(scale, 0.5)
+            let band = CGRect(
+                x: rect.minX + insetX,
+                y: rect.minY + insetY,
+                width: max(0, rect.width - insetX * 2),
+                height: min(max(0, rect.height - insetY * 2), pointSize + 6)
+            )
+            if band.width > 1, band.height > 1 {
+                var layer = context
+                layer.clip(to: path)
+                layer.draw(
+                    Text(region.label)
+                        .font(.system(size: pointSize))
+                        .foregroundStyle(regionLabelInk(region.fill)),
+                    in: band
+                )
+            }
+        }
+        if selected, keyboard.mode == .command {
+            let handle = CGRect(x: rect.maxX - 10, y: rect.maxY - 10, width: 7, height: 7)
+            context.fill(Path(roundedRect: handle, cornerRadius: 1.5), with: .color(color(interaction.selectionBorder)))
+        }
+    }
+
+    private func regionPath(_ rect: CGRect, shape: CanvasRegionShape) -> Path {
+        switch shape {
+        case .rectangle:
+            return Path(roundedRect: rect, cornerRadius: min(10, rect.height / 6))
+        case .ellipse:
+            return Path(ellipseIn: rect)
+        }
+    }
+
+    private func regionLabelInk(_ fill: BranchColor) -> Color {
+        let luma = 0.2126 * fill.red + 0.7152 * fill.green + 0.0722 * fill.blue
+        if luma > 0.62 {
+            return Color(red: 0.12, green: 0.14, blue: 0.16)
+        }
+        return .white
     }
 
     private func drawBoundary(_ mark: BoundaryMark, scale: CGFloat, in context: GraphicsContext) {
@@ -1732,6 +2032,18 @@ private struct StickyDrag {
     var originY: Double
     var width: Double
     var height: Double
+    var startX: Double
+    var startY: Double
+}
+
+private struct RegionDrag {
+    var id: UUID
+    var resizing: Bool
+    var originX: Double
+    var originY: Double
+    var width: Double
+    var height: Double
+    var locked: Bool
     var startX: Double
     var startY: Double
 }

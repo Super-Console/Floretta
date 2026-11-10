@@ -134,6 +134,45 @@ public enum FlorettaCodec {
                 try expect(sticky, key: "height", at: "\(place).height") { isJSONNumber($0) }
             }
         }
+        if let regions = object["regions"], !(regions is NSNull) {
+            guard let array = regions as? [Any] else {
+                throw FlorettaCodecError.wrongJSONType(at: "regions")
+            }
+            for (index, item) in array.enumerated() {
+                guard let region = item as? [String: Any] else {
+                    throw FlorettaCodecError.wrongJSONType(at: "regions[\(index)]")
+                }
+                let place = "regions[\(index)]"
+                try expect(region, key: "id", at: "\(place).id") { isJSONString($0) }
+                if let label = region["label"], !(label is NSNull) {
+                    try expect(region, key: "label", at: "\(place).label") { isJSONString($0) }
+                }
+                if let origin = region["origin"], !(origin is NSNull) {
+                    guard let point = origin as? [String: Any] else {
+                        throw FlorettaCodecError.wrongJSONType(at: "\(place).origin")
+                    }
+                    try expect(point, key: "x", at: "\(place).origin.x") { isJSONNumber($0) }
+                    try expect(point, key: "y", at: "\(place).origin.y") { isJSONNumber($0) }
+                }
+                try expect(region, key: "width", at: "\(place).width") { isJSONNumber($0) }
+                try expect(region, key: "height", at: "\(place).height") { isJSONNumber($0) }
+                if let locked = region["aspectLocked"], !(locked is NSNull) {
+                    try expect(region, key: "aspectLocked", at: "\(place).aspectLocked") { isJSONBool($0) }
+                }
+                if let shape = region["shape"], !(shape is NSNull) {
+                    try expect(region, key: "shape", at: "\(place).shape") { isJSONString($0) }
+                }
+                if let fill = region["fill"], !(fill is NSNull) {
+                    try expect(region, key: "fill", at: "\(place).fill") { isJSONString($0) }
+                }
+                if let border = region["border"], !(border is NSNull) {
+                    try expect(region, key: "border", at: "\(place).border") { isJSONString($0) }
+                }
+                if let stroke = region["strokeWidth"], !(stroke is NSNull) {
+                    try expect(region, key: "strokeWidth", at: "\(place).strokeWidth") { isJSONNumber($0) }
+                }
+            }
+        }
         if let relationships = object["relationships"], !(relationships is NSNull) {
             try preflightRelationships(relationships, at: "relationships")
         }

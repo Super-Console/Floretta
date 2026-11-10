@@ -6,6 +6,7 @@ public enum EditedObject: Equatable, Sendable {
     case relationship
     case summary
     case boundary
+    case region
 }
 
 public struct EditBuffer: Equatable, Sendable {
@@ -32,6 +33,7 @@ public struct MindMapKeyboardSession {
                 selectedRelationshipID = nil
                 selectedSummaryID = nil
                 selectedBoundaryID = nil
+                selectedRegionID = nil
             }
         }
     }
@@ -42,6 +44,7 @@ public struct MindMapKeyboardSession {
                 selectedRelationshipID = nil
                 selectedSummaryID = nil
                 selectedBoundaryID = nil
+                selectedRegionID = nil
             }
         }
     }
@@ -53,6 +56,7 @@ public struct MindMapKeyboardSession {
                 selectedStickyID = nil
                 selectedSummaryID = nil
                 selectedBoundaryID = nil
+                selectedRegionID = nil
             }
         }
     }
@@ -64,6 +68,7 @@ public struct MindMapKeyboardSession {
                 selectedStickyID = nil
                 selectedRelationshipID = nil
                 selectedBoundaryID = nil
+                selectedRegionID = nil
             }
         }
     }
@@ -75,6 +80,20 @@ public struct MindMapKeyboardSession {
                 selectedStickyID = nil
                 selectedRelationshipID = nil
                 selectedSummaryID = nil
+                selectedRegionID = nil
+            }
+        }
+    }
+    /// The selected canvas region. Setting it clears the other selections.
+    /// The region is not a topic, so this does not select a parent.
+    public var selectedRegionID: UUID? {
+        didSet {
+            if selectedRegionID != nil {
+                selectedNodeID = nil
+                selectedStickyID = nil
+                selectedRelationshipID = nil
+                selectedSummaryID = nil
+                selectedBoundaryID = nil
             }
         }
     }
@@ -102,6 +121,12 @@ public struct MindMapKeyboardSession {
     /// Set while the boundary title is being edited.
     public var editingBoundaryID: UUID? {
         guard mode == .edit, edit?.object == .boundary else { return nil }
+        return edit?.nodeID
+    }
+
+    /// Set while the region label is being edited.
+    public var editingRegionID: UUID? {
+        guard mode == .edit, edit?.object == .region else { return nil }
         return edit?.nodeID
     }
 
@@ -164,6 +189,8 @@ public struct MindMapKeyboardSession {
             _ = document.renameSummary(buffer.nodeID, text: text)
         case .boundary:
             _ = document.renameBoundary(buffer.nodeID, title: text)
+        case .region:
+            _ = document.replaceRegionLabel(buffer.nodeID, with: text)
         }
     }
 
@@ -242,6 +269,19 @@ public struct MindMapKeyboardSession {
             mode = .edit
             return
         }
+        if let regionID = selectedRegionID,
+           selectedNodeID == nil,
+           let region = document.region(regionID) {
+            editOrigin = capture(document)
+            edit = EditBuffer(
+                nodeID: regionID,
+                original: region.label,
+                text: region.label,
+                object: .region
+            )
+            mode = .edit
+            return
+        }
         guard let id = selectedNodeID, let node = document.node(id) else { return }
         editOrigin = capture(document)
         edit = EditBuffer(nodeID: id, original: node.text, text: node.text)
@@ -316,6 +356,20 @@ public struct MindMapKeyboardSession {
                 return
             }
             selectedBoundaryID = next
+            return
+        }
+        if let regionID = selectedRegionID {
+            guard document.region(regionID) != nil else {
+                selectedRegionID = nil
+                return
+            }
+            let next = document.regionSelection(afterRemoving: regionID)
+            record(document)
+            guard document.removeRegion(regionID) else {
+                if !undoStack.isEmpty { undoStack.removeLast() }
+                return
+            }
+            selectedRegionID = next
             return
         }
         guard let id = selectedNodeID, document.node(id) != nil else { return }
@@ -474,6 +528,151 @@ public struct MindMapKeyboardSession {
             return false
         }
         selectedStickyID = id
+        return true
+    }
+
+    /// Places a region and selects it. One undo step. Nodes are not reparented.
+    @discardableResult
+    public mutating func addRegion(
+        at origin: MindMapPoint,
+        label: String = "专区",
+        document: inout MindMapDocument
+    ) -> UUID? {
+        guard mode == .command, editOrigin == nil, pendingChange == nil else { return nil }
+        record(document)
+        guard let id = document.addRegion(label: label, at: origin) else {
+            if !undoStack.isEmpty { undoStack.removeLast() }
+            return nil
+        }
+        selectedRegionID = id
+        return id
+    }
+
+    /// Remembers the document once, before a drag or resize updates a region on each movement.
+    public mutating func beginRegionChange(document: MindMapDocument) {
+        guard mode == .command, editOrigin == nil, pendingChange == nil else { return }
+        pendingChange = capture(document)
+    }
+
+    /// Pushes one undo step when the gesture changed the document.
+    public mutating func commitRegionChange(document: MindMapDocument) {
+        guard let origin = pendingChange else { return }
+        pendingChange = nil
+        if origin.document != document {
+            undoStack.append(origin)
+            redoStack.removeAll()
+        }
+    }
+
+    @discardableResult
+    public mutating func setRegionLength(
+        _ value: Double,
+        axis: CanvasRegionAxis,
+        id: UUID,
+        document: inout MindMapDocument
+    ) -> Bool {
+        guard mode == .command, editOrigin == nil, pendingChange == nil, let current = document.region(id) else {
+            return false
+        }
+        let next = CanvasRegionGeometry.typed(
+            width: current.width,
+            height: current.height,
+            axis: axis,
+            value: value,
+            locked: current.aspectLocked
+        )
+        if current.width == next.width, current.height == next.height { return true }
+        record(document)
+        guard document.placeRegion(id, origin: current.origin, width: next.width, height: next.height) else {
+            if !undoStack.isEmpty { undoStack.removeLast() }
+            return false
+        }
+        selectedRegionID = id
+        return true
+    }
+
+    @discardableResult
+    public mutating func setRegionAspectLocked(
+        _ locked: Bool,
+        id: UUID,
+        document: inout MindMapDocument
+    ) -> Bool {
+        guard mode == .command, editOrigin == nil, pendingChange == nil, let current = document.region(id) else {
+            return false
+        }
+        if current.aspectLocked == locked { return true }
+        record(document)
+        guard document.setRegionAspectLocked(id, locked) else {
+            if !undoStack.isEmpty { undoStack.removeLast() }
+            return false
+        }
+        selectedRegionID = id
+        return true
+    }
+
+    @discardableResult
+    public mutating func setRegionStroke(
+        _ width: Double,
+        id: UUID,
+        document: inout MindMapDocument
+    ) -> Bool {
+        guard mode == .command, editOrigin == nil, pendingChange == nil, let current = document.region(id) else {
+            return false
+        }
+        let clamped = CanvasRegionLimits.clampStroke(width)
+        if current.strokeWidth == clamped { return true }
+        record(document)
+        guard document.setRegionStrokeWidth(id, width) else {
+            if !undoStack.isEmpty { undoStack.removeLast() }
+            return false
+        }
+        selectedRegionID = id
+        return true
+    }
+
+    /// Fits the region to node frames it already contains. One undo step.
+    /// The frames are not written back onto the nodes.
+    @discardableResult
+    public mutating func fitRegion(
+        _ id: UUID,
+        frames: [NodeFrame],
+        document: inout MindMapDocument
+    ) -> Bool {
+        guard mode == .command, editOrigin == nil, pendingChange == nil, let current = document.region(id) else {
+            return false
+        }
+        guard let placement = CanvasRegionGeometry.fitted(current, around: frames.map(\.frame)) else { return false }
+        if current.origin == placement.origin, current.width == placement.width, current.height == placement.height {
+            return true
+        }
+        record(document)
+        guard document.placeRegion(id, origin: placement.origin, width: placement.width, height: placement.height) else {
+            if !undoStack.isEmpty { undoStack.removeLast() }
+            return false
+        }
+        selectedRegionID = id
+        return true
+    }
+
+    /// Turns the region into a 1:1 ellipse and locks the aspect. One undo step.
+    @discardableResult
+    public mutating func makeRegionCircle(_ id: UUID, document: inout MindMapDocument) -> Bool {
+        guard mode == .command, editOrigin == nil, pendingChange == nil, let current = document.region(id) else {
+            return false
+        }
+        let placement = CanvasRegionGeometry.circle(current)
+        let unchanged = current.shape == .ellipse
+            && current.aspectLocked
+            && current.origin == placement.origin
+            && current.width == placement.width
+            && current.height == placement.height
+        if unchanged { return true }
+        record(document)
+        guard document.makeRegionCircle(id) else {
+            if !undoStack.isEmpty { undoStack.removeLast() }
+            return false
+        }
+        selectedRegionID = id
         return true
     }
 
@@ -648,6 +847,7 @@ public struct MindMapKeyboardSession {
             selectedRelationshipID: selectedRelationshipID,
             selectedSummaryID: selectedSummaryID,
             selectedBoundaryID: selectedBoundaryID,
+            selectedRegionID: selectedRegionID,
             mode: mode,
             edit: edit,
             isComposing: isComposing
@@ -661,6 +861,7 @@ public struct MindMapKeyboardSession {
         selectedRelationshipID = snapshot.selectedRelationshipID
         selectedSummaryID = snapshot.selectedSummaryID
         selectedBoundaryID = snapshot.selectedBoundaryID
+        selectedRegionID = snapshot.selectedRegionID
         mode = snapshot.mode
         edit = snapshot.edit
         isComposing = snapshot.isComposing
@@ -674,6 +875,7 @@ private struct Snapshot: Equatable {
     var selectedRelationshipID: UUID?
     var selectedSummaryID: UUID?
     var selectedBoundaryID: UUID?
+    var selectedRegionID: UUID?
     var mode: KeyboardMode
     var edit: EditBuffer?
     var isComposing: Bool

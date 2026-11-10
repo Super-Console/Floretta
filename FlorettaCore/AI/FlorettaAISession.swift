@@ -245,6 +245,9 @@ public struct FlorettaAISession: Equatable, Sendable {
             if !document.stickies.isEmpty {
                 lines.append("stickies\t\(document.stickies.count)")
             }
+            if !document.regions.isEmpty {
+                lines.append("regions\t\(document.regions.count)")
+            }
         }
         if lines.isEmpty { return "" }
         return lines.joined(separator: "\n") + "\n"

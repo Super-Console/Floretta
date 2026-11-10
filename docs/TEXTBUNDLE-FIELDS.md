@@ -44,6 +44,7 @@
 | `freeNodes` | gap | Markdown 文档不写自由节点，文字和附件都不出现 |
 | `additionalCanvases` | gap | 只导出第一张画布的 roots |
 | `stickies` | gap | 便签不是主题，不写 |
+| `regions` | gap | 专区不是主题，不写 |
 | `relationships` | gap | Markdown 没有关系线 |
 | `style` | gap | 颜色和样式不写 |
 | `position side` | gap | 坐标和左右侧不写 |

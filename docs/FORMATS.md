@@ -79,6 +79,7 @@ HTML 标签去掉，只留文字进模型。`p` / `br` 变成换行。`richconte
 - 自由坐标（`.mm` 没有 x/y）
 - 自由节点（`freeNodes`）。写进 `.mm` 会变成树里的子主题，所以不写
 - 便签（`stickies`）。不是主题，不写进 `.mm`
+- 专区（`regions`）。不是主题，不写进 `.mm`
 - Floretta 自己的 `MindMapNodeStyle`、关系线。文件里原来就有的颜色和图标写回，不会把模型样式发明进一个本来没有它们的 `.mm`
 - 未知的 `POSITION` 值：导入直接报错，不猜
 - 注释和 DOCTYPE：映射没变时留在原字节里；改过映射之后不重写
@@ -123,7 +124,7 @@ HTML 标签去掉，只留文字进模型。`p` / `br` 变成换行。`richconte
 
 ### 有意丢掉
 
-- 折叠、左右侧、画布坐标、自由节点、便签、关系线、样式。OPML 没有这些字段，导出不发明
+- 折叠、左右侧、画布坐标、自由节点、便签、专区、关系线、样式。OPML 没有这些字段，导出不发明
 - 节点 id。每次导入新的 UUID
 - 注释和 DOCTYPE：映射没变时留在原字节里；改过映射之后不重写
 - `head/title` 内部的标签：改过映射之后只写纯文本标题
@@ -140,7 +141,7 @@ HTML 标签去掉，只留文字进模型。`p` / `br` 变成换行。`richconte
 
 - 主层级：嵌套列表（写出只 `- ` + 2 空格缩进）；标题仅可选 **一级**（`# `）分区；列表外 `##`+ 打开失败。
 - 可选：备注（`>`）、YAML front-matter 原样保留、整项恰好一个行内链接。
-- **不保真**：不写附件、颜色、关系线、位置、折叠、节点 UUID、自由节点、便签；禁止 sidecar / HTML 注释藏数据。自由节点不是列表子项。便签也不是。
+- **不保真**：不写附件、颜色、关系线、位置、折叠、节点 UUID、自由节点、便签、专区；禁止 sidecar / HTML 注释藏数据。自由节点不是列表子项。便签和专区也不是。
 - 旧「纯标题树」导出仍是「导出为…」里的可选预设，与打开/保存 `.md` 文档路径分离。导入把标题和列表读成同一棵层级，写出仍只有标题深度；认不出的行失败，不把多余内容原样留下。
 
 字段对照见 **[MARKDOWN-FIELDS.md](./MARKDOWN-FIELDS.md)**。文档 codec 这一轮没有改写；上表的不保真是规格，不是漏映射。
@@ -159,7 +160,7 @@ ZIP 内的 `content.json` 可以导入再导出。字段对照表在 **[XMIND-FI
 
 `xap:` 附件在 zip 里有对应条目时，写成 `NodeAttachment`，字节留在 `xmindForeign.entries`，不复制进 `.floretta` 的 `assets/`。Floretta 自己的附件仍写 `org.floretta.attachments`，字节仍在 `.floretta`。
 
-主题 id 不是 UUID 时，模型里用稳定派生的 UUID，导出写回原来的字符串。只有 `content.xml`、没有 `content.json` 的文件直接失败。便签不是主题，不写进 `.xmind`。
+主题 id 不是 UUID 时，模型里用稳定派生的 UUID，导出写回原来的字符串。只有 `content.xml`、没有 `content.json` 的文件直接失败。便签和专区不是主题，不写进 `.xmind`。
 
 从 Floretta 新建、没有 `xmindForeign` 的文档，导出仍是一张画布。多个根时用文档标题包一层。没有根时同样包一层，避免自由节点被塞进树。
 
@@ -169,13 +170,13 @@ ZIP 内的 `content.json` 可以导入再导出。字段对照表在 **[XMIND-FI
 
 `text.md` 用 `FlorettaMarkdownDocumentCodec.save`，也就是导图的 Markdown 文档（嵌套列表、可选一级分区、备注、单个链接、front matter）。不走标题深度的 `FlorettaMarkdown`。那个 codec 不写附件。能写成 Markdown 的附件，在节点备注后面加相对路径：图片是 `![...](assets/...)`，其他文件是 `[...](assets/...)`，字节在 `assets/`。
 
-自由节点、其他画布、便签、关系线、样式、坐标、折叠和节点 id 写不进去。没给字节的附件不写坏链接。`info.json` 的 `version` 是 2，`type` 是 `net.daringfireball.markdown`，`creatorIdentifier` 是 `net.timhuang.floretta`。
+自由节点、其他画布、便签、专区、关系线、样式、坐标、折叠和节点 id 写不进去。没给字节的附件不写坏链接。`info.json` 的 `version` 是 2，`type` 是 `net.daringfireball.markdown`，`creatorIdentifier` 是 `net.timhuang.floretta`。
 
 ## PNG / PDF 本批
 
 用系统 `ImageRenderer` 把当前导图画成图。PDF 走 `renderer.render { size, draw in }`，把 SwiftUI 画进 PDF 页。没有自写光栅器，也没有第三方导出库。
 
-画面是节点、连线和（用户打开开关时）便签。不含工具栏、侧栏大纲、点阵、选中蓝框和缩放手柄。范围是这些内容的外接矩形再加固定留白（默认 32pt）。便签默认画进 PNG 和 PDF；设置里的「导出包含便签」可以关掉，关掉后便签仍留在 `.floretta`。
+画面是节点、连线、专区和（用户打开开关时）便签。专区画在节点下面。不含工具栏、侧栏大纲、点阵、选中蓝框和缩放手柄。范围是这些内容的外接矩形再加固定留白（默认 32pt）。便签默认画进 PNG 和 PDF；设置里的「导出包含便签」可以关掉，关掉后便签仍留在 `.floretta`。专区没有单独开关。
 
 折叠节点的子树不出现，因为导出用的就是布局结果，折叠子节点本来就不在框里。
 
@@ -187,11 +188,11 @@ PNG 可选 2x 或 3x，底可以是白的或透明的。
 
 | 格式 | 方向 | 样本来源 | 保留项 | 丢失项 | 结论 | 日期 |
 |---|---|---|---|---|---|---|
-| `.mm` | 导入 + 导出 | `Fixtures/MM/` 与文档往返 | 层级、顺序、TEXT、richcontent 纯文本、NOTE、LINK、FOLDED、POSITION、`ID_`+32hex；其余属性和元素原样写回 | 自由坐标、自由节点、便签、模型样式、关系线；未知 POSITION 报错；注释在改过映射后不重写 | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-10 |
-| `.opml` | 导入 + 导出 | `Fixtures/OPML/` 与文档往返 | 层级、顺序、text、title/_note/note、url、文档标题；head 其余元素和未知属性原样写回 | 折叠、左右侧、画布坐标、自由节点、便签、样式、节点 id；注释在改过映射后不重写 | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-10 |
+| `.mm` | 导入 + 导出 | `Fixtures/MM/` 与文档往返 | 层级、顺序、TEXT、richcontent 纯文本、NOTE、LINK、FOLDED、POSITION、`ID_`+32hex；其余属性和元素原样写回 | 自由坐标、自由节点、便签、专区、模型样式、关系线；未知 POSITION 报错；注释在改过映射后不重写 | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-10 |
+| `.opml` | 导入 + 导出 | `Fixtures/OPML/` 与文档往返 | 层级、顺序、text、title/_note/note、url、文档标题；head 其余元素和未知属性原样写回 | 折叠、左右侧、画布坐标、自由节点、便签、专区、样式、节点 id；注释在改过映射后不重写 | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-10 |
 | Markdown | 一等文档读写 + 大纲导入 / 纯标题预设 | 见 MD-AS-DOCUMENT 与 `Fixtures/MarkdownHeading/` | 文档：层级、顺序、text、note、单一 link、front-matter。大纲导入：标题深度、列表缩进、text、note、单一 link | 附件、颜色、关系线、位置、折叠、UUID；文档 `##`+ 拒开；大纲导入认不出的行失败。不把这些补成假保真 | 文档 codec 未改；大纲导入读标题和列表，写出仍是标题。字段表见 MARKDOWN-FIELDS | 2026-11-10 |
-| PNG / PDF | 仅导出 | 单测把 PNG 读回并抽样像素；PDF 看页数和 mediaBox | 当前可见节点、连线、概要括号和边界；2x/3x；白底或透明 | 工具栏、侧栏、选中框、点阵；折叠起来的子树；超出像素上限的部分 | 代码与单测已落盘；本机未打开文件 | 2026-11-10 |
-| `.xmind` | 导入 + 导出 + 再导入 | `Tests/FlorettaCoreTests/Fixtures/XMind/` 六类样本，加单测里的 `MindMapDocument` | 层级、文字、备注、链接、根上的自由节点、关系线、概要、边界、已映射的样式、xap 附件引用和字节、多画布、主题标签与 markerId；未知字段在未改映射时按原 `content.json` 字节写回 | 折叠不进 `isCollapsed`、嵌套浮动主题不可编辑、XMind 8 仅 `content.xml`、便签；概要不进 children；改映射字段后数字会按 JSON 数字重写。详见 `docs/XMIND-FIELDS.md` | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-10 |
-| TextBundle | 仅导出 | `Tests/FlorettaCoreTests/Fixtures/TextBundle/` 的 simple、nested、attachments | 第一张画布的层级、文字、备注、链接、front matter、一级分区；有字节的树上图片和文件，相对路径进 text.md，字节进 assets/ | 不导入。自由节点、其他画布、便签、关系线、样式、坐标、折叠、节点 id、文档标题、缺字节的附件。详见 `docs/TEXTBUNDLE-FIELDS.md` | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-10 |
+| PNG / PDF | 仅导出 | 单测把 PNG 读回并抽样像素；PDF 看页数和 mediaBox | 当前可见节点、连线、专区、概要括号和边界；2x/3x；白底或透明 | 工具栏、侧栏、选中框、点阵；折叠起来的子树；超出像素上限的部分 | 代码与单测已落盘；本机未打开文件 | 2026-11-10 |
+| `.xmind` | 导入 + 导出 + 再导入 | `Tests/FlorettaCoreTests/Fixtures/XMind/` 六类样本，加单测里的 `MindMapDocument` | 层级、文字、备注、链接、根上的自由节点、关系线、概要、边界、已映射的样式、xap 附件引用和字节、多画布、主题标签与 markerId；未知字段在未改映射时按原 `content.json` 字节写回 | 折叠不进 `isCollapsed`、嵌套浮动主题不可编辑、XMind 8 仅 `content.xml`、便签、专区；概要不进 children；改映射字段后数字会按 JSON 数字重写。详见 `docs/XMIND-FIELDS.md` | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-10 |
+| TextBundle | 仅导出 | `Tests/FlorettaCoreTests/Fixtures/TextBundle/` 的 simple、nested、attachments | 第一张画布的层级、文字、备注、链接、front matter、一级分区；有字节的树上图片和文件，相对路径进 text.md，字节进 assets/ | 不导入。自由节点、其他画布、便签、专区、关系线、样式、坐标、折叠、节点 id、文档标题、缺字节的附件。详见 `docs/TEXTBUNDLE-FIELDS.md` | 代码与单测已落盘；对方软件打开尚未在本机验 | 2026-11-10 |
 
 > 空白 = 未验证。不要预填"通过"。

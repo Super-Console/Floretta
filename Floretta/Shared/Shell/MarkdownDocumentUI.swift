@@ -21,6 +21,7 @@ enum MarkdownBlockedControl: String, Equatable, CaseIterable, Sendable {
     case sticky
     case summary
     case boundary
+    case region
     case collapse
     case tags
 }
@@ -57,6 +58,8 @@ enum MarkdownModePolicy {
             return "Markdown 模式无法保存概要"
         case .boundary:
             return "Markdown 模式无法保存边界"
+        case .region:
+            return "Markdown 模式无法保存专区"
         case .collapse:
             return "Markdown 模式无法保存折叠态"
         case .tags:
@@ -152,6 +155,7 @@ enum MarkdownUpgrade {
         copy.freeNodes = []
         copy.relationships = []
         copy.stickies = []
+        copy.regions = []
         copy.additionalCanvases = []
         copy.xmindForeign = nil
         copy.opmlForeign = nil

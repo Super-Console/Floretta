@@ -58,6 +58,7 @@ public enum MMFieldCatalog {
         MMFieldRow(field: "free position", disposition: .gap, detail: ".mm 没有 x/y"),
         MMFieldRow(field: "freeNodes", disposition: .gap, detail: "不写进 .mm"),
         MMFieldRow(field: "stickies", disposition: .gap, detail: "便签不是主题"),
+        MMFieldRow(field: "regions", disposition: .gap, detail: "专区不是主题"),
         MMFieldRow(field: "model style", disposition: .gap, detail: "Floretta 自己的样式不写进本来没有这些属性的 .mm"),
         MMFieldRow(field: "relationships", disposition: .gap, detail: "不写成 TopicRelationship；arrowlink 仍按元素写回"),
         MMFieldRow(field: "multiple roots", disposition: .gap, detail: "导出多个根时用文档标题包一层；文件里已有的多个根在映射没变时按原字节写回"),

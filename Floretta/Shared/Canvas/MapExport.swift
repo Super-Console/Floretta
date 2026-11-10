@@ -199,6 +199,7 @@ enum MapExporter {
             summaries: SummaryGeometry.summaries(in: document, frames: frames),
             boundaries: SummaryGeometry.boundaries(in: document, frames: frames),
             stickies: document.stickiesForPictureExport(included: options.includeStickies),
+            regions: document.regions,
             renderBounds: plan.renderBounds,
             background: options.background,
             paper: options.background == .white ? paper : nil,
@@ -245,6 +246,7 @@ private struct MapExportView: View {
     var summaries: [SummaryMark]
     var boundaries: [BoundaryMark]
     var stickies: [StickyNote]
+    var regions: [CanvasRegion]
     var renderBounds: CGRect
     var background: MapExportBackground
     /// Solid paper from the applied color scheme. Nil keeps white or clear.
@@ -253,6 +255,29 @@ private struct MapExportView: View {
 
     var body: some View {
         Canvas { context, _ in
+            for region in regions {
+                let rect = local(region.bounds)
+                guard rect.width > 1, rect.height > 1 else { continue }
+                let path: Path
+                switch region.shape {
+                case .rectangle:
+                    path = Path(roundedRect: rect, cornerRadius: min(10, rect.height / 6))
+                case .ellipse:
+                    path = Path(ellipseIn: rect)
+                }
+                context.fill(path, with: .color(color(region.fill)))
+                if region.strokeWidth > 0 {
+                    context.stroke(path, with: .color(color(region.border)), lineWidth: CGFloat(region.strokeWidth))
+                }
+                if !region.label.isEmpty {
+                    let band = CGRect(x: rect.minX + 12, y: rect.minY + 8, width: max(0, rect.width - 24), height: min(22, max(0, rect.height - 16)))
+                    if band.width > 1, band.height > 1 {
+                        var layer = context
+                        layer.clip(to: path)
+                        layer.draw(Text(region.label).font(.system(size: 14)), in: band)
+                    }
+                }
+            }
             for mark in boundaries {
                 let rect = local(mark.rect)
                 let path = Path(roundedRect: rect, cornerRadius: SummaryGeometry.cornerRadius)

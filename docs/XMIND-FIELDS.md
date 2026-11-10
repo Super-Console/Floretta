@@ -91,6 +91,7 @@
 | `isCollapsed` | gap | branch 会写回，但不会变成折叠状态 |
 | `labels model` | mapped | 标签和标记写在主题上，不另建一份标签表 |
 | `stickies` | gap | 便签不是主题，不写入 .xmind |
+| `regions` | gap | 专区不是主题，不写入 .xmind |
 | `one href` | gap | 一个主题只有一个 href，网页链接和 xap 不能同时留在 href 上 |
 
 处理只有三种：`mapped` 进模型并在导出时从模型写出；`passthrough` 不解释，原值写回；`gap` 是已知做不到的地方，不是静默丢掉。

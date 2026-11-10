@@ -27,3 +27,25 @@ jobs:
         run: scripts/check-floretta-core-imports.sh
       - name: Test FlorettaCore and FlorettaUI
         run: swift test
+
+  packaged-size:
+    name: Packaged app size
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Size gate rejects an over-budget payload
+        run: scripts/check-packaged-app-size.sh --self-test
+      - uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6.2"
+      # ubuntu-24.04 has no Xcode. The script measures the payload described in
+      # docs/PACKAGED-SIZE.md and fails the job unless iOS is under 15 MiB and
+      # macOS is under 25 MiB. A Mac measures a real bundle with --ios and --macos.
+      - name: Require strip so DWARF stays out of the measured payload
+        run: |
+          if ! command -v strip >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y binutils
+          fi
+      - name: Measure payload against iOS 15MB and macOS 25MB
+        run: scripts/check-packaged-app-size.sh

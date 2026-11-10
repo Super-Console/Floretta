@@ -58,14 +58,18 @@ enum AppleGlassChromeBackend: String, Equatable {
 
     static var resolved: AppleGlassChromeBackend {
         #if os(macOS)
+        #if compiler(>=6.2)
         if #available(macOS 26.0, *) {
             return .swiftUIGlassEffect
         }
+        #endif
         return .nsGlassEffectView
         #else
+        #if compiler(>=6.2)
         if #available(iOS 26.0, *) {
             return .swiftUIGlassEffect
         }
+        #endif
         return .unpainted
         #endif
     }
@@ -149,6 +153,7 @@ private struct AppleGlassChromePlate<Content: View>: View {
     private func plated<V: View, S: Shape>(_ view: V, shape: S) -> some View {
         switch AppleGlassChromeBackend.resolved {
         case .swiftUIGlassEffect:
+            #if compiler(>=6.2)
             if #available(iOS 26.0, macOS 26.0, *) {
                 GlassEffectContainer(spacing: CGFloat(0)) {
                     view.glassEffect(.regular, in: shape)
@@ -156,6 +161,9 @@ private struct AppleGlassChromePlate<Content: View>: View {
             } else {
                 degraded(view, shape: shape)
             }
+            #else
+            degraded(view, shape: shape)
+            #endif
         case .nsGlassEffectView:
             #if os(macOS)
             view.background { AppleGlassChromeAppKitPlate(role: role) }

@@ -17,3 +17,8 @@ xcuserdata/
 # Swift Package
 .build/
 .swiftpm/
+
+# local agent workspaces (git worktrees live here, never tracked)
+.worktrees/
+.dispatch/
+.smoke-shots/

@@ -929,32 +929,56 @@ final class ShellTests: XCTestCase {
         XCTAssertNil(library.session(for: .auxiliary(UUID())))
         XCTAssertEqual(FlorettaL10n.string("新建窗口", language: .english), "New Window")
         XCTAssertEqual(FlorettaL10n.string("新建窗口", language: .simplifiedChinese), "新建窗口")
+        XCTAssertEqual(SameDocumentWindowScene.id, "floretta.same-document")
 
-        let second = try XCTUnwrap(library.openAnotherWindow())
-        let third = try XCTUnwrap(library.openAnotherWindow())
-        XCTAssertNotEqual(second, third)
-        XCTAssertEqual(library.documentWindowCount, 3)
+        // No presenter: the menu and a second open must not leave a window id behind.
+        XCTAssertNil(library.openAnotherWindow())
+        library.openFile(url)
+        XCTAssertEqual(library.documentWindowCount, 1)
         XCTAssertIdentical(library.session(for: .primary), session)
+        XCTAssertNil(library.session(for: .auxiliary(UUID())))
+
+        let windows = RecordingSameDocumentWindows()
+        library.sameDocumentWindows = windows
+        let second = try XCTUnwrap(library.openAnotherWindow())
+        XCTAssertEqual(windows.presentations, [
+            SameDocumentWindowPresentation(windowID: second, sceneID: SameDocumentWindowScene.id),
+        ])
+        XCTAssertEqual(library.documentWindowCount, 2)
         XCTAssertIdentical(library.session(for: .auxiliary(second)), session)
-        XCTAssertIdentical(library.session(for: .auxiliary(third)), session)
 
         session.commitText("还没保存")
         library.openFile(url)
         XCTAssertNil(library.openError)
-        XCTAssertEqual(library.documentWindowCount, 4)
+        XCTAssertEqual(windows.presentations.count, 2)
+        let reopened = windows.presentations[1]
+        XCTAssertEqual(reopened.sceneID, SameDocumentWindowScene.id)
+        XCTAssertNotEqual(reopened.windowID, second)
+        XCTAssertEqual(library.documentWindowCount, 3)
         XCTAssertIdentical(library.session(for: .primary), session)
-        XCTAssertEqual(library.documentShown(in: .auxiliary(second))?.roots.first?.text, "还没保存")
+        XCTAssertIdentical(library.session(for: .auxiliary(reopened.windowID)), session)
+        XCTAssertEqual(library.documentShown(in: .auxiliary(reopened.windowID))?.roots.first?.text, "还没保存")
         let stillOnDisk = try DocumentOpener.open(
             data: Data(contentsOf: url),
             filename: url.lastPathComponent
         )
         XCTAssertEqual(stillOnDisk.roots.first?.text, "中心")
 
+        let entry = try XCTUnwrap(library.recents.first { $0.filename == url.lastPathComponent })
+        library.openRecent(entry)
+        XCTAssertNil(library.openError)
+        XCTAssertEqual(windows.presentations.count, 3)
+        let fromRecent = windows.presentations[2]
+        XCTAssertEqual(fromRecent.sceneID, SameDocumentWindowScene.id)
+        XCTAssertEqual(library.documentWindowCount, 4)
+        XCTAssertIdentical(library.session(for: .auxiliary(fromRecent.windowID)), session)
+        XCTAssertEqual(library.documentShown(in: .auxiliary(fromRecent.windowID))?.roots.first?.text, "还没保存")
+
         library.closeAuxiliaryWindow(second)
         XCTAssertNil(library.session(for: .auxiliary(second)))
         XCTAssertEqual(library.documentWindowCount, 3)
         XCTAssertIdentical(library.session(for: .primary), session)
-        XCTAssertEqual(library.documentShown(in: .primary)?.roots.first?.text, "还没保存")
+        XCTAssertEqual(windows.presentations.count, 3)
 
         let other = directory.appendingPathComponent("另一份.floretta")
         _ = try FlorettaStreamingDocument.save(
@@ -965,10 +989,11 @@ final class ShellTests: XCTestCase {
         )
         library.openFile(other)
         XCTAssertNil(library.openError)
+        XCTAssertEqual(windows.presentations.count, 3)
         XCTAssertEqual(library.documentWindowCount, 1)
         XCTAssertNotIdentical(library.session(for: .primary), session)
         XCTAssertEqual(library.documentShown(in: .primary)?.roots.first?.text, "别的")
-        XCTAssertNil(library.session(for: .auxiliary(third)))
+        XCTAssertNil(library.session(for: .auxiliary(reopened.windowID)))
         let savedFirst = try DocumentOpener.open(data: Data(contentsOf: url), filename: url.lastPathComponent)
         XCTAssertEqual(savedFirst.roots.first?.text, "还没保存")
 
@@ -976,6 +1001,7 @@ final class ShellTests: XCTestCase {
         XCTAssertEqual(library.documentWindowCount, 0)
         XCTAssertNil(library.session(for: .primary))
         XCTAssertNil(library.openAnotherWindow())
+        XCTAssertEqual(windows.presentations.count, 3)
     }
 
     func testEditInOneWindowIsVisibleInTheOther() throws {
@@ -984,7 +1010,12 @@ final class ShellTests: XCTestCase {
         library.makeNew()
         let session = try XCTUnwrap(library.session(for: .primary))
         let url = try XCTUnwrap(session.url)
+        let windows = RecordingSameDocumentWindows()
+        library.sameDocumentWindows = windows
         let second = try XCTUnwrap(library.openAnotherWindow())
+        XCTAssertEqual(windows.presentations, [
+            SameDocumentWindowPresentation(windowID: second, sceneID: SameDocumentWindowScene.id),
+        ])
         XCTAssertEqual(library.documentWindowCount, 2)
         XCTAssertFalse(library.applyEdit(in: .auxiliary(UUID())) { _ in })
 
@@ -1051,6 +1082,15 @@ final class ShellTests: XCTestCase {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
+    }
+}
+
+@MainActor
+private final class RecordingSameDocumentWindows: SameDocumentWindowOpening {
+    var presentations: [SameDocumentWindowPresentation] = []
+
+    func openSameDocumentWindow(_ presentation: SameDocumentWindowPresentation) {
+        presentations.append(presentation)
     }
 }
 

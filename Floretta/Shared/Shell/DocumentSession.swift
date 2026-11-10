@@ -620,6 +620,24 @@ enum DocumentWindowRef: Hashable, Sendable {
     case auxiliary(UUID)
 }
 
+/// `WindowGroup` id for a second view of the open document.
+/// Menu, file open, and recent-file open all pass this to `openWindow`.
+enum SameDocumentWindowScene {
+    static let id = "floretta.same-document"
+}
+
+/// One request to present a macOS window on the already-open session.
+struct SameDocumentWindowPresentation: Equatable, Sendable {
+    var windowID: UUID
+    var sceneID: String
+}
+
+/// SwiftUI installs this and calls `openWindow`. Tests record the request.
+@MainActor
+protocol SameDocumentWindowOpening: AnyObject {
+    func openSameDocumentWindow(_ presentation: SameDocumentWindowPresentation)
+}
+
 @MainActor
 @Observable
 final class LibraryModel {
@@ -636,6 +654,9 @@ final class LibraryModel {
     var editor: EditorSession?
     /// macOS windows after the primary one. Empty on iOS, and whenever `editor` is nil.
     private(set) var auxiliaryWindowIDs: [UUID] = []
+    /// Turns an auxiliary id into a real window. Until a macOS scene installs it,
+    /// `openAnotherWindow` leaves the id list alone.
+    @ObservationIgnored var sameDocumentWindows: (any SameDocumentWindowOpening)?
     var showImporter = false
     var alertTitle = "无法打开"
     var openError: String?
@@ -676,12 +697,21 @@ final class LibraryModel {
     }
 
     /// Opens another window on the current session. Does not read the file or clone the map.
+    /// The id is recorded only together with a presentation request, so a caller cannot
+    /// inflate `documentWindowCount` without asking for the window.
     @discardableResult
     func openAnotherWindow() -> UUID? {
-        guard editor != nil else { return nil }
+        #if !os(macOS)
+        return nil
+        #else
+        guard editor != nil, let sameDocumentWindows else { return nil }
         let id = UUID()
         auxiliaryWindowIDs.append(id)
+        sameDocumentWindows.openSameDocumentWindow(
+            SameDocumentWindowPresentation(windowID: id, sceneID: SameDocumentWindowScene.id)
+        )
         return id
+        #endif
     }
 
     /// Drops one extra window. The session and the primary window stay as they are.
@@ -791,9 +821,10 @@ final class LibraryModel {
 
     func openFile(_ url: URL) {
         #if os(macOS)
-        // The file is already this session. Another window shows it; a second read
-        // would replace unsaved edits with whatever is on disk.
-        if isSameOpenFile(url), openAnotherWindow() != nil {
+        // The file is already this session. Ask for another window on it.
+        // A second read would replace unsaved edits with whatever is on disk.
+        if isSameOpenFile(url) {
+            _ = openAnotherWindow()
             return
         }
         #endif
@@ -995,7 +1026,10 @@ final class LibraryModel {
     #if os(macOS)
     private func isSameOpenFile(_ url: URL) -> Bool {
         guard let current = editor?.url else { return false }
-        return current.standardizedFileURL.path == url.standardizedFileURL.path
+        let open = url.standardizedFileURL
+        let existing = current.standardizedFileURL
+        if open.path == existing.path { return true }
+        return open.resolvingSymlinksInPath().path == existing.resolvingSymlinksInPath().path
     }
     #endif
 

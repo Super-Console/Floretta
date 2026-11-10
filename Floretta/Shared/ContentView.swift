@@ -66,6 +66,11 @@ struct ContentView: View {
                 Text(verbatim: FlorettaL10n.present(notice ?? "", locale: settings.resolvedLocale))
             }
             .environment(\.locale, settings.resolvedLocale)
+            #if os(macOS)
+            .background {
+                SameDocumentWindowInstaller(library: library)
+            }
+            #endif
             .fileImporter(
                 isPresented: $showImporter,
                 allowedContentTypes: FlorettaFileTypes.allowedContentTypes,
@@ -282,7 +287,7 @@ struct ContentView: View {
 #if os(macOS)
 /// A second (or later) window on the document already open in `ContentView`.
 struct SameDocumentWindow: View {
-    static let sceneID = "floretta.same-document"
+    static let sceneID = SameDocumentWindowScene.id
 
     var windowID: UUID?
     @Bindable var recovery: RecoveryPresenter
@@ -321,6 +326,7 @@ struct SameDocumentWindow: View {
         .preferredColorScheme(settings.appearance.colorScheme)
         .environment(\.locale, settings.resolvedLocale)
         .background {
+            SameDocumentWindowInstaller(library: library)
             if let windowID {
                 AuxiliaryWindowCloseMonitor {
                     library.closeAuxiliaryWindow(windowID)

@@ -89,16 +89,44 @@ private struct FlorettaCommands: Commands {
 private struct OpenSameDocumentWindowButton: View {
     @Bindable var settings: AppSettings
     @Bindable var library: LibraryModel
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         Button(FlorettaL10n.string("新建窗口", language: settings.language)) {
-            guard let id = library.openAnotherWindow() else { return }
-            openWindow(id: SameDocumentWindow.sceneID, value: id)
+            library.openAnotherWindow()
         }
         .keyboardShortcut("n", modifiers: [.command, .shift])
         .disabled(library.editor == nil)
         .help(Text(verbatim: FlorettaL10n.string("再开一个窗口，编辑同一份导图。", language: settings.language)))
+    }
+}
+
+/// Connects `LibraryModel.openAnotherWindow` to SwiftUI `openWindow`.
+/// File open, recent files, and the Window menu all use that one method.
+struct SameDocumentWindowInstaller: View {
+    var library: LibraryModel
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .accessibilityHidden(true)
+            .allowsHitTesting(false)
+            .onAppear {
+                library.sameDocumentWindows = SameDocumentWindowHost(openWindow: openWindow)
+            }
+    }
+}
+
+@MainActor
+private final class SameDocumentWindowHost: SameDocumentWindowOpening {
+    private let openWindow: OpenWindowAction
+
+    init(openWindow: OpenWindowAction) {
+        self.openWindow = openWindow
+    }
+
+    func openSameDocumentWindow(_ presentation: SameDocumentWindowPresentation) {
+        openWindow(id: presentation.sceneID, value: presentation.windowID)
     }
 }
 #endif

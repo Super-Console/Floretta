@@ -63,27 +63,7 @@ struct InfiniteCanvas: View {
     }
 
     private func canvasSurface(size: CGSize) -> some View {
-        ZStack {
-            paperLayer
-                .contentShape(Rectangle())
-                .accessibilityIdentifier("editor.canvas")
-            TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !petal.isPlaying)) { timeline in
-                Canvas { context, size in
-                    draw(in: context, size: size, at: timeline.date.timeIntervalSinceReferenceDate)
-                }
-                .allowsHitTesting(false)
-                .onChange(of: timeline.date) { _, date in
-                    let time = date.timeIntervalSinceReferenceDate
-                    let extra = petal.layoutExtra(comparedTo: laidOut.layoutPassCount)
-                    if extra != petal.layoutPassesDuringPlayback {
-                        petal.noteLayoutExtra(extra)
-                    }
-                    if petal.playbackDidFinish(at: time) {
-                        petal.settle()
-                    }
-                }
-            }
-        }
+        canvasVisuals
         .gesture(dragGesture)
         .simultaneousGesture(pinchGesture(in: size))
         .overlay {
@@ -115,6 +95,38 @@ struct InfiniteCanvas: View {
         .focusEffectDisabled(true)
         .background { CanvasFocusRingSuppressor() }
         .focused($canvasFocused)
+    }
+
+    private var canvasVisuals: some View {
+        ZStack {
+            canvasPaper
+            canvasTimeline
+        }
+    }
+
+    private var canvasPaper: some View {
+        paperLayer
+            .contentShape(Rectangle())
+            .accessibilityIdentifier("editor.canvas")
+    }
+
+    private var canvasTimeline: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !petal.isPlaying)) { timeline in
+            Canvas { context, size in
+                draw(in: context, size: size, at: timeline.date.timeIntervalSinceReferenceDate)
+            }
+            .allowsHitTesting(false)
+            .onChange(of: timeline.date) { _, date in
+                let time = date.timeIntervalSinceReferenceDate
+                let extra = petal.layoutExtra(comparedTo: laidOut.layoutPassCount)
+                if extra != petal.layoutPassesDuringPlayback {
+                    petal.noteLayoutExtra(extra)
+                }
+                if petal.playbackDidFinish(at: time) {
+                    petal.settle()
+                }
+            }
+        }
     }
 
     private func observeCanvas<V: View>(_ view: V, size: CGSize) -> some View {

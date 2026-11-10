@@ -36,6 +36,7 @@ struct DocumentEditor: View {
     @State private var inspectorTab = 0
     @State private var showAbout = false
     @State private var showThemes = false
+    @State private var showHistory = false
     @Environment(\.colorScheme) private var colorScheme
     @State private var camera = CanvasCamera()
     @State private var showAttachmentImporter = false
@@ -279,6 +280,12 @@ struct DocumentEditor: View {
             .sheet(isPresented: $showTagFilter) {
                 TagFilterSheet(session: session, text: { self.text($0) }, locale: settings.resolvedLocale)
                     .accessibilityIdentifier("tagFilter.sheet")
+            }
+            .sheet(isPresented: $showHistory) {
+                if let url = session.url {
+                    SnapshotHistorySheet(session: session, url: url, text: { self.text($0) }, locale: settings.resolvedLocale)
+                        .accessibilityIdentifier("snapshotHistory.sheet")
+                }
             }
             .alert(Text(verbatim: text("查找")), isPresented: $showFind) {
                 TextField(text("文字"), text: $findQuery)
@@ -664,6 +671,15 @@ struct DocumentEditor: View {
             .help(Text(verbatim: text(markdownHelp(.tags, otherwise: "给选中的主题加上优先级、进度、旗帜或标签，并按标签高亮"))))
             .accessibilityHint(text(markdownHelp(.tags, otherwise: "给选中的主题加上优先级、进度、旗帜或标签，并按标签高亮")))
             .accessibilityIdentifier("tagFilter.open")
+            Button {
+                showHistory = true
+            } label: {
+                Label(text("版本历史"), systemImage: "clock.arrow.circlepath")
+            }
+            .disabled(!session.canOpenSnapshotHistory)
+            .help(Text(verbatim: text(snapshotHistoryHelp)))
+            .accessibilityHint(text(snapshotHistoryHelp))
+            .accessibilityIdentifier("snapshotHistory.menu")
             Button(text("粘贴")) { pasteFromClipboard() }
                 .explained("把剪贴板里的图片放进节点；没有图片时粘贴文字")
             Button(text("关于")) { showAbout = true }
@@ -672,7 +688,17 @@ struct DocumentEditor: View {
             Image(systemName: "ellipsis")
         }
         .accessibilityLabel(text("更多"))
-        .help(Text(verbatim: text("大纲、样式、配色、标签筛选和关于")))
+        .help(Text(verbatim: text("大纲、样式、配色、标签筛选、版本历史和关于")))
+    }
+
+    private var snapshotHistoryHelp: String {
+        if session.isMarkdownDocument {
+            return "Markdown 文件不保留版本快照。"
+        }
+        if !session.canOpenSnapshotHistory {
+            return "先把导图存成文件。"
+        }
+        return "查看已保存的历史版本，回滚或对比两份内容。"
     }
 
     private var inspectorPresented: Binding<Bool> {

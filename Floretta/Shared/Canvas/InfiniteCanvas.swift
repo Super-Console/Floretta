@@ -58,6 +58,8 @@ struct InfiniteCanvas: View {
             .overlay { stickyChrome }
             .overlay { stickyEditor }
             .overlay { relationshipEditor }
+            .overlay { summaryEditor }
+            .overlay { boundaryEditor }
             .canvasHover { location in
                 guard let location else {
                     interaction.hoveredNodeID = nil
@@ -133,8 +135,16 @@ struct InfiniteCanvas: View {
                 }
                 if previewFile(at: point) { return }
                 let hit = CanvasPlacement.nodeID(at: point, in: layoutSource())
+                if hit == nil, let summaryID = summaryHit(at: point) {
+                    applySummaryTap(summaryID)
+                    return
+                }
                 if hit == nil, let relationshipID = relationshipHit(at: point) {
                     applyRelationshipTap(relationshipID)
+                    return
+                }
+                if hit == nil, let boundaryID = boundaryHit(at: point) {
+                    applyBoundaryTap(boundaryID)
                     return
                 }
                 if zenActive, hit == nil { return }
@@ -156,11 +166,25 @@ struct InfiniteCanvas: View {
                     beginEditing(hit)
                     return
                 }
+                if let summaryID = summaryHit(at: point) {
+                    if keyboard.mode == .edit, keyboard.selectedSummaryID != summaryID {
+                        keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+                    }
+                    beginSummaryEdit(summaryID)
+                    return
+                }
                 if let relationshipID = relationshipHit(at: point) {
                     if keyboard.mode == .edit, keyboard.selectedRelationshipID != relationshipID {
                         keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
                     }
                     beginRelationshipEdit(relationshipID)
+                    return
+                }
+                if let boundaryID = boundaryHit(at: point) {
+                    if keyboard.mode == .edit, keyboard.selectedBoundaryID != boundaryID {
+                        keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+                    }
+                    beginBoundaryEdit(boundaryID)
                     return
                 }
                 if onConsumeBlankDoubleTap() { return }
@@ -238,6 +262,56 @@ struct InfiniteCanvas: View {
         interaction.selectedNodeID = nil
     }
 
+    private func applySummaryTap(_ id: UUID) {
+        if keyboard.isComposing { return }
+        if keyboard.mode == .edit {
+            if keyboard.selectedSummaryID == id { return }
+            keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+            keyboard.selectedSummaryID = id
+            interaction.selectedNodeID = nil
+            return
+        }
+        if keyboard.selectedSummaryID == id {
+            beginSummaryEdit(id)
+            return
+        }
+        keyboard.selectedSummaryID = id
+        interaction.selectedNodeID = nil
+    }
+
+    private func applyBoundaryTap(_ id: UUID) {
+        if keyboard.isComposing { return }
+        if keyboard.mode == .edit {
+            if keyboard.selectedBoundaryID == id { return }
+            keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+            keyboard.selectedBoundaryID = id
+            interaction.selectedNodeID = nil
+            return
+        }
+        if keyboard.selectedBoundaryID == id {
+            beginBoundaryEdit(id)
+            return
+        }
+        keyboard.selectedBoundaryID = id
+        interaction.selectedNodeID = nil
+    }
+
+    private func beginSummaryEdit(_ id: UUID) {
+        keyboard.selectedSummaryID = id
+        interaction.selectedNodeID = nil
+        canvasFocused = false
+        guard keyboard.mode != .edit else { return }
+        keyboard.apply(.beginEdit, document: &document, frames: placedFrames())
+    }
+
+    private func beginBoundaryEdit(_ id: UUID) {
+        keyboard.selectedBoundaryID = id
+        interaction.selectedNodeID = nil
+        canvasFocused = false
+        guard keyboard.mode != .edit else { return }
+        keyboard.apply(.beginEdit, document: &document, frames: placedFrames())
+    }
+
     private func beginRelationshipEdit(_ id: UUID) {
         keyboard.selectedRelationshipID = id
         interaction.selectedNodeID = nil
@@ -266,6 +340,8 @@ struct InfiniteCanvas: View {
         case .select(let id):
             if id == nil {
                 keyboard.selectedRelationshipID = nil
+                keyboard.selectedSummaryID = nil
+                keyboard.selectedBoundaryID = nil
             }
             keyboard.selectedNodeID = id
             interaction.selectedNodeID = id
@@ -275,6 +351,8 @@ struct InfiniteCanvas: View {
             keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
             if id == nil {
                 keyboard.selectedRelationshipID = nil
+                keyboard.selectedSummaryID = nil
+                keyboard.selectedBoundaryID = nil
             }
             keyboard.selectedNodeID = id
             interaction.selectedNodeID = id
@@ -416,6 +494,56 @@ struct InfiniteCanvas: View {
         }
     }
 
+    @ViewBuilder
+    private var summaryEditor: some View {
+        if keyboard.mode == .edit,
+           keyboard.editingSummaryID != nil,
+           let frame = summaryEditFrame() {
+            NodeTextEditor(
+                text: Binding(
+                    get: { keyboard.editingText },
+                    set: { keyboard.replaceEditingText($0, document: &document) }
+                ),
+                isComposing: $keyboard.isComposing,
+                minimumWidth: $compositionWidth,
+                fontSize: CanvasTextScale.onScreenPointSize(
+                    fontSize: SummaryGeometry.topicFontSize,
+                    scale: camera.viewport.scale
+                ),
+                onEvent: { handleKey($0) },
+                paper: colorScheme == .dark ? Color(white: 0.16) : Color.white,
+                ink: colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16)
+            )
+            .frame(width: frame.width, height: frame.height)
+            .position(x: frame.midX, y: frame.midY)
+        }
+    }
+
+    @ViewBuilder
+    private var boundaryEditor: some View {
+        if keyboard.mode == .edit,
+           keyboard.editingBoundaryID != nil,
+           let frame = boundaryEditFrame() {
+            NodeTextEditor(
+                text: Binding(
+                    get: { keyboard.editingText },
+                    set: { keyboard.replaceEditingText($0, document: &document) }
+                ),
+                isComposing: $keyboard.isComposing,
+                minimumWidth: $compositionWidth,
+                fontSize: CanvasTextScale.onScreenPointSize(
+                    fontSize: SummaryGeometry.titleFontSize,
+                    scale: camera.viewport.scale
+                ),
+                onEvent: { handleKey($0) },
+                paper: colorScheme == .dark ? Color(white: 0.16) : Color.white,
+                ink: colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16)
+            )
+            .frame(width: max(frame.width, 72), height: max(frame.height, 22))
+            .position(x: frame.midX, y: frame.midY)
+        }
+    }
+
     private func stickyChromeContains(_ viewPoint: CGPoint) -> Bool {
         guard keyboard.mode == .command,
               let id = keyboard.selectedStickyID,
@@ -526,6 +654,12 @@ struct InfiniteCanvas: View {
         if keyboard.mode == .edit, keyboard.selectedRelationshipID != nil, let frame = relationshipEditFrame() {
             return frame
         }
+        if keyboard.mode == .edit, keyboard.selectedSummaryID != nil, let frame = summaryEditFrame() {
+            return frame
+        }
+        if keyboard.mode == .edit, keyboard.selectedBoundaryID != nil, let frame = boundaryEditFrame() {
+            return frame
+        }
         guard keyboard.mode == .edit,
               let id = keyboard.selectedNodeID,
               let frame = placedFrames().first(where: { $0.id == id }) else { return nil }
@@ -533,6 +667,30 @@ struct InfiniteCanvas: View {
         let width = max(rect.width, compositionWidth, 88)
         let height = max(rect.height, 36)
         return CGRect(x: rect.midX - width / 2, y: rect.midY - height / 2, width: width, height: height)
+    }
+
+    private func summaryEditFrame() -> CGRect? {
+        guard let id = keyboard.selectedSummaryID else { return nil }
+        let frames = placedFrames()
+        guard let mark = SummaryGeometry.summaries(in: document, frames: frames).first(where: { $0.id == id }) else {
+            return nil
+        }
+        return camera.viewport.viewRect(fromCanvas: mark.topicRect)
+    }
+
+    private func boundaryEditFrame() -> CGRect? {
+        guard let id = keyboard.selectedBoundaryID else { return nil }
+        let frames = placedFrames()
+        guard let mark = SummaryGeometry.boundaries(in: document, frames: frames).first(where: { $0.id == id }) else {
+            return nil
+        }
+        let rect = mark.titleRect.width > 1 ? mark.titleRect : CGRect(
+            x: mark.rect.midX - 48,
+            y: mark.rect.minY - 12,
+            width: 96,
+            height: 22
+        )
+        return camera.viewport.viewRect(fromCanvas: rect)
     }
 
     private func relationshipEditFrame() -> CGRect? {
@@ -653,10 +811,24 @@ struct InfiniteCanvas: View {
     private func draw(in context: GraphicsContext, size: CGSize) {
         drawGrid(in: context, size: size)
         let placed = placedFrames()
+        let boundaryMarks = document.hasBoundaries
+            ? SummaryGeometry.boundaries(in: document, frames: placed)
+            : []
+        let summaryMarks = document.hasSummaries
+            ? SummaryGeometry.summaries(in: document, frames: placed)
+            : []
+        let scale = camera.viewport.scale
+        if !boundaryMarks.isEmpty {
+            let viewBounds = CGRect(origin: .zero, size: size).insetBy(dx: -48, dy: -48)
+            for mark in boundaryMarks {
+                let box = camera.viewport.viewRect(fromCanvas: mark.bounds)
+                guard box.intersects(viewBounds) else { continue }
+                drawBoundary(mark, scale: scale, in: context)
+            }
+        }
         let viewport = camera.viewport.canvasRect(in: size).insetBy(dx: -48, dy: -48)
         let visible = CanvasPlacement.frames(placed, intersectingCanvas: viewport)
         let linkIDs = CanvasPlacement.nodeIDsWithVisibleLinks(placed, viewport: viewport)
-        let scale = camera.viewport.scale
         for node in placed where linkIDs.contains(node.id) {
             guard let link = node.link else { continue }
             stroke(
@@ -697,6 +869,13 @@ struct InfiniteCanvas: View {
                 )
                 guard camera.viewport.viewRect(fromCanvas: canvasRect).intersects(labelViewport) else { continue }
                 drawLabel(line, straight: straight, scale: scale, in: context)
+            }
+        }
+        if !summaryMarks.isEmpty {
+            let summaryViewport = CGRect(origin: .zero, size: size).insetBy(dx: -48, dy: -48)
+            for mark in summaryMarks {
+                guard camera.viewport.viewRect(fromCanvas: mark.bounds).intersects(summaryViewport) else { continue }
+                drawSummary(mark, scale: scale, in: context)
             }
         }
         let viewBounds = CGRect(origin: .zero, size: size).insetBy(dx: -48, dy: -48)
@@ -773,6 +952,74 @@ struct InfiniteCanvas: View {
                 )))
                 .foregroundStyle(ink),
             in: textRect
+        )
+    }
+
+    private func drawBoundary(_ mark: BoundaryMark, scale: CGFloat, in context: GraphicsContext) {
+        let rect = camera.viewport.viewRect(fromCanvas: mark.rect)
+        guard rect.width > 1, rect.height > 1 else { return }
+        let path = Path(roundedRect: rect, cornerRadius: SummaryGeometry.cornerRadius)
+        let selected = keyboard.selectedBoundaryID == mark.id
+        let ink = selected ? color(interaction.selectionBorder) : color(SummaryGeometry.boundaryInk)
+        context.fill(path, with: .color(ink.opacity(colorScheme == .dark ? 0.16 : 0.08)))
+        context.stroke(path, with: .color(ink), lineWidth: selected ? 2.25 : SummaryGeometry.lineWidth)
+        let titleSize = CanvasTextScale.onScreenPointSize(fontSize: SummaryGeometry.titleFontSize, scale: scale)
+        guard titleSize >= 9, !mark.title.isEmpty, keyboard.editingBoundaryID != mark.id else { return }
+        let title = camera.viewport.viewRect(fromCanvas: mark.titleRect)
+        guard title.width > 1, title.height > 1 else { return }
+        let paper = colorScheme == .dark ? Color(white: 0.16) : Color.white
+        let textInk = colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16)
+        context.fill(Path(roundedRect: title, cornerRadius: 4), with: .color(paper))
+        context.draw(
+            Text(mark.title).font(.system(size: titleSize)).foregroundStyle(textInk),
+            in: title.insetBy(dx: 4, dy: 1)
+        )
+    }
+
+    private func drawSummary(_ mark: SummaryMark, scale: CGFloat, in context: GraphicsContext) {
+        var brace = Path()
+        brace.move(to: camera.viewport.viewPoint(fromCanvas: mark.braceTop))
+        brace.addLine(to: camera.viewport.viewPoint(fromCanvas: mark.braceMid))
+        brace.addLine(to: camera.viewport.viewPoint(fromCanvas: mark.braceBottom))
+        let selected = keyboard.selectedSummaryID == mark.id
+        let ink = selected ? color(interaction.selectionBorder) : color(SummaryGeometry.summaryInk)
+        context.stroke(
+            brace,
+            with: .color(ink),
+            style: StrokeStyle(lineWidth: selected ? 2.25 : SummaryGeometry.lineWidth, lineCap: .round, lineJoin: .round)
+        )
+        let rect = camera.viewport.viewRect(fromCanvas: mark.topicRect)
+        guard rect.width > 1, rect.height > 1 else { return }
+        let card = Path(roundedRect: rect, cornerRadius: 8)
+        let paper = colorScheme == .dark ? Color(white: 0.16) : Color.white
+        let textInk = colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16)
+        context.fill(card, with: .color(paper))
+        context.stroke(card, with: .color(ink), lineWidth: selected ? 2.25 : SummaryGeometry.lineWidth)
+        let pointSize = CanvasTextScale.onScreenPointSize(fontSize: SummaryGeometry.topicFontSize, scale: scale)
+        guard pointSize >= 9, !mark.text.isEmpty, keyboard.editingSummaryID != mark.id else { return }
+        let textRect = rect.insetBy(dx: 6, dy: 3)
+        guard textRect.width > 1, textRect.height > 1 else { return }
+        context.draw(
+            Text(mark.text)
+                .font(.system(size: pointSize))
+                .foregroundStyle(textInk),
+            in: textRect
+        )
+    }
+
+    private func summaryHit(at point: CGPoint) -> UUID? {
+        guard document.hasSummaries else { return nil }
+        return SummaryGeometry.summaryHit(
+            at: point,
+            in: SummaryGeometry.summaries(in: document, frames: placedFrames())
+        )
+    }
+
+    private func boundaryHit(at point: CGPoint) -> UUID? {
+        guard document.hasBoundaries else { return nil }
+        return SummaryGeometry.boundaryHit(
+            at: point,
+            in: SummaryGeometry.boundaries(in: document, frames: placedFrames())
         )
     }
 

@@ -2415,19 +2415,138 @@
         }
       }
     },
-    "删除选中的节点、便签或关系": {
+    "删除选中的节点、便签、关系、概要或边界": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delete the selected topic, sticky, or relationship"
+            "value": "Delete the selected topic, sticky, relationship, summary, or boundary"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "删除选中的节点、便签或关系"
+            "value": "删除选中的节点、便签、关系、概要或边界"
+          }
+        }
+      }
+    },
+    "概要": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Summary"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "概要"
+          }
+        }
+      }
+    },
+    "边界": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Boundary"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "边界"
+          }
+        }
+      }
+    },
+    "为选中的节点生成概要，并画出括住它的括号": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a summary for the selected topic and draw a bracket around it"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "为选中的节点生成概要，并画出括住它的括号"
+          }
+        }
+      }
+    },
+    "用边界圈住选中的节点": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Draw a boundary around the selected topic"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用边界圈住选中的节点"
+          }
+        }
+      }
+    },
+    "编辑概要文字": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit the summary text"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑概要文字"
+          }
+        }
+      }
+    },
+    "编辑边界标题": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit the boundary title"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑边界标题"
+          }
+        }
+      }
+    },
+    "标题": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Title"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "标题"
           }
         }
       }
@@ -2602,19 +2721,19 @@
         }
       }
     },
-    "插入子节点、同级、自由节点、便签、图片、附件，或从文件导入": {
+    "插入子节点、同级、自由节点、便签、概要、边界、图片、附件，或从文件导入": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Insert a child, sibling, free topic, sticky, image, or attachment, or import from a file"
+            "value": "Insert a child, sibling, free topic, sticky, summary, boundary, image, or attachment, or import from a file"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "插入子节点、同级、自由节点、便签、图片、附件，或从文件导入"
+            "value": "插入子节点、同级、自由节点、便签、概要、边界、图片、附件，或从文件导入"
           }
         }
       }

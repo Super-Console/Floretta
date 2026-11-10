@@ -4,6 +4,8 @@ public enum EditedObject: Equatable, Sendable {
     case node
     case sticky
     case relationship
+    case summary
+    case boundary
 }
 
 public struct EditBuffer: Equatable, Sendable {
@@ -28,6 +30,8 @@ public struct MindMapKeyboardSession {
             if selectedNodeID != nil {
                 selectedStickyID = nil
                 selectedRelationshipID = nil
+                selectedSummaryID = nil
+                selectedBoundaryID = nil
             }
         }
     }
@@ -36,6 +40,8 @@ public struct MindMapKeyboardSession {
             if selectedStickyID != nil {
                 selectedNodeID = nil
                 selectedRelationshipID = nil
+                selectedSummaryID = nil
+                selectedBoundaryID = nil
             }
         }
     }
@@ -45,6 +51,30 @@ public struct MindMapKeyboardSession {
             if selectedRelationshipID != nil {
                 selectedNodeID = nil
                 selectedStickyID = nil
+                selectedSummaryID = nil
+                selectedBoundaryID = nil
+            }
+        }
+    }
+    /// The selected summary topic. Setting it clears the topic, sticky, relationship, and boundary.
+    public var selectedSummaryID: UUID? {
+        didSet {
+            if selectedSummaryID != nil {
+                selectedNodeID = nil
+                selectedStickyID = nil
+                selectedRelationshipID = nil
+                selectedBoundaryID = nil
+            }
+        }
+    }
+    /// The selected boundary. Setting it clears the other selections.
+    public var selectedBoundaryID: UUID? {
+        didSet {
+            if selectedBoundaryID != nil {
+                selectedNodeID = nil
+                selectedStickyID = nil
+                selectedRelationshipID = nil
+                selectedSummaryID = nil
             }
         }
     }
@@ -60,6 +90,18 @@ public struct MindMapKeyboardSession {
     /// Set while the relationship label is the text being edited.
     public var editingRelationshipID: UUID? {
         guard mode == .edit, edit?.object == .relationship else { return nil }
+        return edit?.nodeID
+    }
+
+    /// Set while the summary topic text is being edited.
+    public var editingSummaryID: UUID? {
+        guard mode == .edit, edit?.object == .summary else { return nil }
+        return edit?.nodeID
+    }
+
+    /// Set while the boundary title is being edited.
+    public var editingBoundaryID: UUID? {
+        guard mode == .edit, edit?.object == .boundary else { return nil }
         return edit?.nodeID
     }
 
@@ -118,6 +160,10 @@ public struct MindMapKeyboardSession {
             _ = document.replaceStickyText(buffer.nodeID, with: text)
         case .relationship:
             _ = document.renameRelationship(buffer.nodeID, title: text)
+        case .summary:
+            _ = document.renameSummary(buffer.nodeID, text: text)
+        case .boundary:
+            _ = document.renameBoundary(buffer.nodeID, title: text)
         }
     }
 
@@ -170,6 +216,32 @@ public struct MindMapKeyboardSession {
             mode = .edit
             return
         }
+        if let summaryID = selectedSummaryID,
+           selectedNodeID == nil,
+           let summary = document.summary(summaryID) {
+            editOrigin = capture(document)
+            edit = EditBuffer(
+                nodeID: summaryID,
+                original: summary.text,
+                text: summary.text,
+                object: .summary
+            )
+            mode = .edit
+            return
+        }
+        if let boundaryID = selectedBoundaryID,
+           selectedNodeID == nil,
+           let boundary = document.boundary(boundaryID) {
+            editOrigin = capture(document)
+            edit = EditBuffer(
+                nodeID: boundaryID,
+                original: boundary.title,
+                text: boundary.title,
+                object: .boundary
+            )
+            mode = .edit
+            return
+        }
         guard let id = selectedNodeID, let node = document.node(id) else { return }
         editOrigin = capture(document)
         edit = EditBuffer(nodeID: id, original: node.text, text: node.text)
@@ -216,6 +288,34 @@ public struct MindMapKeyboardSession {
                 return
             }
             selectedRelationshipID = next
+            return
+        }
+        if let summaryID = selectedSummaryID {
+            guard document.summary(summaryID) != nil else {
+                selectedSummaryID = nil
+                return
+            }
+            let next = document.summarySelection(afterRemoving: summaryID)
+            record(document)
+            guard document.removeSummary(summaryID) else {
+                if !undoStack.isEmpty { undoStack.removeLast() }
+                return
+            }
+            selectedSummaryID = next
+            return
+        }
+        if let boundaryID = selectedBoundaryID {
+            guard document.boundary(boundaryID) != nil else {
+                selectedBoundaryID = nil
+                return
+            }
+            let next = document.boundarySelection(afterRemoving: boundaryID)
+            record(document)
+            guard document.removeBoundary(boundaryID) else {
+                if !undoStack.isEmpty { undoStack.removeLast() }
+                return
+            }
+            selectedBoundaryID = next
             return
         }
         guard let id = selectedNodeID, document.node(id) != nil else { return }
@@ -444,6 +544,36 @@ public struct MindMapKeyboardSession {
         return relationship.id
     }
 
+    /// Covers the selected topic with a summary topic and selects that summary for editing.
+    /// One undo step. Roots and free nodes have no parent range, so they are refused.
+    @discardableResult
+    public mutating func addSummaryForSelection(document: inout MindMapDocument) -> UUID? {
+        guard mode == .command, editOrigin == nil, pendingChange == nil else { return nil }
+        guard let childID = selectedNodeID, document.canEnclose(childID) else { return nil }
+        record(document)
+        guard let summary = document.addSummary(covering: childID) else {
+            if !undoStack.isEmpty { undoStack.removeLast() }
+            return nil
+        }
+        selectedSummaryID = summary.id
+        beginEdit(document: document)
+        return summary.id
+    }
+
+    /// Draws a boundary around the selected topic and selects it. One undo step.
+    @discardableResult
+    public mutating func addBoundaryForSelection(document: inout MindMapDocument) -> UUID? {
+        guard mode == .command, editOrigin == nil, pendingChange == nil else { return nil }
+        guard let childID = selectedNodeID, document.canEnclose(childID) else { return nil }
+        record(document)
+        guard let boundary = document.addBoundary(covering: childID) else {
+            if !undoStack.isEmpty { undoStack.removeLast() }
+            return nil
+        }
+        selectedBoundaryID = boundary.id
+        return boundary.id
+    }
+
     /// Connects the selected free node to any other topic. One undo step.
     /// The free node stays selected, matching callers that delete that node next.
     @discardableResult
@@ -472,6 +602,8 @@ public struct MindMapKeyboardSession {
             selectedNodeID: selectedNodeID,
             selectedStickyID: selectedStickyID,
             selectedRelationshipID: selectedRelationshipID,
+            selectedSummaryID: selectedSummaryID,
+            selectedBoundaryID: selectedBoundaryID,
             mode: mode,
             edit: edit,
             isComposing: isComposing
@@ -483,6 +615,8 @@ public struct MindMapKeyboardSession {
         selectedNodeID = snapshot.selectedNodeID
         selectedStickyID = snapshot.selectedStickyID
         selectedRelationshipID = snapshot.selectedRelationshipID
+        selectedSummaryID = snapshot.selectedSummaryID
+        selectedBoundaryID = snapshot.selectedBoundaryID
         mode = snapshot.mode
         edit = snapshot.edit
         isComposing = snapshot.isComposing
@@ -494,6 +628,8 @@ private struct Snapshot: Equatable {
     var selectedNodeID: UUID?
     var selectedStickyID: UUID?
     var selectedRelationshipID: UUID?
+    var selectedSummaryID: UUID?
+    var selectedBoundaryID: UUID?
     var mode: KeyboardMode
     var edit: EditBuffer?
     var isComposing: Bool
@@ -530,7 +666,11 @@ public extension MindMapDocument {
     @discardableResult
     public mutating func insertChild(_ child: MindMapNode, under parentID: UUID) -> Bool {
         if isInFreeNodeTree(parentID) { return false }
-        return mutateNode(parentID) { $0.children.append(child) }
+        return mutateNode(parentID) { parent in
+            let previous = parent.children.map(\.id)
+            parent.children.append(child)
+            parent.realignMarks(previousChildIDs: previous)
+        }
     }
 
     @discardableResult
@@ -543,7 +683,9 @@ public extension MindMapDocument {
         func walk(_ nodes: inout [MindMapNode]) -> Bool {
             for index in nodes.indices {
                 if let childIndex = nodes[index].children.firstIndex(where: { $0.id == id }) {
+                    let previous = nodes[index].children.map(\.id)
                     nodes[index].children.insert(sibling, at: childIndex + 1)
+                    nodes[index].realignMarks(previousChildIDs: previous)
                     return true
                 }
                 if walk(&nodes[index].children) { return true }
@@ -626,7 +768,9 @@ public extension MindMapDocument {
 private func removeNestedTopic(_ id: UUID, from nodes: inout [MindMapNode]) -> Bool {
     for index in nodes.indices {
         if let childIndex = nodes[index].children.firstIndex(where: { $0.id == id }) {
+            let previous = nodes[index].children.map(\.id)
             nodes[index].children.remove(at: childIndex)
+            nodes[index].realignMarks(previousChildIDs: previous)
             return true
         }
         if removeNestedTopic(id, from: &nodes[index].children) { return true }

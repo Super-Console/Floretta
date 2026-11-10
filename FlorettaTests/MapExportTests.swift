@@ -81,6 +81,37 @@ final class MapExportTests: XCTestCase {
         XCTAssertNotNil(pdf.pdf)
     }
 
+    func testSummariesAndBoundariesEnlargePNGAndPDF() throws {
+        let root = UUID(uuidString: "10101010-1010-4010-8010-101010101010")!
+        let child = UUID(uuidString: "20202020-2020-4020-8020-202020202020")!
+        let summaryID = UUID(uuidString: "30303030-3030-4030-8030-303030303030")!
+        let boundaryID = UUID(uuidString: "40404040-4040-4040-8040-404040404040")!
+        let bare = MindMapDocument(
+            title: "圈",
+            roots: [MindMapNode(id: root, text: "根", children: [MindMapNode(id: child, text: "子")])]
+        )
+        var marked = bare
+        XCTAssertNotNil(marked.addSummary(under: root, rangeStart: 0, rangeEnd: 0, text: "概要", id: summaryID))
+        XCTAssertNotNil(marked.addBoundary(under: root, rangeStart: 0, rangeEnd: 0, title: "一组", id: boundaryID))
+        let options = MapExportOptions(scale: .one, background: .white, padding: 32)
+        let plain = MapExporter.png(document: bare, options: options)
+        let withMarks = MapExporter.png(document: marked, options: options)
+        XCTAssertNil(withMarks.notice)
+        XCTAssertNotNil(withMarks.png)
+        XCTAssertGreaterThan(withMarks.pointSize.width, plain.pointSize.width + 20)
+        let frames = MapExporter.visibleFrames(in: marked)
+        let summary = try XCTUnwrap(SummaryGeometry.summaries(in: marked, frames: frames).first)
+        let boundary = try XCTUnwrap(SummaryGeometry.boundaries(in: marked, frames: frames).first)
+        XCTAssertTrue(withMarks.renderBounds.insetBy(dx: -1, dy: -1).contains(summary.topicRect))
+        XCTAssertTrue(withMarks.renderBounds.insetBy(dx: -1, dy: -1).contains(boundary.rect))
+        XCTAssertFalse(withMarks.visibleNodeIDs.contains(summaryID))
+        let pdf = MapExporter.pdf(document: marked, options: options)
+        let pdfBare = MapExporter.pdf(document: bare, options: options)
+        XCTAssertNotNil(pdf.pdf)
+        XCTAssertGreaterThan(pdf.pointSize.width, pdfBare.pointSize.width + 20)
+        XCTAssertEqual(pdf.mediaBox.width, pdf.pointSize.width, accuracy: 1)
+    }
+
     func testCollapsedChildrenAreOmitted() {
         let hidden = UUID()
         let child = UUID()

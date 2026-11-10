@@ -371,6 +371,18 @@ final class EditorSession {
         _ = keyboard.linkSelectedTopic(to: targetID, document: &document)
     }
 
+    func addSummaryFromToolbar() {
+        finishEditingIfNeeded()
+        guard keyboard.mode == .command, !keyboard.isComposing else { return }
+        _ = keyboard.addSummaryForSelection(document: &document)
+    }
+
+    func addBoundaryFromToolbar() {
+        finishEditingIfNeeded()
+        guard keyboard.mode == .command, !keyboard.isComposing else { return }
+        _ = keyboard.addBoundaryForSelection(document: &document)
+    }
+
     func deleteSelection() {
         finishEditingIfNeeded()
         guard keyboard.mode == .command, !keyboard.isComposing else { return }

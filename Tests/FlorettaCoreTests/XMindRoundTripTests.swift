@@ -56,7 +56,9 @@ final class XMindRoundTripTests: XCTestCase {
     func testNestedFixtureKeepsFiveLevelsAndDoesNotPromoteSummary() throws {
         let imported = try FlorettaXMindCodec.importMap(try load("nested.xmind"))
         XCTAssertEqual(row("topic.children.attached").disposition, .mapped)
-        XCTAssertEqual(row("topic.children.summary").disposition, .passthrough)
+        XCTAssertEqual(row("topic.children.summary").disposition, .mapped)
+        XCTAssertEqual(row("topic.summaries").disposition, .mapped)
+        XCTAssertEqual(row("topic.boundaries").disposition, .mapped)
         XCTAssertEqual(row("topic.structureClass").disposition, .passthrough)
         var node = imported.roots[0]
         var titles = [node.text]
@@ -69,6 +71,12 @@ final class XMindRoundTripTests: XCTestCase {
         XCTAssertEqual(row("topic.branch").disposition, .passthrough)
         XCTAssertEqual(row("isCollapsed").disposition, .gap)
         XCTAssertEqual(imported.topicCount, 5)
+        let summary = try XCTUnwrap(imported.roots[0].summaries.first)
+        XCTAssertEqual(summary.text, "概要")
+        XCTAssertEqual(summary.rangeStart, 0)
+        XCTAssertEqual(summary.rangeEnd, 0)
+        XCTAssertNotEqual(summary.id, imported.roots[0].id)
+        XCTAssertFalse(imported.roots[0].children.contains { $0.id == summary.id })
     }
 
     func testStyledFixtureMapsProperties() throws {

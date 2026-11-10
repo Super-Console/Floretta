@@ -99,7 +99,7 @@ struct DocumentEditor: View {
                             Image(systemName: "trash")
                         }
                         .accessibilityLabel(text("删除"))
-                        .help(Text(verbatim: text("删除选中的节点、便签或关系")))
+                        .help(Text(verbatim: text("删除选中的节点、便签、关系、概要或边界")))
                     }
                     ToolbarItemGroup(placement: .primaryAction) {
                         insertMenu
@@ -352,6 +352,16 @@ struct DocumentEditor: View {
             }
             .disabled(session.keyboard.selectedNodeID == nil)
             .help(Text(verbatim: text("把选中的节点连到另一个节点，画布上会画出这条线。")))
+            Button { session.addSummaryFromToolbar() } label: {
+                Label(text("概要"), systemImage: "curlybraces")
+            }
+            .disabled(!session.document.canEnclose(session.keyboard.selectedNodeID))
+            .help(Text(verbatim: text("为选中的节点生成概要，并画出括住它的括号")))
+            Button { session.addBoundaryFromToolbar() } label: {
+                Label(text("边界"), systemImage: "rectangle.dashed")
+            }
+            .disabled(!session.document.canEnclose(session.keyboard.selectedNodeID))
+            .help(Text(verbatim: text("用边界圈住选中的节点")))
             Button { showImageImporter = true } label: {
                 Label(text("图片"), systemImage: "photo")
             }
@@ -368,7 +378,7 @@ struct DocumentEditor: View {
             Image(systemName: "plus")
         }
         .accessibilityLabel(text("插入"))
-        .help(Text(verbatim: text("插入子节点、同级、自由节点、便签、图片、附件，或从文件导入")))
+        .help(Text(verbatim: text("插入子节点、同级、自由节点、便签、概要、边界、图片、附件，或从文件导入")))
     }
 
     private var zoomMenu: some View {
@@ -464,6 +474,10 @@ struct DocumentEditor: View {
             if inspectorTab == 0 {
                 if session.keyboard.selectedRelationshipID != nil {
                     relationshipLabelForm
+                } else if session.keyboard.selectedSummaryID != nil {
+                    summaryTextForm
+                } else if session.keyboard.selectedBoundaryID != nil {
+                    boundaryTitleForm
                 } else {
                     StyleInspector(
                         document: $session.document,
@@ -512,6 +526,12 @@ struct DocumentEditor: View {
             LabeledContent(text("关系")) {
                 Text(verbatim: "\(session.document.relationships.count)").monospacedDigit()
             }
+            LabeledContent(text("概要")) {
+                Text(verbatim: "\(session.document.summaryCount)").monospacedDigit()
+            }
+            LabeledContent(text("边界")) {
+                Text(verbatim: "\(session.document.boundaryCount)").monospacedDigit()
+            }
         }
         .formStyle(.grouped)
     }
@@ -545,6 +565,73 @@ struct DocumentEditor: View {
                 session.keyboard.replaceEditingText(newValue, document: &session.document)
             }
         )
+    }
+
+    private var summaryTextForm: some View {
+        Form {
+            Section(text("概要")) {
+                TextField(text("概要"), text: summaryText)
+                    .onSubmit { commitMarkText() }
+                    .help(Text(verbatim: text("编辑概要文字")))
+                    .accessibilityIdentifier("summary.text")
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var summaryText: Binding<String> {
+        Binding(
+            get: {
+                guard let id = session.keyboard.selectedSummaryID else { return "" }
+                if session.keyboard.editingSummaryID == id {
+                    return session.keyboard.editingText
+                }
+                return session.document.summary(id)?.text ?? ""
+            },
+            set: { newValue in
+                guard let id = session.keyboard.selectedSummaryID else { return }
+                if session.keyboard.editingSummaryID != id {
+                    session.keyboard.apply(.beginEdit, document: &session.document, frames: [])
+                }
+                session.keyboard.replaceEditingText(newValue, document: &session.document)
+            }
+        )
+    }
+
+    private var boundaryTitleForm: some View {
+        Form {
+            Section(text("边界")) {
+                TextField(text("标题"), text: boundaryTitle)
+                    .onSubmit { commitMarkText() }
+                    .help(Text(verbatim: text("编辑边界标题")))
+                    .accessibilityIdentifier("boundary.title")
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var boundaryTitle: Binding<String> {
+        Binding(
+            get: {
+                guard let id = session.keyboard.selectedBoundaryID else { return "" }
+                if session.keyboard.editingBoundaryID == id {
+                    return session.keyboard.editingText
+                }
+                return session.document.boundary(id)?.title ?? ""
+            },
+            set: { newValue in
+                guard let id = session.keyboard.selectedBoundaryID else { return }
+                if session.keyboard.editingBoundaryID != id {
+                    session.keyboard.apply(.beginEdit, document: &session.document, frames: [])
+                }
+                session.keyboard.replaceEditingText(newValue, document: &session.document)
+            }
+        )
+    }
+
+    private func commitMarkText() {
+        guard session.keyboard.mode == .edit else { return }
+        session.keyboard.apply(.commitEdit, document: &session.document, frames: [])
     }
 
     private func commitRelationshipTitle() {

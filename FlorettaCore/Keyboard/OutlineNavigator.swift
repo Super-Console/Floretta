@@ -92,7 +92,11 @@ public extension MindMapDocument {
         }
         if let parentID {
             if isInFreeNodeTree(parentID) { return }
-            _ = mutateNode(parentID) { reorder(&$0.children) }
+            _ = mutateNode(parentID) { parent in
+                let previous = parent.children.map(\.id)
+                reorder(&parent.children)
+                parent.realignMarks(previousChildIDs: previous)
+            }
         } else {
             reorder(&roots)
         }
@@ -104,8 +108,10 @@ public extension MindMapDocument {
         guard let extracted = extractNode(id) else { return false }
         if let parentID {
             return mutateNode(parentID) { parent in
+                let previous = parent.children.map(\.id)
                 let insertAt = min(max(index, 0), parent.children.count)
                 parent.children.insert(extracted, at: insertAt)
+                parent.realignMarks(previousChildIDs: previous)
                 parent.isCollapsed = false
             }
         }
@@ -121,7 +127,10 @@ public extension MindMapDocument {
         func walk(_ nodes: inout [MindMapNode]) -> MindMapNode? {
             for index in nodes.indices {
                 if let childIndex = nodes[index].children.firstIndex(where: { $0.id == id }) {
-                    return nodes[index].children.remove(at: childIndex)
+                    let previous = nodes[index].children.map(\.id)
+                    let removed = nodes[index].children.remove(at: childIndex)
+                    nodes[index].realignMarks(previousChildIDs: previous)
+                    return removed
                 }
                 if let found = walk(&nodes[index].children) {
                     return found

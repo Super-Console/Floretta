@@ -182,97 +182,105 @@ struct InfiniteCanvas: View {
             .onChange(of: keyboard.selectedNodeID) { _, id in
                 interaction.selectedNodeID = id
             }
-            .simultaneousGesture(SpatialTapGesture().onEnded { value in
-                if EditFieldGuard.ignoresCanvasTap(
-                    at: value.location,
-                    editFrame: editFieldFrame(),
-                    isComposing: keyboard.isComposing
-                ) { return }
-                let point = camera.viewport.canvasPoint(fromView: value.location)
-                if let stickyHit = stickyHit(at: point) {
-                    applyStickyTap(stickyHit)
-                    return
-                }
-                if previewFile(at: point) { return }
-                let hit = CanvasPlacement.nodeID(at: point, in: layoutSource())
-                if hit == nil, let summaryID = summaryHit(at: point) {
-                    applySummaryTap(summaryID)
-                    return
-                }
-                if hit == nil, let relationshipID = relationshipHit(at: point) {
-                    applyRelationshipTap(relationshipID)
-                    return
-                }
-                if hit == nil, let boundaryID = boundaryHit(at: point) {
-                    applyBoundaryTap(boundaryID)
-                    return
-                }
-                if hit == nil, let regionID = regionHit(at: point) {
-                    applyRegionTap(regionID)
-                    return
-                }
-                if zenActive, hit == nil { return }
-                applyNodeTap(hit)
-            })
-            .simultaneousGesture(SpatialTapGesture(count: 2).onEnded { value in
-                if EditFieldGuard.ignoresCanvasTap(
-                    at: value.location,
-                    editFrame: editFieldFrame(),
-                    isComposing: keyboard.isComposing
-                ) { return }
-                let point = camera.viewport.canvasPoint(fromView: value.location)
-                if let id = stickyHit(at: point) {
-                    beginStickyEdit(id)
-                    return
-                }
-                if previewFile(at: point) { return }
-                if let hit = CanvasPlacement.nodeID(at: point, in: layoutSource()) {
-                    beginEditing(hit)
-                    return
-                }
-                if let summaryID = summaryHit(at: point) {
-                    if keyboard.mode == .edit, keyboard.selectedSummaryID != summaryID {
-                        keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
-                    }
-                    beginSummaryEdit(summaryID)
-                    return
-                }
-                if let relationshipID = relationshipHit(at: point) {
-                    if keyboard.mode == .edit, keyboard.selectedRelationshipID != relationshipID {
-                        keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
-                    }
-                    beginRelationshipEdit(relationshipID)
-                    return
-                }
-                if let boundaryID = boundaryHit(at: point) {
-                    if keyboard.mode == .edit, keyboard.selectedBoundaryID != boundaryID {
-                        keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
-                    }
-                    beginBoundaryEdit(boundaryID)
-                    return
-                }
-                if let regionID = regionHit(at: point),
-                   CanvasPlacement.nodeID(at: point, in: layoutSource()) == nil {
-                    if keyboard.mode == .edit, keyboard.selectedRegionID != regionID {
-                        keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
-                    }
-                    beginRegionEdit(regionID)
-                    return
-                }
-                if onConsumeBlankDoubleTap() { return }
-                if focusNodeID != nil { return }
-                if keyboard.mode == .edit {
-                    keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
-                }
-                guard persistsPlacement else { return }
-                let placed = MindMapPoint(x: Double(point.x), y: Double(point.y))
-                if let id = keyboard.addFreeNode(at: placed, document: &document) {
-                    keyboard.selectedNodeID = id
-                    interaction.selectedNodeID = id
-                }
-            })
+            .simultaneousGesture(canvasTapGesture)
+            .simultaneousGesture(canvasDoubleTapGesture)
         }
         .focusEffectDisabled(true)
+    }
+
+    private var canvasTapGesture: some Gesture {
+        SpatialTapGesture().onEnded { value in
+            if EditFieldGuard.ignoresCanvasTap(
+                at: value.location,
+                editFrame: editFieldFrame(),
+                isComposing: keyboard.isComposing
+            ) { return }
+            let point = camera.viewport.canvasPoint(fromView: value.location)
+            if let stickyHit = stickyHit(at: point) {
+                applyStickyTap(stickyHit)
+                return
+            }
+            if previewFile(at: point) { return }
+            let hit = CanvasPlacement.nodeID(at: point, in: layoutSource())
+            if hit == nil, let summaryID = summaryHit(at: point) {
+                applySummaryTap(summaryID)
+                return
+            }
+            if hit == nil, let relationshipID = relationshipHit(at: point) {
+                applyRelationshipTap(relationshipID)
+                return
+            }
+            if hit == nil, let boundaryID = boundaryHit(at: point) {
+                applyBoundaryTap(boundaryID)
+                return
+            }
+            if hit == nil, let regionID = regionHit(at: point) {
+                applyRegionTap(regionID)
+                return
+            }
+            if zenActive, hit == nil { return }
+            applyNodeTap(hit)
+        }
+    }
+
+    private var canvasDoubleTapGesture: some Gesture {
+        SpatialTapGesture(count: 2).onEnded { value in
+            if EditFieldGuard.ignoresCanvasTap(
+                at: value.location,
+                editFrame: editFieldFrame(),
+                isComposing: keyboard.isComposing
+            ) { return }
+            let point = camera.viewport.canvasPoint(fromView: value.location)
+            if let id = stickyHit(at: point) {
+                beginStickyEdit(id)
+                return
+            }
+            if previewFile(at: point) { return }
+            if let hit = CanvasPlacement.nodeID(at: point, in: layoutSource()) {
+                beginEditing(hit)
+                return
+            }
+            if let summaryID = summaryHit(at: point) {
+                if keyboard.mode == .edit, keyboard.selectedSummaryID != summaryID {
+                    keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+                }
+                beginSummaryEdit(summaryID)
+                return
+            }
+            if let relationshipID = relationshipHit(at: point) {
+                if keyboard.mode == .edit, keyboard.selectedRelationshipID != relationshipID {
+                    keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+                }
+                beginRelationshipEdit(relationshipID)
+                return
+            }
+            if let boundaryID = boundaryHit(at: point) {
+                if keyboard.mode == .edit, keyboard.selectedBoundaryID != boundaryID {
+                    keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+                }
+                beginBoundaryEdit(boundaryID)
+                return
+            }
+            if let regionID = regionHit(at: point),
+               CanvasPlacement.nodeID(at: point, in: layoutSource()) == nil {
+                if keyboard.mode == .edit, keyboard.selectedRegionID != regionID {
+                    keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+                }
+                beginRegionEdit(regionID)
+                return
+            }
+            if onConsumeBlankDoubleTap() { return }
+            if focusNodeID != nil { return }
+            if keyboard.mode == .edit {
+                keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+            }
+            guard persistsPlacement else { return }
+            let placed = MindMapPoint(x: Double(point.x), y: Double(point.y))
+            if let id = keyboard.addFreeNode(at: placed, document: &document) {
+                keyboard.selectedNodeID = id
+                interaction.selectedNodeID = id
+            }
+        }
     }
 
     /// A tap on a file badge previews that file and does not open the text editor.

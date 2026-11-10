@@ -45,7 +45,7 @@ final class AIAdaptationTests: XCTestCase {
 
         try session.delete(at: "root/0")
         XCTAssertThrowsError(try session.get(.text, at: "root/3/2")) { error in
-            XCTAssertTrue(String(describing(error)).contains("重算"))
+            XCTAssertTrue(String(describing: error).contains("重算"))
         }
         XCTAssertEqual(try session.get(.text, at: "root/2/2"), "d1")
 
@@ -112,7 +112,7 @@ final class AIAdaptationTests: XCTestCase {
         let target = "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA5"
         XCTAssertEqual(try session.document.node(at: FlorettaNodePath(indexes: [3, 1])).id.uuidString, target)
         XCTAssertThrowsError(try session.get(.text, at: "root/3/1")) { error in
-            XCTAssertTrue(String(describing(error)).contains("UUID"))
+            XCTAssertTrue(String(describing: error).contains("UUID"))
         }
         XCTAssertEqual(try session.get(.text, at: target), "d1")
         XCTAssertEqual(session.address(of: UUID(uuidString: target)!), target)
@@ -192,7 +192,7 @@ final class AIAdaptationTests: XCTestCase {
         XCTAssertEqual(try opened.get(.text, at: "root/3/1/1"), "新")
         XCTAssertEqual(try opened.get(.note, at: "root/3/1/1"), "记")
         XCTAssertEqual(try opened.get(.link, at: "root/3/1/1"), "https://example.com/n")
-        XCTAssertEqual(files.read(from: file), Data(FlorettaMarkdownDocumentCodec.save(opened.document).utf8))
+        XCTAssertEqual(try files.read(from: file), Data(FlorettaMarkdownDocumentCodec.save(opened.document).utf8))
 
         let beforeExport = try files.read(from: file)
         let exported = FlorettaCommandLine.run(["floretta", "export", file.path])

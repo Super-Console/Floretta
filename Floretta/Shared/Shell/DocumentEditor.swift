@@ -114,6 +114,9 @@ struct DocumentEditor: View {
                         .accessibilityLabel(text("返回"))
                         .accessibilityIdentifier("basicChain.back")
                         .help(Text(verbatim: text("返回导图列表")))
+                        .frame(width: 44, height: 44)
+                        .contentShape(Circle())
+                        .appleGlassChrome(.iconButton)
                     }
                     ToolbarSpacer(.fixed, placement: .cancellationAction)
                     ToolbarItem(placement: .cancellationAction) {
@@ -1084,16 +1087,22 @@ struct DocumentEditor: View {
                 // Taller than the segmented control, so the header's center is this
                 // handle. A downward drag here dismisses the compact sheet. The same
                 // drag on the segments selects 演说 instead, because that control
-                // takes the touch on contact.
-                Capsule()
-                    .fill(.secondary)
-                    .frame(width: 36, height: 5)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 96)
-                    .contentShape(Rectangle())
-                    .accessibilityLabel("关闭检查器")
-                    .highPriorityGesture(sheetDismissDrag)
-
+                // takes the touch on contact. A tap also dismisses, because a UI
+                // test swipeDown often misses the DragGesture.
+                Button {
+                    showInspector = false
+                } label: {
+                    Capsule()
+                        .fill(.secondary)
+                        .frame(width: 36, height: 5)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 96)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("关闭检查器")
+                .accessibilityIdentifier("inspector.dismiss")
+                .highPriorityGesture(sheetDismissDrag)
             }
             inspectorTabPicker
                 .padding(.horizontal)

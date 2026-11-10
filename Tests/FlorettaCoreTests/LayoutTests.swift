@@ -278,6 +278,41 @@ final class LayoutTests: XCTestCase {
                 XCTAssertNotEqual(a.dark.centerFill, b.dark.centerFill)
             }
         }
+        for theme in MapThemeCatalog.all {
+            XCTAssertNil(theme.light.canvasBackground)
+            XCTAssertNil(theme.dark.canvasBackground)
+            XCTAssertNil(theme.light.linkStroke)
+            XCTAssertNil(theme.dark.linkStroke)
+        }
+    }
+
+    func testColorPresetsDefineBranchColorsBackgroundAndLineWidth() {
+        let names = ["晨曦", "极简灰", "海盐", "橘叶", "夜紫", "森林"]
+        XCTAssertEqual(MapColorPresetCatalog.all.map(\.nameKey), names)
+        XCTAssertEqual(Set(MapColorPresetCatalog.all.map(\.id)).count, names.count)
+        var papers: [BranchColor] = []
+        var widths: [CGFloat] = []
+        var palettes: [[BranchColor]] = []
+        for preset in MapColorPresetCatalog.all {
+            XCTAssertFalse(preset.id.isEmpty)
+            XCTAssertGreaterThanOrEqual(preset.branchColors.count, 4)
+            XCTAssertGreaterThan(preset.lineWidth, 0)
+            XCTAssertEqual(preset.appearance.palette.colors, preset.branchColors)
+            XCTAssertEqual(preset.appearance.canvasBackground, preset.canvasBackground)
+            XCTAssertEqual(preset.appearance.linkStroke, preset.lineWidth)
+            XCTAssertFalse(papers.contains(preset.canvasBackground))
+            XCTAssertFalse(widths.contains(preset.lineWidth))
+            XCTAssertFalse(palettes.contains(preset.branchColors))
+            assertDistinct(preset.branchColors)
+            papers.append(preset.canvasBackground)
+            widths.append(preset.lineWidth)
+            palettes.append(preset.branchColors)
+            XCTAssertFalse(MapThemeCatalog.all.contains { $0.id == preset.id })
+            let light = MapThemeCatalog.appearance(themeID: preset.id, scheme: .light, fallback: .standard)
+            let dark = MapThemeCatalog.appearance(themeID: preset.id, scheme: .dark, fallback: .standard)
+            XCTAssertEqual(light, preset.appearance)
+            XCTAssertEqual(dark, preset.appearance)
+        }
     }
 
     func testAutomaticBranchColorsFollowTheThemeAndKeepExplicitFills() throws {

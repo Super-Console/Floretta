@@ -286,6 +286,51 @@ enum AppLaunch {
         ProcessInfo.processInfo.arguments.contains(openInspectorArgument)
     }
 
+    static var isUITest: Bool {
+        ProcessInfo.processInfo.arguments.contains(uiTestArgument)
+    }
+
+    /// Directory shared with the UI test process. `make()` may rewrite
+    /// `FLORETTA_UITEST_DIR` to a writable fallback inside the app container.
+    static var uiTestDirectory: URL? {
+        guard isUITest, let raw = getenv("FLORETTA_UITEST_DIR") else { return nil }
+        let path = String(cString: raw).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !path.isEmpty else { return nil }
+        return URL(fileURLWithPath: path, isDirectory: true)
+    }
+
+    static var uiTestExportDirectory: URL? {
+        uiTestDirectory?.appendingPathComponent("export", isDirectory: true)
+    }
+
+    static var uiTestImportDirectory: URL? {
+        uiTestDirectory?.appendingPathComponent("import", isDirectory: true)
+    }
+
+    /// File opened or imported when a UI test skips the system document picker.
+    /// The environment value may be an absolute path or a fixture filename under `import/`.
+    static var uiTestImportFile: URL? {
+        guard isUITest else { return nil }
+        guard let requested = ProcessInfo.processInfo.environment["FLORETTA_UITEST_IMPORT_FILE"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !requested.isEmpty else { return nil }
+        let url = URL(fileURLWithPath: requested)
+        if FileManager.default.isReadableFile(atPath: url.path) { return url }
+        if let directory = uiTestImportDirectory {
+            let candidate = directory.appendingPathComponent(url.lastPathComponent)
+            if FileManager.default.isReadableFile(atPath: candidate.path) { return candidate }
+        }
+        return url
+    }
+
+    static func presentUITestImporter(open: (URL) -> Void, otherwise present: () -> Void) {
+        if let url = uiTestImportFile {
+            open(url)
+        } else {
+            present()
+        }
+    }
+
     static let editChromeArgument = "-FlorettaEditChrome"
 
     struct Session {
@@ -305,13 +350,16 @@ enum AppLaunch {
             return session
         }
         let id = UUID().uuidString
-        let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent("FlorettaUITest-\(id)", isDirectory: true)
+        let root = Self.resolveUITestRoot(id: id)
         let documents = root.appendingPathComponent("Documents", isDirectory: true)
         let autosave = root.appendingPathComponent("Autosave", isDirectory: true)
+        let imports = root.appendingPathComponent("import", isDirectory: true)
+        let exports = root.appendingPathComponent("export", isDirectory: true)
         do {
             try FileManager.default.createDirectory(at: documents, withIntermediateDirectories: true)
             try FileManager.default.createDirectory(at: autosave, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(at: imports, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(at: exports, withIntermediateDirectories: true)
         } catch {
             preconditionFailure("UI test directories failed: \(error)")
         }
@@ -329,6 +377,7 @@ enum AppLaunch {
         )
         do {
             try library.installSmokeFixtures()
+            try UITestImportFixtures.install(into: imports)
         } catch {
             preconditionFailure("UI test fixtures failed: \(error)")
         }
@@ -338,7 +387,81 @@ enum AppLaunch {
         let recovery = RecoveryPresenter(
             store: AutosaveStore(directory: autosave, fileAccess: FoundationFileAccess())
         )
+
         return Session(recovery: recovery, settings: settings, library: library)
+    }
+
+    /// Prefer the directory the UI test created when it is writable from this process.
+    /// Fall back to a per-launch folder in the app temporary directory.
+    private static func resolveUITestRoot(id: String) -> URL {
+        let fallback = FileManager.default.temporaryDirectory
+            .appendingPathComponent("FlorettaUITest-\(id)", isDirectory: true)
+        guard let requested = ProcessInfo.processInfo.environment["FLORETTA_UITEST_DIR"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !requested.isEmpty else {
+            return fallback
+        }
+        let url = URL(fileURLWithPath: requested, isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+            let probe = url.appendingPathComponent(".writable")
+            try Data("ok".utf8).write(to: probe, options: .atomic)
+            try FileManager.default.removeItem(at: probe)
+            return url
+        } catch {
+            setenv("FLORETTA_UITEST_DIR", fallback.path, 1)
+            return fallback
+        }
+    }
+}
+
+/// Mind-map fixtures the UI tests open or import, and then read back from disk.
+enum UITestImportFixtures {
+    static let florettaFileName = "A24-floretta-fixture.floretta"
+    static let florettaTitle = "A24八Floretta"
+    static let florettaCenter = "A24八Floretta中心"
+    static let mmFileName = "A24-mm-fixture.mm"
+    static let mmCenter = "A24八MM中心"
+    static let mmChild = "A24八MM子节点"
+    static let opmlFileName = "A24-opml-fixture.opml"
+    static let opmlTitle = "A24十OPML"
+    static let opmlCenter = "A24十OPML中心"
+    static let opmlChild = "A24十OPML子节点"
+
+    static func install(into directory: URL) throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let floretta = MindMapDocument.newMap(
+            title: florettaTitle,
+            roots: [MindMapNode(text: florettaCenter)],
+            clock: FoundationClock()
+        )
+        let florettaURL = directory.appendingPathComponent(florettaFileName)
+        try ZipContainer().write(FlorettaPackage(document: floretta)).write(to: florettaURL, options: .atomic)
+
+        let mm = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <map version="1.0.1">
+          <node TEXT="\(mmCenter)" ID="root">
+            <node TEXT="\(mmChild)" ID="child"/>
+          </node>
+        </map>
+        """
+        try Data(mm.utf8).write(to: directory.appendingPathComponent(mmFileName), options: .atomic)
+
+        let opml = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <opml version="2.0">
+          <head>
+            <title>\(opmlTitle)</title>
+          </head>
+          <body>
+            <outline text="\(opmlCenter)">
+              <outline text="\(opmlChild)"/>
+            </outline>
+          </body>
+        </opml>
+        """
+        try Data(opml.utf8).write(to: directory.appendingPathComponent(opmlFileName), options: .atomic)
     }
 }
 

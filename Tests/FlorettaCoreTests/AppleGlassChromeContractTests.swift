@@ -73,6 +73,8 @@ final class AppleGlassChromeContractTests: XCTestCase {
         let zen = try slice(editor, from: "private var immersiveExit", until: "private var insertMenu")
         XCTAssertTrue(zen.contains(".appleGlassChrome(.iconButton)"))
         XCTAssertTrue(zen.contains("zen.exit"))
+        XCTAssertTrue(zen.contains(".frame(width: 44, height: 44)"))
+        XCTAssertTrue(zen.contains("contentShape(Circle())"))
         XCTAssertFalse(zen.contains("ultraThinMaterial"))
         XCTAssertFalse(zen.contains(".blur("))
 

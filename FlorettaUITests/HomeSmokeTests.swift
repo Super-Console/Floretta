@@ -343,75 +343,116 @@ final class A24EditorActionSmokeTests: XCTestCase {
     }
 
     @MainActor
-    func testSmoke7SaveAsFlorettaPresentsSavePanel() {
-        let app = launchEditor()
+    func testSmoke7SaveAsFlorettaWritesReadablePackage() {
+        let root = makeUITestRoot()
+        let app = launchEditor(root: root)
+        insertChildTopic(app)
         openToolbarOverflow(app)
         app.buttons["分享"].tap()
         let save = app.buttons["smoke.save.floretta"]
-        XCTAssertTrue(save.waitForExistence(timeout: 5))
+        XCTAssertTrue(save.waitForExistence(timeout: 5), "分享菜单没有「保存为 Floretta」")
         save.tap()
-        let picker = documentPickerApp()
-        XCTAssertTrue(systemPickerWasPresented(app, picker), "保存 Floretta 没有打开系统保存面板")
+        let url = waitForUITestFile(named: "未命名.floretta", under: root, subdirectory: "export")
+        let data = readNonEmptyFile(url)
+        XCTAssertTrue(isZipArchive(data), "保存的 .floretta 不是可解析的 ZIP：\(url.path)")
+        XCTAssertTrue(dataContains(data, "document.json"), "ZIP 中没有 document.json：\(url.path)")
+        XCTAssertTrue(dataContains(data, "中心"), "导图中心主题没有写入 \(url.path)")
+        XCTAssertTrue(dataContains(data, "新主题"), "新建子节点没有写入 \(url.path)")
     }
 
     @MainActor
-    func testSmoke8OpenFromFilesPresentsDocumentPicker() {
-        let app = launchHome()
-        app.buttons["home.toolbarMenu"].tap()
-        XCTAssertTrue(app.buttons["home.open"].waitForExistence(timeout: 5))
-        app.buttons["home.open"].tap()
-        let openFiles = app.buttons["从文件应用打开"]
-        XCTAssertTrue(openFiles.waitForExistence(timeout: 5))
-        openFiles.tap()
-        let picker = documentPickerApp()
-        XCTAssertTrue(systemPickerWasPresented(app, picker), "打开文件没有进入系统文件选择器")
+    func testSmoke8OpenFlorettaReadsDocument() throws {
+        try openFixtureAndAssertMap(
+            fileName: "A24-floretta-fixture.floretta",
+            requiredFileText: ["A24八Floretta", "A24八Floretta中心"],
+            expectedTitle: "A24八Floretta",
+            isZip: true
+        )
     }
 
     @MainActor
-    func testSmoke9ExportPNGShowsExportPicker() {
-        let app = launchEditor()
-        openToolbarOverflow(app)
-        app.buttons["分享"].tap()
-        let action = app.buttons["smoke.export.png"]
-        XCTAssertTrue(action.waitForExistence(timeout: 5), "分享菜单缺少 PNG 导出")
-        action.tap()
-        XCTAssertTrue(systemPickerWasPresented(app, documentPickerApp()), "PNG 导出没有打开系统保存面板")
+    func testSmoke8OpenMMReadsMapNotMarkdown() throws {
+        try openFixtureAndAssertMap(
+            fileName: "A24-mm-fixture.mm",
+            requiredFileText: ["<map", "A24八MM中心", "A24八MM子节点"],
+            expectedTitle: "A24八MM中心",
+            isZip: false
+        )
     }
 
     @MainActor
-    func testSmoke9ExportPDFShowsExportPicker() {
-        let app = launchEditor()
-        openToolbarOverflow(app)
-        app.buttons["分享"].tap()
-        let action = app.buttons["smoke.export.pdf"]
-        XCTAssertTrue(action.waitForExistence(timeout: 5), "分享菜单缺少 PDF 导出")
-        action.tap()
-        XCTAssertTrue(systemPickerWasPresented(app, documentPickerApp()), "PDF 导出没有打开系统保存面板")
+    func testSmoke8OpenOPMLReadsMapNotMarkdown() throws {
+        try openFixtureAndAssertMap(
+            fileName: "A24-opml-fixture.opml",
+            requiredFileText: ["<opml", "A24十OPML", "A24十OPML中心", "A24十OPML子节点"],
+            expectedTitle: "A24十OPML",
+            isZip: false
+        )
     }
 
     @MainActor
-    func testSmoke9ExportMarkdownShowsExportPicker() {
-        let app = launchEditor()
+    func testSmoke9ExportPNGWritesPNGFile() throws {
+        try exportAndReadBack(
+            identifier: "smoke.export.png",
+            missingMenu: "分享菜单缺少 PNG 导出",
+            fileName: "未命名.png",
+            validate: { data, url in
+                XCTAssertTrue(
+                    data.starts(with: Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])),
+                    "导出的 PNG 缺少签名：\(url.path)"
+                )
+            }
+        )
+    }
+
+    @MainActor
+    func testSmoke9ExportPDFWritesPDFFile() throws {
+        try exportAndReadBack(
+            identifier: "smoke.export.pdf",
+            missingMenu: "分享菜单缺少 PDF 导出",
+            fileName: "未命名.pdf",
+            validate: { data, url in
+                XCTAssertTrue(data.starts(with: Data("%PDF".utf8)), "导出的 PDF 缺少 %PDF 头：\(url.path)")
+            }
+        )
+    }
+
+    @MainActor
+    func testSmoke9ExportMarkdownWritesMarkdownFile() {
+        let root = makeUITestRoot()
+        let app = launchEditor(root: root)
+        insertChildTopic(app)
         openToolbarOverflow(app)
         app.buttons["分享"].tap()
         let action = app.buttons["smoke.export.markdown"]
         XCTAssertTrue(action.waitForExistence(timeout: 5), "分享菜单缺少 Markdown 导出")
         action.tap()
-        XCTAssertTrue(systemPickerWasPresented(app, documentPickerApp()), "Markdown 导出没有打开系统保存面板")
+        let url = waitForUITestFile(named: "未命名.md", under: root, subdirectory: "export")
+        let data = readNonEmptyFile(url)
+        let text = String(data: data, encoding: .utf8)
+        XCTAssertNotNil(text, "导出的 Markdown 不是 UTF-8：\(url.path)")
+        XCTAssertTrue(text?.contains("# 中心") == true, "Markdown 没有中心主题：\(url.path)\n\(text ?? "")")
+        XCTAssertTrue(text?.contains("新主题") == true, "Markdown 没有子节点：\(url.path)\n\(text ?? "")")
     }
 
     @MainActor
-    func testSmoke10ImportMMAndOPMLPresentDocumentPicker() {
-        let app = launchEditor()
-        app.descendants(matching: .any)["editor.insert"].tap()
-        // .mm / .opml import shares the single "从文件导入" picker; the share-menu
-        // .mm / .opml commands are export paths and are not this smoke item.
-        let importFile = app.buttons["smoke.import.file"]
-        XCTAssertTrue(importFile.waitForExistence(timeout: 5), "插入菜单没有从文件导入（.mm / .opml）入口")
-        importFile.tap()
-        let picker = documentPickerApp()
-        XCTAssertTrue(systemPickerWasPresented(app, picker), "导入 .mm / .opml 没有进入系统文件选择器")
+    func testSmoke10ImportMMReadsMapContent() throws {
+        try importFixtureAndAssertMap(
+            fileName: "A24-mm-fixture.mm",
+            requiredFileText: ["<map", "A24八MM中心", "A24八MM子节点"],
+            expectedTitle: "A24八MM中心"
+        )
     }
+
+    @MainActor
+    func testSmoke10ImportOPMLReadsMapContent() throws {
+        try importFixtureAndAssertMap(
+            fileName: "A24-opml-fixture.opml",
+            requiredFileText: ["<opml", "A24十OPML中心", "A24十OPML子节点"],
+            expectedTitle: "A24十OPML"
+        )
+    }
+
 
     @MainActor
     func testSmoke12ZenEnterAndExitRestoresToolbar() {
@@ -428,7 +469,16 @@ final class A24EditorActionSmokeTests: XCTestCase {
 
     @MainActor
     private func launchEditor() -> XCUIApplication {
-        let app = launchHome()
+        enterEditor(from: launchHome())
+    }
+
+    @MainActor
+    private func launchEditor(root: URL, importFileName: String? = nil) -> XCUIApplication {
+        enterEditor(from: launchHome(root: root, importFileName: importFileName))
+    }
+
+    @MainActor
+    private func enterEditor(from app: XCUIApplication) -> XCUIApplication {
         let newMap = app.buttons["home.newMap"]
         XCTAssertTrue(newMap.waitForExistence(timeout: 15), "首页没有新建导图入口")
         newMap.tap()
@@ -442,6 +492,104 @@ final class A24EditorActionSmokeTests: XCTestCase {
         app.launchArguments = ["-FlorettaUITest", "-FlorettaLanguage", "zh-Hans", "-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
         app.launch()
         return app
+    }
+
+    @MainActor
+    private func launchHome(root: URL, importFileName: String? = nil) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["-FlorettaUITest", "-FlorettaLanguage", "zh-Hans", "-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
+        app.launchEnvironment["FLORETTA_UITEST_DIR"] = root.path
+        if let importFileName {
+            app.launchEnvironment["FLORETTA_UITEST_IMPORT_FILE"] = root
+                .appendingPathComponent("import", isDirectory: true)
+                .appendingPathComponent(importFileName)
+                .path
+        }
+        app.launch()
+        return app
+    }
+
+    @MainActor
+    private func insertChildTopic(_ app: XCUIApplication) {
+        let insert = app.descendants(matching: .any)["editor.insert"]
+        XCTAssertTrue(insert.waitForExistence(timeout: 10), "插入菜单入口不存在")
+        insert.tap()
+        let child = app.buttons["smoke.insert.child"]
+        XCTAssertTrue(child.waitForExistence(timeout: 5), "插入菜单没有子节点")
+        child.tap()
+    }
+
+    @MainActor
+    private func openFixtureAndAssertMap(
+        fileName: String,
+        requiredFileText: [String],
+        expectedTitle: String,
+        isZip: Bool
+    ) throws {
+        let root = makeUITestRoot()
+        let app = launchHome(root: root, importFileName: fileName)
+        let url = waitForUITestFile(named: fileName, under: root, subdirectory: "import")
+        let data = readNonEmptyFile(url)
+        if isZip {
+            XCTAssertTrue(isZipArchive(data), "夹具不是 ZIP：\(url.path)")
+        }
+        for needle in requiredFileText {
+            XCTAssertTrue(dataContains(data, needle), "夹具 \(url.path) 缺少「\(needle)」")
+        }
+        app.buttons["home.toolbarMenu"].tap()
+        XCTAssertTrue(app.buttons["home.open"].waitForExistence(timeout: 5))
+        app.buttons["home.open"].tap()
+        let openFiles = app.buttons["从文件应用打开"]
+        XCTAssertTrue(openFiles.waitForExistence(timeout: 5))
+        openFiles.tap()
+        assertOpenedMap(app, expectedTitle: expectedTitle)
+    }
+
+    @MainActor
+    private func importFixtureAndAssertMap(
+        fileName: String,
+        requiredFileText: [String],
+        expectedTitle: String
+    ) throws {
+        let root = makeUITestRoot()
+        let app = launchEditor(root: root, importFileName: fileName)
+        let url = waitForUITestFile(named: fileName, under: root, subdirectory: "import")
+        let data = readNonEmptyFile(url)
+        for needle in requiredFileText {
+            XCTAssertTrue(dataContains(data, needle), "夹具 \(url.path) 缺少「\(needle)」")
+        }
+        app.descendants(matching: .any)["editor.insert"].tap()
+        let importFile = app.buttons["smoke.import.file"]
+        XCTAssertTrue(importFile.waitForExistence(timeout: 5), "插入菜单没有从文件导入入口")
+        importFile.tap()
+        assertOpenedMap(app, expectedTitle: expectedTitle)
+    }
+
+    @MainActor
+    private func exportAndReadBack(
+        identifier: String,
+        missingMenu: String,
+        fileName: String,
+        validate: (Data, URL) -> Void
+    ) throws {
+        let root = makeUITestRoot()
+        let app = launchEditor(root: root)
+        openToolbarOverflow(app)
+        app.buttons["分享"].tap()
+        let action = app.buttons[identifier]
+        XCTAssertTrue(action.waitForExistence(timeout: 5), missingMenu)
+        action.tap()
+        let url = waitForUITestFile(named: fileName, under: root, subdirectory: "export")
+        validate(readNonEmptyFile(url), url)
+    }
+
+    @MainActor
+    private func assertOpenedMap(_ app: XCUIApplication, expectedTitle: String) {
+        XCTAssertTrue(app.buttons["basicChain.back"].waitForExistence(timeout: 8), "打开或导入后没有进入编辑器")
+        let title = app.buttons["document.title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5), "打开或导入后没有文档标题")
+        XCTAssertEqual(title.label, expectedTitle, "打开后的文档标题不是按导图内容读取")
+        XCTAssertFalse(app.descendants(matching: .any)["markdown.mode.banner"].exists, "文件被当成 Markdown 打开了")
     }
 
     @MainActor
@@ -483,4 +631,65 @@ final class A24EditorActionSmokeTests: XCTestCase {
         }
         return false
     }
+
+    @MainActor
+    private func makeUITestRoot() -> URL {
+        // Shared /tmp is visible to both the UI test runner and the app in the simulator.
+        let root = URL(fileURLWithPath: "/tmp/floretta-a24-\(UUID().uuidString)", isDirectory: true)
+        try? FileManager.default.createDirectory(
+            at: root.appendingPathComponent("export", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try? FileManager.default.createDirectory(
+            at: root.appendingPathComponent("import", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try? FileManager.default.setAttributes([.posixPermissions: 0o777], ofItemAtPath: root.path)
+        return root
+    }
+
+    @MainActor
+    private func waitForUITestFile(named name: String, under root: URL, subdirectory: String, timeout: TimeInterval = 15) -> URL {
+        var found: URL?
+        let predicate = NSPredicate { [self] _, _ in
+            if let url = self.locateUITestFile(named: name, under: root, subdirectory: subdirectory) {
+                let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.intValue ?? 0
+                if size > 0 {
+                    found = url
+                    return true
+                }
+            }
+            return false
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+        let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+        XCTAssertEqual(result, .completed, "没有落盘文件 \(subdirectory)/\(name)")
+        guard let found else {
+            XCTFail("没有落盘文件 \(subdirectory)/\(name)")
+            return root.appendingPathComponent(subdirectory).appendingPathComponent(name)
+        }
+        return found
+    }
+
+    private func locateUITestFile(named name: String, under root: URL, subdirectory: String) -> URL? {
+        let direct = root.appendingPathComponent(subdirectory, isDirectory: true).appendingPathComponent(name)
+        return FileManager.default.isReadableFile(atPath: direct.path) ? direct : nil
+    }
+
+    private func readNonEmptyFile(_ url: URL) -> Data {
+        let data = (try? Data(contentsOf: url)) ?? Data()
+        XCTAssertGreaterThan(data.count, 0, "文件为空：\(url.path)")
+        return data
+    }
+
+    private func isZipArchive(_ data: Data) -> Bool {
+        data.starts(with: Data([0x50, 0x4B, 0x03, 0x04])) || data.starts(with: Data([0x50, 0x4B, 0x05, 0x06]))
+    }
+
+    private func dataContains(_ data: Data, _ needle: String) -> Bool {
+        guard let pattern = needle.data(using: .utf8) else { return false }
+        return data.range(of: pattern) != nil
+    }
+
+
 }

@@ -778,6 +778,11 @@ struct DocumentEditor: View {
             Image(systemName: "xmark")
         }
         .buttonStyle(.plain)
+        // The xmark glyph is about 16pt. A blank canvas tap in zen is a
+        // no-op, so a missed hit leaves the toolbar hidden. Use the same
+        // 44pt circular target as the iOS back button.
+        .frame(width: 44, height: 44)
+        .contentShape(Circle())
         .appleGlassChrome(.iconButton)
         .explained("退出沉浸模式，恢复工具栏")
         .accessibilityIdentifier("zen.exit")
@@ -1968,13 +1973,42 @@ struct DocumentEditor: View {
         }
     }
 
+
+    /// UI tests set `FLORETTA_UITEST_DIR` so this writes the already-prepared
+    /// export to disk for readback, instead of only presenting the system panel.
+    @discardableResult
+    private func presentPreparedExport() -> Bool {
+        if let directory = AppLaunch.uiTestExportDirectory {
+            do {
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                let destination = directory.appendingPathComponent(exportName)
+                if FileManager.default.fileExists(atPath: destination.path) {
+                    try FileManager.default.removeItem(at: destination)
+                }
+                if let fileURL = exportFile.fileURL {
+                    try FileManager.default.copyItem(at: fileURL, to: destination)
+                } else {
+                    try exportFile.data.write(to: destination, options: .atomic)
+                }
+                if exportKind == "floretta" {
+                    onSavedCopy(destination)
+                }
+            } catch {
+                exportError = error.localizedDescription
+            }
+            return true
+        }
+        showExport = true
+        return false
+    }
+
     private func exportFlorettaCopy() throws {
         guard let archive = session.url else {
             exportFile = ExportFile(data: try SharePayload.bytes(for: "floretta", document: session.document))
             exportType = FlorettaFileTypes.contentType(forExport: "floretta")
             exportName = exportFilename(title: session.document.title, kind: "floretta")
             exportKind = "floretta"
-            showExport = true
+            presentPreparedExport()
             return
         }
         let destination = FileManager.default.temporaryDirectory
@@ -1989,7 +2023,7 @@ struct DocumentEditor: View {
         exportType = FlorettaFileTypes.contentType(forExport: "floretta")
         exportName = exportFilename(title: session.document.title.isEmpty ? "Floretta" : session.document.title, kind: "floretta")
         exportKind = "floretta"
-        showExport = true
+        presentPreparedExport()
     }
 
     private var exportErrorPresented: Binding<Bool> {
@@ -2056,7 +2090,7 @@ struct DocumentEditor: View {
                 exportKind = kind
                 exportType = type
                 exportName = exportFilename(title: title, kind: kind)
-                showExport = true
+                presentPreparedExport()
                 return
                 #else
                 data = package.textpack()
@@ -2068,7 +2102,7 @@ struct DocumentEditor: View {
             exportFile = ExportFile(data: data)
             exportType = type
             exportName = exportFilename(title: title, kind: kind)
-            showExport = true
+            presentPreparedExport()
         } catch {
             exportError = error.localizedDescription
         }
@@ -2144,7 +2178,7 @@ struct DocumentEditor: View {
             exportFile = ExportFile(data: data)
             exportType = type
             exportName = exportFilename(title: title, kind: kind)
-            showExport = true
+            presentPreparedExport()
         }
     }
 

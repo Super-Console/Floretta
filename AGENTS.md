@@ -51,3 +51,15 @@ docs/VERIFY.md
 - 需要记录完成项时，在 PR 描述里写清楚「要往检查单哪一节加哪一行」
 - 合并后由单一写者（Hermes / Censor）统一更新这些文档
 - rebase 撞上这些文档的冲突，直接取 `main` 版本，只保留代码改动
+
+## 资源收尾（硬规则）
+
+任何用到模拟器、模拟进程、后台服务的任务，**结束时必须收尾**，不能把资源留在机器上：
+
+1. iOS / iPadOS 模拟器：任务结束执行 `xcrun simctl shutdown all`，并在报告里附 `xcrun simctl list devices booted | grep -c Booted` 的结果（必须是 0）
+2. 后台起的 `xcodebuild`、`opencode serve`、测试服务：确认进程已退出（`pgrep` 为空）
+3. 临时 DerivedData 目录（`/tmp/xxx-dd`）超过 1 个的，任务结束后清理自己创建的那些
+4. 报告里写一行「资源收尾：模拟器已关 / 后台进程已退 / 临时目录已清」，**没有这一行视为任务未完成**
+
+原因：一台机器同时跑两台模拟器会吃掉数 GB 内存，用户会立刻感知到卡顿；而这些资源不会自己退出。
+

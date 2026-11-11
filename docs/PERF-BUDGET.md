@@ -14,7 +14,7 @@
 | 6 | 附件写入峰值内存 | < 32MB，且与文件大小无关 | 写入大文件时采样 |
 | 7 | 缩略图缓存 | 上限 200MB，LRU 淘汰 | 缓存单测 |
 | 8 | 空闲 CPU | < 1%，无常驻后台线程/定时器 | Activity Monitor / 采样 |
-| 9 | 包体 | iOS < 15MB，macOS < 25MB | **已由 CI 强制**：`Packaged app size` job；超限失败，且禁止 Node/Python 运行时及相关依赖清单 |
+| 9 | 包体 | iOS < 15MB，macOS < 25MB | CI `Packaged app size` job 实测 `.app`；超限失败 |
 | 10 | 网络 | 默认零请求，且有可审计开关 | 抓包 + 代码审查 |
 
 ## 约束
@@ -23,3 +23,9 @@
 - 附件一律原字节、零转码；压缩换性能是不允许的
 - 播放/预览大媒体文件必须流式，不得整体读入内存
 - 缩略图、解码、索引一律异步，主线程只做 UI
+
+## 体积门禁怎么跑、超了怎么办
+
+在 macOS 且已安装项目所需 Xcode 后，从仓库根目录执行 `bash scripts/check-size.sh`。脚本分别构建 Release 的 iOS（`generic/platform=iOS`）与 macOS 主 App，读取 Xcode 的 `BUILT_PRODUCTS_DIR`，对包内 Mach-O 执行 `strip`（调试符号留在旁路 `.dSYM`，不计入），再统计 `.app` 内普通文件总字节数（资源、主程序与嵌入的 appex 均计入），并输出一位小数的 MB 实测值（按 1024²）。CI 的 `Packaged app size` workflow（`.github/workflows/size-gate.yml`）执行同一脚本；iOS 必须严格小于 15 MB，macOS 严格小于 25 MB，超限会打印实测值/阈值并令 job 失败。
+
+超限时先查看具体包内文件体积，确认新增资源或二进制是否必要；优先移除重复/未使用资源、优化资源格式和裁剪无用代码，不得压缩或转码用户附件。重新运行脚本确认两个平台均低于门槛，并在 PR 的性能影响三行中报告实测包体；如确需突破硬门槛，必须在 PR 显式说明并由审查方决定。

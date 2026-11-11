@@ -145,3 +145,9 @@ run_logged 'macOS compile' \
 run_logged 'iOS compile' \
   xcodebuild build -project Floretta.xcodeproj -scheme Floretta-iOS \
   -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO
+
+run_logged 'macOS FlorettaTests' \
+  xcodebuild test -project Floretta.xcodeproj -scheme Floretta-macOS \
+  -destination 'platform=macOS' \
+  -only-testing:FlorettaTests \
+  CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""

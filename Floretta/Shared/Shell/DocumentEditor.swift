@@ -907,6 +907,20 @@ struct DocumentEditor: View {
 
     private func accessibilityIdentifier(for id: EditorToolbarCommandID) -> String? {
         switch id {
+        case .undo: return "smoke.undo"
+        case .redo: return "smoke.redo"
+        case .delete: return "smoke.delete"
+        case .share: return "share.menu"
+        case .child: return "smoke.insert.child"
+        case .sibling: return "smoke.insert.sibling"
+        case .immersive: return "smoke.zen.enter"
+        case .saveFloretta: return "smoke.save.floretta"
+        case .png: return "smoke.export.png"
+        case .pdf: return "smoke.export.pdf"
+        case .markdownExport: return "smoke.export.markdown"
+        case .importFile: return "smoke.import.file"
+        case .mm: return "smoke.export.mm"
+        case .opml: return "smoke.export.opml"
         case .dictation: return "insert.dictation"
         case .region: return "insert.region"
         case .style: return "inspector.open"
@@ -1061,6 +1075,7 @@ struct DocumentEditor: View {
             commandLabel(.share, surface: .toolbar)
         }
         .accessibilityLabel(text(EditorToolbarCatalog.command(.share).title))
+        .accessibilityIdentifier("share.menu")
         .help(Text(verbatim: text(EditorToolbarCatalog.command(.share).help)))
         .appleGlassChrome(.toolbarFloatingButton)
     }
@@ -1089,6 +1104,10 @@ struct DocumentEditor: View {
 
     private var moreMenu: some View {
         Menu {
+            commandMenuButton(.undo) { perform(.undo) }
+            commandMenuButton(.redo) { perform(.redo) }
+            commandMenuButton(.delete) { perform(.delete) }
+            commandMenuButton(.immersive) { perform(.immersive) }
             ForEach(EditorToolbarCatalog.menu(.more), id: \.self) { id in
                 moreRow(id)
             }

@@ -603,6 +603,7 @@ struct DocumentEditor: View {
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.bar)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("canvas.tabs")
         .alert(Text(verbatim: text("重新命名")), isPresented: $showCanvasRename) {
             TextField(text("名称"), text: $canvasRenameText)
@@ -708,6 +709,7 @@ struct DocumentEditor: View {
                 locksCollapse: session.isMarkdownDocument
             )
         }
+        .accessibilityIdentifier("editor.outline")
     }
 
     private var markdownBanner: some View {
@@ -905,6 +907,11 @@ struct DocumentEditor: View {
         case .style: return "inspector.open"
         case .theme: return "theme.menu"
         case .tagFilter: return "tagFilter.open"
+        case .insert: return "editor.insert"
+        case .attachment: return "insert.attachment"
+        case .outline: return "outline.open"
+        case .summary: return "insert.summary"
+        case .boundary: return "insert.boundary"
         case .history: return "snapshotHistory.menu"
         case .upgrade: return "markdown.upgrade"
         case .more: return "editor.more"
@@ -978,6 +985,7 @@ struct DocumentEditor: View {
             commandLabel(.insert, surface: .toolbar)
         }
         .accessibilityLabel(text(EditorToolbarCatalog.command(.insert).title))
+        .accessibilityIdentifier("editor.insert")
         .help(Text(verbatim: text(EditorToolbarCatalog.command(.insert).help)))
         .appleGlassChrome(.toolbarFloatingButton)
     }

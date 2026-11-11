@@ -32,7 +32,7 @@
 - [x] A21 文件名嵌套重复（窗口标题与工具栏各一个「未命名」）（`.navigationTitle("")` 且 Mac `titleVisibility = .hidden`，文件名只留在工具栏。`EditorChromeContractTests`）
 - [x] A22 macOS 菜单栏（`Floretta/Shared/FlorettaApp.swift` focused commands：Insert/Format/View/Export；PR #94。系统 File/Edit/Window/Help 由 SwiftUI 提供）
 - [x] A23 `docs/DESIGN-RULES.md`（唯一入口、退出可达、图标优先、禁止重复控件、禁止占位假数据；六条规矩已在该文件，前五条与本行一致）
-- [~] A24 门禁已合入（PR #107/#110，`scripts/pre-release.sh` + `check-compile-and-tests.sh` 失败累积已实测）；**#7–#10 只断言系统面板出现、未做文件回读**
+- [x] A24 冒烟 13 条全覆盖（PR #107/#110/#112）：`#4–#12` 均有落盘文件回读断言（ZIP 含 document.json、PNG/PDF/MD 文件内容、.mm/.opml 导入回读）；本地实测 13/13 通过；顺带修好 Zen 退出按钮 44pt 点击区
 - [x] A25 模板库重做（12 个真模板，结构各不相同，禁止同树换色）（`TemplateKind` 十二个；`ShellTests.testMenusAndTemplatesOmitDeadActions` 断言名称与 `TemplateKind.shape` 均不重复）
 - [x] A26 底栏字数（底栏在「主题: N」旁显示「字数: N」。Mac 在底栏右侧，悬停展开主题 / 字数 / 字符数；iPhone / iPad 把这三项放在底栏上。只计节点标题，编辑中实时更新。验收：中心主题 + 分支主题 1–4 = 主题 5、字数 24、字符数 28。`TopicTitleCensusTests`。PR #75 → main `658b0c37`，tip `c9d6eb28`。Censor 与独立确认的 CI、Pro 已通过该 tip）
 - [~] A27 实现存在（`InspectorTabPinUITests`）；**当前 build 无 AX 读数**，现有数字来自已安装 build 8，不作为验收证据

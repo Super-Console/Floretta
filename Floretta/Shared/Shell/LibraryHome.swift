@@ -229,6 +229,8 @@ private struct RecentDocumentThumbnail: View {
         }
         .frame(height: 110)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.recent.thumbnail")
         .task(id: entry.id) {
             imageData = await library.recentThumbnail(for: entry)
         }

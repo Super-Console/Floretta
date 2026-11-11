@@ -28,6 +28,14 @@
    plutil -lint Floretta/iOS/Info.plist
    plutil -lint Floretta.xcodeproj/project.pbxproj
    ```
-6. [ ] 运行受影响测试、Core import 检查和双端结构/编译验证；SSH 无法签名的限制见 `AGENTS.md`，签名归档在 Mac 图形会话完成。
-7. [ ] 归档后核对 archive 的 marketing/build 版本，再上传 TestFlight。
-8. [ ] 上传后回读 App Store Connect 构建号及状态，记录结果；失败或处理中不可记为已完成发布。
+6. [ ] 上传前确认两个主 Info.plist 均声明非豁免加密状态为 `false`：
+   ```sh
+   plutil -lint Floretta/iOS/Info.plist Floretta/macOS/Info.plist
+   for f in Floretta/iOS/Info.plist Floretta/macOS/Info.plist; do
+     echo "$f: $(plutil -extract ITSAppUsesNonExemptEncryption raw "$f")"
+   done
+   ```
+   两个文件都必须输出 `false`。
+7. [ ] 运行受影响测试、Core import 检查和双端结构/编译验证；SSH 无法签名的限制见 `AGENTS.md`，签名归档在 Mac 图形会话完成。
+8. [ ] 归档后核对 archive 的 marketing/build 版本，再上传 TestFlight。
+9. [ ] 上传后回读 App Store Connect 构建号及状态，记录结果；失败或处理中不可记为已完成发布。

@@ -26,24 +26,56 @@ run_logged() {
   echo "PASSED: $label (exit 0)"
 }
 
-echo '==> FlorettaCore import boundary'
-bash scripts/check-floretta-core-imports.sh
-echo "GUARD=$?"
+failed=0
+declare -a step_results=()
 
-run_logged macos-compile \
+if ! run_logged core-imports \
+  bash scripts/check-floretta-core-imports.sh; then
+  failed=1
+  step_results+=("FAILED: core-imports")
+else
+  step_results+=("PASSED: core-imports")
+fi
+
+if ! run_logged macos-compile \
   xcodebuild build -project Floretta.xcodeproj -scheme Floretta-macOS \
   -destination 'platform=macOS' \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-  -quiet
+  -quiet; then
+  failed=1
+  step_results+=("FAILED: macos-compile")
+else
+  step_results+=("PASSED: macos-compile")
+fi
 
-run_logged ios-compile \
+if ! run_logged ios-compile \
   xcodebuild build -project Floretta.xcodeproj -scheme Floretta-iOS \
   -destination 'generic/platform=iOS Simulator' \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-  -quiet
+  -quiet; then
+  failed=1
+  step_results+=("FAILED: ios-compile")
+else
+  step_results+=("PASSED: ios-compile")
+fi
 
-run_logged macos-florettatests \
+if ! run_logged macos-florettatests \
   xcodebuild test -project Floretta.xcodeproj -scheme Floretta-macOS \
   -destination 'platform=macOS' \
   -only-testing:FlorettaTests \
-  CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+  CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""; then
+  failed=1
+  step_results+=("FAILED: macos-florettatests")
+else
+  step_results+=("PASSED: macos-florettatests")
+fi
+
+echo
+echo "==> Summary"
+for result in "${step_results[@]}"; do
+  echo "$result"
+done
+
+if [ "$failed" -ne 0 ]; then
+  exit 1
+fi

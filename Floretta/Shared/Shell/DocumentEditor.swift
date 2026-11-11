@@ -778,6 +778,11 @@ struct DocumentEditor: View {
             Image(systemName: "xmark")
         }
         .buttonStyle(.plain)
+        // The xmark glyph is about 16pt. A blank canvas tap in zen is a
+        // no-op, so a missed hit leaves the toolbar hidden. Use the same
+        // 44pt circular target as the iOS back button.
+        .frame(width: 44, height: 44)
+        .contentShape(Circle())
         .appleGlassChrome(.iconButton)
         .explained("退出沉浸模式，恢复工具栏")
         .accessibilityIdentifier("zen.exit")

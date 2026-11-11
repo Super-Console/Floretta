@@ -67,7 +67,7 @@
 - [x] D3 fixture 往返测试集（简单/多层/带样式/带关系线/带附件/多画布六类）（`Tests/FlorettaCoreTests/Fixtures/XMind/` 的 simple、nested、styled、relationships、attachments、multi-sheet。`XMindRoundTripTests.testSixFixturesRoundTripUnchangedBytesAndEditedFields` 与 `testFieldCatalogMatchesTheInRepoTable`）
 - [x] D4 OPML / FreeMind / Markdown 保真度对齐（PR #44 → main `0c05171`。字段表 `docs/OPML-FIELDS.md`、`docs/MM-FIELDS.md`、`docs/MARKDOWN-FIELDS.md` 与 catalog 单测对照：`OPMLRoundTripTests`、`MMRoundTripTests`、`MarkdownFieldTests`、`MarkdownAsDocumentTests`。对方软件打开仍记在 `docs/FORMATS.md` 验收表，不在这次单测里）
 - [x] D5 Markdown 一等文档：可直接打开编辑保存，纯结构投影（不含附件/颜色/关系线），顶部标注「Markdown 模式」，可一键升级为 `.floretta`，AI 用路径定位（root/3/1）（PR #62 → main `5631b42`，tip `ba0e893`；路径 API（`root/3/1`）仍是 S3，不在这次合并）
-- [~] D6 导出 TextBundle（`FlorettaCore/Format/FlorettaTextBundleCodec.swift` + `Tests/FlorettaCoreTests/TextBundleTests.swift` 有实现/测试；PR #45。PR #94 明确编辑器无有效保存入口，故仅 codec 不足以完成）
+- [x] D6 导出 TextBundle（带附件）（`FlorettaCore/Format/FlorettaTextBundleCodec.swift` + `DocumentEditor` 导出入口；PR #45 / #103）
 
 ## E. AI 适配
 

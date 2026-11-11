@@ -139,6 +139,34 @@ final class HomeSmokeTests: XCTestCase {
         XCTAssertTrue(homeTitle(app).waitForExistence(timeout: 8), "退出编辑器后没有回到首页")
     }
 
+    @MainActor
+    func testMultipleCanvasesCanBeAddedAndSwitched() throws {
+        let app = launchHome()
+        let newMap = app.buttons["home.newMap"]
+        XCTAssertTrue(newMap.waitForExistence(timeout: 15), "首页没有「新建导图」")
+        newMap.tap()
+
+        let firstCanvas = app.buttons["canvas.tab.0"]
+        XCTAssertTrue(firstCanvas.waitForExistence(timeout: 8), "新文档没有第一张画布标签")
+        XCTAssertTrue(firstCanvas.isSelected, "新文档应默认显示第一张画布")
+
+        let addCanvas = app.buttons["canvas.tab.add"]
+        XCTAssertTrue(addCanvas.waitForExistence(timeout: 5), "编辑器中没有新建画布入口")
+        XCTAssertTrue(addCanvas.isEnabled, "新建画布入口不可用")
+        addCanvas.tap()
+
+        let secondCanvas = app.buttons["canvas.tab.1"]
+        XCTAssertTrue(secondCanvas.waitForExistence(timeout: 5), "新增画布没有出现在标签栏")
+        XCTAssertTrue(secondCanvas.isSelected, "新增画布后没有切换到新画布")
+
+        firstCanvas.tap()
+        XCTAssertTrue(firstCanvas.isSelected, "点击第一张画布后选择状态没有切换")
+        XCTAssertFalse(secondCanvas.isSelected, "切回第一张后第二张仍被标记为选中")
+        secondCanvas.tap()
+        XCTAssertTrue(secondCanvas.isSelected, "点击第二张画布后选择状态没有切换")
+        XCTAssertFalse(firstCanvas.isSelected, "切到第二张后第一张仍被标记为选中")
+    }
+
     /// The home chrome is a system tab bar, a toolbar menu, and `.searchable`.
     /// The old three-icon capsule kept 「模板库」 as a visible toolbar button.
     @MainActor

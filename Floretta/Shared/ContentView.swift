@@ -99,7 +99,7 @@ struct ContentView: View {
                             recovery.noteEdit(updated)
                         }
                     },
-                    onImport: { showImporter = true },
+                    onImport: { AppLaunch.presentUITestImporter(open: { library.openFile($0) }) { showImporter = true } },
                     onSavedCopy: { library.noteExportedCopy($0) },
                     onMarkdownUpgrade: { url, choice in
                         library.finishMarkdownUpgrade(savedAt: url, choice: choice)
@@ -188,7 +188,7 @@ struct ContentView: View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             HomeSidebar(
                 library: library,
-                openFiles: { showImporter = true },
+                openFiles: { AppLaunch.presentUITestImporter(open: { library.openFile($0) }) { showImporter = true } },
                 openICloud: openICloud,
                 browsePad: browsePad
             )
@@ -213,7 +213,7 @@ struct ContentView: View {
                     library: library,
                     page: $page,
                     searchText: $searchText,
-                    openFiles: { showImporter = true },
+                    openFiles: { AppLaunch.presentUITestImporter(open: { library.openFile($0) }) { showImporter = true } },
                     openICloud: openICloud,
                     browseLocal: browsePad
                 )
@@ -315,7 +315,7 @@ struct SameDocumentWindow: View {
                                 recovery.noteEdit(updated)
                             }
                         },
-                        onImport: { showImporter = true },
+                        onImport: { AppLaunch.presentUITestImporter(open: { library.openFile($0) }) { showImporter = true } },
                         onSavedCopy: { library.noteExportedCopy($0) },
                         onMarkdownUpgrade: { url, choice in
                             library.finishMarkdownUpgrade(savedAt: url, choice: choice)

@@ -12,9 +12,13 @@ mkdir -p "$log_dir"
 run_logged() {
   local label="$1"; shift
   local log="$log_dir/${label}.log"
+  local rc
   echo "==> $label (log: $log)"
-  if ! "$@" >"$log" 2>&1; then
-    local rc=$?
+  set +e
+  "$@" >"$log" 2>&1
+  rc=$?
+  set -e
+  if [ "$rc" -ne 0 ]; then
     tail -n 60 "$log" || true
     echo "FAILED: $label (exit $rc)" >&2
     return "$rc"

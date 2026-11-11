@@ -31,3 +31,10 @@
 - Full `scripts/pre-release.sh` rerun after fixing empty-array handling under `set -u`: Core suite 344/344 passed, UI suite 8/8 passed, macOS and iOS simulator builds both report `BUILD SUCCEEDED`; the script-owned iPhone UDID was shut down by the exit cleanup, final booted list empty (`booted=0`). No `Simulator.app` process was started.
 - Correction to the earlier outstanding note: an empty-state AX reading was later obtained from the installed build 8; the exact value and its non-current-source limitation are recorded above. Current-source build 12 AX window enumeration remains blocked.
 - Clarification: the prior baseline bullet describes the period before the full gate rerun; during the later rerun, one script-owned iPhone simulator was started and then shut down.
+
+## PR #107 round 2
+
+- Confirmed `origin/main...HEAD` contains no Inspector pin production implementation changes; followed option A for the review blocker.
+- Updated `docs/reviews/A27-inspector-pin-mac.md` to state that build 8 readings are reference-only and not acceptance evidence for this PR, and downgraded the conclusion to “实现已存在，本 PR 未验证”.
+- Updated PR #107 description with the same limitation. No screenshots were staged or included.
+- `git diff --check` passed before commit.

@@ -1,0 +1,19 @@
+name: Packaged app size
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  packaged-size:
+    name: iOS <15 MB / macOS <25 MB
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 26
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90
+        with:
+          xcode-version: '26.0'
+      - name: Build and enforce app bundle limits
+        run: bash scripts/check-size.sh

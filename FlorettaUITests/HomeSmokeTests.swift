@@ -282,3 +282,188 @@ final class EditorBackButtonHitAreaTests: XCTestCase {
         )
     }
 }
+
+/// Action-level regressions for the A24 release-blocking editor paths.
+final class A24EditorActionSmokeTests: XCTestCase {
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+    }
+
+    @MainActor
+    func testSmoke4InsertChildAndSiblingEnableUndo() {
+        let app = launchEditor()
+        let insert = app.descendants(matching: .any)["editor.insert"]
+        XCTAssertTrue(insert.waitForExistence(timeout: 10))
+        insert.tap()
+        let child = app.buttons["smoke.insert.child"]
+        XCTAssertTrue(child.waitForExistence(timeout: 5))
+        child.tap()
+        let undo = moreAction(app, "smoke.undo")
+        XCTAssertTrue(undo.isEnabled, "执行新建子节点后撤销仍不可用")
+        undo.tap()
+
+        insert.tap()
+        let sibling = app.buttons["smoke.insert.sibling"]
+        XCTAssertTrue(sibling.waitForExistence(timeout: 5))
+        sibling.tap()
+        XCTAssertTrue(moreAction(app, "smoke.undo").isEnabled, "执行新建同级后撤销仍不可用")
+    }
+
+    @MainActor
+    func testSmoke5DeleteSelectedTopicEnablesUndo() {
+        let app = launchEditor()
+        let insert = app.descendants(matching: .any)["editor.insert"]
+        XCTAssertTrue(insert.waitForExistence(timeout: 10))
+        insert.tap()
+        let child = app.buttons["smoke.insert.child"]
+        XCTAssertTrue(child.waitForExistence(timeout: 5))
+        child.tap()
+        let undo = moreAction(app, "smoke.undo")
+        undo.tap()
+        let delete = moreAction(app, "smoke.delete")
+        XCTAssertTrue(delete.isEnabled, "撤销后应恢复选中节点，删除命令应可用")
+        delete.tap()
+        XCTAssertTrue(moreAction(app, "smoke.undo").isEnabled, "删除节点后撤销没有可用")
+    }
+
+    @MainActor
+    func testSmoke6UndoThenRedoEnableOppositeActions() {
+        let app = launchEditor()
+        app.descendants(matching: .any)["editor.insert"].tap()
+        let child = app.buttons["smoke.insert.child"]
+        XCTAssertTrue(child.waitForExistence(timeout: 5))
+        child.tap()
+        let undo = moreAction(app, "smoke.undo")
+        XCTAssertTrue(undo.isEnabled)
+        undo.tap()
+        let redo = moreAction(app, "smoke.redo")
+        XCTAssertTrue(redo.isEnabled, "撤销后重做没有启用")
+        redo.tap()
+        XCTAssertTrue(moreAction(app, "smoke.undo").isEnabled, "重做后撤销没有恢复")
+    }
+
+    @MainActor
+    func testSmoke7SaveAsFlorettaPresentsSavePanel() {
+        let app = launchEditor()
+        openToolbarOverflow(app)
+        app.buttons["分享"].tap()
+        let save = app.buttons["smoke.save.floretta"]
+        XCTAssertTrue(save.waitForExistence(timeout: 5))
+        save.tap()
+        let picker = documentPickerApp()
+        XCTAssertTrue(systemPickerWasPresented(app, picker), "保存 Floretta 没有打开系统保存面板")
+    }
+
+    @MainActor
+    func testSmoke8OpenFromFilesPresentsDocumentPicker() {
+        let app = launchHome()
+        app.buttons["home.toolbarMenu"].tap()
+        XCTAssertTrue(app.buttons["home.open"].waitForExistence(timeout: 5))
+        app.buttons["home.open"].tap()
+        let openFiles = app.buttons["从文件应用打开"]
+        XCTAssertTrue(openFiles.waitForExistence(timeout: 5))
+        openFiles.tap()
+        let picker = documentPickerApp()
+        XCTAssertTrue(systemPickerWasPresented(app, picker), "打开文件没有进入系统文件选择器")
+    }
+
+    @MainActor
+    func testSmoke9ExportPNGShowsExportPicker() {
+        let app = launchEditor()
+        openToolbarOverflow(app)
+        app.buttons["分享"].tap()
+        let action = app.buttons["smoke.export.png"]
+        XCTAssertTrue(action.waitForExistence(timeout: 5), "分享菜单缺少 PNG 导出")
+        action.tap()
+        XCTAssertTrue(systemPickerWasPresented(app, documentPickerApp()), "PNG 导出没有打开系统保存面板")
+    }
+
+    @MainActor
+    func testSmoke9ExportPDFShowsExportPicker() {
+        let app = launchEditor()
+        openToolbarOverflow(app)
+        app.buttons["分享"].tap()
+        let action = app.buttons["smoke.export.pdf"]
+        XCTAssertTrue(action.waitForExistence(timeout: 5), "分享菜单缺少 PDF 导出")
+        action.tap()
+        XCTAssertTrue(systemPickerWasPresented(app, documentPickerApp()), "PDF 导出没有打开系统保存面板")
+    }
+
+    @MainActor
+    func testSmoke9ExportMarkdownShowsExportPicker() {
+        let app = launchEditor()
+        openToolbarOverflow(app)
+        app.buttons["分享"].tap()
+        let action = app.buttons["smoke.export.markdown"]
+        XCTAssertTrue(action.waitForExistence(timeout: 5), "分享菜单缺少 Markdown 导出")
+        action.tap()
+        XCTAssertTrue(systemPickerWasPresented(app, documentPickerApp()), "Markdown 导出没有打开系统保存面板")
+    }
+
+    @MainActor
+    func testSmoke10ImportMMAndOPMLPresentDocumentPicker() {
+        let app = launchEditor()
+        app.descendants(matching: .any)["editor.insert"].tap()
+        let importFile = app.buttons["smoke.import.file"]
+        XCTAssertTrue(importFile.waitForExistence(timeout: 5))
+        importFile.tap()
+        let picker = documentPickerApp()
+        XCTAssertTrue(systemPickerWasPresented(app, picker), "从文件导入没有进入系统文件选择器")
+    }
+
+    @MainActor
+    func testSmoke12ZenEnterAndExitRestoresToolbar() {
+        let app = launchEditor()
+        let enter = moreAction(app, "smoke.zen.enter")
+        enter.tap()
+        let exit = app.buttons["zen.exit"]
+        XCTAssertTrue(exit.waitForExistence(timeout: 5), "进入沉浸模式后没有退出入口")
+        exit.tap()
+        let restoredToolbar = app.descendants(matching: .any)["editor.more"]
+        XCTAssertTrue(restoredToolbar.waitForExistence(timeout: 8), "退出沉浸模式后工具栏没有恢复")
+        XCTAssertTrue(app.descendants(matching: .any)["editor.canvas"].exists, "退出沉浸模式后画布不见了")
+    }
+
+    @MainActor
+    private func launchEditor() -> XCUIApplication {
+        let app = launchHome()
+        let newMap = app.buttons["home.newMap"]
+        XCTAssertTrue(newMap.waitForExistence(timeout: 15), "首页没有新建导图入口")
+        newMap.tap()
+        XCTAssertTrue(app.buttons["basicChain.back"].waitForExistence(timeout: 8), "新建后没有进入编辑器")
+        return app
+    }
+
+    @MainActor
+    private func launchHome() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["-FlorettaUITest", "-FlorettaLanguage", "zh-Hans", "-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
+        app.launch()
+        return app
+    }
+
+    @MainActor
+    private func openToolbarOverflow(_ app: XCUIApplication) {
+        let overflow = app.buttons["TopOverflowBarButtonItem"]
+        if overflow.waitForExistence(timeout: 2) { overflow.tap() }
+    }
+
+    @MainActor
+    private func moreAction(_ app: XCUIApplication, _ identifier: String) -> XCUIElement {
+        app.descendants(matching: .any)["editor.more"].tap()
+        let action = app.buttons[identifier]
+        XCTAssertTrue(action.waitForExistence(timeout: 5), "更多菜单中缺少操作项 \(identifier)")
+        return action
+    }
+
+    @MainActor
+    private func documentPickerApp() -> XCUIApplication {
+        XCUIApplication(bundleIdentifier: "com.apple.DocumentsApp")
+    }
+
+    @MainActor
+    private func systemPickerWasPresented(_ app: XCUIApplication, _ picker: XCUIApplication) -> Bool {
+        guard app.state == .runningBackground else { return false }
+        return picker.otherElements["Browse View"].waitForExistence(timeout: 10)
+    }
+}

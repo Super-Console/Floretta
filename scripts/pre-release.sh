@@ -5,18 +5,87 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
+simulator_ids_from_json() {
+  /usr/bin/python3 -c '
+import json
+import sys
+
+catalog = json.load(sys.stdin)
+for devices in catalog.get("devices", {}).values():
+    for device in devices:
+        if device.get("state") == "Booted":
+            print(device["udid"])
+'
+}
+
+declare -a baseline_simulator_ids=()
+declare -a started_simulator_ids=()
+baseline_json="$(xcrun simctl list devices booted -j)"
+while IFS= read -r simulator_id; do
+  [[ -n "$simulator_id" ]] && baseline_simulator_ids+=("$simulator_id")
+done < <(printf '%s' "$baseline_json" | simulator_ids_from_json)
+
+contains_simulator() {
+  local wanted="$1"
+  shift
+  local simulator_id
+  for simulator_id in "$@"; do
+    [[ "$simulator_id" == "$wanted" ]] && return 0
+  done
+  return 1
+}
+
 cleanup() {
   local status=$?
   trap - EXIT INT TERM
-  echo "Shutting down iOS simulators..."
-  xcrun simctl shutdown all || status=1
-  local booted
-  booted="$(xcrun simctl list devices booted | grep -c 'Booted' || true)"
-  echo "booted=$booted"
-  [[ "$booted" == "0" ]] || status=1
+  local shut_down=0
+  local simulator_id
+  if ((${#started_simulator_ids[@]} > 0)); then
+    for simulator_id in "${started_simulator_ids[@]}"; do
+      if xcrun simctl shutdown "$simulator_id"; then
+        ((shut_down += 1))
+      else
+        echo "FAILED: could not shut down simulator started by this run: $simulator_id" >&2
+        status=1
+      fi
+    done
+  fi
+
+  local baseline_untouched="${#baseline_simulator_ids[@]}"
+  local booted_ids=()
+  local booted_json='{}'
+  if ! booted_json="$(xcrun simctl list devices booted -j)"; then
+    echo "FAILED: could not read simulator state during cleanup" >&2
+    status=1
+  fi
+  while IFS= read -r simulator_id; do
+    [[ -n "$simulator_id" ]] && booted_ids+=("$simulator_id")
+  done < <(printf '%s' "$booted_json" | simulator_ids_from_json)
+
+  if ((${#started_simulator_ids[@]} > 0)); then
+    for simulator_id in "${started_simulator_ids[@]}"; do
+      if ((${#booted_ids[@]} > 0)) && contains_simulator "$simulator_id" "${booted_ids[@]}"; then
+        echo "FAILED: simulator started by this run is still booted: $simulator_id" >&2
+        status=1
+      fi
+    done
+  fi
+
+  if ((${#baseline_simulator_ids[@]} > 0)); then
+    for simulator_id in "${baseline_simulator_ids[@]}"; do
+      if ((${#booted_ids[@]} == 0)) || ! contains_simulator "$simulator_id" "${booted_ids[@]}"; then
+        echo "WARNING: baseline simulator is no longer booted (not modified by cleanup): $simulator_id" >&2
+      fi
+    done
+  fi
+
+  echo "本次启动并已关闭 ${shut_down} 台；baseline 中其他 ${baseline_untouched} 台未触碰"
+  echo "booted=${#booted_ids[@]}"
   exit "$status"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 run_logged() {
   local label="$1"; shift
@@ -59,8 +128,9 @@ for runtime, devices in catalog.get("devices", {}).items():
 raise SystemExit("No available iPhone simulator found")
 ')"
 
-if ! xcrun simctl list devices booted | grep -Fq "$ios_simulator_id"; then
+if ((${#baseline_simulator_ids[@]} == 0)) || ! contains_simulator "$ios_simulator_id" "${baseline_simulator_ids[@]}"; then
   xcrun simctl boot "$ios_simulator_id"
+  started_simulator_ids+=("$ios_simulator_id")
 fi
 xcrun simctl bootstatus "$ios_simulator_id" -b
 

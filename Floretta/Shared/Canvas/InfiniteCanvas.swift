@@ -57,62 +57,101 @@ struct InfiniteCanvas: View {
 
     var body: some View {
         GeometryReader { geo in
-            ZStack {
-                paperLayer
-                    .contentShape(Rectangle())
-                    .accessibilityIdentifier("editor.canvas")
-                TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !petal.isPlaying)) { timeline in
-                    Canvas { context, size in
-                        draw(
-                            in: context,
-                            size: size,
-                            at: timeline.date.timeIntervalSinceReferenceDate
-                        )
-                    }
-                    .allowsHitTesting(false)
-                    .onChange(of: timeline.date) { _, date in
-                        let time = date.timeIntervalSinceReferenceDate
-                        let extra = petal.layoutExtra(comparedTo: laidOut.layoutPassCount)
-                        if extra != petal.layoutPassesDuringPlayback {
-                            petal.noteLayoutExtra(extra)
-                        }
-                        if petal.playbackDidFinish(at: time) {
-                            petal.settle()
-                        }
-                    }
-                }
-            }
+            observeCanvas(canvasSurface(size: geo.size), size: geo.size)
+        }
+        .focusEffectDisabled(true)
+    }
+
+    private func canvasSurface(size: CGSize) -> some View {
+        canvasFocusSurface(canvasHoverSurface(canvasOverlaySurface(canvasGestureSurface(size: size))))
+    }
+
+    private func canvasGestureSurface(size: CGSize) -> some View {
+        canvasVisuals
             .gesture(dragGesture)
-            .simultaneousGesture(pinchGesture(in: geo.size))
-            .overlay {
-                CanvasScrollCatcher { delta, location, command in
-                    camera.viewport.applyScroll(delta: delta, around: location, command: command)
-                    camera.chrome.syncZoomPercent(toScale: camera.viewport.scale)
+            .simultaneousGesture(pinchGesture(in: size))
+    }
+
+    private func canvasOverlaySurface<V: View>(_ view: V) -> some View {
+        canvasSecondaryOverlays(canvasPrimaryOverlays(view))
+    }
+
+    private func canvasPrimaryOverlays<V: View>(_ view: V) -> some View {
+        view
+        .overlay {
+            CanvasScrollCatcher { delta, location, command in
+                camera.viewport.applyScroll(delta: delta, around: location, command: command)
+                camera.chrome.syncZoomPercent(toScale: camera.viewport.scale)
+            }
+        }
+        .overlay { if !zenActive { hoverAddButtons } }
+        .overlay { editField }
+        .overlay { nodeChromeProbe }
+        .overlay { stickyChrome }
+    }
+
+    private func canvasSecondaryOverlays<V: View>(_ view: V) -> some View {
+        view
+        .overlay { stickyEditor }
+        .overlay { regionToolbar }
+        .overlay { regionEditor }
+        .overlay { relationshipEditor }
+        .overlay { summaryEditor }
+        .overlay { boundaryEditor }
+        .overlay { audioPlaybackOverlay }
+    }
+
+    private func canvasHoverSurface<V: View>(_ view: V) -> some View {
+        view
+        .canvasHover { location in
+            guard let location else {
+                interaction.hoveredNodeID = nil
+                return
+            }
+            let point = camera.viewport.canvasPoint(fromView: location)
+            interaction.hoveredNodeID = CanvasPlacement.nodeID(at: point, in: layoutSource())
+        }
+    }
+
+    private func canvasFocusSurface<V: View>(_ view: V) -> some View {
+        view
+        .focusable(keyboard.mode == .command)
+        .focusEffectDisabled(true)
+        .background { CanvasFocusRingSuppressor() }
+        .focused($canvasFocused)
+    }
+
+    private var canvasVisuals: some View {
+        canvasPaper.overlay { canvasTimeline }
+    }
+
+    private var canvasPaper: some View {
+        paperLayer
+            .contentShape(Rectangle())
+            .accessibilityIdentifier("editor.canvas")
+    }
+
+    private var canvasTimeline: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !petal.isPlaying)) { timeline in
+            Canvas { context, size in
+                draw(in: context, size: size, at: timeline.date.timeIntervalSinceReferenceDate)
+            }
+            .allowsHitTesting(false)
+            .onChange(of: timeline.date) { _, date in
+                let time = date.timeIntervalSinceReferenceDate
+                let extra = petal.layoutExtra(comparedTo: laidOut.layoutPassCount)
+                if extra != petal.layoutPassesDuringPlayback {
+                    petal.noteLayoutExtra(extra)
+                }
+                if petal.playbackDidFinish(at: time) {
+                    petal.settle()
                 }
             }
-            .overlay { if !zenActive { hoverAddButtons } }
-            .overlay { editField }
-            .overlay { nodeChromeProbe }
-            .overlay { stickyChrome }
-            .overlay { stickyEditor }
-            .overlay { regionToolbar }
-            .overlay { regionEditor }
-            .overlay { relationshipEditor }
-            .overlay { summaryEditor }
-            .overlay { boundaryEditor }
-            .overlay { audioPlaybackOverlay }
-            .canvasHover { location in
-                guard let location else {
-                    interaction.hoveredNodeID = nil
-                    return
-                }
-                let point = camera.viewport.canvasPoint(fromView: location)
-                interaction.hoveredNodeID = CanvasPlacement.nodeID(at: point, in: layoutSource())
-            }
-            .focusable(keyboard.mode == .command)
-            .focusEffectDisabled(true)
-            .background { CanvasFocusRingSuppressor() }
-            .focused($canvasFocused)
+        }
+    }
+
+    private func observeCanvas<V: View>(_ view: V, size: CGSize) -> some View {
+        view
             .onKeyPress { press in
                 if press.key == .escape, !keyboard.isComposing, onEscape() {
                     return .handled
@@ -128,15 +167,15 @@ struct InfiniteCanvas: View {
                     keyboard.selectedNodeID = document.roots.first?.id
                     interaction.selectedNodeID = keyboard.selectedNodeID
                 }
-                camera.viewSize = geo.size
+                camera.viewSize = size
                 publishBounds()
                 camera.chrome.syncZoomPercent(toScale: camera.viewport.scale)
                 refreshThumbnails()
                 openPetalMap()
                 canvasFocused = true
             }
-            .onChange(of: geo.size) { _, size in
-                camera.viewSize = size
+            .onChange(of: size) { _, newSize in
+                camera.viewSize = newSize
                 refreshThumbnails()
             }
             .onChange(of: document) { _, newDocument in
@@ -182,97 +221,103 @@ struct InfiniteCanvas: View {
             .onChange(of: keyboard.selectedNodeID) { _, id in
                 interaction.selectedNodeID = id
             }
-            .simultaneousGesture(SpatialTapGesture().onEnded { value in
-                if EditFieldGuard.ignoresCanvasTap(
-                    at: value.location,
-                    editFrame: editFieldFrame(),
-                    isComposing: keyboard.isComposing
-                ) { return }
-                let point = camera.viewport.canvasPoint(fromView: value.location)
-                if let stickyHit = stickyHit(at: point) {
-                    applyStickyTap(stickyHit)
-                    return
-                }
-                if previewFile(at: point) { return }
-                let hit = CanvasPlacement.nodeID(at: point, in: layoutSource())
-                if hit == nil, let summaryID = summaryHit(at: point) {
-                    applySummaryTap(summaryID)
-                    return
-                }
-                if hit == nil, let relationshipID = relationshipHit(at: point) {
-                    applyRelationshipTap(relationshipID)
-                    return
-                }
-                if hit == nil, let boundaryID = boundaryHit(at: point) {
-                    applyBoundaryTap(boundaryID)
-                    return
-                }
-                if hit == nil, let regionID = regionHit(at: point) {
-                    applyRegionTap(regionID)
-                    return
-                }
-                if zenActive, hit == nil { return }
-                applyNodeTap(hit)
-            })
-            .simultaneousGesture(SpatialTapGesture(count: 2).onEnded { value in
-                if EditFieldGuard.ignoresCanvasTap(
-                    at: value.location,
-                    editFrame: editFieldFrame(),
-                    isComposing: keyboard.isComposing
-                ) { return }
-                let point = camera.viewport.canvasPoint(fromView: value.location)
-                if let id = stickyHit(at: point) {
-                    beginStickyEdit(id)
-                    return
-                }
-                if previewFile(at: point) { return }
-                if let hit = CanvasPlacement.nodeID(at: point, in: layoutSource()) {
-                    beginEditing(hit)
-                    return
-                }
-                if let summaryID = summaryHit(at: point) {
-                    if keyboard.mode == .edit, keyboard.selectedSummaryID != summaryID {
-                        keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
-                    }
-                    beginSummaryEdit(summaryID)
-                    return
-                }
-                if let relationshipID = relationshipHit(at: point) {
-                    if keyboard.mode == .edit, keyboard.selectedRelationshipID != relationshipID {
-                        keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
-                    }
-                    beginRelationshipEdit(relationshipID)
-                    return
-                }
-                if let boundaryID = boundaryHit(at: point) {
-                    if keyboard.mode == .edit, keyboard.selectedBoundaryID != boundaryID {
-                        keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
-                    }
-                    beginBoundaryEdit(boundaryID)
-                    return
-                }
-                if let regionID = regionHit(at: point),
-                   CanvasPlacement.nodeID(at: point, in: layoutSource()) == nil {
-                    if keyboard.mode == .edit, keyboard.selectedRegionID != regionID {
-                        keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
-                    }
-                    beginRegionEdit(regionID)
-                    return
-                }
-                if onConsumeBlankDoubleTap() { return }
-                if focusNodeID != nil { return }
-                if keyboard.mode == .edit {
+            .simultaneousGesture(canvasTapGesture)
+            .simultaneousGesture(canvasDoubleTapGesture)
+    }
+
+    private var canvasTapGesture: some Gesture {
+        SpatialTapGesture().onEnded { value in
+            if EditFieldGuard.ignoresCanvasTap(
+                at: value.location,
+                editFrame: editFieldFrame(),
+                isComposing: keyboard.isComposing
+            ) { return }
+            let point = camera.viewport.canvasPoint(fromView: value.location)
+            if let stickyHit = stickyHit(at: point) {
+                applyStickyTap(stickyHit)
+                return
+            }
+            if previewFile(at: point) { return }
+            let hit = CanvasPlacement.nodeID(at: point, in: layoutSource())
+            if hit == nil, let summaryID = summaryHit(at: point) {
+                applySummaryTap(summaryID)
+                return
+            }
+            if hit == nil, let relationshipID = relationshipHit(at: point) {
+                applyRelationshipTap(relationshipID)
+                return
+            }
+            if hit == nil, let boundaryID = boundaryHit(at: point) {
+                applyBoundaryTap(boundaryID)
+                return
+            }
+            if hit == nil, let regionID = regionHit(at: point) {
+                applyRegionTap(regionID)
+                return
+            }
+            if zenActive, hit == nil { return }
+            applyNodeTap(hit)
+        }
+    }
+
+    private var canvasDoubleTapGesture: some Gesture {
+        SpatialTapGesture(count: 2).onEnded { value in
+            if EditFieldGuard.ignoresCanvasTap(
+                at: value.location,
+                editFrame: editFieldFrame(),
+                isComposing: keyboard.isComposing
+            ) { return }
+            let point = camera.viewport.canvasPoint(fromView: value.location)
+            if let id = stickyHit(at: point) {
+                beginStickyEdit(id)
+                return
+            }
+            if previewFile(at: point) { return }
+            if let hit = CanvasPlacement.nodeID(at: point, in: layoutSource()) {
+                beginEditing(hit)
+                return
+            }
+            if let summaryID = summaryHit(at: point) {
+                if keyboard.mode == .edit, keyboard.selectedSummaryID != summaryID {
                     keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
                 }
-                guard persistsPlacement else { return }
-                let placed = MindMapPoint(x: Double(point.x), y: Double(point.y))
-                if let id = keyboard.addFreeNode(at: placed, document: &document) {
-                    keyboard.selectedNodeID = id
-                    interaction.selectedNodeID = id
+                beginSummaryEdit(summaryID)
+                return
+            }
+            if let relationshipID = relationshipHit(at: point) {
+                if keyboard.mode == .edit, keyboard.selectedRelationshipID != relationshipID {
+                    keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
                 }
-            })
+                beginRelationshipEdit(relationshipID)
+                return
+            }
+            if let boundaryID = boundaryHit(at: point) {
+                if keyboard.mode == .edit, keyboard.selectedBoundaryID != boundaryID {
+                    keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+                }
+                beginBoundaryEdit(boundaryID)
+                return
+            }
+            if let regionID = regionHit(at: point),
+               CanvasPlacement.nodeID(at: point, in: layoutSource()) == nil {
+                if keyboard.mode == .edit, keyboard.selectedRegionID != regionID {
+                    keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+                }
+                beginRegionEdit(regionID)
+                return
+            }
+            if onConsumeBlankDoubleTap() { return }
+            if focusNodeID != nil { return }
+            if keyboard.mode == .edit {
+                keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+            }
+            guard persistsPlacement else { return }
+            let placed = MindMapPoint(x: Double(point.x), y: Double(point.y))
+            if let id = keyboard.addFreeNode(at: placed, document: &document) {
+                keyboard.selectedNodeID = id
+                interaction.selectedNodeID = id
+            }
         }
-        .focusEffectDisabled(true)
     }
 
     /// A tap on a file badge previews that file and does not open the text editor.
@@ -1072,7 +1117,6 @@ struct InfiniteCanvas: View {
     }
 
     @ViewBuilder
-    @ViewBuilder
     private var audioPlaybackOverlay: some View {
         if let audioPlayer, let audioNodeID,
            let node = placedFrames().first(where: { $0.id == audioNodeID }) {
@@ -1086,6 +1130,7 @@ struct InfiniteCanvas: View {
         }
     }
 
+    @ViewBuilder
     private var paperLayer: some View {
         if let paper = resolvedAppearance.canvasBackground {
             Rectangle().fill(color(paper))

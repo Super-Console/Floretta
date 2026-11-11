@@ -83,7 +83,62 @@ struct DocumentEditor: View {
     @FocusState private var regionMetric: RegionMetric?
     @State private var topicCensus = TopicCensusModel()
 
+    #if os(macOS)
+    @ToolbarContentBuilder
+    private var macToolbarItemsPrimary: some CustomizableToolbarContent {
+        macItem(.undo)
+        macItem(.redo)
+        macItem(.delete)
+        macItem(.insert)
+        macItem(.share)
+        macItem(.zoom)
+        macItem(.immersive)
+        macItem(.more)
+        macItem(.child)
+        macItem(.sibling)
+    }
+
+    @ToolbarContentBuilder
+    private var macToolbarItemsInsert: some CustomizableToolbarContent {
+        macItem(.dictation)
+        macItem(.freeNode)
+        macItem(.sticky)
+        macItem(.link)
+        macItem(.summary)
+        macItem(.boundary)
+        macItem(.region)
+        macItem(.image)
+        macItem(.attachment)
+        macItem(.importFile)
+    }
+
+    @ToolbarContentBuilder
+    private var macToolbarItemsNavigation: some CustomizableToolbarContent {
+        macItem(.outline)
+        macItem(.style)
+        macItem(.theme)
+        macItem(.viewMode)
+        macItem(.newCanvas)
+        macItem(.find)
+        macItem(.tagFilter)
+        macItem(.history)
+        macItem(.paste)
+        macItem(.about)
+    }
+
+    @ToolbarContentBuilder
+    private var macToolbarItemsView: some CustomizableToolbarContent {
+        macItem(.mapMode)
+        macItem(.focusMode)
+        macItem(.fit)
+    }
+    #endif
+
     var body: some View {
+        editorPresentations
+    }
+
+    private var editorCore: some View {
         canvasStack
             .overlay(alignment: .topTrailing) {
                 if session.zen.isActive {
@@ -107,6 +162,10 @@ struct DocumentEditor: View {
         .onChange(of: regionMetric) { previous, _ in
             if let previous { commitRegionMetric(previous) }
         }
+    }
+
+    private var editorToolbar: some View {
+        editorCore
             .inspector(isPresented: inspectorPresented) {
                 inspectorBody
                     .inspectorColumnWidth(min: 280, ideal: 320, max: 440)
@@ -191,39 +250,10 @@ struct DocumentEditor: View {
             #if os(macOS)
             .toolbar(id: "floretta.editor") {
                 if session.zen.chrome.showsToolbar {
-                    macItem(.undo)
-                    macItem(.redo)
-                    macItem(.delete)
-                    macItem(.insert)
-                    macItem(.share)
-                    macItem(.zoom)
-                    macItem(.immersive)
-                    macItem(.more)
-                    macItem(.child)
-                    macItem(.sibling)
-                    macItem(.dictation)
-                    macItem(.freeNode)
-                    macItem(.sticky)
-                    macItem(.link)
-                    macItem(.summary)
-                    macItem(.boundary)
-                    macItem(.region)
-                    macItem(.image)
-                    macItem(.attachment)
-                    macItem(.importFile)
-                    macItem(.outline)
-                    macItem(.style)
-                    macItem(.theme)
-                    macItem(.viewMode)
-                    macItem(.newCanvas)
-                    macItem(.find)
-                    macItem(.tagFilter)
-                    macItem(.history)
-                    macItem(.paste)
-                    macItem(.about)
-                    macItem(.mapMode)
-                    macItem(.focusMode)
-                    macItem(.fit)
+                    macToolbarItemsPrimary
+                    macToolbarItemsInsert
+                    macToolbarItemsNavigation
+                    macToolbarItemsView
                 }
             }
             #endif
@@ -232,6 +262,10 @@ struct DocumentEditor: View {
             #else
             .toolbarBackground(.hidden, for: .navigationBar)
             #endif
+    }
+
+    private var editorEvents: some View {
+        editorToolbar
             .onChange(of: session.viewMode) { _, mode in
                 guard mode == .focus else { return }
                 if session.focusNodeID == nil {
@@ -267,6 +301,10 @@ struct DocumentEditor: View {
                         .disabled(CanvasMenus.textDisabled.contains(item) || (session.isMarkdownDocument && item == "拷贝样式"))
                 }
             }
+    }
+
+    private var editorExportActions: some View {
+        editorEvents
             .fileExporter(
                 isPresented: $showExport,
                 document: exportFile,
@@ -329,6 +367,10 @@ struct DocumentEditor: View {
                 }
                 Button(text("取消"), role: .cancel) {}
             }
+    }
+
+    private var editorPresentations: some View {
+        editorExportActions
         .sheet(isPresented: $showAbout) {
             AboutSheet()
         }

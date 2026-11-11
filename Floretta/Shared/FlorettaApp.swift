@@ -55,7 +55,7 @@ struct FlorettaApp: App {
 private struct FlorettaCommands: Commands {
     @Bindable var settings: AppSettings
     @Bindable var library: LibraryModel
-    @FocusedValue(\.florettaEditorCommands) private var editorCommands
+    @FocusedValue(\.florettaEditorCommands) private var editorCommands: FlorettaEditorMenuActions?
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {

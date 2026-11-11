@@ -74,3 +74,17 @@ Core 只声明协议，不写实现：
 - 不用 Electron / Tauri / Flutter 套壳换跨平台
 - 不为了跨平台牺牲 Apple 端原生体验（液态玻璃、指针交互、快捷键）
 - 不在没有实际需求时提前写 Windows/Linux 代码
+
+## F3 核实记录（2026-11-11）
+
+以下结论按当前源码核实；「部分」表示 Core 协议/适配器存在，但调用方仍有直连或注入未贯通，不等于完整 Port 化。
+
+| Port | 结论 | 文件证据与缺口 |
+|---|---|---|
+| `FileAccessPort` | **部分** | 协议在 `FlorettaCore/Ports/PlatformPorts.swift`；`Floretta/Shared/Ports/ApplePlatformPorts.swift` 有 `FoundationFileAccess` 和 `ApplePlatformPorts.current()`；`FlorettaCore/Container/DocumentContainer.swift` 的 `read/save` 可接收注入。缺口：`ApplePlatformPorts.current()` 的构造结果没有贯穿 UI/文档会话；`Floretta/Shared/Shell/DocumentSession.swift`、`DocumentEditor.swift` 等仍直接用 `FileManager`，适配器也明确尚未实现安全作用域书签与 `NSFileCoordinator`。流式端另有 `StreamingFilePort`，不能据此认定全部文件操作已走 Port。 |
+| `PasteboardPort` | **部分** | 协议及 macOS `NSPasteboard` / iOS `UIPasteboard` 实现位于 `FlorettaCore/Ports/PlatformPorts.swift`、`Floretta/Shared/Ports/ApplePlatformPorts.swift`。缺口：`Floretta/Shared/Shell/DocumentEditor.swift` 约 2133、2176、3162 行直接读写系统剪贴板，未经注入 Port。 |
+| `DeviceInfoPort` | **部分** | 协议及 `SystemDeviceInfo` 适配器在上述两个 Port 文件中。缺口：`Floretta/Shared/Shell/AppSettings.swift` 约 411 行、`Floretta/Shared/Shell/LocalDeviceLabel.swift` 约 28 行直接查询 `UIDevice.current.userInterfaceIdiom`；应用层未统一消费 `ApplePlatformPorts.device`。 |
+| `ClockPort` | **部分** | 协议和 `SystemClock` 在上述 Port 文件；`FlorettaUI/FlorettaUI.swift` 暴露 `now(clock:)`，但这是薄封装。缺口：`FlorettaCore/AI/FlorettaAISession.swift` 约 477 行直接 `Date()`，且 `MindMapDocument.swift` 初始化默认值、`ShareIngress.swift` 默认参数等直接取系统时间；没有贯通的时钟注入。 |
+| `FontMetricsPort` | **部分** | 协议在 `FlorettaCore/Ports/PlatformPorts.swift`；`TextMeasurementCache` 接收 Port，`FlorettaCore/Layout/EstimatedFontMetrics.swift` 提供 Core 默认实现，`Floretta/Shared/Canvas/CanvasPlacement.swift` 注入 `CoreTextFontMetrics`。缺口：`Floretta/Shared/Keyboard/NodeTextEditor.swift` 直接用 `NSFont` / `UIFont` 做编辑字体测量/布局；Port 只覆盖布局的一部分，且调用处直接构造适配器，不是统一依赖注入。 |
+
+因此，五个协议都不只是文档：它们已声明在 Core，并有不同程度的实现；但当前不能把五项中的任何一项报告为完整贯通的 UI Port。此记录不新增空协议，也不把仍在直调系统 API 的路径计作完成。

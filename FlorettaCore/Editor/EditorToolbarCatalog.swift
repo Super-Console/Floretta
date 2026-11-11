@@ -92,6 +92,7 @@ public enum EditorToolbarCommandID: String, CaseIterable, Equatable, Sendable {
     case pdf
     case png
     case markdownExport
+    case textBundle
     case saveFloretta
     case upgrade
     case mm
@@ -191,6 +192,7 @@ public enum EditorToolbarCatalog {
         item(.pdf, "PDF", "doc.richtext", "把这份导图导出为 PDF", menu: .share, customization: .menuOnly),
         item(.png, "PNG", "photo", "把这份导图导出为 PNG 图片", menu: .share, customization: .menuOnly),
         item(.markdownExport, "Markdown", "doc.plaintext", "把这份导图导出为 Markdown", menu: .share, customization: .menuOnly),
+        item(.textBundle, "TextBundle…", "doc.zipper", "把这份导图导出为 TextBundle", menu: .share, customization: .menuOnly),
         item(.saveFloretta, "保存为 Floretta", "square.and.arrow.down", "把这份导图保存为 Floretta 文件", menu: .share, customization: .menuOnly),
         item(.upgrade, "升级为完整工程", "arrow.up.document", "把当前导图另存为 Floretta 工程。原来的 Markdown 文件不会被改掉。", menu: .share, customization: .menuOnly),
         item(.mm, ".mm", "doc", "把这份导图导出为 FreeMind .mm", menu: .share, customization: .menuOnly),

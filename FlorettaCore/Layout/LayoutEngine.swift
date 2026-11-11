@@ -241,6 +241,8 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
     public var caption: String = ""
     /// Image attachment hashes that may have a thumbnail. Used for viewport unload.
     public var thumbnailHashes: [String] = []
+    /// Audio waveform hashes, kept separate so audio never reserves an image layout slot.
+    public var audioWaveformHashes: [String] = []
     /// Non-image attachments. Each row is a type icon, the filename, and the size.
     public var fileBadges: [FileBadge] = []
     /// User-written topic labels. Drawn under the title. Empty when the topic has none.
@@ -278,6 +280,7 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
         caption: String = "",
         isFree: Bool = false,
         thumbnailHashes: [String] = [],
+        audioWaveformHashes: [String] = [],
         fileBadges: [FileBadge] = [],
         labels: [String] = [],
         markerIDs: [String] = [],
@@ -308,6 +311,7 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
         self.isFree = isFree
         self.caption = caption
         self.thumbnailHashes = thumbnailHashes
+        self.audioWaveformHashes = audioWaveformHashes
         self.fileBadges = fileBadges
         self.labels = labels
         self.markerIDs = markerIDs
@@ -803,6 +807,9 @@ public struct LayoutEngine: Sendable {
                 AttachmentKind.isImageExtension(attachment.fileExtension)
                     || NodeMediaKind.classify(filename: attachment.filename) == .video
                     ? attachment.sha256 : nil
+            },
+            audioWaveformHashes: node.attachments.compactMap { attachment in
+                NodeMediaKind.classify(filename: attachment.filename) == .audio ? attachment.sha256 : nil
             },
             fileBadges: FileBadgeLayout.badges(
                 attachments: node.attachments,

@@ -1672,10 +1672,19 @@ struct InfiniteCanvas: View {
         var textRect = rect.insetBy(dx: 6, dy: 4)
         if pose == nil,
            detail != .far,
-           let hash = node.thumbnailHashes.first,
+           let hash = node.thumbnailHashes.first ?? node.audioWaveformHashes.first,
            let image = thumbnails?.image(for: hash) {
             let imageRect = ImagePlacement.rect(for: image, in: rect)
             layer.draw(Image(decorative: image, scale: 1), in: imageRect)
+            if let duration = thumbnails?.mediaDurations[hash] {
+                let label = Text(MediaPreviewPolicy.durationLabel(seconds: duration))
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.white)
+                let labelRect = CGRect(x: imageRect.maxX - 48, y: imageRect.maxY - 19, width: 44, height: 16)
+                let badge = Path(roundedRect: labelRect, cornerRadius: 4)
+                layer.fill(badge, with: .color(.black.opacity(0.62)))
+                layer.draw(label, at: CGPoint(x: labelRect.midX, y: labelRect.midY), anchor: .center)
+            }
             textRect = CGRect(
                 x: rect.minX + 6,
                 y: imageRect.maxY + 2,
@@ -1786,7 +1795,7 @@ struct InfiniteCanvas: View {
                     maxX: frame.origin.x + frame.size.width,
                     maxY: frame.origin.y + frame.size.height
                 ),
-                frame.thumbnailHashes
+                frame.thumbnailHashes + frame.audioWaveformHashes
             )
         }
         let visible = ThumbnailResidence.visibleHashes(nodes: nodes, viewport: viewport)
@@ -2281,6 +2290,8 @@ final class AttachmentThumbnailMemory {
     private var visible: Set<String> = []
     private var inFlight: Set<String> = []
     private var failed: Set<String> = []
+    private(set) var mediaDurations: [String: Double] = [:]
+    private var durationInFlight: Set<String> = []
 
     func image(for hash: String) -> CGImage? {
         images[hash]
@@ -2296,18 +2307,27 @@ final class AttachmentThumbnailMemory {
         self.visible = visible
         bytes.unload(keeping: visible)
         images = images.filter { visible.contains($0.key) }
+        mediaDurations = mediaDurations.filter { visible.contains($0.key) }
         for hash in visible where images[hash] == nil && !inFlight.contains(hash) && !failed.contains(hash) {
             let plan = ImageDecodePlanKind.thumbnail(hash: hash)
             guard plan.storesInThumbnailCache else { continue }
             let entry = entries.first { $0.sha256 == hash }
             guard let entry,
                   let ext = AttachmentNames.parseAsset(entry.name)?.fileExtension,
-                  AttachmentKind.isImageExtension(ext) || ext == "mp4" || ext == "mov" else { continue }
-            guard cache != nil, archiveURL != nil, spillDirectory != nil else { continue }
+                  AttachmentKind.isImageExtension(ext) || NodeMediaKind.classify(filename: "x.\(ext)") != .other else { continue }
+            guard let cache, let archiveURL, let spillDirectory else { continue }
             inFlight.insert(hash)
-            let cache = cache
-            let archiveURL = archiveURL
-            let spillDirectory = spillDirectory
+            if NodeMediaKind.classify(filename: "x.\(ext)") != .other,
+               mediaDurations[hash] == nil, !durationInFlight.contains(hash) {
+                durationInFlight.insert(hash)
+                let durationBridge = ThumbnailDurationPublish(memory: self)
+                Task.detached(priority: .utility) {
+                    let duration = await Self.mediaDuration(
+                        entry: entry, archiveURL: archiveURL, spillDirectory: spillDirectory
+                    )
+                    durationBridge.finish(hash: hash, duration: duration)
+                }
+            }
             let bridge = ThumbnailPublish(memory: self)
             ImageDecodeScheduler.submit(runner: ImageDecodeLane.detached) {
                 let produced = AttachmentThumbnailMemory.produce(
@@ -2335,8 +2355,19 @@ final class AttachmentThumbnailMemory {
             return try? Data(contentsOf: cache.fileURL(for: hash))
         }
         guard let cache, let archiveURL, let spillDirectory else { return nil }
-        if let ext = AttachmentNames.parseAsset(entry.name)?.fileExtension, ext == "mp4" || ext == "mov" {
+        if let ext = AttachmentNames.parseAsset(entry.name)?.fileExtension,
+           NodeMediaKind.classify(filename: "x.\(ext)") == .video {
             return produceVideoThumbnail(
+                entry: entry,
+                hash: entry.sha256 ?? "",
+                cache: cache,
+                archiveURL: archiveURL,
+                spillDirectory: spillDirectory
+            )
+        }
+        if let ext = AttachmentNames.parseAsset(entry.name)?.fileExtension,
+           NodeMediaKind.classify(filename: "x.\(ext)") == .audio {
+            return produceAudioWaveform(
                 entry: entry,
                 hash: entry.sha256 ?? "",
                 cache: cache,
@@ -2383,6 +2414,88 @@ final class AttachmentThumbnailMemory {
         }
     }
 
+    /// Reads decoded PCM in bounded batches off the main actor and persists a compact waveform.
+    nonisolated private static func produceAudioWaveform(
+        entry: ZipStoredEntry,
+        hash: String,
+        cache: ThumbnailFileCache,
+        archiveURL: URL,
+        spillDirectory: URL
+    ) -> Data? {
+        let ext = AttachmentNames.parseAsset(entry.name)?.fileExtension ?? "m4a"
+        let url = spillDirectory.appendingPathComponent("\(UUID().uuidString).\(ext)")
+        do {
+            try FileManager.default.createDirectory(at: spillDirectory, withIntermediateDirectories: true)
+            try FilePreviewSpill.write(entry: entry, archiveURL: archiveURL, to: url, files: FoundationStreamingFiles())
+            defer { try? FileManager.default.removeItem(at: url) }
+            let asset = AVURLAsset(url: url)
+            guard let track = asset.tracks(withMediaType: .audio).first else { return nil }
+            let reader = try AVAssetReader(asset: asset)
+            let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
+                AVFormatIDKey: kAudioFormatLinearPCM,
+                AVLinearPCMIsFloatKey: true,
+                AVLinearPCMBitDepthKey: 32,
+                AVLinearPCMIsNonInterleaved: false,
+            ])
+            output.alwaysCopiesSampleData = false
+            guard reader.canAdd(output) else { return nil }
+            reader.add(output)
+            guard reader.startReading() else { return nil }
+            var peaks: [Float] = []
+            let bucketSamples = 4096
+            var peak: Float = 0
+            var inBucket = 0
+            while let sample = output.copyNextSampleBuffer() {
+                guard let buffer = CMSampleBufferGetDataBuffer(sample) else { continue }
+                let length = CMBlockBufferGetDataLength(buffer)
+                let floats = length / MemoryLayout<Float>.size
+                var data = [Float](repeating: 0, count: floats)
+                let status = data.withUnsafeMutableBytes { raw in
+                    CMBlockBufferCopyDataBytes(buffer, atOffset: 0, dataLength: length, destination: raw.baseAddress!)
+                }
+                guard status == kCMBlockBufferNoErr else { continue }
+                for value in data {
+                    peak = max(peak, abs(value.isFinite ? value : 0))
+                    inBucket += 1
+                    if inBucket == bucketSamples {
+                        peaks.append(peak)
+                        peak = 0
+                        inBucket = 0
+                    }
+                }
+            }
+            if inBucket > 0 { peaks.append(peak) }
+            guard reader.status == .completed else { return nil }
+            let bounded = MediaPreviewPolicy.boundedSamples(peaks)
+            guard let image = waveformImage(bounded) else { return nil }
+            let data = NSMutableData()
+            guard let destination = CGImageDestinationCreateWithData(data, "public.png" as CFString, 1, nil) else { return nil }
+            CGImageDestinationAddImage(destination, image, nil)
+            guard CGImageDestinationFinalize(destination) else { return nil }
+            let result = data as Data
+            try cache.store(result, for: hash)
+            return result
+        } catch {
+            return nil
+        }
+    }
+
+    nonisolated private static func waveformImage(_ peaks: [Float]) -> CGImage? {
+        let width = max(1, peaks.count)
+        let height = 80
+        guard let context = CGContext(
+            data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+        context.setFillColor(CGColor(gray: 0.45, alpha: 1))
+        let middle = CGFloat(height) / 2
+        for (index, value) in peaks.enumerated() {
+            let amplitude = max(1, CGFloat(min(1, value)) * middle)
+            context.fill(CGRect(x: CGFloat(index), y: middle - amplitude, width: 1, height: amplitude * 2))
+        }
+        return context.makeImage()
+    }
+
     /// File-visible so `ThumbnailPublish` can hop the decoded image back onto this actor.
     fileprivate func finish(hash: String, box: DecodedThumb) {
         inFlight.remove(hash)
@@ -2394,6 +2507,26 @@ final class AttachmentThumbnailMemory {
         if visible.contains(hash) {
             images[hash] = image
         }
+    }
+
+    fileprivate func finishDuration(hash: String, duration: Double?) {
+        durationInFlight.remove(hash)
+        if let duration, duration.isFinite, duration >= 0 { mediaDurations[hash] = duration }
+    }
+
+    nonisolated private static func mediaDuration(
+        entry: ZipStoredEntry, archiveURL: URL, spillDirectory: URL
+    ) async -> Double? {
+        guard let ext = AttachmentNames.parseAsset(entry.name)?.fileExtension else { return nil }
+        let url = spillDirectory.appendingPathComponent("\(UUID().uuidString).\(ext)")
+        do {
+            try FileManager.default.createDirectory(at: spillDirectory, withIntermediateDirectories: true)
+            try FilePreviewSpill.write(entry: entry, archiveURL: archiveURL, to: url, files: FoundationStreamingFiles())
+            defer { try? FileManager.default.removeItem(at: url) }
+            let time = try await AVURLAsset(url: url).load(.duration)
+            let seconds = CMTimeGetSeconds(time)
+            return seconds.isFinite ? seconds : nil
+        } catch { return nil }
     }
 }
 
@@ -2415,6 +2548,15 @@ private final class ThumbnailPublish: @unchecked Sendable {
         Task { @MainActor in
             memory.finish(hash: hash, box: box)
         }
+    }
+}
+
+private final class ThumbnailDurationPublish: @unchecked Sendable {
+    nonisolated(unsafe) private let memory: AttachmentThumbnailMemory
+    init(memory: AttachmentThumbnailMemory) { self.memory = memory }
+    func finish(hash: String, duration: Double?) {
+        let memory = memory
+        Task { @MainActor in memory.finishDuration(hash: hash, duration: duration) }
     }
 }
 

@@ -1,7 +1,5 @@
 import Foundation
-#if os(iOS)
-import UIKit
-#endif
+import FlorettaCore
 
 /// Sidebar and browser title for this device's local documents folder.
 struct LocalDeviceLabel: Equatable, Sendable {
@@ -24,13 +22,16 @@ struct LocalDeviceLabel: Equatable, Sendable {
     }
 
     static var currentKind: Kind {
-        #if os(iOS)
-        return UIDevice.current.userInterfaceIdiom == .phone ? .iPhone : .iPad
-        #elseif os(macOS)
-        return .mac
+        #if os(macOS)
+        return currentKind(using: ApplePlatformPorts.current().device, isMacOS: true)
         #else
-        return .mac
+        return currentKind(using: ApplePlatformPorts.current().device, isMacOS: false)
         #endif
+    }
+
+    static func currentKind(using device: any DeviceInfoPort, isMacOS: Bool) -> Kind {
+        if isMacOS { return .mac }
+        return device.isPhone ? .iPhone : .iPad
     }
 
     enum Kind: Equatable, Sendable {

@@ -518,6 +518,11 @@ final class ShellTests: XCTestCase {
     }
 
     func testLocalDeviceLabelIsDeviceAware() {
+        struct InjectedDevice: DeviceInfoPort {
+            var deviceName = "fake"
+            var modelIdentifier = "fake"
+            var isPhone: Bool
+        }
         XCTAssertEqual(
             LocalDeviceLabel.make(for: .iPhone),
             LocalDeviceLabel(title: "我的 iPhone", systemImage: "iphone")
@@ -536,6 +541,9 @@ final class ShellTests: XCTestCase {
             LocalDeviceLabel.make(for: .mac).title,
         ]
         XCTAssertEqual(Set(titles).count, titles.count)
+        XCTAssertEqual(LocalDeviceLabel.currentKind(using: InjectedDevice(isPhone: true), isMacOS: false), .iPhone)
+        XCTAssertEqual(LocalDeviceLabel.currentKind(using: InjectedDevice(isPhone: false), isMacOS: false), .iPad)
+        XCTAssertEqual(AppSettings.platformDefaultView(using: InjectedDevice(isPhone: true)), .focus)
         #if os(macOS)
         XCTAssertEqual(LocalDeviceLabel.currentKind, .mac)
         XCTAssertEqual(LocalDeviceLabel.current, LocalDeviceLabel.make(for: .mac))
@@ -1201,4 +1209,14 @@ private final class WriteGate: FileAccessPort {
     func remove(at url: URL) throws {
         try inner.remove(at: url)
     }
+
+    func createDirectory(at url: URL) throws { try inner.createDirectory(at: url) }
+    func contentsOfDirectory(at url: URL, includingPropertiesForKeys keys: [URLResourceKey], skipsHiddenFiles: Bool) throws -> [URL] {
+        try inner.contentsOfDirectory(at: url, includingPropertiesForKeys: keys, skipsHiddenFiles: skipsHiddenFiles)
+    }
+    func temporaryDirectory() -> URL { inner.temporaryDirectory() }
+    func searchPathDirectory(_ directory: FileManager.SearchPathDirectory, create: Bool) throws -> URL? {
+        try inner.searchPathDirectory(directory, create: create)
+    }
+    func ubiquityDocumentsDirectory() -> URL? { inner.ubiquityDocumentsDirectory() }
 }

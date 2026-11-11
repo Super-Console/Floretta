@@ -473,10 +473,12 @@ public enum ThumbnailPipeline {
 public struct ThumbnailFileCache: Sendable {
     public let directory: URL
     public var maxBytes: Int64
+    private let clock: any ClockPort
 
-    public init(directory: URL, maxBytes: Int64 = StreamingBudget.thumbnailCacheBytes) {
+    public init(directory: URL, maxBytes: Int64 = StreamingBudget.thumbnailCacheBytes, clock: any ClockPort = FoundationClock()) {
         self.directory = directory
         self.maxBytes = maxBytes
+        self.clock = clock
     }
 
     public func fileURL(for key: String) -> URL {
@@ -501,7 +503,7 @@ public struct ThumbnailFileCache: Sendable {
     public func touch(_ key: String) throws {
         let url = fileURL(for: key)
         guard FileManager.default.fileExists(atPath: url.path) else { return }
-        try FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: url.path)
+        try FileManager.default.setAttributes([.modificationDate: clock.now()], ofItemAtPath: url.path)
     }
 
     public func totalBytes() throws -> Int64 {

@@ -363,8 +363,10 @@ public enum ShareIngress {
         onto nodeID: UUID,
         in document: MindMapDocument,
         childID: UUID = UUID(),
-        now: Date = Date()
+        now: Date? = nil,
+        clock: any ClockPort = FoundationClock()
     ) throws -> (document: MindMapDocument, childID: UUID?, storedOnNode: Bool) {
+        let timestamp = now ?? clock.now()
         guard document.node(nodeID) != nil else { throw ShareIngressError.unknownNode }
         switch draft.kind {
         case .file:
@@ -372,12 +374,12 @@ public enum ShareIngress {
         case .webPage(let url, let title):
             let text = ShareTopicText.webTitle(url: url, title: title)
             if !ShareTopicText.fits(text) { throw ShareIngressError.textTooLarge }
-            return try place(text: text, link: url, onto: nodeID, childID: childID, in: document, now: now)
+            return try place(text: text, link: url, onto: nodeID, childID: childID, in: document, now: timestamp)
         case .plainText(let text):
             let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmed.isEmpty { throw ShareIngressError.emptyPayload }
             if !ShareTopicText.fits(trimmed) { throw ShareIngressError.textTooLarge }
-            return try place(text: trimmed, link: nil, onto: nodeID, childID: childID, in: document, now: now)
+            return try place(text: trimmed, link: nil, onto: nodeID, childID: childID, in: document, now: timestamp)
         }
     }
 
@@ -437,9 +439,11 @@ public enum ShareCommit {
         files: any StreamingFilePort,
         memory: MindMapDocument? = nil,
         childID: UUID = UUID(),
-        now: Date = Date(),
-        snapshots: SnapshotRetention = .standard
+        now: Date? = nil,
+        snapshots: SnapshotRetention = .standard,
+        clock: any ClockPort = FoundationClock()
     ) throws -> ShareResult {
+        let timestamp = now ?? clock.now()
         guard files.fileExists(at: archive), try files.isZip(at: archive) else {
             throw ShareIngressError.notAPackage
         }
@@ -457,7 +461,7 @@ public enum ShareCommit {
 
         switch draft.kind {
         case .webPage, .plainText:
-            let staged = try ShareIngress.stage(draft, onto: nodeID, in: sourceDocument, childID: childID, now: now)
+            let staged = try ShareIngress.stage(draft, onto: nodeID, in: sourceDocument, childID: childID, now: timestamp)
             if staged.document == sourceDocument {
                 return ShareResult(
                     nodeID: nodeID,
@@ -540,7 +544,7 @@ public enum ShareCommit {
                     directory: opened.directory
                 )
             }
-            updated.modifiedAt = now
+            updated.modifiedAt = timestamp
             let appending: (url: URL, hashed: HashedAttachment)? = deduplicated ? nil : (fileURL, hashed)
             let directory = try FlorettaStreamingDocument.save(
                 document: updated,

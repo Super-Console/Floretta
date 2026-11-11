@@ -22,6 +22,8 @@ struct InfiniteCanvas: View {
     @State private var interaction = CanvasInteraction.standard
     @Binding var keyboard: MindMapKeyboardSession
     var camera: CanvasCamera
+    var clock: any ClockPort = FoundationClock()
+    var fontMetrics: any FontMetricsPort = CoreTextFontMetrics()
     var focusNodeID: UUID? = nil
     var zenActive: Bool = false
     var onEscape: () -> Bool = { false }
@@ -186,7 +188,7 @@ struct InfiniteCanvas: View {
                     to: nextPrint,
                     previousFrames: petalFrames,
                     finalFrames: frames,
-                    now: Date().timeIntervalSinceReferenceDate,
+                    now: clock.now().timeIntervalSinceReferenceDate,
                     layoutPassCount: laidOut.layoutPassCount
                 )
                 petalPrint = nextPrint
@@ -525,7 +527,7 @@ struct InfiniteCanvas: View {
         petal.setReduceMotion(reduceMotion)
         petal.openMap(
             frames: frames,
-            now: Date().timeIntervalSinceReferenceDate,
+            now: clock.now().timeIntervalSinceReferenceDate,
             layoutPassCount: laidOut.layoutPassCount
         )
         petalMapOpened = true
@@ -567,6 +569,7 @@ struct InfiniteCanvas: View {
                 isComposing: $keyboard.isComposing,
                 minimumWidth: $compositionWidth,
                 fontSize: pointSize,
+                fontMetrics: fontMetrics,
                 onEvent: { handleKey($0) },
                 dictationToken: dictationToken,
                 dictationReplacesPlaceholder: dictationReplacesPlaceholder,
@@ -661,6 +664,7 @@ struct InfiniteCanvas: View {
                 isComposing: $keyboard.isComposing,
                 minimumWidth: $compositionWidth,
                 fontSize: CanvasTextScale.onScreenPointSize(fontSize: 15, scale: camera.viewport.scale),
+                fontMetrics: fontMetrics,
                 onEvent: { handleKey($0) },
                 returnInsertsLine: true,
                 paper: stickyPaper(sticky.color),
@@ -690,6 +694,7 @@ struct InfiniteCanvas: View {
                     fontSize: RelationshipGeometry.labelFontSize,
                     scale: camera.viewport.scale
                 ),
+                fontMetrics: fontMetrics,
                 onEvent: { handleKey($0) },
                 paper: colorScheme == .dark ? Color(white: 0.16) : Color.white,
                 ink: colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16),
@@ -717,6 +722,7 @@ struct InfiniteCanvas: View {
                     fontSize: SummaryGeometry.topicFontSize,
                     scale: camera.viewport.scale
                 ),
+                fontMetrics: fontMetrics,
                 onEvent: { handleKey($0) },
                 paper: colorScheme == .dark ? Color(white: 0.16) : Color.white,
                 ink: colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16),
@@ -744,6 +750,7 @@ struct InfiniteCanvas: View {
                     fontSize: SummaryGeometry.titleFontSize,
                     scale: camera.viewport.scale
                 ),
+                fontMetrics: fontMetrics,
                 onEvent: { handleKey($0) },
                 paper: colorScheme == .dark ? Color(white: 0.16) : Color.white,
                 ink: colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16),
@@ -830,6 +837,7 @@ struct InfiniteCanvas: View {
                 isComposing: $keyboard.isComposing,
                 minimumWidth: $compositionWidth,
                 fontSize: CanvasTextScale.onScreenPointSize(fontSize: 14, scale: camera.viewport.scale),
+                fontMetrics: fontMetrics,
                 onEvent: { handleKey($0) },
                 paper: colorScheme == .dark ? Color(white: 0.16) : Color.white,
                 ink: colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16),

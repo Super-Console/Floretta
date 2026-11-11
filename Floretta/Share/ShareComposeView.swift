@@ -175,6 +175,7 @@ final class ShareComposeSession {
         let archive = opened.url
         let node = selection
         let file = fileURL
+        let clock = SystemClock()
         Task {
             do {
                 let result = try await Task.detached {
@@ -184,7 +185,8 @@ final class ShareComposeSession {
                         archive: archive,
                         fileURL: file,
                         files: FoundationStreamingFiles(),
-                        snapshots: .standard
+                        snapshots: .standard,
+                        clock: clock
                     )
                 }.value
                 guard !finished else { return }

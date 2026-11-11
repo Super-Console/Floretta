@@ -58,8 +58,8 @@ public struct MindMapDocument: Equatable, Sendable {
 
     public init(
         title: String,
-        createdAt: Date = Date(),
-        modifiedAt: Date = Date(),
+        createdAt: Date? = nil,
+        modifiedAt: Date? = nil,
         roots: [MindMapNode] = [],
         freeNodes: [MindMapNode] = [],
         relationships: [TopicRelationship] = [],
@@ -74,12 +74,13 @@ public struct MindMapDocument: Equatable, Sendable {
         themeID: String? = nil,
         activeCanvasIndex: Int = 0,
         primaryCanvasTitle: String? = nil,
-        primaryCanvasViewport: CanvasViewportState = .standard
+        primaryCanvasViewport: CanvasViewportState = .standard,
+        clock: any ClockPort = FoundationClock()
     ) {
         self.formatVersion = formatVersion
         self.title = title
-        self.createdAt = createdAt
-        self.modifiedAt = modifiedAt
+        self.createdAt = createdAt ?? clock.now()
+        self.modifiedAt = modifiedAt ?? clock.now()
         self.roots = roots
         self.freeNodes = freeNodes
         self.relationships = relationships
@@ -102,16 +103,18 @@ public struct MindMapDocument: Equatable, Sendable {
     /// Importers and `init(from:)` keep using `init`, so an opened file keeps the theme it saved.
     public static func newMap(
         title: String,
-        createdAt: Date = Date(),
-        modifiedAt: Date = Date(),
-        roots: [MindMapNode] = []
+        createdAt: Date? = nil,
+        modifiedAt: Date? = nil,
+        roots: [MindMapNode] = [],
+        clock: any ClockPort = FoundationClock()
     ) -> MindMapDocument {
         MindMapDocument(
             title: title,
             createdAt: createdAt,
             modifiedAt: modifiedAt,
             roots: roots,
-            themeID: MapThemeCatalog.defaultThemeID
+            themeID: MapThemeCatalog.defaultThemeID,
+            clock: clock
         )
     }
 }

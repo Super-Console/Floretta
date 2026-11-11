@@ -802,6 +802,7 @@ public struct LayoutEngine: Sendable {
             thumbnailHashes: node.attachments.compactMap { attachment in
                 AttachmentKind.isImageExtension(attachment.fileExtension)
                     || NodeMediaKind.classify(filename: attachment.filename) == .video
+                    || NodeMediaKind.classify(filename: attachment.filename) == .audio
                     ? attachment.sha256 : nil
             },
             fileBadges: FileBadgeLayout.badges(

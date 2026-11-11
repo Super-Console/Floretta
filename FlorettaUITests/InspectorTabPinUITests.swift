@@ -160,6 +160,10 @@ final class InspectorTabPinUITests: XCTestCase {
         } else {
             app.descendants(matching: .any)["inspector.header"].swipeDown()
         }
+        for offset in [CGVector(dx: 0.08, dy: 0.45), CGVector(dx: 0.92, dy: 0.45)] {
+            app.coordinate(withNormalizedOffset: offset).tap()
+            if marker(app, "选择一个主题").waitForExistence(timeout: 2) { return }
+        }
         for offset in [CGVector(dx: 0.07, dy: 0.16), CGVector(dx: 0.5, dy: 0.12)] {
             guard canvas.isHittable else { break }
             canvas.coordinate(withNormalizedOffset: offset).tap()

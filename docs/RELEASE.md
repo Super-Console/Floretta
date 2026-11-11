@@ -9,6 +9,8 @@
 
 ## 打包前检查清单
 
+**打包前必须运行 `./scripts/pre-release.sh` 并且全绿；否则不许 archive。**
+
 1. [ ] 确认目标分支与提交；工作区无意外改动，提交内容只包含本次发布所需文件。
 2. [ ] 检查 `MARKETING_VERSION` 保持 `1.0`，`CURRENT_PROJECT_VERSION` 比 App Store Connect 最近一次已上传 build 大 1。
 3. [ ] 检查文档打开位置配置：

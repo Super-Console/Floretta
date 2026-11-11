@@ -22,7 +22,7 @@ struct InfiniteCanvas: View {
     @State private var interaction = CanvasInteraction.standard
     @Binding var keyboard: MindMapKeyboardSession
     var camera: CanvasCamera
-    var clock: any ClockPort = FoundationClock()
+    var clock: any ClockPort
     var fontMetrics: any FontMetricsPort = CoreTextFontMetrics()
     var focusNodeID: UUID? = nil
     var zenActive: Bool = false
@@ -2030,7 +2030,7 @@ enum NodeEditChrome {
     }
 
     /// One burgundy topic, short enough that the old 88×36 edit field would grow it.
-    static func sampleDocument() -> MindMapDocument {
+    static func sampleDocument(clock: any ClockPort) -> MindMapDocument {
         let node = MindMapNode(
             text: "样式",
             style: MindMapNodeStyle(
@@ -2045,7 +2045,8 @@ enum NodeEditChrome {
             ),
             position: MindMapPoint(x: 64, y: 96)
         )
-        return MindMapDocument(title: "样式", roots: [node])
+        let now = clock.now()
+        return MindMapDocument(title: "样式", createdAt: now, modifiedAt: now, roots: [node])
     }
 }
 

@@ -26,3 +26,11 @@
 - 内存：未做基准测量；本次为平台访问抽象与注入变更，未主动增加缓存或常驻状态。
 - 帧率：未做基准测量；渲染流程未作有意变更。
 - 包体：未做基准测量；未增加依赖。
+
+## Round 2：补齐 ClockPort 真实应用路径
+
+- `DocumentSession.makeNew()`、模板文档和样式示例创建显式传入 `ports.clock`；两处 `ThumbnailFileCache` 初始化也传入该时钟。`InfiniteCanvas` 不再隐式构造系统时钟。
+- 新增 Shell 回归测试：注入固定时钟后通过 `LibraryModel.makeNew()` 检查创建/修改时间，并通过其实际缩略图缓存写入文件后核对修改时间。
+- macOS `xcodebuild test`：413 tests，0 failures；iOS Simulator build：成功，`error:` 诊断计数 0；macOS app build：成功（test 编译同时覆盖 UI target）；Core boundary guard 与 `git diff --check` 通过。`swift test`：347 tests，0 failures。
+- 审计余项：应用实现中 `SystemClock.now()` 转调 Core 的 `FoundationClock()`；`Date()` 仅在 UI 测试的轮询 deadline 使用。Core 的 `FoundationClock` 是生产系统时钟实现；MindMapDocument、AI/share 操作和缩略图缓存的默认参数保留它，以兼容无需注入的 Core 调用，应用路径现显式传入依赖时钟。
+- 验证过程中的首次测试尝试曾在用户 Application Support 下创建 `Floretta/Attachments/Thumbnails/injected-clock`（写入固定测试数据，mtime 为 2023-11-15 06:15:23 +0800）。后续测试已改为 sandbox 路径；该首次生成文件仍在原处，未擅自删除，等待用户决定是否清理。

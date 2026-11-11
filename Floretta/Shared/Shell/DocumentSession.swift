@@ -948,7 +948,8 @@ final class LibraryModel {
         if let support = try? ports.files.searchPathDirectory(.applicationSupportDirectory, create: true) {
             _ = try? AttachmentDirectory.prepare(applicationSupport: support, exclusion: ports.backup)
             thumbnailCache = ThumbnailFileCache(
-                directory: AttachmentDirectory.thumbnails(applicationSupport: support)
+                directory: AttachmentDirectory.thumbnails(applicationSupport: support),
+                clock: ports.clock
             )
             let recentDirectory = support
                 .appendingPathComponent("Floretta", isDirectory: true)
@@ -957,7 +958,8 @@ final class LibraryModel {
             try? ports.backup.excludeFromBackup(recentDirectory)
             recentThumbnailCache = ThumbnailFileCache(
                 directory: recentDirectory,
-                maxBytes: Int64(RecentThumbnailRenderer.byteLimit)
+                maxBytes: Int64(RecentThumbnailRenderer.byteLimit),
+                clock: ports.clock
             )
         } else {
             thumbnailCache = nil
@@ -1017,7 +1019,7 @@ final class LibraryModel {
     /// Used by the UI-test launch so the home list does not depend on personal files.
     func installSmokeFixtures() throws {
         for title in HomeLibrary.smokeFixtureTitles {
-            let document = MindMapDocument.newMap(title: title, roots: [MindMapNode(text: "中心")])
+            let document = MindMapDocument.newMap(title: title, roots: [MindMapNode(text: "中心")], clock: ports.clock)
             let url = documentsDirectory.appendingPathComponent("\(title).floretta")
             _ = try FlorettaStreamingDocument.save(
                 document: document,
@@ -1031,18 +1033,18 @@ final class LibraryModel {
     }
 
     func makeNew() {
-        let document = MindMapDocument.newMap(title: "未命名", roots: [MindMapNode(text: "中心")])
+        let document = MindMapDocument.newMap(title: "未命名", roots: [MindMapNode(text: "中心")], clock: ports.clock)
         openDocument(document, preferredURL: nil, sourceExtension: "floretta")
     }
 
     /// Opens one styled topic on the map. UI tests use it to compare idle and edit chrome.
     func openEditChromeSample() {
         settings.defaultView = .map
-        openDocument(NodeEditChrome.sampleDocument(), preferredURL: nil, sourceExtension: "floretta")
+        openDocument(NodeEditChrome.sampleDocument(clock: ports.clock), preferredURL: nil, sourceExtension: "floretta")
     }
 
     func makeTemplate(_ kind: TemplateKind) {
-        openDocument(kind.document(), preferredURL: nil, sourceExtension: "floretta")
+        openDocument(kind.document(clock: ports.clock), preferredURL: nil, sourceExtension: "floretta")
     }
 
     func openRecovered(_ document: MindMapDocument) {
@@ -1568,8 +1570,8 @@ enum TemplateKind: String, Equatable, Sendable, CaseIterable {
         }
     }
 
-    func document() -> MindMapDocument {
-        MindMapDocument.newMap(title: name, roots: [root])
+    func document(clock: any ClockPort) -> MindMapDocument {
+        MindMapDocument.newMap(title: name, roots: [root], clock: clock)
     }
 
     /// Child-count signature. Two templates that only recolor the same tree share a signature.

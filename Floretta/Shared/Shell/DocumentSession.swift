@@ -945,24 +945,21 @@ final class LibraryModel {
         self.documentsDirectory = documentsDirectory
         self.saveDirectory = documentsDirectory
         self.ports = ports
-        if let support = try? FileManager.default.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        ) {
+        if let support = try? ports.files.searchPathDirectory(.applicationSupportDirectory, create: true) {
             _ = try? AttachmentDirectory.prepare(applicationSupport: support, exclusion: ports.backup)
             thumbnailCache = ThumbnailFileCache(
-                directory: AttachmentDirectory.thumbnails(applicationSupport: support)
+                directory: AttachmentDirectory.thumbnails(applicationSupport: support),
+                clock: ports.clock
             )
             let recentDirectory = support
                 .appendingPathComponent("Floretta", isDirectory: true)
                 .appendingPathComponent("RecentThumbnails", isDirectory: true)
-            try? FileManager.default.createDirectory(at: recentDirectory, withIntermediateDirectories: true)
+            try? ports.files.createDirectory(at: recentDirectory)
             try? ports.backup.excludeFromBackup(recentDirectory)
             recentThumbnailCache = ThumbnailFileCache(
                 directory: recentDirectory,
-                maxBytes: Int64(RecentThumbnailRenderer.byteLimit)
+                maxBytes: Int64(RecentThumbnailRenderer.byteLimit),
+                clock: ports.clock
             )
         } else {
             thumbnailCache = nil
@@ -990,7 +987,7 @@ final class LibraryModel {
 
     private func invalidateRecentThumbnail(for url: URL?) {
         guard let url, let cache = recentThumbnailCache else { return }
-        try? FileManager.default.removeItem(at: cache.fileURL(for: RecentThumbnailRenderer.cacheKey(for: url)))
+        try? ports.files.remove(at: cache.fileURL(for: RecentThumbnailRenderer.cacheKey(for: url)))
     }
 
     func useDocumentsForNewFiles() {
@@ -1005,12 +1002,8 @@ final class LibraryModel {
     }
 
     static let shared: LibraryModel = {
-        let directory = (try? FileManager.default.url(
-            for: .documentDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        )) ?? FileManager.default.temporaryDirectory
+        let files = ApplePlatformPorts.current().files
+        let directory = (try? files.searchPathDirectory(.documentDirectory, create: true)) ?? files.temporaryDirectory()
         return LibraryModel(
             settings: .shared,
             store: RecentMapsStore(defaults: .standard),
@@ -1026,7 +1019,7 @@ final class LibraryModel {
     /// Used by the UI-test launch so the home list does not depend on personal files.
     func installSmokeFixtures() throws {
         for title in HomeLibrary.smokeFixtureTitles {
-            let document = MindMapDocument.newMap(title: title, roots: [MindMapNode(text: "中心")])
+            let document = MindMapDocument.newMap(title: title, roots: [MindMapNode(text: "中心")], clock: ports.clock)
             let url = documentsDirectory.appendingPathComponent("\(title).floretta")
             _ = try FlorettaStreamingDocument.save(
                 document: document,
@@ -1034,24 +1027,24 @@ final class LibraryModel {
                 files: ports.streaming,
                 snapshots: .none
             )
-            try store.remember(url)
+            try store.remember(url, clock: ports.clock)
         }
         reload()
     }
 
     func makeNew() {
-        let document = MindMapDocument.newMap(title: "未命名", roots: [MindMapNode(text: "中心")])
+        let document = MindMapDocument.newMap(title: "未命名", roots: [MindMapNode(text: "中心")], clock: ports.clock)
         openDocument(document, preferredURL: nil, sourceExtension: "floretta")
     }
 
     /// Opens one styled topic on the map. UI tests use it to compare idle and edit chrome.
     func openEditChromeSample() {
         settings.defaultView = .map
-        openDocument(NodeEditChrome.sampleDocument(), preferredURL: nil, sourceExtension: "floretta")
+        openDocument(NodeEditChrome.sampleDocument(clock: ports.clock), preferredURL: nil, sourceExtension: "floretta")
     }
 
     func makeTemplate(_ kind: TemplateKind) {
-        openDocument(kind.document(), preferredURL: nil, sourceExtension: "floretta")
+        openDocument(kind.document(clock: ports.clock), preferredURL: nil, sourceExtension: "floretta")
     }
 
     func openRecovered(_ document: MindMapDocument) {
@@ -1083,7 +1076,7 @@ final class LibraryModel {
         }
         do {
             let session = try openSession(at: url, access: access)
-            try store.remember(url)
+            try store.remember(url, clock: ports.clock)
             reload()
             scope = access
             dismissOpenError()
@@ -1172,7 +1165,7 @@ final class LibraryModel {
         scope?.end()
         scope = nil
         if let url = current.url {
-            try? store.remember(url)
+            try? store.remember(url, clock: ports.clock)
             invalidateRecentThumbnail(for: url)
         }
         reload()
@@ -1190,7 +1183,7 @@ final class LibraryModel {
     func noteExportedCopy(_ url: URL) {
         let access = SecurityScopedURL(url: url)
         do {
-            try store.remember(url)
+            try store.remember(url, clock: ports.clock)
         } catch {
             access.end()
             inventoryError = nil
@@ -1243,7 +1236,7 @@ final class LibraryModel {
             return
         }
         do {
-            try store.remember(url)
+            try store.remember(url, clock: ports.clock)
         } catch {
             inventoryError = nil
             alertTitle = "无法保存"
@@ -1333,7 +1326,7 @@ final class LibraryModel {
         do {
             let url = preferredURL ?? freshURL()
             let catalog = try write(document, to: url)
-            try store.remember(url)
+            try store.remember(url, clock: ports.clock)
             reload()
             dismissOpenError()
             let session = EditorSession(
@@ -1474,7 +1467,7 @@ final class LibraryModel {
             _ = access
             return session
         }
-        let data = try Data(contentsOf: url)
+        let data = try ports.files.read(from: url)
         let payload = try DocumentOpener.openPayload(data: data, filename: url.lastPathComponent)
         let session = EditorSession(
             document: payload.document,
@@ -1490,10 +1483,8 @@ final class LibraryModel {
 
     func files(in directory: URL) -> [URL] {
         let keys: [URLResourceKey] = [.isDirectoryKey, .contentModificationDateKey]
-        guard let urls = try? FileManager.default.contentsOfDirectory(
-            at: directory,
-            includingPropertiesForKeys: keys,
-            options: [.skipsHiddenFiles]
+        guard let urls = try? ports.files.contentsOfDirectory(
+            at: directory, includingPropertiesForKeys: keys, skipsHiddenFiles: true
         ) else { return [] }
         let allowed = Set(FlorettaFileTypes.allowedExtensions)
         return urls.filter { url in
@@ -1504,19 +1495,17 @@ final class LibraryModel {
     }
 
     func iCloudDocumentsDirectory() -> URL? {
-        guard let root = FileManager.default.url(forUbiquityContainerIdentifier: nil) else { return nil }
-        let documents = root.appendingPathComponent("Documents", isDirectory: true)
-        try? FileManager.default.createDirectory(at: documents, withIntermediateDirectories: true)
+        guard let documents = ports.files.ubiquityDocumentsDirectory() else { return nil }
+        try? ports.files.createDirectory(at: documents)
         return documents
     }
 
     private func freshURL() -> URL {
-        let manager = FileManager.default
         let first = saveDirectory.appendingPathComponent("未命名.floretta")
-        if !manager.fileExists(atPath: first.path) { return first }
+        if !ports.files.fileExists(at: first) { return first }
         for index in 2...999 {
             let url = saveDirectory.appendingPathComponent("未命名 \(index).floretta")
-            if !manager.fileExists(atPath: url.path) { return url }
+            if !ports.files.fileExists(at: url) { return url }
         }
         return saveDirectory.appendingPathComponent("未命名 \(UUID().uuidString).floretta")
     }
@@ -1581,8 +1570,8 @@ enum TemplateKind: String, Equatable, Sendable, CaseIterable {
         }
     }
 
-    func document() -> MindMapDocument {
-        MindMapDocument.newMap(title: name, roots: [root])
+    func document(clock: any ClockPort) -> MindMapDocument {
+        MindMapDocument.newMap(title: name, roots: [root], clock: clock)
     }
 
     /// Child-count signature. Two templates that only recolor the same tree share a signature.

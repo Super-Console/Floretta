@@ -342,7 +342,7 @@ final class CanvasTests: XCTestCase {
         XCTAssertTrue(NodeEditChrome.showsSelectionHandles(editing: false))
         XCTAssertEqual(NodeEditChrome.selectionStrokeWidth, 2)
 
-        let fitted = try XCTUnwrap(LayoutEngine().layout(NodeEditChrome.sampleDocument()).first)
+        let fitted = try XCTUnwrap(LayoutEngine().layout(NodeEditChrome.sampleDocument(clock: FoundationClock())).first)
         XCTAssertLessThan(fitted.size.width, 88)
         XCTAssertEqual(NodeEditChrome.hex(fitted.fill), "#800020")
         XCTAssertEqual(NodeEditChrome.editorFrame(node: fitted.frame, compositionWidth: 0), fitted.frame)

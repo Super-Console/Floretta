@@ -1,4 +1,5 @@
 import Foundation
+import FlorettaCore
 #if os(macOS)
 import AppKit
 #endif
@@ -27,13 +28,13 @@ struct RecentMapsStore {
         return (try? JSONDecoder().decode([RecentMapEntry].self, from: data)) ?? []
     }
 
-    mutating func remember(_ url: URL) throws {
+    mutating func remember(_ url: URL, clock: any ClockPort) throws {
         let accessed = url.startAccessingSecurityScopedResource()
         defer {
             if accessed { url.stopAccessingSecurityScopedResource() }
         }
         let bookmark = try Self.bookmarkData(for: url)
-        let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? Date()
+        let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? clock.now()
         let path = url.standardizedFileURL.path
         var entries = load()
         entries.removeAll { entry in

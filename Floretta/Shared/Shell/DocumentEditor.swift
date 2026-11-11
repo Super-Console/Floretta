@@ -19,6 +19,9 @@ private enum RegionMetric: Hashable {
 struct DocumentEditor: View {
     @Bindable var session: EditorSession
     @Bindable var settings: AppSettings
+    var pasteboard: any PasteboardPort = ApplePlatformPorts.current().pasteboard
+    var clock: any ClockPort = ApplePlatformPorts.current().clock
+    var fontMetrics: any FontMetricsPort = ApplePlatformPorts.current().fonts
     var onClose: () -> Void
     var onEdit: (MindMapDocument) -> Void
     var onImport: () -> Void
@@ -491,6 +494,8 @@ struct DocumentEditor: View {
                 document: session.activeCanvasDocument,
                 keyboard: $session.keyboard,
                 camera: camera,
+                clock: clock,
+                fontMetrics: fontMetrics,
                 focusNodeID: session.viewMode == .focus ? session.focusNodeID : nil,
                 zenActive: session.zen.isActive,
                 onEscape: { session.handleEscape() },
@@ -2125,15 +2130,11 @@ struct DocumentEditor: View {
     }
 
     private func pasteFromClipboard() {
-        if let pasted = ImageClipboard.fileURL() {
+        if let pasted = ImageClipboard.fileURL(using: pasteboard) {
             stageAttachment(pasted.url, ownsCopy: pasted.ownsCopy)
             return
         }
-        #if os(macOS)
-        let text = NSPasteboard.general.string(forType: .string) ?? ""
-        #else
-        let text = UIPasteboard.general.string ?? ""
-        #endif
+        let text = pasteboard.readText() ?? ""
         session.pasteClipboard(text)
     }
 
@@ -2172,12 +2173,7 @@ struct DocumentEditor: View {
     }
 
     private func writePasteboard(_ text: String) {
-        #if os(macOS)
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
-        #else
-        UIPasteboard.general.string = text
-        #endif
+        pasteboard.writeText(text)
     }
 
     private func printMap() {
@@ -3136,12 +3132,11 @@ struct DroppedImage: Transferable, Sendable {
 }
 
 enum ImageClipboard {
-    static func fileURL() -> (url: URL, ownsCopy: Bool)? {
-        #if os(macOS)
-        macFileURL()
-        #else
-        iosFileURL()
-        #endif
+    static func fileURL(using pasteboard: any PasteboardPort) -> (url: URL, ownsCopy: Bool)? {
+        if let url = pasteboard.readImageFileURL() { return (url, false) }
+        guard let image = pasteboard.readImageData(),
+              let url = write(image.data, extension: image.fileExtension) else { return nil }
+        return (url, true)
     }
 
     private static func write(_ data: Data, extension ext: String) -> URL? {
@@ -3157,43 +3152,6 @@ enum ImageClipboard {
         }
     }
 
-    #if os(macOS)
-    private static func macFileURL() -> (url: URL, ownsCopy: Bool)? {
-        let board = NSPasteboard.general
-        if let urls = board.readObjects(forClasses: [NSURL.self], options: [
-            .urlReadingFileURLsOnly: true,
-        ]) as? [URL],
-           let url = urls.first(where: { ImageInsertRoute.accepts(filename: $0.lastPathComponent) }) {
-            return (url, false)
-        }
-        let types: [(NSPasteboard.PasteboardType, String)] = [
-            (.png, "png"),
-            (NSPasteboard.PasteboardType("public.jpeg"), "jpg"),
-            (.tiff, "tiff"),
-            (NSPasteboard.PasteboardType("com.compuserve.gif"), "gif"),
-            (NSPasteboard.PasteboardType("public.heic"), "heic"),
-        ]
-        for (type, ext) in types {
-            guard let data = board.data(forType: type), !data.isEmpty, let url = write(data, extension: ext) else { continue }
-            return (url, true)
-        }
-        return nil
-    }
-    #else
-    private static func iosFileURL() -> (url: URL, ownsCopy: Bool)? {
-        let board = UIPasteboard.general
-        if let url = board.url, ImageInsertRoute.accepts(filename: url.lastPathComponent) {
-            return (url, false)
-        }
-        let types = ["public.png", "public.jpeg", "public.tiff", "com.compuserve.gif", "public.heic"]
-        let extensions = ["png", "jpg", "tiff", "gif", "heic"]
-        for (type, ext) in zip(types, extensions) {
-            guard let data = board.data(forPasteboardType: type), !data.isEmpty, let url = write(data, extension: ext) else { continue }
-            return (url, true)
-        }
-        return nil
-    }
-    #endif
 }
 
 private extension View {

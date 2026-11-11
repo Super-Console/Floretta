@@ -58,6 +58,7 @@ struct NodeTextEditor: View {
     @Binding var isComposing: Bool
     @Binding var minimumWidth: CGFloat
     var fontSize: CGFloat
+    var fontMetrics: any FontMetricsPort = CoreTextFontMetrics()
     var onEvent: (KeyEvent) -> Bool
     /// Stickies take Return as another line. Nodes still commit on Return.
     var returnInsertsLine: Bool = false
@@ -77,6 +78,7 @@ struct NodeTextEditor: View {
             isComposing: $isComposing,
             minimumWidth: $minimumWidth,
             fontSize: fontSize,
+            fontMetrics: fontMetrics,
             onEvent: onEvent,
             returnInsertsLine: returnInsertsLine,
             paper: paper,
@@ -91,6 +93,7 @@ struct NodeTextEditor: View {
             isComposing: $isComposing,
             minimumWidth: $minimumWidth,
             fontSize: fontSize,
+            fontMetrics: fontMetrics,
             onEvent: onEvent,
             returnInsertsLine: returnInsertsLine,
             paper: paper,
@@ -109,6 +112,7 @@ private struct MacNodeTextEditor: NSViewRepresentable {
     @Binding var isComposing: Bool
     @Binding var minimumWidth: CGFloat
     var fontSize: CGFloat
+    var fontMetrics: any FontMetricsPort
     var onEvent: (KeyEvent) -> Bool
     var returnInsertsLine: Bool
     var paper: Color?
@@ -123,6 +127,7 @@ private struct MacNodeTextEditor: NSViewRepresentable {
             isComposing: $isComposing,
             minimumWidth: $minimumWidth,
             fontSize: fontSize,
+            fontMetrics: fontMetrics,
             onEvent: onEvent,
             returnInsertsLine: returnInsertsLine,
             paper: paper,
@@ -295,6 +300,7 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         var isComposing: Binding<Bool>
         var minimumWidth: Binding<CGFloat>
         var fontSize: CGFloat
+        var fontMetrics: any FontMetricsPort
         var onEvent: (KeyEvent) -> Bool
         var returnInsertsLine: Bool
         var paper: Color?
@@ -309,6 +315,7 @@ private struct MacNodeTextEditor: NSViewRepresentable {
             isComposing: Binding<Bool>,
             minimumWidth: Binding<CGFloat>,
             fontSize: CGFloat,
+            fontMetrics: any FontMetricsPort,
             onEvent: @escaping (KeyEvent) -> Bool,
             returnInsertsLine: Bool,
             paper: Color?,
@@ -320,6 +327,7 @@ private struct MacNodeTextEditor: NSViewRepresentable {
             self.isComposing = isComposing
             self.minimumWidth = minimumWidth
             self.fontSize = fontSize
+            self.fontMetrics = fontMetrics
             self.onEvent = onEvent
             self.returnInsertsLine = returnInsertsLine
             self.paper = paper
@@ -348,7 +356,7 @@ private struct MacNodeTextEditor: NSViewRepresentable {
             }
             if composing {
                 let font = view.font ?? NSFont.systemFont(ofSize: max(fontSize, 1))
-                let width = (view.string as NSString).size(withAttributes: [.font: font]).width + 24
+                let width = CGFloat(fontMetrics.measure(text: view.string, fontName: font.fontName, fontSize: font.pointSize, maxWidth: nil).width) + 24
                 minimumWidth.wrappedValue = width
             } else {
                 minimumWidth.wrappedValue = 0
@@ -536,6 +544,7 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
     @Binding var isComposing: Bool
     @Binding var minimumWidth: CGFloat
     var fontSize: CGFloat
+    var fontMetrics: any FontMetricsPort
     var onEvent: (KeyEvent) -> Bool
     var returnInsertsLine: Bool
     var paper: Color?
@@ -550,6 +559,7 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
             isComposing: $isComposing,
             minimumWidth: $minimumWidth,
             fontSize: fontSize,
+            fontMetrics: fontMetrics,
             onEvent: onEvent,
             returnInsertsLine: returnInsertsLine,
             dictationToken: dictationToken,
@@ -725,6 +735,7 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
         var isComposing: Binding<Bool>
         var minimumWidth: Binding<CGFloat>
         var fontSize: CGFloat
+        var fontMetrics: any FontMetricsPort
         var onEvent: (KeyEvent) -> Bool
         var returnInsertsLine: Bool
         var dictationToken: Int
@@ -737,6 +748,7 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
             isComposing: Binding<Bool>,
             minimumWidth: Binding<CGFloat>,
             fontSize: CGFloat,
+            fontMetrics: any FontMetricsPort,
             onEvent: @escaping (KeyEvent) -> Bool,
             returnInsertsLine: Bool,
             dictationToken: Int,
@@ -746,6 +758,7 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
             self.isComposing = isComposing
             self.minimumWidth = minimumWidth
             self.fontSize = fontSize
+            self.fontMetrics = fontMetrics
             self.onEvent = onEvent
             self.returnInsertsLine = returnInsertsLine
             self.dictationToken = dictationToken
@@ -808,7 +821,7 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
             }
             if composing {
                 let font = view.font ?? UIFont.systemFont(ofSize: max(fontSize, 1))
-                let width = (value as NSString).size(withAttributes: [.font: font]).width + 24
+                let width = CGFloat(fontMetrics.measure(text: value, fontName: font.fontName, fontSize: font.pointSize, maxWidth: nil).width) + 24
                 minimumWidth.wrappedValue = width
             } else {
                 minimumWidth.wrappedValue = 0

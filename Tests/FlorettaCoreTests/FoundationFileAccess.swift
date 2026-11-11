@@ -21,4 +21,18 @@ struct FoundationFileAccess: FileAccessPort {
         guard fileManager.fileExists(atPath: url.path) else { return }
         try fileManager.removeItem(at: url)
     }
+
+    func createDirectory(at url: URL) throws {
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+    }
+
+    func contentsOfDirectory(at url: URL, includingPropertiesForKeys keys: [URLResourceKey], skipsHiddenFiles: Bool) throws -> [URL] {
+        try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: keys, options: skipsHiddenFiles ? [.skipsHiddenFiles] : [])
+    }
+
+    func temporaryDirectory() -> URL { FileManager.default.temporaryDirectory }
+    func searchPathDirectory(_ directory: FileManager.SearchPathDirectory, create: Bool) throws -> URL? {
+        try FileManager.default.url(for: directory, in: .userDomainMask, appropriateFor: nil, create: create)
+    }
+    func ubiquityDocumentsDirectory() -> URL? { nil }
 }

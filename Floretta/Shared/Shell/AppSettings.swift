@@ -407,11 +407,11 @@ final class AppSettings {
     }
 
     static var platformDefaultView: DocumentViewMode {
-        #if os(iOS)
-        return UIDevice.current.userInterfaceIdiom == .phone ? .focus : .map
-        #else
-        return .map
-        #endif
+        platformDefaultView(using: ApplePlatformPorts.current().device)
+    }
+
+    static func platformDefaultView(using device: any DeviceInfoPort) -> DocumentViewMode {
+        device.isPhone ? .focus : .map
     }
 
     private enum Key {

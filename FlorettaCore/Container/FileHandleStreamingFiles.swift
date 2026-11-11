@@ -58,6 +58,22 @@ public struct FileHandleStreamingFiles: StreamingFilePort, FileAccessPort {
         guard fileManager.fileExists(atPath: url.path) else { return }
         try fileManager.removeItem(at: url)
     }
+
+    public func createDirectory(at url: URL) throws {
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+    }
+
+    public func contentsOfDirectory(at url: URL, includingPropertiesForKeys keys: [URLResourceKey], skipsHiddenFiles: Bool) throws -> [URL] {
+        try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: keys, options: skipsHiddenFiles ? [.skipsHiddenFiles] : [])
+    }
+
+    public func temporaryDirectory() -> URL { FileManager.default.temporaryDirectory }
+
+    public func searchPathDirectory(_ directory: FileManager.SearchPathDirectory, create: Bool) throws -> URL? {
+        try FileManager.default.url(for: directory, in: .userDomainMask, appropriateFor: nil, create: create)
+    }
+
+    public func ubiquityDocumentsDirectory() -> URL? { nil }
 }
 
 private final class HandleReader: RandomAccessReader {

@@ -92,17 +92,20 @@ public struct FlorettaAISession: Equatable, Sendable {
     public var mode: FlorettaAIMode
     public var container: FlorettaAIContainer
     public var markdownWarnings: [FlorettaMarkdownDocumentWarning]
+    private let clock: any ClockPort
 
     public init(
         document: MindMapDocument,
         mode: FlorettaAIMode,
         container: FlorettaAIContainer,
-        markdownWarnings: [FlorettaMarkdownDocumentWarning] = []
+        markdownWarnings: [FlorettaMarkdownDocumentWarning] = [],
+        clock: any ClockPort = FoundationClock()
     ) {
         self.document = document
         self.mode = mode
         self.container = container
         self.markdownWarnings = markdownWarnings
+        self.clock = clock
     }
 
     /// Public address of a topic. Markdown returns a path and never a UUID. `.floretta` returns the UUID.
@@ -474,7 +477,14 @@ public struct FlorettaAISession: Equatable, Sendable {
     }
 
     private mutating func touch() {
-        document.modifiedAt = Date()
+        document.modifiedAt = clock.now()
+    }
+
+    public static func == (lhs: FlorettaAISession, rhs: FlorettaAISession) -> Bool {
+        lhs.document == rhs.document
+            && lhs.mode == rhs.mode
+            && lhs.container == rhs.container
+            && lhs.markdownWarnings == rhs.markdownWarnings
     }
 
     private func appendPaths(

@@ -5,6 +5,29 @@ import XCTest
 
 @MainActor
 final class ShellTests: XCTestCase {
+    func testMakeNewUsesInjectedClockAndThumbnailCacheUsesInjectedClock() throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let instant = Date(timeIntervalSince1970: 1_700_000_123)
+        var ports = ApplePlatformPorts.current()
+        ports.clock = ShellFixedClock(instant: instant)
+        let files = WriteGate()
+        files.applicationSupportDirectory = directory.appendingPathComponent("support", isDirectory: true)
+        ports.files = files
+        let library = try makeLibrary(directory: directory, ports: ports)
+
+        library.makeNew()
+        let document = try XCTUnwrap(library.editor?.document)
+        XCTAssertEqual(document.createdAt, instant)
+        XCTAssertEqual(document.modifiedAt, instant)
+
+        let cache = try XCTUnwrap(library.thumbnailCache)
+        try cache.store(Data("clocked".utf8), for: "injected-clock")
+        let attributes = try FileManager.default.attributesOfItem(atPath: cache.fileURL(for: "injected-clock").path)
+        let modificationDate = try XCTUnwrap(attributes[.modificationDate] as? Date)
+        XCTAssertEqual(modificationDate.timeIntervalSince1970, instant.timeIntervalSince1970, accuracy: 1)
+    }
+
     func testRecentThumbnailCacheHitAndFailureFallback() async throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("recent-thumbnail-test-\(UUID().uuidString)", isDirectory: true)
@@ -445,7 +468,7 @@ final class ShellTests: XCTestCase {
         XCTAssertEqual(cards.count, 12)
         XCTAssertTrue(cards.allSatisfy(\.createsDocument))
         XCTAssertEqual(Set(cards.map(\.name)).count, cards.count)
-        let shapes = cards.map { TemplateKind.shape($0.kind.document()) }
+        let shapes = cards.map { TemplateKind.shape($0.kind.document(clock: FoundationClock())) }
         XCTAssertEqual(Set(shapes).count, shapes.count)
         XCTAssertFalse(cards.map(\.name).contains("即将推出"))
         XCTAssertTrue(ShellTab.homeOverflowTitles.isEmpty)
@@ -518,6 +541,11 @@ final class ShellTests: XCTestCase {
     }
 
     func testLocalDeviceLabelIsDeviceAware() {
+        struct InjectedDevice: DeviceInfoPort {
+            var deviceName = "fake"
+            var modelIdentifier = "fake"
+            var isPhone: Bool
+        }
         XCTAssertEqual(
             LocalDeviceLabel.make(for: .iPhone),
             LocalDeviceLabel(title: "我的 iPhone", systemImage: "iphone")
@@ -536,6 +564,9 @@ final class ShellTests: XCTestCase {
             LocalDeviceLabel.make(for: .mac).title,
         ]
         XCTAssertEqual(Set(titles).count, titles.count)
+        XCTAssertEqual(LocalDeviceLabel.currentKind(using: InjectedDevice(isPhone: true), isMacOS: false), .iPhone)
+        XCTAssertEqual(LocalDeviceLabel.currentKind(using: InjectedDevice(isPhone: false), isMacOS: false), .iPad)
+        XCTAssertEqual(AppSettings.platformDefaultView(using: InjectedDevice(isPhone: true)), .focus)
         #if os(macOS)
         XCTAssertEqual(LocalDeviceLabel.currentKind, .mac)
         XCTAssertEqual(LocalDeviceLabel.current, LocalDeviceLabel.make(for: .mac))
@@ -827,7 +858,7 @@ final class ShellTests: XCTestCase {
         library.makeNew()
         let editor = try XCTUnwrap(library.editor)
         editor.document.stickies.append(StickyNote(text: "便签正文", origin: MindMapPoint(x: 4, y: 8)))
-        let template = TemplateKind.reading.document()
+        let template = TemplateKind.reading.document(clock: FoundationClock())
         XCTAssertEqual(editor.document.title, "未命名")
         XCTAssertEqual(editor.document.roots.first?.text, "中心")
         XCTAssertEqual(template.title, "读书笔记")
@@ -1141,6 +1172,11 @@ final class ShellTests: XCTestCase {
     }
 }
 
+private struct ShellFixedClock: ClockPort {
+    let instant: Date
+    func now() -> Date { instant }
+}
+
 @MainActor
 private final class RecordingSameDocumentWindows: SameDocumentWindowOpening {
     var presentations: [SameDocumentWindowPresentation] = []
@@ -1181,6 +1217,7 @@ private final class GatedStreaming: StreamingFilePort {
 
 private final class WriteGate: FileAccessPort {
     var allow = true
+    var applicationSupportDirectory: URL?
     private let inner = FoundationFileAccess()
 
     func read(from url: URL) throws -> Data {
@@ -1201,4 +1238,18 @@ private final class WriteGate: FileAccessPort {
     func remove(at url: URL) throws {
         try inner.remove(at: url)
     }
+
+    func createDirectory(at url: URL) throws { try inner.createDirectory(at: url) }
+    func contentsOfDirectory(at url: URL, includingPropertiesForKeys keys: [URLResourceKey], skipsHiddenFiles: Bool) throws -> [URL] {
+        try inner.contentsOfDirectory(at: url, includingPropertiesForKeys: keys, skipsHiddenFiles: skipsHiddenFiles)
+    }
+    func temporaryDirectory() -> URL { inner.temporaryDirectory() }
+    func searchPathDirectory(_ directory: FileManager.SearchPathDirectory, create: Bool) throws -> URL? {
+        if directory == .applicationSupportDirectory, let applicationSupportDirectory {
+            if create { try inner.createDirectory(at: applicationSupportDirectory) }
+            return applicationSupportDirectory
+        }
+        return try inner.searchPathDirectory(directory, create: create)
+    }
+    func ubiquityDocumentsDirectory() -> URL? { inner.ubiquityDocumentsDirectory() }
 }

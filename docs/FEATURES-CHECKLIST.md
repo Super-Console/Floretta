@@ -32,10 +32,10 @@
 - [x] A21 文件名嵌套重复（窗口标题与工具栏各一个「未命名」）（`.navigationTitle("")` 且 Mac `titleVisibility = .hidden`，文件名只留在工具栏。`EditorChromeContractTests`）
 - [x] A22 macOS 菜单栏（`Floretta/Shared/FlorettaApp.swift` focused commands：Insert/Format/View/Export；PR #94。系统 File/Edit/Window/Help 由 SwiftUI 提供）
 - [x] A23 `docs/DESIGN-RULES.md`（唯一入口、退出可达、图标优先、禁止重复控件、禁止占位假数据；六条规矩已在该文件，前五条与本行一致）
-- [~] A24 `docs/SMOKE.md` + XCUITest 冒烟（13 条可达性路径，打包前必跑）
+- [~] A24 门禁脚本已合入（PR #107，`scripts/pre-release.sh`，只关自己启的模拟器）；**覆盖缺 8/13 条**：`#4–#10、#12` 未覆盖
 - [x] A25 模板库重做（12 个真模板，结构各不相同，禁止同树换色）（`TemplateKind` 十二个；`ShellTests.testMenusAndTemplatesOmitDeadActions` 断言名称与 `TemplateKind.shape` 均不重复）
 - [x] A26 底栏字数（底栏在「主题: N」旁显示「字数: N」。Mac 在底栏右侧，悬停展开主题 / 字数 / 字符数；iPhone / iPad 把这三项放在底栏上。只计节点标题，编辑中实时更新。验收：中心主题 + 分支主题 1–4 = 主题 5、字数 24、字符数 28。`TopicTitleCensusTests`。PR #75 → main `658b0c37`，tip `c9d6eb28`。Censor 与独立确认的 CI、Pro 已通过该 tip）
-- [~] A27 检查器顶栏钉住（「检查器」和样式/演说/导图分段高度固定，停在列顶。短页和未选中空态只在顶栏下面的区域里居中或滚动，不带动顶栏。`InspectorTabPinUITests`。Mac 截图未拍）
+- [~] A27 实现存在（`InspectorTabPinUITests`）；**当前 build 无 AX 读数**，现有数字来自已安装 build 8，不作为验收证据
 
 ## B. 附件（核心差异化）
 
@@ -45,7 +45,7 @@
 - [x] B4 任意文件附件（PSD / PDF / DMG / 任意类型），UTType 图标（无系统图标则通用文件图标）+ 文件名 + 大小角标；QuickLook。待 Censor
 - [~] B5 节点级音频（`CanvasAudioPlaybackBar.swift`、`InfiniteCanvas.swift`、`DocumentEditor.swift`；PR #96。单测通过；音频播放帧率、全应用内存与 GUI 验收未测）
 - [~] B6 节点级视频（`MediaVideoPlayer.swift`、`DocumentEditor.swift`、`AttachmentPolicy.swift`；PR #96。AVPlayer 接入；iOS/macOS 最新完整构建及 GUI 验收未完成）
-- [~] B7 节点内预览：文件类已接 QLPreviewPanel/QuickLook；音频视频待 1.5 之后
+- [x] B7 节点内预览：文件类接 QLPreviewPanel/QuickLook；音视频波形与缩略图已在节点内渲染（PR #106）
 - [x] B8 体积提示（插入前弹窗告知单文件与文档总体积）（`AttachmentInsertProposal.confirmationMessage`；`FileAttachmentTests.testConfirmDialogShowsFileSizeAndProjectedTotal`、`StreamingTests.testProposalUsesSizesOnly`；`DocumentEditor` 确认框展示该文案，取消走 `cancelInsert`）
 - [x] B9 零压缩零转码硬规则（字节一致，sha256 只做去重与校验）—— 已写进规格
 - [x] B10 软上限 10GB（用户塞进去就有预期，不做硬拦截）（`StreamingBudget.softCapBytes`；超限只在确认文案加一句，`FileAttachmentRoute.proposal` 仍返回提案。`FileAttachmentTests.testSoftCapDoesNotRefuseAnInsertProposal`、`StreamingTests.testProposalUsesSizesOnly`。流式写入只拒绝超过 Int64 的长度）
@@ -58,7 +58,7 @@
 - [x] C4 概要 + 边界（选区生成概要节点；边界视觉圈定；PR #51 合入 main `37a97aa`，tip `571746f`；Censor 通过；Pro 双验绿）
 - [x] C5 标签 / 标记（优先级、进度、旗帜）+ 按标签筛选（PR #53 合入 main `fd97255`，tip `942f46b`；Censor 通过；Pro 双验绿，macOS 258/0 含 `TagFilterTests`）
 - [x] C6 分支配色 / 主题预设（≤8 套，深浅色各一套；PR #55 合入 main `88d50e9`，tip `4b6bc5b`；Censor 通过；FlorettaCore CI 绿；Pro 双验绿，macOS 263/0 含 `testPNGAndPDFKeepBranchThemeColors`）
-- [~] C7 多画布（Sheet）
+- [x] C7 多画布（Sheet，PR #86 合入；`DocumentEditor.swift` 有 canvasSheet/CanvasTab 实现）
 
 ## D. 格式与互通（T0）
 
@@ -71,16 +71,16 @@
 
 ## E. AI 适配
 
-- [~] E1 `docs/FORMAT-FOR-AI.md`（明文 JSON、稳定 ID、字段说明）
+- [x] E1 `docs/FORMAT-FOR-AI.md`（明文 JSON、稳定 ID、字段说明；已在 main）
 - [x] E2 CLI（与 MCP 同一个原生二进制，`floretta tree / node add / export`）（PR #71 → main `dbde570c`，tip `af2ea145`）
 - [x] E3 MCP stdio server（可选组件，不常驻不联网）（PR #71 → main `dbde570c`，tip `af2ea145`）
-- [~] E4 体积约束：禁止引入 Node/Python 运行时；增量控制在一两 MB
+- [~] E4 体积约束：性能预算文档在（`docs/PERF-BUDGET.md`），但**仓库里没有体积门禁 CI**（`.github/workflows/` 仅 floretta-core.yml）
 
 ## F. 平台与架构
 
 - [x] F1 `FlorettaCore` 抽取（PR #29 已合入 `eb83ef2`，macOS 104/0）
 - [x] F2 `docs/ADR-021-platform-layering.md`（三层结构 + 平台优先级）
-- [~] F3 平台能力协议注入（FileAccess / Pasteboard / DeviceInfo / Clock / FontMetrics）
+- [x] F3 平台能力协议注入（FileAccess / Pasteboard / DeviceInfo / Clock / FontMetrics；PR #108 合入，`newMap`/`ThumbnailFileCache` 已注入 `ports.clock`；**缺口：`DocumentSession.makeNew()` 无单测覆盖**）
 - [x] F4 CI 检查：Core 内禁止 SwiftUI/AppKit/UIKit 与 `#if os`（`.github/workflows/floretta-core.yml` 在 `ubuntu-24.04` 跑 `scripts/check-floretta-core-imports.sh`，命中 `import SwiftUI|AppKit|UIKit|SwiftData` 或 `#if os(` 即失败）
 - [x] F5 Windows / Linux 预留评估（结论：核心 65% 可复用，UI 必须重写）
 

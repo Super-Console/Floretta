@@ -1672,7 +1672,7 @@ struct InfiniteCanvas: View {
         var textRect = rect.insetBy(dx: 6, dy: 4)
         if pose == nil,
            detail != .far,
-           let hash = node.thumbnailHashes.first,
+           let hash = node.thumbnailHashes.first ?? node.audioWaveformHashes.first,
            let image = thumbnails?.image(for: hash) {
             let imageRect = ImagePlacement.rect(for: image, in: rect)
             layer.draw(Image(decorative: image, scale: 1), in: imageRect)
@@ -1795,7 +1795,7 @@ struct InfiniteCanvas: View {
                     maxX: frame.origin.x + frame.size.width,
                     maxY: frame.origin.y + frame.size.height
                 ),
-                frame.thumbnailHashes
+                frame.thumbnailHashes + frame.audioWaveformHashes
             )
         }
         let visible = ThumbnailResidence.visibleHashes(nodes: nodes, viewport: viewport)

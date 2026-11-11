@@ -33,7 +33,11 @@ struct FlorettaApp: App {
         }
         .defaultSize(width: 960, height: 680)
         .commands {
+            #if os(macOS)
             FlorettaCommands(settings: settings, library: library)
+            #else
+            EmptyCommands()
+            #endif
         }
         #if os(macOS)
         WindowGroup(id: SameDocumentWindow.sceneID, for: UUID.self) { $windowID in
@@ -52,6 +56,7 @@ struct FlorettaApp: App {
     }
 }
 
+#if os(macOS)
 private struct FlorettaCommands: Commands {
     @Bindable var settings: AppSettings
     @Bindable var library: LibraryModel
@@ -71,7 +76,6 @@ private struct FlorettaCommands: Commands {
             .keyboardShortcut("s", modifiers: .command)
             .disabled(!library.canSaveActiveFile)
         }
-        #if os(macOS)
         if let editorCommands {
             CommandGroup(after: .textEditing) {
                 editorCommand(.find, actions: editorCommands)
@@ -173,7 +177,6 @@ private struct FlorettaCommands: Commands {
             .keyboardShortcut(",", modifiers: .command)
             .disabled(library.editor != nil)
         }
-        #endif
     }
 
     #if os(macOS)
@@ -195,7 +198,6 @@ private struct FlorettaCommands: Commands {
     #endif
 }
 
-#if os(macOS)
 struct FlorettaEditorMenuActions {
     struct LinkTarget {
         var title: String

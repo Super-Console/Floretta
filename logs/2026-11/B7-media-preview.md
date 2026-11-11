@@ -10,3 +10,4 @@
 - 原因：音频哈希被加入 `NodeFrame.thumbnailHashes`，而该集合受既有布局契约约束。
 - 修复：新增单独的 `audioWaveformHashes`，在画布预览视口合并使用，但不混入图片缩略图/布局占位字段；图片布局规则和测试均未改动。
 - 验证：`swift test > /tmp/v106b-test.log 2>&1` 返回 `TEST_RC=0`；347 tests，0 failures。
+- 修复后复验：macOS 与 iOS build 均成功，`error:` 计数均为 0；Core import 检查通过。

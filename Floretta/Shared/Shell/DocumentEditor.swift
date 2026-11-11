@@ -817,7 +817,7 @@ struct DocumentEditor: View {
         let ids: [EditorToolbarCommandID] = [
             .child, .sibling, .freeNode, .sticky, .image, .attachment,
             .summary, .boundary, .region, .outline, .fit, .mapMode, .focusMode,
-            .immersive, .style, .theme, .about, .find, .png, .pdf, .markdownExport, .saveFloretta, .xmind
+            .immersive, .style, .theme, .about, .find, .png, .pdf, .markdownExport, .textBundle, .saveFloretta, .xmind
         ]
         var actions = FlorettaEditorMenuActions(
             perform: Dictionary(uniqueKeysWithValues: ids.map { id in (id, { perform(id) }) }),
@@ -1181,6 +1181,8 @@ struct DocumentEditor: View {
             export("png")
         case .markdownExport:
             export("md")
+        case .textBundle:
+            export("textbundle")
         case .saveFloretta:
             export("floretta")
         case .upgrade:
@@ -2019,6 +2021,22 @@ struct DocumentEditor: View {
                 data = try SharePayload.bytes(for: kind, document: session.document)
             case "md", "opml", "mm", "xmind":
                 data = try SharePayload.bytes(for: kind, document: session.document)
+            case "textbundle":
+                let assets = try textBundleAssets()
+                let package = FlorettaTextBundleCodec.export(session.document, assets: assets)
+                #if os(macOS)
+                let root = FileManager.default.temporaryDirectory
+                    .appendingPathComponent(UUID().uuidString + ".textbundle", isDirectory: true)
+                try package.writeDirectory(to: root)
+                exportFile = ExportFile(data: Data(), fileURL: root)
+                exportKind = kind
+                exportType = type
+                exportName = exportFilename(title: title, kind: kind)
+                showExport = true
+                return
+                #else
+                data = package.textpack()
+                #endif
             default:
                 return
             }
@@ -2041,10 +2059,30 @@ struct DocumentEditor: View {
         case "opml": ext = "opml"
         case "mm": ext = "mm"
         case "xmind": ext = "xmind"
+        case "textbundle":
+            #if os(macOS)
+            ext = "textbundle"
+            #else
+            ext = "textpack"
+            #endif
         case "floretta": ext = "floretta"
         default: ext = "dat"
         }
         return title + "." + ext
+    }
+
+    private func textBundleAssets() throws -> [FlorettaAsset] {
+        guard !session.attachmentCatalog.attachments.isEmpty else { return [] }
+        guard let archive = session.url else {
+            throw DocumentContainerError.corrupt("无法读取尚未保存文档中的附件。")
+        }
+        let archiveData = try Data(contentsOf: archive)
+        let entries = try ZipArchive.read(archiveData, limits: .standard)
+        let wanted = Set(AttachmentReferences.hashes(in: session.document))
+        return entries.compactMap { entry in
+            guard let parsed = AttachmentNames.parseAsset(entry.name), wanted.contains(parsed.sha256) else { return nil }
+            return FlorettaAsset(sha256: parsed.sha256, fileExtension: parsed.fileExtension, data: entry.data)
+        }
     }
 
     private func exportPicture(_ kind: String, title: String, type: UTType) {

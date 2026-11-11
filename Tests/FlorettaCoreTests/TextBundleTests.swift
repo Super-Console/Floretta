@@ -131,6 +131,37 @@ final class TextBundleTests: XCTestCase {
         XCTAssertTrue(names.contains("text.md"))
     }
 
+    func testDirectoryExportWritesTextInfoAssetsAndPreservesAttachmentHash() throws {
+        let (document, assets) = attachmentDocument()
+        let package = FlorettaTextBundleCodec.export(document, assets: assets)
+        let root = try makeBundleDirectory("WithAssets.textbundle")
+        defer { try? FileManager.default.removeItem(at: root.deletingLastPathComponent()) }
+
+        try package.writeDirectory(to: root)
+        let markdown = try Data(contentsOf: root.appendingPathComponent("text.md"))
+        let info = try Data(contentsOf: root.appendingPathComponent("info.json"))
+        let asset = try Data(contentsOf: root.appendingPathComponent("assets/photo.png"))
+        let assetNames = try FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent("assets").path)
+
+        XCTAssertEqual(markdown, package.data(at: "text.md"))
+        XCTAssertEqual(info, package.data(at: "info.json"))
+        XCTAssertEqual(asset, pngBytes)
+        XCTAssertEqual(sha256Hex(asset), sha256Hex(pngBytes))
+        XCTAssertTrue(String(decoding: markdown, as: UTF8.self).contains("assets/photo.png"))
+        XCTAssertTrue(assetNames.contains("photo.png"))
+    }
+
+    func testDirectoryExportWithoutAttachmentsCreatesEmptyAssetsFolder() throws {
+        let package = FlorettaTextBundleCodec.export(simpleDocument())
+        let root = try makeBundleDirectory("NoAssets.textbundle")
+        defer { try? FileManager.default.removeItem(at: root.deletingLastPathComponent()) }
+
+        try package.writeDirectory(to: root)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("text.md").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("info.json").path))
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent("assets").path), [])
+    }
+
     func testAssetLinesFollowNotesWithoutDroppingCodecLines() {
         let hash = sha256Hex(pngBytes)
         let attachment = NodeAttachment(

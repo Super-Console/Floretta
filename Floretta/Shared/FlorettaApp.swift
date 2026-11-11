@@ -150,7 +150,7 @@ private struct FlorettaCommands: Commands {
                 .disabled(!editorCommands.hasEditableSelection)
             }
             CommandMenu("导出") {
-                ForEach([EditorToolbarCommandID.png, .pdf, .markdownExport, .saveFloretta, .xmind], id: \.self) { id in
+                ForEach([EditorToolbarCommandID.png, .pdf, .markdownExport, .textBundle, .saveFloretta, .xmind], id: \.self) { id in
                     editorCommand(id, actions: editorCommands)
                 }
             }

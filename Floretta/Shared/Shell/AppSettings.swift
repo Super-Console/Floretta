@@ -199,7 +199,7 @@ enum FlorettaFileTypes {
 
     static let allowedExtensions = ["floretta", "mm", "opml", "md"]
 
-    static let exportKinds = ["png", "pdf", "md", "opml", "mm", "floretta", "xmind"]
+    static let exportKinds = ["png", "pdf", "md", "opml", "mm", "floretta", "xmind", "textbundle"]
 
     /// Types the open panel may offer. Extension-backed types come first so the
     /// panel does not collapse every text file into Markdown. `.mm` is also
@@ -256,6 +256,12 @@ enum FlorettaFileTypes {
                 ?? .data
         case "xmind":
             return UTType(filenameExtension: "xmind") ?? .data
+        case "textbundle":
+            #if os(macOS)
+            return UTType(filenameExtension: "textbundle", conformingTo: .package) ?? .package
+            #else
+            return UTType(filenameExtension: "textpack", conformingTo: .archive) ?? .archive
+            #endif
         default:
             return .data
         }

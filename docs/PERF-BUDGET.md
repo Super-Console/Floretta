@@ -26,6 +26,6 @@
 
 ## 体积门禁怎么跑、超了怎么办
 
-在 macOS 且已安装项目所需 Xcode 后，从仓库根目录执行 `bash scripts/check-size.sh`。脚本分别构建 Release 的 iOS Simulator 与 macOS 主 App，读取 Xcode 的 `BUILT_PRODUCTS_DIR`，统计 `.app` 内普通文件总字节数（资源与主程序均计入），并输出一位小数的 MB 实测值。CI 的 `Packaged app size` workflow 执行同一脚本；iOS 必须严格小于 15 MB，macOS 严格小于 25 MB，超限会打印实测值/阈值并令 job 失败。
+在 macOS 且已安装项目所需 Xcode 后，从仓库根目录执行 `bash scripts/check-size.sh`。脚本分别构建 Release 的 iOS（`generic/platform=iOS`）与 macOS 主 App，读取 Xcode 的 `BUILT_PRODUCTS_DIR`，对包内 Mach-O 执行 `strip`（调试符号留在旁路 `.dSYM`，不计入），再统计 `.app` 内普通文件总字节数（资源、主程序与嵌入的 appex 均计入），并输出一位小数的 MB 实测值（按 1024²）。CI 的 `Packaged app size` workflow（`.github/workflows/size-gate.yml`）执行同一脚本；iOS 必须严格小于 15 MB，macOS 严格小于 25 MB，超限会打印实测值/阈值并令 job 失败。
 
 超限时先查看具体包内文件体积，确认新增资源或二进制是否必要；优先移除重复/未使用资源、优化资源格式和裁剪无用代码，不得压缩或转码用户附件。重新运行脚本确认两个平台均低于门槛，并在 PR 的性能影响三行中报告实测包体；如确需突破硬门槛，必须在 PR 显式说明并由审查方决定。

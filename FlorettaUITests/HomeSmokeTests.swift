@@ -404,11 +404,13 @@ final class A24EditorActionSmokeTests: XCTestCase {
     func testSmoke10ImportMMAndOPMLPresentDocumentPicker() {
         let app = launchEditor()
         app.descendants(matching: .any)["editor.insert"].tap()
+        // .mm / .opml import shares the single "从文件导入" picker; the share-menu
+        // .mm / .opml commands are export paths and are not this smoke item.
         let importFile = app.buttons["smoke.import.file"]
-        XCTAssertTrue(importFile.waitForExistence(timeout: 5))
+        XCTAssertTrue(importFile.waitForExistence(timeout: 5), "插入菜单没有从文件导入（.mm / .opml）入口")
         importFile.tap()
         let picker = documentPickerApp()
-        XCTAssertTrue(systemPickerWasPresented(app, picker), "从文件导入没有进入系统文件选择器")
+        XCTAssertTrue(systemPickerWasPresented(app, picker), "导入 .mm / .opml 没有进入系统文件选择器")
     }
 
     @MainActor
@@ -463,7 +465,22 @@ final class A24EditorActionSmokeTests: XCTestCase {
 
     @MainActor
     private func systemPickerWasPresented(_ app: XCUIApplication, _ picker: XCUIApplication) -> Bool {
-        guard app.state == .runningBackground else { return false }
-        return picker.otherElements["Browse View"].waitForExistence(timeout: 10)
+        // UIDocumentPicker often appears as an in-app sheet and does not
+        // background the host or activate Files. Accept either presentation.
+        let browse = app.otherElements["Browse View"]
+        if browse.waitForExistence(timeout: 6) { return true }
+        if app.navigationBars["Browse"].waitForExistence(timeout: 2) { return true }
+        if app.navigationBars["On My iPhone"].waitForExistence(timeout: 2) { return true }
+        if app.navigationBars["Recents"].waitForExistence(timeout: 2) { return true }
+        if app.buttons["Save"].waitForExistence(timeout: 2) && app.buttons["Cancel"].exists {
+            return true
+        }
+        let documentManager = XCUIApplication(bundleIdentifier: "com.apple.DocumentManager")
+        if picker.otherElements["Browse View"].waitForExistence(timeout: 4) { return true }
+        if documentManager.otherElements["Browse View"].waitForExistence(timeout: 2) { return true }
+        if app.state == .runningBackground {
+            return picker.state == .runningForeground || documentManager.state == .runningForeground
+        }
+        return false
     }
 }

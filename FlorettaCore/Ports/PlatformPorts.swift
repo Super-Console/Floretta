@@ -9,23 +9,37 @@ public protocol FileAccessPort {
     func fileExists(at url: URL) -> Bool
     /// Deletes the file. Does nothing when the path is already absent.
     func remove(at url: URL) throws
+    func createDirectory(at url: URL) throws
+    func contentsOfDirectory(at url: URL, includingPropertiesForKeys keys: [URLResourceKey], skipsHiddenFiles: Bool) throws -> [URL]
+    func temporaryDirectory() -> URL
+    func searchPathDirectory(_ directory: FileManager.SearchPathDirectory, create: Bool) throws -> URL?
+    func ubiquityDocumentsDirectory() -> URL?
 }
 
 /// Clipboard text. AppKit and UIKit adapters sit outside Core.
 public protocol PasteboardPort {
     func readText() -> String?
     func writeText(_ text: String)
+    func readImageFileURL() -> URL?
+    func readImageData() -> (data: Data, fileExtension: String)?
 }
 
 /// Device name and model identifier ("我的 iPhone" / "我的 iPad").
 public protocol DeviceInfoPort {
     var deviceName: String { get }
     var modelIdentifier: String { get }
+    var isPhone: Bool { get }
 }
 
 /// Timestamps for tests and for identical behavior across platforms.
-public protocol ClockPort {
+public protocol ClockPort: Sendable {
     func now() -> Date
+}
+
+/// Foundation's clock is platform-neutral and is the default implementation for Core callers.
+public struct FoundationClock: ClockPort {
+    public init() {}
+    public func now() -> Date { Date() }
 }
 
 /// Result of measuring one run of text. Layout consumes this later.

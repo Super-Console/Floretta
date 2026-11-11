@@ -32,12 +32,31 @@ public struct FoundationFileAccess: FileAccessPort {
         guard fileManager.fileExists(atPath: url.path) else { return }
         try fileManager.removeItem(at: url)
     }
+
+    public func createDirectory(at url: URL) throws {
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+    }
+
+    public func contentsOfDirectory(at url: URL, includingPropertiesForKeys keys: [URLResourceKey], skipsHiddenFiles: Bool) throws -> [URL] {
+        try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: keys, options: skipsHiddenFiles ? [.skipsHiddenFiles] : [])
+    }
+
+    public func temporaryDirectory() -> URL { FileManager.default.temporaryDirectory }
+
+    public func searchPathDirectory(_ directory: FileManager.SearchPathDirectory, create: Bool) throws -> URL? {
+        try FileManager.default.url(for: directory, in: .userDomainMask, appropriateFor: nil, create: create)
+    }
+
+    public func ubiquityDocumentsDirectory() -> URL? {
+        guard let root = FileManager.default.url(forUbiquityContainerIdentifier: nil) else { return nil }
+        return root.appendingPathComponent("Documents", isDirectory: true)
+    }
 }
 
 public struct SystemClock: ClockPort {
     public init() {}
 
-    public func now() -> Date { Date() }
+    public func now() -> Date { FoundationClock().now() }
 }
 
 public struct CoreTextFontMetrics: FontMetricsPort {
@@ -80,6 +99,19 @@ public struct SystemPasteboard: PasteboardPort {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
     }
+
+    public func readImageFileURL() -> URL? {
+        (NSPasteboard.general.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL])?
+            .first(where: { ImageInsertRoute.accepts(filename: $0.lastPathComponent) })
+    }
+
+    public func readImageData() -> (data: Data, fileExtension: String)? {
+        let types: [(NSPasteboard.PasteboardType, String)] = [(.png, "png"), (NSPasteboard.PasteboardType("public.jpeg"), "jpg"), (.tiff, "tiff"), (NSPasteboard.PasteboardType("com.compuserve.gif"), "gif"), (NSPasteboard.PasteboardType("public.heic"), "heic")]
+        for (type, ext) in types {
+            if let data = NSPasteboard.general.data(forType: type), !data.isEmpty { return (data, ext) }
+        }
+        return nil
+    }
 }
 
 public struct SystemDeviceInfo: DeviceInfoPort {
@@ -90,6 +122,7 @@ public struct SystemDeviceInfo: DeviceInfoPort {
     }
 
     public var modelIdentifier: String { "Mac" }
+    public var isPhone: Bool { false }
 }
 #endif
 #else
@@ -103,6 +136,20 @@ public struct SystemPasteboard: PasteboardPort {
     public func writeText(_ text: String) {
         UIPasteboard.general.string = text
     }
+
+    public func readImageFileURL() -> URL? {
+        guard let url = UIPasteboard.general.url, ImageInsertRoute.accepts(filename: url.lastPathComponent) else { return nil }
+        return url
+    }
+
+    public func readImageData() -> (data: Data, fileExtension: String)? {
+        let types = ["public.png", "public.jpeg", "public.tiff", "com.compuserve.gif", "public.heic"]
+        let extensions = ["png", "jpg", "tiff", "gif", "heic"]
+        for (type, ext) in zip(types, extensions) {
+            if let data = UIPasteboard.general.data(forPasteboardType: type), !data.isEmpty { return (data, ext) }
+        }
+        return nil
+    }
 }
 
 public struct SystemDeviceInfo: DeviceInfoPort {
@@ -111,6 +158,7 @@ public struct SystemDeviceInfo: DeviceInfoPort {
     public var deviceName: String { UIDevice.current.name }
 
     public var modelIdentifier: String { UIDevice.current.model }
+    public var isPhone: Bool { UIDevice.current.userInterfaceIdiom == .phone }
 }
 #endif
 

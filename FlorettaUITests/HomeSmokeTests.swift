@@ -81,6 +81,21 @@ final class HomeSmokeTests: XCTestCase {
         viewButtons.element(boundBy: 0).tap()
         XCTAssertTrue(title.waitForExistence(timeout: 5), "切回画布后编辑器标题消失")
 
+        let insert = app.descendants(matching: .any)["editor.insert"]
+        XCTAssertTrue(insert.waitForExistence(timeout: 5), "插入菜单入口不存在")
+        insert.tap()
+        let summary = app.buttons["insert.summary"]
+        let boundary = app.buttons["insert.boundary"]
+        XCTAssertTrue(summary.waitForExistence(timeout: 5), "插入菜单没有概要项")
+        XCTAssertTrue(boundary.waitForExistence(timeout: 5), "插入菜单没有边界项")
+        XCTAssertFalse(summary.isEnabled, "未选中节点时概要项应禁用")
+        XCTAssertFalse(boundary.isEnabled, "未选中节点时边界项应禁用")
+        let attachment = app.buttons["insert.attachment"]
+        XCTAssertTrue(attachment.waitForExistence(timeout: 5), "插入菜单没有附件入口（音视频文件选择共用该入口）")
+        XCTAssertTrue(attachment.isEnabled, "音视频文件选择入口不可用")
+        app.buttons["insert.region"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["editor.canvas"].exists, "插入专区后画布消失")
+
         var more = app.descendants(matching: .any)["editor.more"]
         XCTAssertTrue(more.waitForExistence(timeout: 5), "更多菜单入口不存在")
         more.tap()
@@ -91,6 +106,24 @@ final class HomeSmokeTests: XCTestCase {
         XCTAssertTrue(themeSheet.waitForExistence(timeout: 5), "配色入口没有打开面板")
         XCTAssertTrue(app.buttons["theme.close"].exists, "配色面板缺少关闭入口")
         app.buttons["theme.close"].tap()
+
+        more = app.descendants(matching: .any)["editor.more"]
+        more.tap()
+        let outline = app.buttons["outline.open"]
+        XCTAssertTrue(outline.waitForExistence(timeout: 5), "更多菜单中没有大纲入口")
+        outline.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["editor.outline"].waitForExistence(timeout: 5), "大纲入口没有打开大纲")
+        more = app.descendants(matching: .any)["editor.more"]
+        more.tap()
+        let closeOutline = app.buttons["outline.open"]
+        XCTAssertTrue(closeOutline.waitForExistence(timeout: 5), "更多菜单中没有关闭大纲的入口")
+        closeOutline.tap()
+        XCTAssertFalse(app.descendants(matching: .any)["editor.outline"].exists, "关闭大纲后面板仍然存在")
+        let addCanvas = app.buttons["canvas.tab.add"]
+        XCTAssertTrue(addCanvas.waitForExistence(timeout: 5), "编辑器中没有新建画布入口")
+        XCTAssertTrue(addCanvas.isEnabled, "新建画布入口不可用")
+        addCanvas.tap()
+        XCTAssertTrue(app.buttons["canvas.tab.1"].waitForExistence(timeout: 5), "新画布没有加入画布标签栏")
 
         more = app.descendants(matching: .any)["editor.more"]
         more.tap()

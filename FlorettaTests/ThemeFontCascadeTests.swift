@@ -52,14 +52,73 @@ final class ThemeFontCascadeTests: XCTestCase {
     }
 
     func testFollowSystemChineseUsesPingFangWhenAvailable() {
-        guard let ping = ThemeFontCascade.firstAvailable(ThemeFontCascade.chineseSansNames) else {
-            XCTFail("PingFang SC was not found on this Mac")
-            return
-        }
         let used = ThemeFontCascade.postScriptName(familyID: "system-sans", for: "汉字")
-        XCTAssertEqual(used, ping)
+        XCTAssertTrue(
+            used.localizedCaseInsensitiveContains("PingFang") || used.localizedCaseInsensitiveContains("NotoSans"),
+            "system-sans Chinese should be PingFang / Noto Sans, used \(used)"
+        )
         let interCJK = ThemeFontCascade.postScriptName(familyID: "inter", for: "汉字")
         XCTAssertNotEqual(interCJK, "Inter-Regular")
+    }
+
+    func testSystemSansAndSystemSerifResolveDifferentFacesForEachLanguage() {
+        // Modern (跟随系统) must not keep the classic serif cascade.
+        let sansEn = ThemeFontCascade.postScriptName(familyID: "system-sans", for: "Hello")
+        let serifEn = ThemeFontCascade.postScriptName(familyID: "system-serif", for: "Hello")
+        XCTAssertNotEqual(sansEn, serifEn, "English system-sans \(sansEn) must differ from system-serif \(serifEn)")
+        XCTAssertFalse(
+            sansEn.localizedCaseInsensitiveContains("NewYork")
+                || sansEn.localizedCaseInsensitiveContains("Georgia")
+                || sansEn.localizedCaseInsensitiveContains("Times")
+                || sansEn.localizedCaseInsensitiveContains("Garamond")
+                || sansEn.localizedCaseInsensitiveContains("Song"),
+            "system-sans English must not be a serif face, used \(sansEn)"
+        )
+        XCTAssertTrue(
+            serifEn.localizedCaseInsensitiveContains("NewYork")
+                || serifEn.localizedCaseInsensitiveContains("Georgia")
+                || serifEn.localizedCaseInsensitiveContains("Times")
+                || serifEn.localizedCaseInsensitiveContains("Song"),
+            "system-serif English used \(serifEn)"
+        )
+
+        let sansZh = ThemeFontCascade.postScriptName(familyID: "system-sans", for: "汉字")
+        let serifZh = ThemeFontCascade.postScriptName(familyID: "system-serif", for: "汉字")
+        XCTAssertNotEqual(sansZh, serifZh, "Chinese system-sans \(sansZh) must differ from system-serif \(serifZh)")
+        XCTAssertTrue(
+            sansZh.localizedCaseInsensitiveContains("PingFang") || sansZh.localizedCaseInsensitiveContains("NotoSans"),
+            "system-sans Chinese used \(sansZh)"
+        )
+        XCTAssertTrue(
+            ["STSongti-SC-Regular", "STSong", "STSongti-TC-Regular"].contains(serifZh)
+                || serifZh.localizedCaseInsensitiveContains("Song"),
+            "system-serif Chinese used \(serifZh)"
+        )
+
+        let sansJa = ThemeFontCascade.postScriptName(familyID: "system-sans", for: "あいうえお")
+        let serifJa = ThemeFontCascade.postScriptName(familyID: "system-serif", for: "あいうえお")
+        XCTAssertFalse(
+            sansJa.localizedCaseInsensitiveContains("Mincho")
+                || sansJa.localizedCaseInsensitiveContains("Songti")
+                || sansJa.localizedCaseInsensitiveContains("STSong")
+                || sansJa.localizedCaseInsensitiveContains("NewYork"),
+            "system-sans Japanese must not stay on a mincho/serif face, used \(sansJa)"
+        )
+        // Hiragino Sans is preferred; PingFang also covers kana and may win.
+        print("FONT_RESOLVE system-sans ja=\(sansJa) ko=\(ThemeFontCascade.postScriptName(familyID: "system-sans", for: "한국어")) en=\(sansEn) zh=\(sansZh)")
+        print("FONT_RESOLVE system-serif ja=\(serifJa) ko=\(ThemeFontCascade.postScriptName(familyID: "system-serif", for: "한국어")) en=\(serifEn) zh=\(serifZh)")
+        _ = serifJa
+
+        let sansKo = ThemeFontCascade.postScriptName(familyID: "system-sans", for: "한국어")
+        let serifKo = ThemeFontCascade.postScriptName(familyID: "system-serif", for: "한국어")
+        XCTAssertNotEqual(sansKo, serifKo, "Korean system-sans \(sansKo) must differ from system-serif \(serifKo)")
+        XCTAssertTrue(
+            sansKo.localizedCaseInsensitiveContains("Gothic")
+                || sansKo.localizedCaseInsensitiveContains("AppleSD")
+                || sansKo.localizedCaseInsensitiveContains("PingFang")
+                || sansKo.localizedCaseInsensitiveContains("NotoSans"),
+            "system-sans Korean used \(sansKo)"
+        )
     }
 
     func testJapaneseAndKoreanFallbackPostScriptNames() {

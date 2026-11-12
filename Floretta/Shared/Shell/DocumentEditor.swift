@@ -245,7 +245,11 @@ struct DocumentEditor: View {
                         // A compact inspector is a sheet; after it is dismissed
                         // the user still needs a one-tap way back in.
                         Button {
-                            showInspector = true
+                            // Toggle, same as the macOS 样式 command. Assigning
+                            // true only left iPad regular-width with no way to
+                            // close the trailing inspector (the dismiss handle
+                            // is compact-sheet-only).
+                            showInspector.toggle()
                         } label: {
                             Image(systemName: "paintbrush")
                         }

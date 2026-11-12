@@ -144,6 +144,9 @@ struct InfiniteCanvas: View {
                 draw(in: context, size: size, at: timeline.date.timeIntervalSinceReferenceDate)
                 CanvasPerfRun.endDraw(perf)
             }
+            // Distinct identity so a mode switch (system-serif ↔ system-sans)
+            // cannot reuse the previous Canvas glyph cache.
+            .id(appearanceProfile.fontFamilyID)
             .allowsHitTesting(false)
             .onChange(of: timeline.date) { _, date in
                 let time = date.timeIntervalSinceReferenceDate
@@ -1905,7 +1908,10 @@ struct InfiniteCanvas: View {
         var text = NodeTextTypography.canvasText(
             shown,
             font: FlorettaTitleFont.font(design: node.fontDesign, size: pointSize, familyID: appearanceProfile.fontFamilyID),
-            lineHeight: appearanceProfile.lineHeight
+            lineHeight: appearanceProfile.lineHeight,
+            familyID: appearanceProfile.fontFamilyID,
+            nodeDesign: node.fontDesign,
+            size: pointSize
         )
             .foregroundStyle(color(node.textColor))
         if node.bold { text = text.bold() }

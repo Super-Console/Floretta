@@ -109,6 +109,14 @@ enum ThemeFontCascade {
         let family = AppearanceCatalog.family(id: familyID)
             ?? AppearanceCatalog.family(id: "system-serif")!
         let base = latinPrimary(for: family, size: point)
+        // On iOS, the native New York UI font falls back to PingFang /
+        // Apple SD Gothic for CJK — that would make Classic Chinese look
+        // gothic. Keep the explicit Songti / Mincho / Myungjo cascade on
+        // serif families. system-sans keeps the raw UI font so English is
+        // SF and CJK stays gothic (PingFang / Apple SD Gothic).
+        if family.id == "system-sans" {
+            return base
+        }
         return applyingCascade(base, kind: family.kind)
     }
 
@@ -122,6 +130,16 @@ enum ThemeFontCascade {
         default:
             // Both default and serif follow the selected family, so Classic
             // can be switched to a sans face and the map text actually changes.
+            // Use Font.system(design:) for the two system families so SwiftUI
+            // Canvas sees a different Font identity than the previous mode.
+            let family = AppearanceCatalog.family(id: familyID)
+                ?? AppearanceCatalog.family(id: "system-serif")!
+            if family.id == "system-sans" {
+                return .system(size: point, design: .default)
+            }
+            if family.id == "system-serif" {
+                return .system(size: point, design: .serif)
+            }
             return font(from: ctFont(familyID: familyID, size: point))
         }
     }
@@ -179,11 +197,12 @@ enum ThemeFontCascade {
         let names = cascadePostScriptNames(kind: kind)
         guard !names.isEmpty else { return font }
         let fallbacks = names.map { CTFontDescriptorCreateWithNameAndSize($0 as CFString, CTFontGetSize(font)) }
-        let copy = CTFontDescriptorCreateCopyWithAttributes(
-            CTFontCopyFontDescriptor(font),
+        let attributes = CTFontDescriptorCreateWithAttributes(
             [kCTFontCascadeListAttribute: fallbacks] as CFDictionary
         )
-        return CTFontCreateWithFontDescriptor(copy, CTFontGetSize(font), nil)
+        // Copy the live font rather than recreating it from a descriptor, so
+        // the Latin primary face (Inter, EB Garamond, …) is preserved.
+        return CTFontCreateCopyWithAttributes(font, CTFontGetSize(font), nil, attributes)
     }
 
     private static func systemSerif(size: CGFloat) -> CTFont? {

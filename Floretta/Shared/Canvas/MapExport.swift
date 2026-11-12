@@ -370,7 +370,11 @@ private struct MapExportView: View {
                     context.draw(
                         NodeTextTypography.canvasText(
                             node.text,
-                            font: FlorettaTitleFont.font(design: node.fontDesign, size: node.fontSize, familyID: appearanceProfile.fontFamilyID), lineHeight: appearanceProfile.lineHeight
+                            font: FlorettaTitleFont.font(design: node.fontDesign, size: node.fontSize, familyID: appearanceProfile.fontFamilyID),
+                            lineHeight: appearanceProfile.lineHeight,
+                            familyID: appearanceProfile.fontFamilyID,
+                            nodeDesign: node.fontDesign,
+                            size: node.fontSize
                         )
                         .foregroundStyle(color(node.textColor)),
                         in: textRect
@@ -649,11 +653,37 @@ enum ThemeCurvePath {
 
 extension NodeTextTypography {
     /// Same paragraph style as `CoreTextFontMetrics`, so export and the canvas wrap alike.
-    static func canvasText(_ string: String, font: Font, lineHeight: Double = 1.25) -> Text {
-        let ns = NSAttributedString(string: string, attributes: [
+    static func canvasText(
+        _ string: String,
+        font: Font,
+        lineHeight: Double = 1.25,
+        familyID: String? = nil,
+        nodeDesign: String = "default",
+        size: CGFloat? = nil
+    ) -> Text {
+        var attributes: [NSAttributedString.Key: Any] = [
             .paragraphStyle: paragraphStyle(lineHeight: lineHeight),
-        ])
-        return Text(AttributedString(ns)).font(font)
+        ]
+        // Put the resolved face on the runs themselves. Canvas `Text.font`
+        // alone was not enough for system-sans: the Font identity collided
+        // with the previous system-serif face and glyphs stayed Songti /
+        // New York after the inspector already showed 跟随系统.
+        if let familyID, let size {
+            attributes[.font] = ThemeFontCascade.platformFont(
+                familyID: familyID,
+                nodeDesign: nodeDesign,
+                size: size
+            )
+        }
+        let ns = NSAttributedString(string: string, attributes: attributes)
+        let text = Text(AttributedString(ns))
+        // When the run already carries the cascaded platform font, do not
+        // also apply Text.font: on iOS, Font.system(design: .serif) falls
+        // back to PingFang for Chinese and would hide Songti.
+        if attributes[.font] != nil {
+            return text
+        }
+        return text.font(font)
     }
 }
 

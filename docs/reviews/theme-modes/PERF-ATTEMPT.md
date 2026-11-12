@@ -30,3 +30,15 @@ xcodebuild -project Floretta.xcodeproj -scheme Floretta-macOS \
 容器路径 `~/Library/Containers/net.timhuang.floretta/Data/tmp/canvas-perf-50.json` 的 mtime 始终是 2026-11-12 18:28:18 CST（上一次画布性能确认轮留下的旧结果）。本轮没有覆盖它，也没有把它当作本 tip 的新测量。
 
 因此内存、帧率两行没有数字可写。
+
+## 改用 XCUITest 路径后的实测（500 节点）
+
+Hubert 要求停止失败的 macOS 直接启动路径，改走已经能创建窗口的 XCUITest。本轮在 iPad 模拟器 `ASC-iPadPro13-M5` 上用 Release + `-FlorettaUITest -FlorettaPerfNodes 500` 跑未修改的 PR #117 `CanvasPerfProbe`。测试 `testCanvasPerf500ViaUITest` 只负责启动并等到进程退出，不改写探针。
+
+- 日志：`/tmp/theme-modes-perf500-ios.log`
+- START 2026-11-12 23:03:10 CST，END 23:04:54 CST，EXIT 0，`** TEST SUCCEEDED **`
+- 探针 JSON：模拟器容器 `…/tmp/canvas-perf-500.json`（mtime 2026-11-12 23:04:53 CST），已复制为 `docs/reviews/theme-modes/canvas-perf-500-ipad-xcuitest.json`
+- `finishedAt`：2026-11-12T15:04:53Z（23:04:53 CST）
+- 峰值内存：64.6 MB
+- 平均 / 最低 FPS：平移 1.0 / 0，缩放 0.8 / 0，拖动 0.9 / 0
+- 不得把同容器里 18:30 CST 的 `canvas-perf-50.json` / `canvas-perf-200.json` 当作本 tip 的测量。

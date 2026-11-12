@@ -523,7 +523,7 @@ struct DocumentEditor: View {
                 outlinePanel
                     .frame(width: outlineWide ? nil : 300)
                     .frame(maxWidth: outlineWide ? .infinity : 300, maxHeight: .infinity)
-                    .background(.regularMaterial)
+                    .appleGlassChrome(.sidebarColumn)
             }
         }
         .overlay(alignment: .top) {
@@ -570,8 +570,7 @@ struct DocumentEditor: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(.bar)
-                .overlay(alignment: .top) { Divider() }
+                .appleGlassChrome(.floatingPanel)
                 .accessibilityIdentifier("statusBar")
                 }
             }
@@ -607,7 +606,7 @@ struct DocumentEditor: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.bar)
+        .appleGlassChrome(.floatingPanel)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("canvas.tabs")
         .alert(Text(verbatim: text("重新命名")), isPresented: $showCanvasRename) {
@@ -728,7 +727,7 @@ struct DocumentEditor: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(.regularMaterial)
+        .appleGlassChrome(.floatingPanel)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("markdown.mode.banner")
         .padding(.top, session.zen.isActive ? 56 : 0)
@@ -748,7 +747,7 @@ struct DocumentEditor: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(.regularMaterial)
+        .appleGlassChrome(.floatingPanel)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(identifier)
         .padding(.horizontal, 12)

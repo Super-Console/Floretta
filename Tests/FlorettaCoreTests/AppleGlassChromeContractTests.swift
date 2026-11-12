@@ -16,6 +16,8 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertTrue(glass.contains("case nsGlassEffectView"))
         XCTAssertTrue(glass.contains("case nsVisualEffectView"))
         XCTAssertTrue(glass.contains("case unpainted"))
+        XCTAssertTrue(glass.contains("case sidebarColumn"))
+        XCTAssertTrue(glass.contains("case floatingPanel"))
     }
 
     func testGlassFileDoesNotInventABlurWashOrShadow() throws {
@@ -85,7 +87,11 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertTrue(editor.contains("\"字数: %lld\""))
         XCTAssertTrue(canvas.contains(".appleGlassChrome(.bottomBarCapsule)"))
         XCTAssertFalse(canvas.contains("ultraThinMaterial"))
+        XCTAssertFalse(canvas.contains("regularMaterial"))
         XCTAssertFalse(canvas.contains("Capsule().fill("))
+        let audio = try repoFile("Floretta/Shared/Canvas/CanvasAudioPlaybackBar.swift")
+        XCTAssertTrue(audio.contains(".appleGlassChrome(.floatingPanel)"))
+        XCTAssertFalse(audio.contains("regularMaterial"))
 
         let principal = try slice(
             editor,
@@ -107,7 +113,19 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertTrue(primary.contains("toolbarControl(.zoom)"))
 
         XCTAssertFalse(home.contains("appleGlassChrome"))
+        XCTAssertTrue(home.contains("scrollContentBackground(.hidden)"))
         XCTAssertFalse(editor.contains(".blur("))
+        XCTAssertFalse(editor.contains("regularMaterial"))
+        XCTAssertFalse(editor.contains(".background(.bar)"))
+        XCTAssertTrue(editor.contains(".appleGlassChrome(.sidebarColumn)"))
+        XCTAssertTrue(editor.contains(".appleGlassChrome(.floatingPanel)"))
+
+        let content = try repoFile("Floretta/Shared/ContentView.swift")
+        XCTAssertTrue(content.contains(".appleGlassChrome(.sidebarColumn)"))
+        XCTAssertTrue(content.contains(".backgroundExtensionEffect()"))
+        XCTAssertFalse(content.contains("regularMaterial"))
+        XCTAssertFalse(content.contains("ultraThinMaterial"))
+        XCTAssertFalse(content.contains(".blur("))
     }
 
     func testBackButtonAndHomeChromeAreLeftAlone() throws {

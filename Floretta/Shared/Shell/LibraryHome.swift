@@ -176,6 +176,7 @@ struct HomeSidebar: View {
             }
         }
         .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)
         .accessibilityIdentifier("home.sidebar")
     }
 

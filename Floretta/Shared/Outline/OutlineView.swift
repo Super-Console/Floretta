@@ -63,6 +63,7 @@ struct OutlineView: View {
             }
         }
         .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)
         #if os(iOS)
         return list.environment(\.editMode, $reorderMode)
         #else

@@ -6,14 +6,23 @@ import XCTest
 /// 500-node probe or wait on an external screenshot poller:
 /// - `FLORETTA_RUN_PERF_PROBE=1` runs `testCanvasPerf500ViaUITest`
 /// - `FLORETTA_RUN_THEME_SHOTS=1` runs `testPinchZoomGlyphContinuity`
+/// - A leftover `/tmp/floretta-run-theme-shots` or `/tmp/floretta-run-perf-probe`
+///   flag also opts in, unless the matching env var is explicitly `0`.
+///   `scripts/pre-release.sh` sets both to `0` and skips this class so a
+///   leftover flag cannot fail the gate when no poller is started.
+///   An intentional run (`=1`, or a flag without `=0`) still waits on the
+///   poller and fails if it does not write `.done`.
 final class ThemeModesScreenshotUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
     }
 
     private static func isOptIn(_ envKey: String, flagFile: String) -> Bool {
-        ProcessInfo.processInfo.environment[envKey] == "1"
-            || FileManager.default.isReadableFile(atPath: flagFile)
+        let env = ProcessInfo.processInfo.environment[envKey]
+        // Explicit 0 wins, including pre-release, even if a leftover
+        // flag file is still sitting in /tmp.
+        if env == "0" { return false }
+        return env == "1" || FileManager.default.isReadableFile(atPath: flagFile)
     }
 
     @MainActor

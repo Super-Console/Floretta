@@ -347,10 +347,9 @@ final class A24EditorActionSmokeTests: XCTestCase {
         let root = makeUITestRoot()
         let app = launchEditor(root: root)
         insertChildTopic(app)
-        openToolbarOverflow(app)
-        app.buttons["分享"].tap()
-        let save = app.buttons["smoke.save.floretta"]
-        XCTAssertTrue(save.waitForExistence(timeout: 5), "分享菜单没有「保存为 Floretta」")
+        openShareMenu(app)
+        let save = app.descendants(matching: .any)["smoke.save.floretta"]
+        XCTAssertTrue(save.waitForExistence(timeout: 5), "分享菜单没有「保存为 Floretta」（smoke.save.floretta）")
         save.tap()
         let url = waitForUITestFile(named: "未命名.floretta", under: root, subdirectory: "export")
         let data = readNonEmptyFile(url)
@@ -394,7 +393,7 @@ final class A24EditorActionSmokeTests: XCTestCase {
     func testSmoke9ExportPNGWritesPNGFile() throws {
         try exportAndReadBack(
             identifier: "smoke.export.png",
-            missingMenu: "分享菜单缺少 PNG 导出",
+            missingMenu: "分享菜单缺少 PNG 导出（smoke.export.png）",
             fileName: "未命名.png",
             validate: { data, url in
                 XCTAssertTrue(
@@ -409,7 +408,7 @@ final class A24EditorActionSmokeTests: XCTestCase {
     func testSmoke9ExportPDFWritesPDFFile() throws {
         try exportAndReadBack(
             identifier: "smoke.export.pdf",
-            missingMenu: "分享菜单缺少 PDF 导出",
+            missingMenu: "分享菜单缺少 PDF 导出（smoke.export.pdf）",
             fileName: "未命名.pdf",
             validate: { data, url in
                 XCTAssertTrue(data.starts(with: Data("%PDF".utf8)), "导出的 PDF 缺少 %PDF 头：\(url.path)")
@@ -422,10 +421,9 @@ final class A24EditorActionSmokeTests: XCTestCase {
         let root = makeUITestRoot()
         let app = launchEditor(root: root)
         insertChildTopic(app)
-        openToolbarOverflow(app)
-        app.buttons["分享"].tap()
-        let action = app.buttons["smoke.export.markdown"]
-        XCTAssertTrue(action.waitForExistence(timeout: 5), "分享菜单缺少 Markdown 导出")
+        openShareMenu(app)
+        let action = app.descendants(matching: .any)["smoke.export.markdown"]
+        XCTAssertTrue(action.waitForExistence(timeout: 5), "分享菜单缺少 Markdown 导出（smoke.export.markdown）")
         action.tap()
         let url = waitForUITestFile(named: "未命名.md", under: root, subdirectory: "export")
         let data = readNonEmptyFile(url)
@@ -574,9 +572,8 @@ final class A24EditorActionSmokeTests: XCTestCase {
     ) throws {
         let root = makeUITestRoot()
         let app = launchEditor(root: root)
-        openToolbarOverflow(app)
-        app.buttons["分享"].tap()
-        let action = app.buttons[identifier]
+        openShareMenu(app)
+        let action = app.descendants(matching: .any)[identifier]
         XCTAssertTrue(action.waitForExistence(timeout: 5), missingMenu)
         action.tap()
         let url = waitForUITestFile(named: fileName, under: root, subdirectory: "export")
@@ -592,10 +589,18 @@ final class A24EditorActionSmokeTests: XCTestCase {
         XCTAssertFalse(app.descendants(matching: .any)["markdown.mode.banner"].exists, "文件被当成 Markdown 打开了")
     }
 
+    /// Compact width (iPhone): share lives in the overflow as
+    /// editor.more → share.menu → smoke.export.* / smoke.save.floretta.
+    /// Query the stable identifier, never the localized title "分享" and
+    /// never the retired TopOverflowBarButtonItem.
     @MainActor
-    private func openToolbarOverflow(_ app: XCUIApplication) {
-        let overflow = app.buttons["TopOverflowBarButtonItem"]
-        if overflow.waitForExistence(timeout: 2) { overflow.tap() }
+    private func openShareMenu(_ app: XCUIApplication) {
+        let more = app.descendants(matching: .any)["editor.more"]
+        XCTAssertTrue(more.waitForExistence(timeout: 10), "编辑器没有更多菜单入口 editor.more")
+        more.tap()
+        let share = app.descendants(matching: .any)["share.menu"]
+        XCTAssertTrue(share.waitForExistence(timeout: 5), "更多菜单没有分享入口 share.menu")
+        share.tap()
     }
 
     @MainActor

@@ -118,8 +118,10 @@ final class KeyboardTests: XCTestCase {
     func testCommandModeMapsStructureKeys() {
         XCTAssertEqual(map(.tab), .createChild)
         XCTAssertEqual(map(.enter), .createSibling)
-        XCTAssertNil(map(.enter, .shift))
+        XCTAssertEqual(map(.enter, .shift), .createSiblingBefore)
+        XCTAssertEqual(map(.enter, .command), .createParent)
         XCTAssertEqual(map(.space), .beginEdit)
+        XCTAssertEqual(map(.f2), .beginEdit)
         XCTAssertNil(map(.escape))
         XCTAssertEqual(map(.delete), .deleteSelection)
         XCTAssertEqual(map(.backspace), .deleteSelection)
@@ -131,12 +133,26 @@ final class KeyboardTests: XCTestCase {
         XCTAssertEqual(map(.right), .moveSelection(.right))
         XCTAssertEqual(map(.character("z"), .command), .undo)
         XCTAssertEqual(map(.character("Z"), [.command, .shift]), .redo)
+        XCTAssertEqual(map(.character("y"), .command), .redo)
+        XCTAssertEqual(map(.character("a"), .command), .selectAllTopics)
+        XCTAssertEqual(map(.character("a"), [.command, .shift]), .selectAllSiblings)
+        XCTAssertEqual(map(.character("a"), [.command, .option]), .selectAllChildren)
+        XCTAssertEqual(map(.enter, .option), .openProperties)
+        XCTAssertEqual(map(.character("r"), .command), .jumpToCentralTopic)
+        XCTAssertEqual(map(.character("+")), .expandBranch)
+        XCTAssertEqual(map(.character("-")), .collapseBranch)
+        XCTAssertEqual(map(.character("*")), .expandAll)
+        XCTAssertEqual(map(.character("/")), .collapseAll)
+        XCTAssertEqual(map(.up, .option), .moveTopic(.up))
+        XCTAssertEqual(map(.down, .option), .moveTopic(.down))
+        XCTAssertEqual(map(.character("l"), [.command, .shift]), .showShortcutHelp)
         XCTAssertNil(map(.character("z")))
         XCTAssertNil(map(.tab, .command))
         XCTAssertNil(map(.tab, .shift))
-        XCTAssertNil(map(.enter, .option))
-        XCTAssertNil(map(.up, .option))
         XCTAssertNil(map(.character("z"), .control))
+        XCTAssertNil(map(.character("+"), .command))
+        XCTAssertNil(map(.character("-"), .command))
+        XCTAssertTrue(XMindShortcutCatalog.conflicts().isEmpty)
     }
 
     func testEditModeDisablesCreateAndKeepsNewlineCommitAndCancel() {
@@ -154,7 +170,16 @@ final class KeyboardTests: XCTestCase {
         XCTAssertEqual(map(.enter, mode: .edit), .commitEdit)
         XCTAssertNotEqual(map(.enter, mode: .edit), .createSibling)
         XCTAssertEqual(map(.enter, .shift, mode: .edit), .insertNewline)
+        XCTAssertNotEqual(map(.enter, .shift, mode: .edit), .createSiblingBefore)
         XCTAssertEqual(map(.escape, mode: .edit), .cancelEdit)
+        XCTAssertNil(map(.f2, mode: .edit))
+        XCTAssertNil(map(.character("+"), mode: .edit))
+        XCTAssertNil(map(.character("-"), mode: .edit))
+        XCTAssertNil(map(.character("*"), mode: .edit))
+        XCTAssertNil(map(.character("/"), mode: .edit))
+        XCTAssertNil(map(.enter, .command, mode: .edit))
+        XCTAssertNil(map(.enter, .option, mode: .edit))
+        XCTAssertNil(map(.character("a"), [.command, .shift], mode: .edit))
     }
 
     func testCompositionSuppressesEveryShortcut() {
@@ -173,6 +198,20 @@ final class KeyboardTests: XCTestCase {
             (.right, []),
             (.character("z"), .command),
             (.character("z"), [.command, .shift]),
+            (.character("y"), .command),
+            (.f2, []),
+            (.character("+"), []),
+            (.character("-"), []),
+            (.character("*"), []),
+            (.character("/"), []),
+            (.enter, .command),
+            (.enter, .option),
+            (.character("a"), [.command, .shift]),
+            (.character("a"), [.command, .option]),
+            (.character("r"), .command),
+            (.character("l"), [.command, .shift]),
+            (.up, .option),
+            (.down, .option),
         ]
         for mode in [KeyboardMode.command, KeyboardMode.edit] {
             for (key, modifiers) in keys {
@@ -192,8 +231,13 @@ final class KeyboardTests: XCTestCase {
         XCTAssertEqual(press(.space, session: &session, document: &document), .beginEdit)
         session.isComposing = true
         session.replaceEditingText("zhongwen", document: &document)
+        XCTAssertNil(press(.space, session: &session, document: &document, composing: true))
         XCTAssertNil(press(.tab, session: &session, document: &document, composing: true))
         XCTAssertNil(press(.enter, session: &session, document: &document, composing: true))
+        XCTAssertNil(press(.character("+"), session: &session, document: &document, composing: true))
+        XCTAssertNil(press(.character("-"), session: &session, document: &document, composing: true))
+        XCTAssertNil(press(.character("*"), session: &session, document: &document, composing: true))
+        XCTAssertNil(press(.character("/"), session: &session, document: &document, composing: true))
         XCTAssertNil(press(.backspace, session: &session, document: &document, composing: true))
         XCTAssertNil(press(.delete, session: &session, document: &document, composing: true))
         XCTAssertNil(press(.character("z"), .command, session: &session, document: &document, composing: true))
@@ -363,8 +407,12 @@ final class KeyboardTests: XCTestCase {
         var document = MindMapDocument(title: "nl", roots: [MindMapNode(id: rootID, text: "根")])
         var session = MindMapKeyboardSession()
         session.selectedNodeID = rootID
-        XCTAssertNil(press(.enter, .shift, session: &session, document: &document))
-        XCTAssertEqual(document.roots[0].text, "根")
+        XCTAssertEqual(press(.enter, .shift, session: &session, document: &document), .createSiblingBefore)
+        XCTAssertEqual(session.mode, .edit)
+        session.apply(.cancelEdit, document: &document, frames: [])
+        _ = document.removeNode(session.selectedNodeID ?? UUID())
+        session.selectedNodeID = rootID
+        session.mode = .command
         XCTAssertEqual(press(.space, session: &session, document: &document), .beginEdit)
         XCTAssertEqual(press(.enter, .shift, session: &session, document: &document), .insertNewline)
         XCTAssertEqual(document.roots[0].text, "根\n")
@@ -446,6 +494,124 @@ final class KeyboardTests: XCTestCase {
         session.apply(.redo, document: &document, frames: frames)
         XCTAssertTrue(document.roots[0].isCollapsed)
         XCTAssertEqual(document.roots[0].children.first?.id, child)
+    }
+
+    func testSpaceEntersEditAndF2DoesTheSame() {
+        let rootID = UUID()
+        var document = MindMapDocument(title: "空格", roots: [MindMapNode(id: rootID, text: "中心")])
+        var session = MindMapKeyboardSession()
+        session.selectedNodeID = rootID
+        XCTAssertEqual(press(.space, session: &session, document: &document), .beginEdit)
+        XCTAssertEqual(session.mode, .edit)
+        session.apply(.cancelEdit, document: &document, frames: [])
+        XCTAssertEqual(session.mode, .command)
+        XCTAssertEqual(press(.f2, session: &session, document: &document), .beginEdit)
+        XCTAssertEqual(session.mode, .edit)
+    }
+
+    func testShiftEnterInsertsSiblingBeforeAndCommandEnterInsertsParent() {
+        let rootID = UUID()
+        let childID = UUID()
+        var document = MindMapDocument(
+            title: "结构",
+            roots: [MindMapNode(id: rootID, text: "中心", children: [MindMapNode(id: childID, text: "甲")])]
+        )
+        var session = MindMapKeyboardSession()
+        session.selectedNodeID = childID
+        XCTAssertEqual(press(.enter, .shift, session: &session, document: &document), .createSiblingBefore)
+        XCTAssertEqual(document.roots[0].children.map(\.text), [MindMapKeyboardSession.newTopicText, "甲"])
+        XCTAssertEqual(session.mode, .edit)
+        session.apply(.commitEdit, document: &document, frames: [])
+        session.selectedNodeID = childID
+        XCTAssertEqual(press(.enter, .command, session: &session, document: &document), .createParent)
+        XCTAssertEqual(document.roots[0].children.count, 2)
+        XCTAssertEqual(document.roots[0].children[1].text, MindMapKeyboardSession.newTopicText)
+        XCTAssertEqual(document.roots[0].children[1].children.map(\.text), ["甲"])
+        XCTAssertEqual(session.selectedNodeID, document.roots[0].children[1].id)
+        XCTAssertEqual(session.mode, .edit)
+    }
+
+    func testSelectSiblingsChildrenAndAllTopics() {
+        let rootID = UUID()
+        let first = UUID()
+        let second = UUID()
+        let grandchild = UUID()
+        var document = MindMapDocument(
+            title: "选择",
+            roots: [MindMapNode(
+                id: rootID,
+                text: "中心",
+                children: [
+                    MindMapNode(id: first, text: "甲", children: [MindMapNode(id: grandchild, text: "孙")]),
+                    MindMapNode(id: second, text: "乙"),
+                ]
+            )]
+        )
+        var session = MindMapKeyboardSession()
+        session.selectedNodeID = first
+        XCTAssertEqual(press(.character("a"), [.command, .shift], session: &session, document: &document), .selectAllSiblings)
+        XCTAssertEqual(session.selectedNodeIDs, [first, second])
+        XCTAssertEqual(session.selectedNodeID, first)
+        XCTAssertEqual(press(.character("a"), [.command, .option], session: &session, document: &document), .selectAllChildren)
+        XCTAssertEqual(session.selectedNodeIDs, [grandchild])
+        XCTAssertEqual(session.selectedNodeID, grandchild)
+        session.selectedNodeID = first
+        XCTAssertEqual(press(.character("a"), .command, session: &session, document: &document), .selectAllTopics)
+        XCTAssertEqual(session.selectedNodeIDs, [rootID, first, second, grandchild])
+    }
+
+    func testJumpExpandCollapseAndMoveTopic() {
+        let rootID = UUID()
+        let first = UUID()
+        let second = UUID()
+        var document = MindMapDocument(
+            title: "折叠",
+            roots: [MindMapNode(
+                id: rootID,
+                text: "中心",
+                children: [
+                    MindMapNode(id: first, text: "甲", children: [MindMapNode(text: "孙")]),
+                    MindMapNode(id: second, text: "乙"),
+                ]
+            )]
+        )
+        var session = MindMapKeyboardSession()
+        session.selectedNodeID = first
+        XCTAssertEqual(press(.character("-"), session: &session, document: &document), .collapseBranch)
+        XCTAssertTrue(document.node(first)?.isCollapsed ?? false)
+        XCTAssertEqual(press(.character("+"), session: &session, document: &document), .expandBranch)
+        XCTAssertFalse(document.node(first)?.isCollapsed ?? true)
+        XCTAssertEqual(press(.character("/"), session: &session, document: &document), .collapseAll)
+        XCTAssertTrue(document.node(rootID)?.isCollapsed ?? false)
+        XCTAssertTrue(document.node(first)?.isCollapsed ?? false)
+        XCTAssertEqual(press(.character("*"), session: &session, document: &document), .expandAll)
+        XCTAssertFalse(document.node(rootID)?.isCollapsed ?? true)
+        XCTAssertFalse(document.node(first)?.isCollapsed ?? true)
+        XCTAssertEqual(press(.down, .option, session: &session, document: &document), .moveTopic(.down))
+        XCTAssertEqual(document.roots[0].children.map(\.id), [second, first])
+        XCTAssertEqual(press(.up, .option, session: &session, document: &document), .moveTopic(.up))
+        XCTAssertEqual(document.roots[0].children.map(\.id), [first, second])
+        XCTAssertEqual(press(.character("r"), .command, session: &session, document: &document), .jumpToCentralTopic)
+        XCTAssertEqual(session.selectedNodeID, rootID)
+        XCTAssertEqual(press(.character("l"), [.command, .shift], session: &session, document: &document), .showShortcutHelp)
+        XCTAssertEqual(press(.enter, .option, session: &session, document: &document), .openProperties)
+    }
+
+    func testSpaceEnterTabMainPaths() {
+        let rootID = UUID()
+        var document = MindMapDocument(title: "主路径", roots: [MindMapNode(id: rootID, text: "中心")])
+        var session = MindMapKeyboardSession()
+        session.selectedNodeID = rootID
+        XCTAssertEqual(press(.space, session: &session, document: &document), .beginEdit)
+        XCTAssertEqual(session.mode, .edit)
+        XCTAssertEqual(press(.enter, session: &session, document: &document), .commitEdit)
+        XCTAssertEqual(session.mode, .command)
+        XCTAssertEqual(press(.enter, session: &session, document: &document), .createSibling)
+        XCTAssertEqual(document.roots.map(\.text), ["中心", MindMapKeyboardSession.newTopicText])
+        session.apply(.commitEdit, document: &document, frames: [])
+        session.selectedNodeID = rootID
+        XCTAssertEqual(press(.tab, session: &session, document: &document), .createChild)
+        XCTAssertEqual(document.roots[0].children.map(\.text), [MindMapKeyboardSession.newTopicText])
     }
 
     private func map(

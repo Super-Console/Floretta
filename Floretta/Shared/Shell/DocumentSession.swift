@@ -792,6 +792,31 @@ final class EditorSession {
         }
     }
 
+    func performShortcut(_ command: MindMapCommand) {
+        switch command {
+        case .openProperties, .showShortcutHelp:
+            return
+        default:
+            break
+        }
+        if keyboard.isComposing { return }
+        if keyboard.mode == .edit {
+            switch command {
+            case .commitEdit, .cancelEdit, .insertNewline:
+                break
+            default:
+                finishEditingIfNeeded()
+            }
+        }
+        guard keyboard.mode == .command || command == .commitEdit || command == .cancelEdit || command == .insertNewline else {
+            return
+        }
+        guard !keyboard.isComposing else { return }
+        editActive { document in
+            keyboard.apply(command, document: &document, frames: [])
+        }
+    }
+
     func setBranchTheme(_ id: String) {
         guard !isMarkdownDocument else { return }
         finishEditingIfNeeded()
@@ -1761,10 +1786,11 @@ enum CanvasEditCommands {
 
     @MainActor
     static func select(document: inout MindMapDocument, keyboard: inout MindMapKeyboardSession) {
-        guard keyboard.selectedNodeID != nil else { return }
-        keyboard.mode = .command
-        let event = KeyEvent(key: .space, modifiers: [], mode: .command, isComposing: false)
-        _ = keyboard.handle(event, document: &document, frames: [])
+        guard !keyboard.isComposing else { return }
+        if keyboard.mode == .edit {
+            return
+        }
+        keyboard.apply(.selectAllTopics, document: &document, frames: [])
     }
 
     static func find(in document: MindMapDocument, query: String) -> UUID? {

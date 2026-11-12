@@ -26,17 +26,27 @@ public struct MindMapKeyboardSession {
 
     public var mode: KeyboardMode = .command
     public var isComposing = false
+    /// Primary (anchor) topic. Tapping a node, or assigning this to a topic that
+    /// is not already in `selectedNodeIDs`, replaces the multi-selection.
     public var selectedNodeID: UUID? {
         didSet {
-            if selectedNodeID != nil {
+            if let id = selectedNodeID {
                 selectedStickyID = nil
                 selectedRelationshipID = nil
                 selectedSummaryID = nil
                 selectedBoundaryID = nil
                 selectedRegionID = nil
+                if !selectedNodeIDs.contains(id) {
+                    selectedNodeIDs = [id]
+                }
+            } else if !selectedNodeIDs.isEmpty {
+                selectedNodeIDs = []
             }
         }
     }
+    /// Topics highlighted together by ⌘A / ⌘⇧A / ⌘⌥A. The primary topic stays in
+    /// `selectedNodeID`.
+    public var selectedNodeIDs: Set<UUID> = []
     public var selectedStickyID: UUID? {
         didSet {
             if selectedStickyID != nil {
@@ -171,6 +181,30 @@ public struct MindMapKeyboardSession {
             redo(document: &document)
         case .toggleCollapse:
             toggleCollapse(document: &document)
+        case .createSiblingBefore:
+            createSibling(before: true, document: &document)
+        case .createParent:
+            createParent(document: &document)
+        case .expandBranch:
+            setBranchCollapsed(false, document: &document)
+        case .collapseBranch:
+            setBranchCollapsed(true, document: &document)
+        case .expandAll:
+            setAllCollapsed(false, document: &document)
+        case .collapseAll:
+            setAllCollapsed(true, document: &document)
+        case .moveTopic(let move):
+            moveTopic(move, document: &document)
+        case .selectAllTopics:
+            selectAllTopics(document: document)
+        case .selectAllSiblings:
+            selectAllSiblings(document: document)
+        case .selectAllChildren:
+            selectAllChildren(document: document)
+        case .jumpToCentralTopic:
+            jumpToCentralTopic(document: document)
+        case .openProperties, .showShortcutHelp:
+            break
         }
     }
 
@@ -208,13 +242,125 @@ public struct MindMapKeyboardSession {
     }
 
     private mutating func createSibling(document: inout MindMapDocument) {
+        createSibling(before: false, document: &document)
+    }
+
+    private mutating func createSibling(before: Bool, document: inout MindMapDocument) {
         guard mode == .command, let id = selectedNodeID, document.node(id) != nil else { return }
         guard !document.isInFreeNodeTree(id) else { return }
         record(document)
         let sibling = MindMapNode(text: Self.newTopicText)
-        guard document.insertSibling(sibling, after: id) else { return }
+        let inserted = before
+            ? document.insertSibling(sibling, before: id)
+            : document.insertSibling(sibling, after: id)
+        guard inserted else { return }
         selectedNodeID = sibling.id
         beginEdit(document: document)
+    }
+
+    private mutating func createParent(document: inout MindMapDocument) {
+        guard mode == .command, let id = selectedNodeID, document.node(id) != nil else { return }
+        guard !document.isInFreeNodeTree(id) else { return }
+        record(document)
+        let parent = MindMapNode(text: Self.newTopicText)
+        guard document.insertParent(parent, of: id) else { return }
+        selectedNodeID = parent.id
+        beginEdit(document: document)
+    }
+
+    private mutating func setBranchCollapsed(_ collapsed: Bool, document: inout MindMapDocument) {
+        guard mode == .command, let id = selectedNodeID, let node = document.node(id) else { return }
+        guard !node.children.isEmpty, node.isCollapsed != collapsed else { return }
+        record(document)
+        _ = document.mutateNode(id) { $0.isCollapsed = collapsed }
+    }
+
+    private mutating func setAllCollapsed(_ collapsed: Bool, document: inout MindMapDocument) {
+        guard mode == .command else { return }
+        var ids: [UUID] = []
+        document.walkTopics { node in
+            if !node.children.isEmpty, node.isCollapsed != collapsed {
+                ids.append(node.id)
+            }
+        }
+        guard !ids.isEmpty else { return }
+        record(document)
+        for id in ids {
+            _ = document.mutateNode(id) { $0.isCollapsed = collapsed }
+        }
+    }
+
+    private mutating func moveTopic(_ move: TopicMove, document: inout MindMapDocument) {
+        guard mode == .command, let id = selectedNodeID, document.node(id) != nil else { return }
+        guard !document.isInFreeNodeTree(id) else { return }
+        let parentID = document.parentID(of: id)
+        let siblings: [UUID]
+        if let parentID, let parent = document.node(parentID) {
+            siblings = parent.children.map(\.id)
+        } else {
+            siblings = document.roots.map(\.id)
+        }
+        guard let index = siblings.firstIndex(of: id) else { return }
+        let destination: Int
+        switch move {
+        case .up:
+            guard index > 0 else { return }
+            destination = index - 1
+        case .down:
+            guard index + 1 < siblings.count else { return }
+            destination = index + 2
+        }
+        record(document)
+        document.moveChildren(of: parentID, from: IndexSet(integer: index), to: destination)
+        selectedNodeID = id
+    }
+
+    private mutating func selectAllTopics(document: MindMapDocument) {
+        guard mode == .command else { return }
+        var ids: [UUID] = []
+        document.walkTopics { ids.append($0.id) }
+        applySelection(ids, primary: selectedNodeID ?? ids.first)
+    }
+
+    private mutating func selectAllSiblings(document: MindMapDocument) {
+        guard mode == .command, let id = selectedNodeID else { return }
+        let parentID = document.parentID(of: id)
+        let siblings: [UUID]
+        if let parentID, let parent = document.node(parentID) {
+            siblings = parent.children.map(\.id)
+        } else if document.roots.contains(where: { $0.id == id }) {
+            siblings = document.roots.map(\.id)
+        } else {
+            siblings = [id]
+        }
+        applySelection(siblings, primary: id)
+    }
+
+    private mutating func selectAllChildren(document: MindMapDocument) {
+        guard mode == .command, let id = selectedNodeID, let node = document.node(id) else { return }
+        let children = node.children.map(\.id)
+        guard !children.isEmpty else { return }
+        applySelection(children, primary: children[0])
+    }
+
+    private mutating func jumpToCentralTopic(document: MindMapDocument) {
+        guard mode == .command, let root = document.roots.first else { return }
+        applySelection([root.id], primary: root.id)
+    }
+
+    private mutating func applySelection(_ ids: [UUID], primary: UUID?) {
+        let unique = ids.filter { _ in true }
+        var set = Set(unique)
+        if let primary {
+            set.insert(primary)
+        }
+        selectedNodeIDs = set
+        if selectedNodeID != primary {
+            selectedNodeID = primary
+        }
+        if let primary, !selectedNodeIDs.contains(primary) || selectedNodeIDs != set {
+            selectedNodeIDs = set
+        }
     }
 
     private mutating func insertNewline(document: inout MindMapDocument) {
@@ -843,6 +989,7 @@ public struct MindMapKeyboardSession {
         Snapshot(
             document: document,
             selectedNodeID: selectedNodeID,
+            selectedNodeIDs: selectedNodeIDs,
             selectedStickyID: selectedStickyID,
             selectedRelationshipID: selectedRelationshipID,
             selectedSummaryID: selectedSummaryID,
@@ -857,6 +1004,7 @@ public struct MindMapKeyboardSession {
     private mutating func restore(_ snapshot: Snapshot, document: inout MindMapDocument) {
         document = snapshot.document
         selectedNodeID = snapshot.selectedNodeID
+        selectedNodeIDs = snapshot.selectedNodeIDs
         selectedStickyID = snapshot.selectedStickyID
         selectedRelationshipID = snapshot.selectedRelationshipID
         selectedSummaryID = snapshot.selectedSummaryID
@@ -871,6 +1019,7 @@ public struct MindMapKeyboardSession {
 private struct Snapshot: Equatable {
     var document: MindMapDocument
     var selectedNodeID: UUID?
+    var selectedNodeIDs: Set<UUID> = []
     var selectedStickyID: UUID?
     var selectedRelationshipID: UUID?
     var selectedSummaryID: UUID?
@@ -930,17 +1079,53 @@ public extension MindMapDocument {
 
     @discardableResult
     public mutating func insertSibling(_ sibling: MindMapNode, after id: UUID) -> Bool {
+        insertSibling(sibling, of: id, before: false)
+    }
+
+    public mutating func insertSibling(_ sibling: MindMapNode, before id: UUID) -> Bool {
+        insertSibling(sibling, of: id, before: true)
+    }
+
+    private mutating func insertSibling(_ sibling: MindMapNode, of id: UUID, before: Bool) -> Bool {
         if isInFreeNodeTree(id) { return false }
         if let index = roots.firstIndex(where: { $0.id == id }) {
-            roots.insert(sibling, at: index + 1)
+            roots.insert(sibling, at: before ? index : index + 1)
             return true
         }
         func walk(_ nodes: inout [MindMapNode]) -> Bool {
             for index in nodes.indices {
                 if let childIndex = nodes[index].children.firstIndex(where: { $0.id == id }) {
                     let previous = nodes[index].children.map(\.id)
-                    nodes[index].children.insert(sibling, at: childIndex + 1)
+                    nodes[index].children.insert(sibling, at: before ? childIndex : childIndex + 1)
                     nodes[index].realignMarks(previousChildIDs: previous)
+                    return true
+                }
+                if walk(&nodes[index].children) { return true }
+            }
+            return false
+        }
+        return walk(&roots)
+    }
+
+    /// Wraps `id` in a new parent at the same sibling index. Marks that covered
+    /// that index stay put because the slot itself does not move.
+    public mutating func insertParent(_ parent: MindMapNode, of id: UUID) -> Bool {
+        if isInFreeNodeTree(id) { return false }
+        guard node(id) != nil, node(parent.id) == nil else { return false }
+        if let index = roots.firstIndex(where: { $0.id == id }) {
+            var child = roots.remove(at: index)
+            var next = parent
+            next.children = [child]
+            roots.insert(next, at: index)
+            return true
+        }
+        func walk(_ nodes: inout [MindMapNode]) -> Bool {
+            for index in nodes.indices {
+                if let childIndex = nodes[index].children.firstIndex(where: { $0.id == id }) {
+                    var child = nodes[index].children.remove(at: childIndex)
+                    var next = parent
+                    next.children = [child]
+                    nodes[index].children.insert(next, at: childIndex)
                     return true
                 }
                 if walk(&nodes[index].children) { return true }

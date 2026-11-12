@@ -50,9 +50,7 @@ struct DocumentEditor: View {
     @State private var showTagFilter = false
     @State private var inspectorTab = InspectorTab.style
     @State private var showAbout = false
-    #if os(macOS)
     @State private var showShortcutHelp = false
-    #endif
     @State private var showThemes = false
     @State private var showHistory = false
     @Environment(\.colorScheme) private var colorScheme
@@ -377,11 +375,9 @@ struct DocumentEditor: View {
         .sheet(isPresented: $showAbout) {
             AboutSheet()
         }
-        #if os(macOS)
         .sheet(isPresented: $showShortcutHelp) {
             ShortcutsHelpSheet()
         }
-        #endif
             .sheet(isPresented: $showThemes) {
                 BranchThemeSheet(themeID: session.document.themeID, language: settings.language) { id in
                     session.setBranchTheme(id)
@@ -516,7 +512,8 @@ struct DocumentEditor: View {
                 tagFilter: session.tagFilter,
                 persistsPlacement: !session.isMarkdownDocument,
                 dictationToken: session.dictationToken,
-                dictationReplacesPlaceholder: session.dictationReplacesPlaceholder
+                dictationReplacesPlaceholder: session.dictationReplacesPlaceholder,
+                onChromeCommand: handleChromeCommand
             )
             .ignoresSafeArea(edges: showsCanvasTabs ? .top.union(.horizontal) : .all)
             if showOutline, session.zen.chrome.showsSidebar {
@@ -711,7 +708,8 @@ struct DocumentEditor: View {
                 document: session.activeCanvasDocument,
                 keyboard: $session.keyboard,
                 tagFilter: session.tagFilter,
-                locksCollapse: session.isMarkdownDocument
+                locksCollapse: session.isMarkdownDocument,
+                onChromeCommand: handleChromeCommand
             )
         }
         .accessibilityIdentifier("editor.outline")
@@ -836,6 +834,10 @@ struct DocumentEditor: View {
         actions.hasSelectedTopic = hasSelection
         actions.hasEditableSelection = hasSelection && !session.isMarkdownDocument
         actions.showShortcutHelp = { showShortcutHelp = true }
+        actions.performShortcut = { command in
+            handleChromeCommand(command)
+            session.performShortcut(command)
+        }
         let allowsAppearanceWrites = !session.isMarkdownDocument
         actions.linkTargets = session.editingDocument.linkTargets(excluding: selectedID).map { target in
             .init(title: target.text.isEmpty ? "未命名" : target.text) {
@@ -862,8 +864,6 @@ struct DocumentEditor: View {
             }
         }
         actions.shortcuts = [
-            .child: KeyboardShortcut(.return, modifiers: .command),
-            .sibling: KeyboardShortcut(.return, modifiers: [.command, .shift]),
             .fit: KeyboardShortcut("0", modifiers: .command),
             .find: KeyboardShortcut("f", modifiers: .command)
         ]
@@ -1237,6 +1237,18 @@ struct DocumentEditor: View {
             return "先把导图存成文件。"
         }
         return "查看已保存的历史版本，回滚或对比两份内容。"
+    }
+
+    private func handleChromeCommand(_ command: MindMapCommand) {
+        switch command {
+        case .openProperties:
+            inspectorTab = .style
+            showInspector = true
+        case .showShortcutHelp:
+            showShortcutHelp = true
+        default:
+            break
+        }
     }
 
     private var inspectorPresented: Binding<Bool> {
@@ -2196,7 +2208,7 @@ struct DocumentEditor: View {
         case "剪切": return "剪下选中节点的文字"
         case "拷贝": return "复制选中节点的文字"
         case "粘贴": return "把剪贴板里的图片放进节点；没有图片时粘贴文字"
-        case "全选": return "选中当前节点里的全部文字"
+        case "全选": return "选中当前画布上的全部主题。编辑文字时由系统全选文本。"
         case "拷贝样式":
             return session.isMarkdownDocument
                 ? MarkdownModePolicy.reason(.copyStyle)
@@ -3077,33 +3089,34 @@ private extension View {
     }
 }
 
-#if os(macOS)
 private struct ShortcutsHelpSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             List {
-                LabeledContent("插入子节点", value: "⌘↩")
-                LabeledContent("插入同级节点", value: "⌘⇧↩")
+                ForEach(Array(XMindShortcutCatalog.entries.enumerated()), id: \.offset) { _, entry in
+                    LabeledContent(entry.title, value: XMindShortcutCatalog.display(entry.key, entry.modifiers))
+                }
                 LabeledContent("适应窗口", value: "⌘0")
                 LabeledContent("放大 / 缩小", value: "⌘+ / ⌘-")
                 LabeledContent("实际大小", value: "⌘=")
-                LabeledContent("加粗 / 斜体", value: "⌘B / ⌘I")
                 LabeledContent("查找", value: "⌘F")
+                LabeledContent("加粗 / 斜体", value: "⌘B / ⌘I")
+                LabeledContent("剪切 / 复制 / 粘贴", value: "⌘X / ⌘C / ⌘V")
                 LabeledContent("新建 / 保存", value: "⌘N / ⌘S")
             }
             .navigationTitle("快捷键一览")
+            .accessibilityIdentifier("shortcuts.help")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("完成") { dismiss() }
                 }
             }
         }
-        .frame(minWidth: 360, minHeight: 360)
+        .frame(minWidth: 360, minHeight: 420)
     }
 }
-#endif
 
 private struct MacEditorWindowTitle: ViewModifier {
     func body(content: Content) -> some View {

@@ -119,11 +119,9 @@ enum ThemeFontCascade {
             return .system(size: point, design: .rounded)
         case "monospaced":
             return .system(size: point, design: .monospaced)
-        case "serif":
-            let chosen = AppearanceCatalog.family(id: familyID)
-            let id = chosen?.kind == .serif ? familyID : "system-serif"
-            return font(from: ctFont(familyID: id, size: point))
         default:
+            // Both default and serif follow the selected family, so Classic
+            // can be switched to a sans face and the map text actually changes.
             return font(from: ctFont(familyID: familyID, size: point))
         }
     }
@@ -207,6 +205,40 @@ enum ThemeFontCascade {
         return UIFont(name: name, size: size).map { $0 as CTFont }
         #endif
     }
+
+
+    #if os(macOS)
+    static func platformFont(familyID: String, nodeDesign: String, size: CGFloat) -> NSFont {
+        switch nodeDesign {
+        case "rounded":
+            let base = NSFont.systemFont(ofSize: max(size, 1))
+            if let descriptor = base.fontDescriptor.withDesign(.rounded),
+               let font = NSFont(descriptor: descriptor, size: max(size, 1)) {
+                return font
+            }
+            return base
+        case "monospaced":
+            return NSFont.monospacedSystemFont(ofSize: max(size, 1), weight: .regular)
+        default:
+            return ctFont(familyID: familyID, size: size) as NSFont
+        }
+    }
+    #else
+    static func platformFont(familyID: String, nodeDesign: String, size: CGFloat) -> UIFont {
+        switch nodeDesign {
+        case "rounded":
+            let base = UIFont.systemFont(ofSize: max(size, 1))
+            if let descriptor = base.fontDescriptor.withDesign(.rounded) {
+                return UIFont(descriptor: descriptor, size: max(size, 1))
+            }
+            return base
+        case "monospaced":
+            return UIFont.monospacedSystemFont(ofSize: max(size, 1), weight: .regular)
+        default:
+            return ctFont(familyID: familyID, size: size) as UIFont
+        }
+    }
+    #endif
 
     private static func font(from ctFont: CTFont) -> Font {
         #if os(macOS)

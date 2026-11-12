@@ -448,36 +448,50 @@ public struct LayoutEngine: Sendable {
     public var cache: TextMeasurementCache
     public var metrics: LayoutMetrics
     public var appearance: LayoutAppearance
+    /// Multiplier from the current appearance profile. 1 keeps theme sizes.
+    public var fontSizeScale: CGFloat = 1
 
     public init(
         kind: LayoutKind = .bilateral,
         cache: TextMeasurementCache = TextMeasurementCache(),
         metrics: LayoutMetrics = LayoutMetrics(),
-        appearance: LayoutAppearance = .standard
+        appearance: LayoutAppearance = .standard,
+        fontSizeScale: CGFloat = 1
     ) {
         self.kind = kind
         self.cache = cache
         self.metrics = metrics
         self.appearance = appearance
+        self.fontSizeScale = fontSizeScale
     }
 
     public func fontSize(depth: Int) -> CGFloat {
-        metrics.fontSize(depth: depth)
+        metrics.fontSize(depth: depth) * max(fontSizeScale, 0.01)
     }
 
     /// `scheme` selects the light or dark set of the document's preset.
     /// An unset theme in light mode keeps `appearance`, so a saved map with no theme id stays on `LayoutAppearance.standard`.
-    public func layout(_ document: MindMapDocument, scheme: MapColorScheme = .light) -> [NodeFrame] {
-        let resolved = MapThemeCatalog.appearance(
+    /// `profile` overlays the user's appearance mode (paper, fill, ink, corner, type scale).
+    public func layout(
+        _ document: MindMapDocument,
+        scheme: MapColorScheme = .light,
+        profile: AppearanceProfile? = nil
+    ) -> [NodeFrame] {
+        var resolved = MapThemeCatalog.appearance(
             themeID: document.themeID,
             scheme: scheme,
             fallback: appearance
         )
-        if resolved == appearance {
+        if let profile {
+            resolved = profile.applying(to: resolved, scheme: scheme)
+        }
+        let scale = CGFloat(profile?.clampedFontSizeScale ?? Double(fontSizeScale))
+        if resolved == appearance, scale == fontSizeScale {
             return placed(document)
         }
         var themed = self
         themed.appearance = resolved
+        themed.fontSizeScale = scale
         return themed.placed(document)
     }
 
@@ -614,8 +628,13 @@ public struct LayoutEngine: Sendable {
     }
 
     private func resolvedFontSize(_ node: MindMapNode, depth: Int) -> CGFloat {
-        if let size = node.style?.fontSize, size > 0 { return CGFloat(size) }
-        return fontSize(depth: depth)
+        let base: CGFloat
+        if let size = node.style?.fontSize, size > 0 {
+            base = CGFloat(size)
+        } else {
+            base = metrics.fontSize(depth: depth)
+        }
+        return base * max(fontSizeScale, 0.01)
     }
 
     private func split(

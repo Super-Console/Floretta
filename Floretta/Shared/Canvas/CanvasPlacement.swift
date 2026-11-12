@@ -9,8 +9,12 @@ import SwiftFlow
 enum CanvasPlacement {
     static let engine = LayoutEngine(cache: TextMeasurementCache(metrics: CoreTextFontMetrics()))
 
-    static func nodes(in document: MindMapDocument, scheme: MapColorScheme = .light) -> [NodeFrame] {
-        engine.layout(document, scheme: scheme)
+    static func nodes(
+        in document: MindMapDocument,
+        scheme: MapColorScheme = .light,
+        profile: AppearanceProfile? = nil
+    ) -> [NodeFrame] {
+        engine.layout(document, scheme: scheme, profile: profile)
     }
 
     static func contentBounds(in document: MindMapDocument, includingStickies: Bool = true) -> CGRect? {

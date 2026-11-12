@@ -337,7 +337,7 @@ struct SameDocumentWindow: View {
             }
         }
         .preferredColorScheme(settings.appearance.colorScheme)
-            .environment(\.appearanceProfile, settings.currentProfile)
+        .environment(\.appearanceProfile, settings.currentProfile)
         .environment(\.locale, settings.resolvedLocale)
         .background {
             SameDocumentWindowInstaller(library: library)

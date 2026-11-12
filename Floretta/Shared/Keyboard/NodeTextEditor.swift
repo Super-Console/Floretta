@@ -89,6 +89,7 @@ struct NodeTextEditor: View {
     var dictationReplacesPlaceholder: Bool = false
     /// When set, the field paints this topic instead of the system text background.
     var nodeChrome: NodeEditSurface? = nil
+    @Environment(\.appearanceProfile) private var appearanceProfile
 
     var body: some View {
         #if os(macOS)
@@ -104,7 +105,8 @@ struct NodeTextEditor: View {
             ink: ink,
             dictationToken: dictationToken,
             dictationReplacesPlaceholder: dictationReplacesPlaceholder,
-            nodeChrome: nodeChrome
+            nodeChrome: nodeChrome,
+            fontFamilyID: appearanceProfile.fontFamilyID
         )
         #else
         IOSNodeTextEditor(
@@ -119,7 +121,8 @@ struct NodeTextEditor: View {
             ink: ink,
             dictationToken: dictationToken,
             dictationReplacesPlaceholder: dictationReplacesPlaceholder,
-            nodeChrome: nodeChrome
+            nodeChrome: nodeChrome,
+            fontFamilyID: appearanceProfile.fontFamilyID
         )
         #endif
     }
@@ -139,6 +142,7 @@ private struct MacNodeTextEditor: NSViewRepresentable {
     var dictationToken: Int
     var dictationReplacesPlaceholder: Bool
     var nodeChrome: NodeEditSurface?
+    var fontFamilyID: String = "system-serif"
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -168,7 +172,7 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         view.backgroundColor = paper.map { NSColor($0) } ?? .textBackgroundColor
         view.textColor = ink.map { NSColor($0) } ?? .labelColor
         view.insertionPointColor = view.textColor ?? .labelColor
-        view.font = .systemFont(ofSize: max(fontSize, 1))
+        view.font = ThemeFontCascade.platformFont(familyID: fontFamilyID, nodeDesign: "default", size: fontSize)
         if let nodeChrome {
             applyNodeChrome(nodeChrome, to: view, ownsKeys: false)
         } else if paper != nil {
@@ -221,12 +225,12 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         }
         if !nsView.hasMarkedText(), !context.coordinator.isComposing.wrappedValue {
             if let nodeChrome {
-                let font = Self.editingFont(nodeChrome)
+                let font = Self.editingFont(nodeChrome, familyID: fontFamilyID)
                 if nsView.font != font {
                     nsView.font = font
                 }
             } else {
-                let font = NSFont.systemFont(ofSize: max(fontSize, 1))
+                let font = ThemeFontCascade.platformFont(familyID: fontFamilyID, nodeDesign: "default", size: fontSize)
                 if nsView.font?.pointSize != font.pointSize {
                     nsView.font = font
                 }
@@ -275,7 +279,7 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         view.textColor = ink
         view.insertionPointColor = ink
         view.focusRingType = .none
-        let font = Self.editingFont(chrome)
+        let font = Self.editingFont(chrome, familyID: fontFamilyID)
         view.lockedFont = font
         if view.font != font {
             view.font = font
@@ -299,20 +303,12 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         view.publishChromeProbe()
     }
 
-    private static func editingFont(_ chrome: NodeEditSurface) -> NSFont {
+    private static func editingFont(_ chrome: NodeEditSurface, familyID: String) -> NSFont {
         let size = max(chrome.fontSize, 1)
-        let weight: NSFont.Weight = chrome.bold ? .bold : .regular
-        let base = NSFont.systemFont(ofSize: size, weight: weight)
-        let design: NSFontDescriptor.SystemDesign?
-        switch chrome.fontDesign {
-        case "serif": design = .serif
-        case "rounded": design = .rounded
-        case "monospaced": design = .monospaced
-        default: design = nil
-        }
-        var font = base
-        if let design, let descriptor = base.fontDescriptor.withDesign(design) {
-            font = NSFont(descriptor: descriptor, size: size) ?? base
+        var font = ThemeFontCascade.platformFont(familyID: familyID, nodeDesign: chrome.fontDesign, size: size)
+        if chrome.bold {
+            let descriptor = font.fontDescriptor.withSymbolicTraits(.bold)
+            font = NSFont(descriptor: descriptor, size: size) ?? font
         }
         if chrome.italic {
             let descriptor = font.fontDescriptor.withSymbolicTraits(.italic)
@@ -584,6 +580,7 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
     var dictationToken: Int
     var dictationReplacesPlaceholder: Bool
     var nodeChrome: NodeEditSurface?
+    var fontFamilyID: String = "system-serif"
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -602,7 +599,7 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
     func makeUIView(context: Context) -> FlorettaTextView {
         let view = FlorettaTextView()
         view.delegate = context.coordinator
-        view.font = .systemFont(ofSize: max(fontSize, 1))
+        view.font = ThemeFontCascade.platformFont(familyID: fontFamilyID, nodeDesign: "default", size: fontSize)
         view.backgroundColor = paper.map { UIColor($0) } ?? .systemBackground
         view.textColor = ink.map { UIColor($0) } ?? .label
         view.tintColor = view.textColor
@@ -668,12 +665,12 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
         }
         if uiView.markedTextRange == nil, !context.coordinator.isComposing.wrappedValue {
             if let nodeChrome {
-                let font = Self.editingFont(nodeChrome)
+                let font = Self.editingFont(nodeChrome, familyID: fontFamilyID)
                 if uiView.font != font {
                     uiView.font = font
                 }
             } else {
-                let font = UIFont.systemFont(ofSize: max(fontSize, 1))
+                let font = ThemeFontCascade.platformFont(familyID: fontFamilyID, nodeDesign: "default", size: fontSize)
                 if uiView.font?.pointSize != font.pointSize {
                     uiView.font = font
                 }
@@ -721,7 +718,7 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
         view.textColor = ink
         view.tintColor = ink
         view.isOpaque = !chrome.hidesFill
-        let font = Self.editingFont(chrome)
+        let font = Self.editingFont(chrome, familyID: fontFamilyID)
         view.lockedFont = font
         if view.font != font {
             view.font = font
@@ -743,20 +740,15 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
         view.publishChromeProbe()
     }
 
-    private static func editingFont(_ chrome: NodeEditSurface) -> UIFont {
+    private static func editingFont(_ chrome: NodeEditSurface, familyID: String) -> UIFont {
         let size = max(chrome.fontSize, 1)
-        let weight: UIFont.Weight = chrome.bold ? .bold : .regular
-        let base = UIFont.systemFont(ofSize: size, weight: weight)
-        let design: UIFontDescriptor.SystemDesign?
-        switch chrome.fontDesign {
-        case "serif": design = .serif
-        case "rounded": design = .rounded
-        case "monospaced": design = .monospaced
-        default: design = nil
-        }
-        var font = base
-        if let design, let descriptor = base.fontDescriptor.withDesign(design) {
-            font = UIFont(descriptor: descriptor, size: size)
+        var font = ThemeFontCascade.platformFont(familyID: familyID, nodeDesign: chrome.fontDesign, size: size)
+        if chrome.bold {
+            var traits = font.fontDescriptor.symbolicTraits
+            traits.insert(.traitBold)
+            if let descriptor = font.fontDescriptor.withSymbolicTraits(traits) {
+                font = UIFont(descriptor: descriptor, size: size)
+            }
         }
         if chrome.italic {
             var traits = font.fontDescriptor.symbolicTraits

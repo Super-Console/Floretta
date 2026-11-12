@@ -82,6 +82,13 @@ enum NodeTextTypography {
         return style
     }
 
+    static func paragraphStyle(lineHeight: Double) -> NSParagraphStyle {
+        let style = (paragraphStyle() as? NSMutableParagraphStyle)
+            ?? (paragraphStyle().mutableCopy() as! NSMutableParagraphStyle)
+        style.lineHeightMultiple = CGFloat(min(max(lineHeight, 0.8), 2.5))
+        return style
+    }
+
     static func attributed(_ text: String, font: CTFont) -> NSAttributedString {
         NSAttributedString(string: text, attributes: [
             .font: font,

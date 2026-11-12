@@ -289,7 +289,8 @@ extension MapExportOptions {
             scale: settings.pngScale.exportScale,
             background: settings.pngBackground.exportBackground,
             includeStickies: settings.exportIncludesStickies,
-            fontFamilyID: settings.currentProfile.fontFamilyID
+            fontFamilyID: settings.currentProfile.fontFamilyID,
+            appearanceProfile: settings.currentProfile
         )
     }
 }

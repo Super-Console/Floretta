@@ -34,6 +34,7 @@ struct MapExportOptions: Equatable, Sendable {
     /// Nil keeps the export clip at `maxPixelDimension`. Quick Look sets this so Finder sees the map, not a corner.
     var fitLongestPixelEdge: CGFloat? = nil
     var fontFamilyID: String = "system-serif"
+    var appearanceProfile: AppearanceProfile = AppearanceCatalog.defaultProfile(for: .classic)
 }
 
 struct MapExportResult: Equatable, Sendable {
@@ -57,8 +58,12 @@ enum MapExporter {
     static let clippingNotice = "导出已按最大尺寸裁切，超出的内容没有画进文件。"
     static let emptyNotice = "没有可导出的节点。"
 
-    static func visibleFrames(in document: MindMapDocument, scheme: MapColorScheme = .light) -> [NodeFrame] {
-        CanvasPlacement.nodes(in: document, scheme: scheme)
+    static func visibleFrames(
+        in document: MindMapDocument,
+        scheme: MapColorScheme = .light,
+        profile: AppearanceProfile? = nil
+    ) -> [NodeFrame] {
+        CanvasPlacement.nodes(in: document, scheme: scheme, profile: profile)
     }
 
     static func png(
@@ -140,7 +145,7 @@ enum MapExporter {
     }
 
     private static func plan(document: MindMapDocument, options: MapExportOptions, scheme: MapColorScheme) -> Plan {
-        let frames = visibleFrames(in: document, scheme: scheme)
+        let frames = visibleFrames(in: document, scheme: scheme, profile: options.appearanceProfile)
         let ids = frames.map(\.id)
         guard let content = CanvasPlacement.contentBounds(
             in: document,
@@ -197,11 +202,14 @@ enum MapExporter {
         images: [String: CGImage],
         scheme: MapColorScheme
     ) -> ImageRenderer<MapExportView> {
-        let frames = visibleFrames(in: document, scheme: scheme)
-        let appearance = MapThemeCatalog.appearance(
-            themeID: document.themeID,
-            scheme: scheme,
-            fallback: .standard
+        let frames = visibleFrames(in: document, scheme: scheme, profile: options.appearanceProfile)
+        let appearance = options.appearanceProfile.applying(
+            to: MapThemeCatalog.appearance(
+                themeID: document.themeID,
+                scheme: scheme,
+                fallback: .standard
+            ),
+            scheme: scheme
         )
         let paper = exportPaper(options.background, canvas: appearance.canvasBackground)
         let view = MapExportView(
@@ -214,7 +222,7 @@ enum MapExporter {
             renderBounds: plan.renderBounds,
             paper: paper.color,
             images: images,
-            fontFamilyID: options.fontFamilyID
+            appearanceProfile: options.appearanceProfile
         )
         let renderer = ImageRenderer(content: view)
         renderer.scale = plan.pixelScale
@@ -276,7 +284,7 @@ private struct MapExportView: View {
     var renderBounds: CGRect
     var paper: Color
     var images: [String: CGImage]
-    var fontFamilyID: String = "system-serif"
+    var appearanceProfile: AppearanceProfile = AppearanceCatalog.defaultProfile(for: .classic)
 
     var body: some View {
         Canvas { context, _ in
@@ -362,7 +370,7 @@ private struct MapExportView: View {
                     context.draw(
                         NodeTextTypography.canvasText(
                             node.text,
-                            font: FlorettaTitleFont.font(design: node.fontDesign, size: node.fontSize, familyID: fontFamilyID)
+                            font: FlorettaTitleFont.font(design: node.fontDesign, size: node.fontSize, familyID: appearanceProfile.fontFamilyID), lineHeight: appearanceProfile.lineHeight
                         )
                         .foregroundStyle(color(node.textColor)),
                         in: textRect
@@ -641,9 +649,9 @@ enum ThemeCurvePath {
 
 extension NodeTextTypography {
     /// Same paragraph style as `CoreTextFontMetrics`, so export and the canvas wrap alike.
-    static func canvasText(_ string: String, font: Font) -> Text {
+    static func canvasText(_ string: String, font: Font, lineHeight: Double = 1.25) -> Text {
         let ns = NSAttributedString(string: string, attributes: [
-            .paragraphStyle: paragraphStyle(),
+            .paragraphStyle: paragraphStyle(lineHeight: lineHeight),
         ])
         return Text(AttributedString(ns)).font(font)
     }

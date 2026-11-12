@@ -156,6 +156,7 @@
 		C8F4020000000000000000 /* ThemeFontCascade.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F1200000000000000000 /* ThemeFontCascade.swift */; };
 		C8F4030000000000000000 /* ThemeFontCascade.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F1200000000000000000 /* ThemeFontCascade.swift */; };
 		C8F4040000000000000000 /* ThemeFontCascadeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F1210000000000000000 /* ThemeFontCascadeTests.swift */; };
+		C8F4070000000000000000 /* AppearanceSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F1220000000000000000 /* AppearanceSettingsTests.swift */; };
 		C8F4050000000000000000 /* ThemeFontCascade.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F1200000000000000000 /* ThemeFontCascade.swift */; };
 		C8F4060000000000000000 /* ThemeFontCascade.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F1200000000000000000 /* ThemeFontCascade.swift */; };
 		CA2100000000000000000001 /* RecentMapsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA2100000000000000000001 /* RecentMapsStore.swift */; };
@@ -334,6 +335,7 @@
 		F8F11070000000000000000 /* NotoSerif-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = NotoSerif-OFL.txt; sourceTree = "<group>"; };
 		F8F1200000000000000000 /* ThemeFontCascade.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeFontCascade.swift; sourceTree = "<group>"; };
 		F8F1210000000000000000 /* ThemeFontCascadeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeFontCascadeTests.swift; sourceTree = "<group>"; };
+		F8F1220000000000000000 /* AppearanceSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettingsTests.swift; sourceTree = "<group>"; };
 		FA2100000000000000000001 /* RecentMapsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentMapsStore.swift; sourceTree = "<group>"; };
 		FA3100000000000000000001 /* DocumentSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentSession.swift; sourceTree = "<group>"; };
 		FA3200000000000000000001 /* MarkdownDocumentUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownDocumentUI.swift; sourceTree = "<group>"; };
@@ -685,6 +687,7 @@
 				F42000000000000000000008 /* QuickLookThumbnailTests.swift */,
 				FA7100000000000000000001 /* ShellTests.swift */,
 				F8F1210000000000000000 /* ThemeFontCascadeTests.swift */,
+				F8F1220000000000000000 /* AppearanceSettingsTests.swift */,
 				FB2200000000000000000001 /* SnapshotHistoryTests.swift */,
 				FA7200000000000000000001 /* MarkdownDocumentUITests.swift */,
 				F20000000000000000000005 /* RecoveryPresenterTests.swift */,
@@ -1366,6 +1369,7 @@
 				CA8A00000000000000000003 /* AppearanceSettingsPanel.swift in Sources */,
 				C8F4030000000000000000 /* ThemeFontCascade.swift in Sources */,
 				C8F4040000000000000000 /* ThemeFontCascadeTests.swift in Sources */,
+				C8F4070000000000000000 /* AppearanceSettingsTests.swift in Sources */,
 				CA4200000000000000000003 /* LocalDeviceLabel.swift in Sources */,
 				CA2100000000000000000003 /* RecentMapsStore.swift in Sources */,
 				CA3100000000000000000003 /* DocumentSession.swift in Sources */,

@@ -48,4 +48,19 @@ final class AppearanceModeTests: XCTestCase {
         XCTAssertEqual(AppearanceCatalog.family(id: "ibm-plex-sans")?.postScriptName, "IBMPlexSans")
         XCTAssertEqual(AppearanceCatalog.families.filter { $0.resourceFileName != nil }.count, 7)
     }
+
+    func testProfileAppliesPaperFillInkAndCornerToLayoutAppearance() {
+        var profile = AppearanceCatalog.defaultProfile(for: .classic)
+        profile.cornerRadius = 20
+        profile.light.canvasHex = "#ABCDEF"
+        profile.light.nodeFillHex = "#123456"
+        profile.light.textHex = "#010203"
+        profile.fontSizeScale = 1.5
+        let applied = profile.applying(to: .standard, scheme: .light)
+        XCTAssertEqual(applied.canvasBackground, BranchColor(hex: "#ABCDEF"))
+        XCTAssertEqual(applied.uniformFill, BranchColor(hex: "#123456"))
+        XCTAssertEqual(applied.centerText, BranchColor(hex: "#010203"))
+        XCTAssertEqual(applied.cornerRadius, 20)
+        XCTAssertEqual(profile.clampedFontSizeScale, 1.5)
+    }
 }

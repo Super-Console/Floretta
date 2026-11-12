@@ -1128,7 +1128,7 @@ struct InfiniteCanvas: View {
     }
 
     private func placedFrames() -> [NodeFrame] {
-        let frames = laidOut.frames(for: layoutSource(), scheme: branchScheme)
+        let frames = laidOut.frames(for: layoutSource(), scheme: branchScheme, profile: appearanceProfile)
         guard let live = camera.liveNodeOrigin else { return frames }
         return CanvasPlacement.applyingLiveOrigin(frames, id: live.id, origin: live.origin)
     }
@@ -1139,10 +1139,13 @@ struct InfiniteCanvas: View {
 
     /// The color scheme's paper, or the system background when the map has no scheme.
     private var resolvedAppearance: LayoutAppearance {
-        MapThemeCatalog.appearance(
-            themeID: document.themeID,
-            scheme: branchScheme,
-            fallback: .standard
+        appearanceProfile.applying(
+            to: MapThemeCatalog.appearance(
+                themeID: document.themeID,
+                scheme: branchScheme,
+                fallback: .standard
+            ),
+            scheme: branchScheme
         )
     }
 
@@ -1872,7 +1875,7 @@ struct InfiniteCanvas: View {
             maxX: view.maxX,
             maxY: view.maxY
         )
-        let nodes = laidOut.frames(for: document, scheme: branchScheme).map { frame in
+        let nodes = laidOut.frames(for: document, scheme: branchScheme, profile: appearanceProfile).map { frame in
             (
                 AttachmentViewportRect(
                     minX: frame.origin.x,
@@ -1901,7 +1904,8 @@ struct InfiniteCanvas: View {
         )
         var text = NodeTextTypography.canvasText(
             shown,
-            font: FlorettaTitleFont.font(design: node.fontDesign, size: pointSize, familyID: appearanceProfile.fontFamilyID)
+            font: FlorettaTitleFont.font(design: node.fontDesign, size: pointSize, familyID: appearanceProfile.fontFamilyID),
+            lineHeight: appearanceProfile.lineHeight
         )
             .foregroundStyle(color(node.textColor))
         if node.bold { text = text.bold() }
@@ -2355,15 +2359,17 @@ final class LaidOutFrames {
     private var source: MindMapDocument?
     private var cached: [NodeFrame] = []
     private var cachedScheme: MapColorScheme?
+    private var cachedProfile: AppearanceProfile?
     /// Increments only when the cache misses. Petal playback must not move this.
     private(set) var layoutPassCount = 0
 
-    func frames(for document: MindMapDocument, scheme: MapColorScheme) -> [NodeFrame] {
-        if let source, source == document, cachedScheme == scheme { return cached }
+    func frames(for document: MindMapDocument, scheme: MapColorScheme, profile: AppearanceProfile? = nil) -> [NodeFrame] {
+        if let source, source == document, cachedScheme == scheme, cachedProfile == profile { return cached }
         layoutPassCount += 1
-        cached = CanvasPlacement.nodes(in: document, scheme: scheme)
+        cached = CanvasPlacement.nodes(in: document, scheme: scheme, profile: profile)
         source = document
         cachedScheme = scheme
+        cachedProfile = profile
         return cached
     }
 }

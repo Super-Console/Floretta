@@ -188,3 +188,23 @@ public enum AppearanceCatalog {
         return try JSONEncoder().encode(raw)
     }
 }
+
+extension AppearanceProfile {
+    /// Overlays this profile's paper, node fill, ink, and corner radius on a map theme.
+    /// Per-node stored colors in `LayoutEngine` still win over `uniformFill` / text defaults.
+    public func applying(to appearance: LayoutAppearance, scheme: MapColorScheme) -> LayoutAppearance {
+        var result = appearance
+        let colors = colors(for: scheme)
+        result.canvasBackground = colors.canvas
+        result.uniformFill = colors.nodeFill
+        result.centerText = colors.text
+        result.level1Text = colors.text
+        result.deeperText = colors.text
+        result.cornerRadius = CGFloat(max(cornerRadius, 0))
+        return result
+    }
+
+    public var clampedFontSizeScale: Double {
+        min(max(fontSizeScale, 0.5), 2.0)
+    }
+}

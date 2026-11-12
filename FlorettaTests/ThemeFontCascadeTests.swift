@@ -62,6 +62,34 @@ final class ThemeFontCascadeTests: XCTestCase {
         XCTAssertNotEqual(interCJK, "Inter-Regular")
     }
 
+    func testJapaneseAndKoreanFallbackPostScriptNames() {
+        ThemeFontCascade.registerBundledFonts()
+        // Hiragino Mincho / AppleMyungjo are present for the ja/ko cascade slots.
+        XCTAssertEqual(ThemeFontCascade.firstAvailable(ThemeFontCascade.japaneseSerifNames), "HiraMinProN-W3")
+        XCTAssertEqual(ThemeFontCascade.firstAvailable(ThemeFontCascade.koreanSerifNames), "AppleMyungjo")
+
+        // Songti SC is earlier in the serif cascade and also covers kana, so a Japanese
+        // sample may resolve to STSongti-SC-Regular rather than HiraMinProN-W3. Record the
+        // actual run; never treat a Latin face as covering CJK.
+        let kana = ThemeFontCascade.postScriptName(familyID: "eb-garamond", for: "あいうえお")
+        XCTAssertNotEqual(kana, "EBGaramond-Regular")
+        XCTAssertTrue(
+            ["STSongti-SC-Regular", "STSong", "STSongti-TC-Regular", "HiraMinProN-W3"].contains(kana),
+            "Japanese kana run used \(kana)"
+        )
+        let hangul = ThemeFontCascade.postScriptName(familyID: "eb-garamond", for: "한국어")
+        XCTAssertEqual(hangul, "AppleMyungjo")
+
+        let kanaSans = ThemeFontCascade.postScriptName(familyID: "inter", for: "あいうえお")
+        XCTAssertNotEqual(kanaSans, "Inter-Regular")
+        let hangulSans = ThemeFontCascade.postScriptName(familyID: "inter", for: "한국어")
+        if let gothic = ThemeFontCascade.firstAvailable(ThemeFontCascade.koreanSansNames) {
+            XCTAssertEqual(hangulSans, gothic)
+        }
+        let english = ThemeFontCascade.postScriptName(familyID: "eb-garamond", for: "Hello")
+        XCTAssertEqual(english, "EBGaramond-Regular")
+    }
+
     func testSourceHanSerifIsNotBundled() {
         let names = ThemeFontCascade.bundledFontURLs().map(\.lastPathComponent)
         XCTAssertFalse(names.contains { $0.contains("SourceHan") || $0.contains("CJK") })

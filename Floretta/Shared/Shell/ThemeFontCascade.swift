@@ -90,20 +90,111 @@ enum ThemeFontCascade {
     /// (family, design, size); a miss for a new size is a cheap copy of a
     /// template already built for that family and design. The expensive
     /// cascade walk runs only when the family or node design is new.
+    ///
+    /// The hot path must not take a lock per lookup. `beginFrame()` captures
+    /// an immutable snapshot; draw then only reads that snapshot. A miss
+    /// (pinch to a new size tick) copies the template without holding the
+    /// lock, then publishes a new snapshot.
     private struct FontCacheKey: Hashable {
         var familyID: String
         var nodeDesign: String
         var sizeTicks: Int
     }
 
-    private final class ResolvedFontCache: @unchecked Sendable {
-        let lock = NSLock()
+    private struct FontTables {
         var fonts: [FontCacheKey: CTFont] = [:]
         var templates: [String: CTFont] = [:]
         var cascadeNames: [String: [String]] = [:]
     }
 
+    private final class ResolvedFontCache: @unchecked Sendable {
+        private let lock = NSLock()
+        /// Published tables. Dictionaries are treated as immutable after publish.
+        private var published = FontTables()
+        /// Frame-local snapshot for lock-free hits. Updated by `beginFrame()`
+        /// and again after a miss so later nodes in the same frame see the
+        /// newly sized font without taking the lock.
+        private var frame = FontTables()
+
+        func beginFrame() {
+            lock.lock()
+            let snap = published
+            lock.unlock()
+            frame = snap
+        }
+
+        func font(for key: FontCacheKey) -> CTFont? {
+            frame.fonts[key]
+        }
+
+        func template(for templateKey: String) -> CTFont? {
+            frame.templates[templateKey]
+        }
+
+        func cascadeNames(for kind: String) -> [String]? {
+            frame.cascadeNames[kind]
+        }
+
+        /// Locked read of the published tables, used when the frame snapshot
+        /// missed but another thread may already have published the entry.
+        func publishedFont(for key: FontCacheKey) -> CTFont? {
+            lock.lock()
+            let hit = published.fonts[key]
+            let snap = published
+            lock.unlock()
+            if hit != nil { frame = snap }
+            return hit
+        }
+
+        func publishedTemplate(for templateKey: String) -> CTFont? {
+            lock.lock()
+            let hit = published.templates[templateKey]
+            lock.unlock()
+            return hit
+        }
+
+        func publishFont(_ font: CTFont, key: FontCacheKey, template: CTFont? = nil, templateKey: String? = nil) {
+            lock.lock()
+            if published.fonts[key] == nil {
+                published.fonts[key] = font
+            }
+            if let template, let templateKey, published.templates[templateKey] == nil {
+                published.templates[templateKey] = template
+            }
+            let snap = published
+            lock.unlock()
+            frame = snap
+        }
+
+        func publishCascadeNames(_ names: [String], for kind: String) {
+            lock.lock()
+            if published.cascadeNames[kind] == nil {
+                published.cascadeNames[kind] = names
+            }
+            let snap = published
+            lock.unlock()
+            frame = snap
+        }
+    }
+
     private static let resolvedFonts = ResolvedFontCache()
+
+    /// Capture a lock-free snapshot for this display-link frame.
+    static func beginFrame() {
+        resolvedFonts.beginFrame()
+    }
+
+    /// Resolve typography for the unique (design, size) pairs in this frame
+    /// so later per-node draws only read immutable CTFont references.
+    static func prepareCanvasFonts(familyID: String, designsAndSizes: [(String, CGFloat)]) {
+        var seen = Set<FontCacheKey>()
+        for (design, size) in designsAndSizes {
+            let key = FontCacheKey(familyID: familyID, nodeDesign: design, sizeTicks: sizeTicks(size))
+            if seen.insert(key).inserted {
+                _ = cachedCTFont(familyID: familyID, nodeDesign: design, size: size)
+            }
+        }
+    }
 
     private static func sizeTicks(_ size: CGFloat) -> Int {
         Int((max(size, 1) * 64).rounded())
@@ -115,12 +206,9 @@ enum ThemeFontCascade {
 
     static func cascadePostScriptNames(kind: AppearanceFontKind) -> [String] {
         let cacheKey = kind.rawValue
-        resolvedFonts.lock.lock()
-        if let cached = resolvedFonts.cascadeNames[cacheKey] {
-            resolvedFonts.lock.unlock()
+        if let cached = resolvedFonts.cascadeNames(for: cacheKey) {
             return cached
         }
-        resolvedFonts.lock.unlock()
 
         let groups: [[String]]
         switch kind {
@@ -136,9 +224,7 @@ enum ThemeFontCascade {
                 result.append(name)
             }
         }
-        resolvedFonts.lock.lock()
-        resolvedFonts.cascadeNames[cacheKey] = result
-        resolvedFonts.lock.unlock()
+        resolvedFonts.publishCascadeNames(result, for: cacheKey)
         return result
     }
 
@@ -148,32 +234,33 @@ enum ThemeFontCascade {
 
     /// Returns a cached CTFont for the family, node design, and size.
     /// Rebuilds the cascade only when the family or design has not been seen.
+    /// Hits read the frame snapshot with no lock. A new size tick copies the
+    /// template outside the lock, then publishes.
     static func cachedCTFont(familyID: String, nodeDesign: String, size: CGFloat) -> CTFont {
         let ticks = sizeTicks(size)
         let key = FontCacheKey(familyID: familyID, nodeDesign: nodeDesign, sizeTicks: ticks)
         let templateKey = "\(familyID)\u{1f}\(nodeDesign)"
+        let point = pointSize(fromTicks: ticks)
 
-        resolvedFonts.lock.lock()
-        if let hit = resolvedFonts.fonts[key] {
-            resolvedFonts.lock.unlock()
+        if let hit = resolvedFonts.font(for: key) {
             return hit
         }
-        if let template = resolvedFonts.templates[templateKey] {
-            let sized = CTFontCreateCopyWithAttributes(template, pointSize(fromTicks: ticks), nil, nil)
-            resolvedFonts.fonts[key] = sized
-            resolvedFonts.lock.unlock()
+        if let template = resolvedFonts.template(for: templateKey) {
+            let sized = CTFontCreateCopyWithAttributes(template, point, nil, nil)
+            resolvedFonts.publishFont(sized, key: key)
             return sized
         }
-        resolvedFonts.lock.unlock()
-
-        let built = makeCTFont(familyID: familyID, nodeDesign: nodeDesign, size: pointSize(fromTicks: ticks))
-
-        resolvedFonts.lock.lock()
-        if resolvedFonts.templates[templateKey] == nil {
-            resolvedFonts.templates[templateKey] = built
+        if let hit = resolvedFonts.publishedFont(for: key) {
+            return hit
         }
-        resolvedFonts.fonts[key] = built
-        resolvedFonts.lock.unlock()
+        if let template = resolvedFonts.publishedTemplate(for: templateKey) {
+            let sized = CTFontCreateCopyWithAttributes(template, point, nil, nil)
+            resolvedFonts.publishFont(sized, key: key)
+            return sized
+        }
+
+        let built = makeCTFont(familyID: familyID, nodeDesign: nodeDesign, size: point)
+        resolvedFonts.publishFont(built, key: key, template: built, templateKey: templateKey)
         return built
     }
 

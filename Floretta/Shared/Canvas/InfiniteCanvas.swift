@@ -1344,6 +1344,10 @@ struct InfiniteCanvas: View {
     }
 
     private func draw(in context: GraphicsContext, size: CGSize, at time: TimeInterval) {
+        // One lock to snapshot the font tables; per-node draws then read
+        // immutable CTFont references. prepareCanvasFonts below resolves
+        // unique (design, size) pairs for this scale before the node loop.
+        ThemeFontCascade.beginFrame()
         drawGrid(in: context, size: size)
         // The open petal starts from a bud. Don't paint the settled tree for one frame first.
         if !petalMapOpened && !reduceMotion { return }
@@ -1437,6 +1441,15 @@ struct InfiniteCanvas: View {
         }
         let highlightedIDs = tagFilter.isActive ? tagFilter.highlightedIDs(in: document) : []
         CanvasPerfRun.noteVisible(visible.count)
+        ThemeFontCascade.prepareCanvasFonts(
+            familyID: appearanceProfile.fontFamilyID,
+            designsAndSizes: (visible + ghosts.map(\.frame)).map { node in
+                (
+                    node.fontDesign,
+                    CanvasTextScale.onScreenPointSize(fontSize: node.fontSize, scale: scale)
+                )
+            }
+        )
         for node in visible {
             let pose: PetalPose?
             if blooming {
@@ -1904,7 +1917,6 @@ struct InfiniteCanvas: View {
         )
         var text = NodeTextTypography.canvasText(
             shown,
-            font: FlorettaTitleFont.font(design: node.fontDesign, size: pointSize, familyID: appearanceProfile.fontFamilyID),
             lineHeight: appearanceProfile.lineHeight,
             familyID: appearanceProfile.fontFamilyID,
             nodeDesign: node.fontDesign,

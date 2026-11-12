@@ -56,3 +56,10 @@ Hubert 指出 1.0 / 0.8 / 0.9 FPS 比同机基线低约一个数量级，不得�
 Hubert 否决了把画布退回 `Font.system(design:)` 的修法：那样选 EB Garamond / Inter 仍会画成系统衬线或无衬线。正确修法是按 (family, design, size) 缓存已解析的 CTFont，每帧只查找。
 
 同一套 `testCanvasPerf500ViaUITest`、同一 PR #117 探针、同一 500 节点夹具，Release：`/tmp/theme-modes-perf500-cache.log`，23:33:49–23:34:49 CST，EXIT 0，`FLORETTA_PERF_UITEST_DONE elapsed=24.2`。JSON `docs/reviews/theme-modes/canvas-perf-500-ipad-xcuitest.json`，`finishedAt` 2026-11-12T15:34:47Z。峰值 105.5 MB；平移 59.3 / 56，缩放 53.7 / 40，拖动 59.7 / 58。平移和拖动落在对照 57–60 区间；缩放平均 53.7，略低于对照 57.3。中文级联在缓存填满后仍由 macOS `ThemeFontCascadeTests` 8/0 断言为宋体（23:30:23–23:31:07 CST，`/tmp/theme-modes-font-mac-test3.log`）。
+
+## 干净树重测与去掉每查找一把锁（2026-11-13 00:20–00:25 CST）
+
+临时 UITest 驱动放在 gitignored 的 `.scratch/perf-driver`（对照则用 `git archive` 的 `/tmp/theme-modes-8e50c12-remeasure`），不改工作树、不进 tip。同一套 `testCanvasPerf500ViaUITest`、同一 PR #117 探针、同一 500 节点夹具、同一模拟器、Release。
+
+1. 本 tip 产品代码 `e379209963e8ee5ccfa6314ede7d52c303b3e42c`（每帧快照 + 绘制只读引用）：`/tmp/theme-modes-perf500-e379209.log`，START 00:20:11，END 00:21:51 CST，EXIT 0，`FLORETTA_PERF_UITEST_DONE elapsed=24.6`。日志里 `HEAD=e379209…`，测量前后 `git status --porcelain` 均为空。JSON `docs/reviews/theme-modes/canvas-perf-500-ipad-e379209.json`，`finishedAt` 2026-11-12T16:21:50Z（00:21:50 CST），sha256 `c19dbd0f2915ffa02c8c180b679845ebcda7b99d342dd224c3b7b2c5537cd24f`。峰值 94.3 MB；平移 59.0 / 56（178）；缩放 54.2 / 42（326）；拖动 59.7 / 58（179）。缩放平均仍低于门禁 ≥55。
+2. 同参数重测对照 `8e50c12`：`/tmp/theme-modes-baseline-perf500-remeasure.log`，START 00:23:54，END 00:25:33 CST，EXIT 0，`elapsed=25.2`。JSON `docs/reviews/theme-modes/canvas-perf-500-ipad-baseline-8e50c12-remeasure.json`，`finishedAt` 2026-11-12T16:25:32Z（00:25:32 CST），sha256 `5c32075086f88ed951af1bdb670ec06f22ca5454393c97176756e11905749724`。峰值 105.2 MB；平移 59.3 / 56（179）；缩放 55.5 / 40（334）；拖动 59.7 / 58（180）。与 11-12 晚间对照（97.4 MB；59.7 / 57.3 / 59.7）一并据实列出，不把本 tip 的 54.2 写成 57–60。

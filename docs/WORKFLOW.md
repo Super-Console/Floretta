@@ -42,6 +42,6 @@ git push origin main
 
 ## 与总指挥的沟通
 
-- 卡住 > 30 分钟：写 `docs/STATUS.md`（卡在哪/试过什么/要什么决定），停下等。
+- 卡住 > 30 分钟：写 `docs/ROADMAP.md`（卡在哪/试过什么/要什么决定），停下等。
 - 不许自己降级需求（原生→WebView、三端→只做 Mac）。
-- 新增第三方依赖：先在 `docs/STATUS.md` 写理由，等许可。
+- 新增第三方依赖：先在 `docs/ROADMAP.md` 写理由，等许可。

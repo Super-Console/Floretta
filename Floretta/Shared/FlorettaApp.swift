@@ -426,6 +426,9 @@ enum AppLaunch {
         if arguments.contains(editChromeArgument) {
             library.openEditChromeSample()
         }
+        if let nodeCount = CanvasPerfRun.requestedNodeCount {
+            library.openPerfFixture(nodeCount: nodeCount)
+        }
         let recovery = RecoveryPresenter(
             store: AutosaveStore(directory: autosave, fileAccess: FoundationFileAccess())
         )

@@ -60,6 +60,7 @@ struct InfiniteCanvas: View {
     @FocusState private var canvasFocused: Bool
 
     var body: some View {
+        let _ = CanvasPerfRun.noteBody()
         GeometryReader { geo in
             observeCanvas(canvasSurface(size: geo.size), size: geo.size)
         }
@@ -138,7 +139,9 @@ struct InfiniteCanvas: View {
     private var canvasTimeline: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !petal.isPlaying)) { timeline in
             Canvas { context, size in
+                let perf = CanvasPerfRun.beginDraw()
                 draw(in: context, size: size, at: timeline.date.timeIntervalSinceReferenceDate)
+                CanvasPerfRun.endDraw(perf)
             }
             .allowsHitTesting(false)
             .onChange(of: timeline.date) { _, date in
@@ -190,6 +193,7 @@ struct InfiniteCanvas: View {
                 refreshThumbnails()
                 openPetalMap()
                 canvasFocused = true
+                startPerfRunIfRequested()
             }
             .onChange(of: size) { _, newSize in
                 camera.viewSize = newSize
@@ -1123,7 +1127,9 @@ struct InfiniteCanvas: View {
     }
 
     private func placedFrames() -> [NodeFrame] {
-        laidOut.frames(for: layoutSource(), scheme: branchScheme)
+        let frames = laidOut.frames(for: layoutSource(), scheme: branchScheme)
+        guard let live = camera.liveNodeOrigin else { return frames }
+        return CanvasPlacement.applyingLiveOrigin(frames, id: live.id, origin: live.origin)
     }
 
     private var branchScheme: MapColorScheme {
@@ -1257,7 +1263,7 @@ struct InfiniteCanvas: View {
                 } else if let drag {
                     let point = camera.viewport.canvasPoint(fromView: value.location)
                     let origin = CGPoint(x: point.x - drag.grabX, y: point.y - drag.grabY)
-                    document = CanvasPlacement.movingNode(drag.id, to: origin, in: document)
+                    camera.liveNodeOrigin = (drag.id, origin)
                 } else if let panAnchor {
                     camera.viewport.offset = CGPoint(
                         x: panAnchor.x + value.translation.width,
@@ -1271,6 +1277,10 @@ struct InfiniteCanvas: View {
                 }
                 if regionDrag != nil {
                     keyboard.commitRegionChange(document: document)
+                }
+                if let live = camera.liveNodeOrigin {
+                    camera.liveNodeOrigin = nil
+                    document = CanvasPlacement.movingNode(live.id, to: live.origin, in: document)
                 }
                 drag = nil
                 stickyDrag = nil
@@ -1299,6 +1309,34 @@ struct InfiniteCanvas: View {
 
     private func center(of size: CGSize) -> CGPoint {
         CGPoint(x: size.width / 2, y: size.height / 2)
+    }
+
+    /// `-FlorettaPerfNodes` only. Uses the same camera path as pan and pinch, and the same live-origin path as a node drag.
+    private func startPerfRunIfRequested() {
+        guard let nodeCount = CanvasPerfRun.requestedNodeCount else { return }
+        let camera = camera
+        let binding = $document
+        let canvas = self
+        CanvasPerfDriver.start(nodeCount: nodeCount, hooks: CanvasPerfDriver.Hooks(
+            viewSize: { camera.viewSize },
+            offset: { camera.viewport.offset },
+            setOffset: { camera.viewport.offset = $0 },
+            scale: { camera.viewport.scale },
+            zoom: { scale, anchor in
+                camera.viewport.zoom(to: scale, around: anchor)
+                camera.chrome.syncZoomPercent(toScale: camera.viewport.scale)
+            },
+            dragTarget: {
+                // A free topic when the map has one. Dragging a root stores its point, and the layout then places that root alone.
+                let document = binding.wrappedValue
+                guard let id = document.freeNodes.first?.id ?? document.roots.first?.id,
+                      let frame = canvas.placedFrames().first(where: { $0.id == id }) else { return nil }
+                return (id, frame.frame.origin)
+            },
+            move: { id, origin in
+                camera.liveNodeOrigin = (id, origin)
+            }
+        ))
     }
 
     private func draw(in context: GraphicsContext, size: CGSize, at time: TimeInterval) {
@@ -1394,6 +1432,7 @@ struct InfiniteCanvas: View {
             }
         }
         let highlightedIDs = tagFilter.isActive ? tagFilter.highlightedIDs(in: document) : []
+        CanvasPerfRun.noteVisible(visible.count)
         for node in visible {
             let pose: PetalPose?
             if blooming {
@@ -2612,6 +2651,9 @@ final class CanvasCamera {
     var chrome = CanvasChrome.standard
     var viewSize: CGSize = .zero
     var contentBounds: CGRect?
+    /// Origin of the topic being dragged, applied on top of the last layout.
+    /// The document is not rewritten until the drag ends, so the editor body and toolbar stay still.
+    var liveNodeOrigin: (id: UUID, origin: CGPoint)? = nil
 
     func stepZoom(_ direction: Int) {
         let anchor = center

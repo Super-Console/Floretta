@@ -1068,6 +1068,12 @@ final class LibraryModel {
         openDocument(NodeEditChrome.sampleDocument(clock: ports.clock), preferredURL: nil, sourceExtension: "floretta")
     }
 
+    /// `-FlorettaPerfNodes` only. Opens the deterministic canvas performance map.
+    func openPerfFixture(nodeCount: Int) {
+        settings.defaultView = .map
+        openDocument(CanvasPerfFixture.document(nodeCount: nodeCount), preferredURL: nil, sourceExtension: "floretta")
+    }
+
     func makeTemplate(_ kind: TemplateKind) {
         openDocument(kind.document(clock: ports.clock), preferredURL: nil, sourceExtension: "floretta")
     }

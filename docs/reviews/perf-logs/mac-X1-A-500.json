@@ -1,0 +1,59 @@
+{
+  "displayMaxFPS": 120,
+  "finishedAt": "2026-11-12T10:20:32Z",
+  "nodes": 500,
+  "peakFootprintMB": 292.3,
+  "phases": [
+    {
+      "avgFPS": 120,
+      "bodyEvaluations": 0,
+      "draws": 361,
+      "longestMainThreadFrameMs": 10.4,
+      "maxDrawMs": 5.1,
+      "maxVisibleNodes": 24,
+      "meanDrawMs": 3.1,
+      "minFPS": 120,
+      "name": "pan",
+      "p95DrawMs": 3.9,
+      "peakFootprintMB": 225.3,
+      "seconds": 3,
+      "tickFPS": 120,
+      "ticks": 361
+    },
+    {
+      "avgFPS": 109.5,
+      "bodyEvaluations": 0,
+      "draws": 658,
+      "longestMainThreadFrameMs": 32.5,
+      "maxDrawMs": 7.1,
+      "maxVisibleNodes": 44,
+      "meanDrawMs": 4.2,
+      "minFPS": 100,
+      "name": "zoom",
+      "p95DrawMs": 5.6,
+      "peakFootprintMB": 291.2,
+      "seconds": 6,
+      "tickFPS": 109.5,
+      "ticks": 658
+    },
+    {
+      "avgFPS": 4.2,
+      "bodyEvaluations": 39,
+      "draws": 13,
+      "longestMainThreadFrameMs": 257.8,
+      "maxDrawMs": 4.4,
+      "maxVisibleNodes": 20,
+      "meanDrawMs": 3.5,
+      "minFPS": 4,
+      "name": "drag",
+      "p95DrawMs": 4.4,
+      "peakFootprintMB": 292.3,
+      "seconds": 3.1,
+      "tickFPS": 4.2,
+      "ticks": 13
+    }
+  ],
+  "platform": "macOS",
+  "_log": "mac-X1-A-500.out",
+  "_header": "START mac A 500 2026-11-12 18:20:14 +0800"
+}

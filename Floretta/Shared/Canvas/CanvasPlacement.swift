@@ -175,6 +175,18 @@ enum CanvasPlacement {
         return copy
     }
 
+    /// Moves one laid-out frame to `origin`. Other frames stay put.
+    /// Used while a topic is being dragged, before the document records the point.
+    static func applyingLiveOrigin(_ frames: [NodeFrame], id: UUID, origin: CGPoint) -> [NodeFrame] {
+        guard let index = frames.firstIndex(where: { $0.id == id }) else { return frames }
+        var frames = frames
+        var node = frames[index]
+        guard node.origin != origin else { return frames }
+        node.origin = origin
+        frames[index] = node
+        return frames
+    }
+
     /// Moves a free node by its stored point, or a root when the id is not free.
     /// Layout reads that point back, so the frame is not snapped to a tree slot.
     static func movingNode(

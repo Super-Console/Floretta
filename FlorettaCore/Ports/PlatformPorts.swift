@@ -58,6 +58,29 @@ public struct FontMetrics: Equatable, Sendable {
 /// Text measurement. Platform fonts differ, so Core asks a port instead of calling CoreText.
 public protocol FontMetricsPort {
     func measure(text: String, fontName: String, fontSize: Double, maxWidth: Double?) -> FontMetrics
+    /// Same as `measure(text:fontName:fontSize:maxWidth:)`, with the typography
+    /// the canvas will paint. Default ignores the extra identity and uses `fontName`.
+    func measure(
+        text: String,
+        fontName: String,
+        fontSize: Double,
+        maxWidth: Double?,
+        fontFamilyID: String,
+        nodeDesign: String
+    ) -> FontMetrics
+}
+
+extension FontMetricsPort {
+    public func measure(
+        text: String,
+        fontName: String,
+        fontSize: Double,
+        maxWidth: Double?,
+        fontFamilyID: String,
+        nodeDesign: String
+    ) -> FontMetrics {
+        measure(text: text, fontName: fontName, fontSize: fontSize, maxWidth: maxWidth)
+    }
 }
 
 /// Marks a directory so device backup / iCloud backup skips it.

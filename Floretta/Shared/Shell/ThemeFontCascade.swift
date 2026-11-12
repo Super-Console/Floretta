@@ -125,6 +125,8 @@ enum ThemeFontCascade {
         /// per-node hit path.
         private var lru: [FontCacheKey] = []
         private var capacity = defaultCapacity
+        private var missCount = 0
+        private var evictCount = 0
 
         func beginFrame() {
             lock.lock()
@@ -167,6 +169,7 @@ enum ThemeFontCascade {
             lock.lock()
             if published.fonts[key] == nil {
                 published.fonts[key] = font
+                missCount += 1
             }
             if let template, let templateKey, published.templates[templateKey] == nil {
                 published.templates[templateKey] = template
@@ -205,6 +208,8 @@ enum ThemeFontCascade {
             published = FontTables()
             lru = []
             capacity = Self.defaultCapacity
+            missCount = 0
+            evictCount = 0
             lock.unlock()
             frame = FontTables()
         }
@@ -223,6 +228,20 @@ enum ThemeFontCascade {
             let count = published.fonts.count
             lock.unlock()
             return count
+        }
+
+        var missCountForTests: Int {
+            lock.lock()
+            let value = missCount
+            lock.unlock()
+            return value
+        }
+
+        var evictCountForTests: Int {
+            lock.lock()
+            let value = evictCount
+            lock.unlock()
+            return value
         }
 
         var capacityForTests: Int {
@@ -251,6 +270,7 @@ enum ThemeFontCascade {
                 }
                 lru.remove(at: index)
                 published.fonts.removeValue(forKey: oldest)
+                evictCount += 1
             }
         }
     }
@@ -512,6 +532,14 @@ enum ThemeFontCascade {
         resolvedFonts.fontCountForTests
     }
 
+    static func resolvedFontCacheMissCountForTests() -> Int {
+        resolvedFonts.missCountForTests
+    }
+
+    static func resolvedFontCacheEvictCountForTests() -> Int {
+        resolvedFonts.evictCountForTests
+    }
+
     static func resolvedFontCacheCapacityForTests() -> Int {
         resolvedFonts.capacityForTests
     }
@@ -543,5 +571,57 @@ enum ThemeFontCascade {
         #else
         Font(ctFont as UIFont)
         #endif
+    }
+}
+
+/// Layout measurement that uses the same CTFont cascade the canvas paints.
+/// `CoreTextFontMetrics` stays on the historical Helvetica → system UI path
+/// because that file is also compiled into the share extension, which does
+/// not include `ThemeFontCascade`.
+struct ThemeAwareFontMetrics: FontMetricsPort {
+    func measure(text: String, fontName: String, fontSize: Double, maxWidth: Double?) -> FontMetrics {
+        measure(
+            text: text,
+            fontName: fontName,
+            fontSize: fontSize,
+            maxWidth: maxWidth,
+            fontFamilyID: "",
+            nodeDesign: "default"
+        )
+    }
+
+    func measure(
+        text: String,
+        fontName: String,
+        fontSize: Double,
+        maxWidth: Double?,
+        fontFamilyID: String,
+        nodeDesign: String
+    ) -> FontMetrics {
+        let safeSize = max(CGFloat(fontSize), 1)
+        let safeWidth = max(CGFloat(maxWidth ?? .greatestFiniteMagnitude), 1)
+        let font: CTFont
+        if !fontFamilyID.isEmpty {
+            font = ThemeFontCascade.cachedCTFont(
+                familyID: fontFamilyID,
+                nodeDesign: nodeDesign.isEmpty ? "default" : nodeDesign,
+                size: safeSize
+            )
+        } else {
+            font = NodeTextTypography.measuringFont(name: fontName, size: safeSize)
+        }
+        let sample = text.isEmpty ? " " : text
+        let attributed = NodeTextTypography.attributed(sample, font: font)
+        let framesetter = CTFramesetterCreateWithAttributedString(attributed)
+        let range = CFRange(location: 0, length: attributed.length)
+        var fit = CFRange()
+        let suggested = CTFramesetterSuggestFrameSizeWithConstraints(
+            framesetter,
+            range,
+            nil,
+            CGSize(width: safeWidth, height: CGFloat.greatestFiniteMagnitude),
+            &fit
+        )
+        return FontMetrics(width: Double(suggested.width), height: Double(suggested.height), ascent: Double(safeSize))
     }
 }

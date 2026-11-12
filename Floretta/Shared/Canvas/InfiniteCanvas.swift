@@ -563,7 +563,11 @@ struct InfiniteCanvas: View {
     }
 
     private func publishBounds() {
-        camera.contentBounds = CanvasPlacement.contentBounds(in: layoutSource())
+        camera.contentBounds = CanvasPlacement.contentBounds(
+            in: layoutSource(),
+            scheme: branchScheme,
+            profile: appearanceProfile
+        )
     }
 
     @ViewBuilder

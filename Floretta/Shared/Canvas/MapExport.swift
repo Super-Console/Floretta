@@ -149,7 +149,9 @@ enum MapExporter {
         let ids = frames.map(\.id)
         guard let content = CanvasPlacement.contentBounds(
             in: document,
-            includingStickies: options.includeStickies
+            includingStickies: options.includeStickies,
+            scheme: scheme,
+            profile: options.appearanceProfile
         ),
               content.width > 0, content.height > 0 else {
             return Plan(

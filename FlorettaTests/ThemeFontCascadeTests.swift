@@ -281,4 +281,121 @@ final class ThemeFontCascadeTests: XCTestCase {
         XCTAssertEqual(CTFontGetSize(kept), ThemeFontCascade.quantizedPointSize(12.5), accuracy: 0.000_1)
         XCTAssertEqual(ThemeFontCascade.resolvedFontCacheCountForTests(), 4)
     }
+
+    /// 50%↔400% extreme zoom round-trip (not 4400%). Prints the actual
+    /// evict/miss counts. Unique log buckets for 18…144 pt are well under
+    /// the 256 cap, so the return trip should not evict or miss again.
+    func testFontCacheCountsForFiftyToFourHundredPercentRoundTrip() {
+        ThemeFontCascade.resetResolvedFontCacheForTests()
+        defer { ThemeFontCascade.resetResolvedFontCacheForTests() }
+
+        let family = "eb-garamond"
+        let design = "default"
+        let base: CGFloat = 36
+        let outbound = stride(from: 0.50, through: 4.00, by: 0.01).map { base * CGFloat($0) }
+        let inbound = stride(from: 4.00, through: 0.50, by: -0.01).map { base * CGFloat($0) }
+
+        for size in outbound {
+            _ = ThemeFontCascade.cachedCTFont(familyID: family, nodeDesign: design, size: size)
+        }
+        let missAfterOutbound = ThemeFontCascade.resolvedFontCacheMissCountForTests()
+        let evictAfterOutbound = ThemeFontCascade.resolvedFontCacheEvictCountForTests()
+        let countAfterOutbound = ThemeFontCascade.resolvedFontCacheCountForTests()
+
+        for size in inbound {
+            _ = ThemeFontCascade.cachedCTFont(familyID: family, nodeDesign: design, size: size)
+        }
+        let miss = ThemeFontCascade.resolvedFontCacheMissCountForTests()
+        let evict = ThemeFontCascade.resolvedFontCacheEvictCountForTests()
+        print("FLORETTA_FONT_CACHE_50_400 outbound miss=\(missAfterOutbound) evict=\(evictAfterOutbound) count=\(countAfterOutbound); round-trip miss=\(miss) evict=\(evict) count=\(ThemeFontCascade.resolvedFontCacheCountForTests())")
+
+        XCTAssertGreaterThan(missAfterOutbound, 0, "outbound 50%→400% must miss new buckets")
+        XCTAssertEqual(evictAfterOutbound, 0, "50%→400% buckets must fit under the 256 cap")
+        XCTAssertEqual(miss, missAfterOutbound, "return 400%→50% must hit already-published buckets")
+        XCTAssertEqual(evict, 0)
+        XCTAssertEqual(countAfterOutbound, ThemeFontCascade.resolvedFontCacheCountForTests())
+        XCTAssertLessThanOrEqual(countAfterOutbound, ThemeFontCascade.resolvedFontCacheCapacityForTests())
+    }
+
+    /// Several families and node designs, enough keys to go past the 256 cap.
+    func testFontCacheCountsForMultiDesignScenario() {
+        ThemeFontCascade.resetResolvedFontCacheForTests()
+        defer { ThemeFontCascade.resetResolvedFontCacheForTests() }
+
+        let families = ["eb-garamond", "system-serif", "inter"]
+        let designs = ["default", "serif", "sans"]
+        // ~2% steps from 8 pt to ~80 pt, three families, three designs.
+        var sizes: [CGFloat] = []
+        var size: CGFloat = 8
+        while size <= 80 {
+            sizes.append(size)
+            size *= 1.02
+        }
+        for family in families {
+            for design in designs {
+                for point in sizes {
+                    _ = ThemeFontCascade.cachedCTFont(familyID: family, nodeDesign: design, size: point)
+                }
+            }
+        }
+        let miss = ThemeFontCascade.resolvedFontCacheMissCountForTests()
+        let evict = ThemeFontCascade.resolvedFontCacheEvictCountForTests()
+        let count = ThemeFontCascade.resolvedFontCacheCountForTests()
+        let cap = ThemeFontCascade.resolvedFontCacheCapacityForTests()
+        print("FLORETTA_FONT_CACHE_MULTI_DESIGN miss=\(miss) evict=\(evict) count=\(count) cap=\(cap)")
+
+        XCTAssertEqual(count, cap, "cache must stay at the 256 cap after the multi-design fill")
+        XCTAssertGreaterThan(miss, cap, "filling past the cap must miss more keys than the cap")
+        XCTAssertEqual(evict, miss - cap, "each overflow miss evicts one older bucket")
+    }
+
+    /// Measuring 「字形样本」 with the painted cascade must leave enough
+    /// slack that 70% still fits. The historical Helvetica → system UI
+    /// path is too narrow once the canvas paints Songti via eb-garamond.
+    func testGlyphSampleTitleWidthAtSeventyPercentFitsPaintedCascade() {
+        ThemeFontCascade.resetResolvedFontCacheForTests()
+        defer { ThemeFontCascade.resetResolvedFontCacheForTests() }
+        ThemeFontCascade.registerBundledFonts()
+
+        let text = "字形样本"
+        let canvasSize: CGFloat = 36
+        let scale: CGFloat = 0.70
+        let cache = TextMeasurementCache(metrics: ThemeAwareFontMetrics())
+        let painted = cache.size(
+            text: text,
+            fontSize: canvasSize,
+            maxWidth: 10_000,
+            fontFamilyID: "eb-garamond",
+            nodeDesign: "default"
+        )
+        let paintedScreen = ThemeAwareFontMetrics().measure(
+            text: text,
+            fontName: "Helvetica",
+            fontSize: Double(ThemeFontCascade.quantizedPointSize(canvasSize * scale)),
+            maxWidth: nil,
+            fontFamilyID: "eb-garamond",
+            nodeDesign: "default"
+        )
+        let availablePainted = Double(painted.width) * Double(scale) - 12
+        XCTAssertGreaterThanOrEqual(
+            availablePainted,
+            paintedScreen.width,
+            "painted-cascade layout at 70% should fit 「字形样本」 (available \(availablePainted) vs need \(paintedScreen.width))"
+        )
+
+        let legacy = cache.size(
+            text: text,
+            fontSize: canvasSize,
+            maxWidth: 10_000,
+            fontFamilyID: "",
+            nodeDesign: "default"
+        )
+        let availableLegacy = Double(legacy.width) * Double(scale) - 12
+        XCTAssertLessThan(
+            availableLegacy,
+            paintedScreen.width,
+            "legacy system-UI measurement should be the path that overflowed at 70% (available \(availableLegacy) vs need \(paintedScreen.width))"
+        )
+        XCTAssertGreaterThan(painted.width, legacy.width, "Songti cascade must measure wider than system UI for this title")
+    }
 }

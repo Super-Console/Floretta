@@ -406,3 +406,63 @@ final class CanvasTests: XCTestCase {
         )
     }
 }
+
+final class LineBreakTests: XCTestCase {
+    private let zh80 = String(repeating: "春眠不觉晓处处闻啼鸟夜来风雨声花落知多少", count: 4)
+    private let longWord = "supercalifragilisticexpialidocious"
+    private let metrics = CoreTextFontMetrics()
+
+    func testLongChineseWrapsInsideMaxWidthWithoutOverflow() {
+        let measured = metrics.measure(text: zh80, fontName: "Helvetica", fontSize: 20, maxWidth: 240)
+        XCTAssertLessThanOrEqual(measured.width, 241)
+        XCTAssertGreaterThan(measured.height, 40, "80 Chinese characters must wrap to more than one line")
+        let lines = NodeTextTypography.lineStrings(zh80, fontSize: 20, width: 240)
+        XCTAssertGreaterThanOrEqual(lines.count, 3)
+        XCTAssertFalse(lines.contains(where: { $0.isEmpty }))
+    }
+
+    func testUnbrokenEnglishWordSplitsInsteadOfOverflowing() {
+        let natural = metrics.measure(text: longWord, fontName: "Helvetica", fontSize: 20, maxWidth: nil)
+        XCTAssertGreaterThan(natural.width, 240)
+        let measured = metrics.measure(text: longWord, fontName: "Helvetica", fontSize: 20, maxWidth: 240)
+        XCTAssertLessThanOrEqual(measured.width, 241)
+        XCTAssertGreaterThan(measured.height, natural.height * 0.8)
+        let lines = NodeTextTypography.lineStrings(longWord, fontSize: 20, width: 240)
+        XCTAssertGreaterThanOrEqual(lines.count, 2)
+        XCTAssertEqual(lines.joined().replacingOccurrences(of: "\n", with: ""), longWord)
+    }
+
+    func testManualNewlinesAreKeptAsSeparateLines() {
+        let text = "第一行手动换行\n第二行还在"
+        let measured = metrics.measure(text: text, fontName: "Helvetica", fontSize: 20, maxWidth: 240)
+        let single = metrics.measure(text: "第一行手动换行第二行还在", fontName: "Helvetica", fontSize: 20, maxWidth: 240)
+        XCTAssertGreaterThan(measured.height, single.height)
+        let lines = NodeTextTypography.lineStrings(text, fontSize: 20, width: 240)
+        XCTAssertEqual(lines.count, 2)
+        XCTAssertTrue(lines[0].contains("第一行"))
+        XCTAssertTrue(lines[1].contains("第二行"))
+    }
+
+    func testLineBreaksStayStableAcrossZoom() {
+        let base = NodeTextTypography.lineStrings(zh80, fontSize: 20, width: 240)
+        let half = NodeTextTypography.lineStrings(zh80, fontSize: 10, width: 120)
+        let double = NodeTextTypography.lineStrings(zh80, fontSize: 40, width: 480)
+        XCTAssertEqual(half, base)
+        XCTAssertEqual(double, base)
+    }
+
+    func testShiftEnterIsInsertedByTheTextViewNotTheSession() {
+        let shiftEnter = KeyEvent(key: .enter, modifiers: .shift, mode: .edit, isComposing: false)
+        let enter = KeyEvent(key: .enter, modifiers: [], mode: .edit, isComposing: false)
+        XCTAssertTrue(NodeEditLineBreak.textViewInsertsLine(for: shiftEnter))
+        XCTAssertFalse(NodeEditLineBreak.textViewInsertsLine(for: enter))
+        XCTAssertEqual(KeyboardCommandMapper.map(shiftEnter), .insertNewline)
+    }
+
+    func testLayoutCacheDoesNotGrowPastMaxTextWidthForLongTitles() {
+        let cache = TextMeasurementCache(metrics: CoreTextFontMetrics())
+        let size = cache.size(text: zh80, fontSize: 20, maxWidth: 240)
+        XCTAssertLessThanOrEqual(size.width, 264) // maxWidth + 24 padding
+        XCTAssertGreaterThan(size.height, 48)
+    }
+}

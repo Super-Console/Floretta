@@ -363,6 +363,9 @@ public struct MindMapKeyboardSession {
         }
     }
 
+    /// Fallback used when no text view is in front (tests and command dispatch).
+    /// The live editor does not call this: Shift+Enter is inserted at the caret
+    /// by the text view and synced through `replaceEditingText`.
     private mutating func insertNewline(document: inout MindMapDocument) {
         guard mode == .edit, let buffer = edit else { return }
         replaceEditingText(buffer.text + "\n", document: &document)

@@ -4,9 +4,9 @@ import Darwin
 import Foundation
 import ImageIO
 import FlorettaCore
-#if os(macOS) && !FLORETTA_QUICK_LOOK
+#if os(macOS)
 import AppKit
-#elseif !os(macOS)
+#else
 import UIKit
 #endif
 
@@ -59,21 +59,74 @@ public struct SystemClock: ClockPort {
     public func now() -> Date { FoundationClock().now() }
 }
 
+/// Shared typography for measurement, the canvas, the editor, and export.
+/// Uses the system UI font and the official paragraph line-break strategy.
+/// Do not shrink the font or truncate the string to fake a wrap.
+enum NodeTextTypography {
+    static func measuringFont(name: String, size: CGFloat) -> CTFont {
+        let safe = max(size, 1)
+        // Layout historically asked for Helvetica. The canvas paints the system font.
+        if name.isEmpty || name == "Helvetica" {
+            if let font = CTFontCreateUIFontForLanguage(.system, safe, nil) {
+                return font
+            }
+        }
+        return CTFontCreateWithName(name as CFString, safe, nil)
+    }
+
+    static func paragraphStyle() -> NSParagraphStyle {
+        let style = NSMutableParagraphStyle()
+        style.alignment = .center
+        style.lineBreakMode = .byWordWrapping
+        style.lineBreakStrategy = .standard
+        return style
+    }
+
+    static func attributed(_ text: String, font: CTFont) -> NSAttributedString {
+        NSAttributedString(string: text, attributes: [
+            .font: font,
+            .paragraphStyle: paragraphStyle(),
+        ])
+    }
+
+    /// Visible line fragments at `width`, using the same attributes as measurement.
+    static func lineStrings(_ text: String, fontName: String = "Helvetica", fontSize: CGFloat, width: CGFloat) -> [String] {
+        let font = measuringFont(name: fontName, size: fontSize)
+        let attributed = attributed(text, font: font)
+        let framesetter = CTFramesetterCreateWithAttributedString(attributed)
+        let range = CFRange(location: 0, length: attributed.length)
+        let suggested = CTFramesetterSuggestFrameSizeWithConstraints(
+            framesetter,
+            range,
+            nil,
+            CGSize(width: max(width, 1), height: CGFloat.greatestFiniteMagnitude),
+            nil
+        )
+        let path = CGPath(
+            rect: CGRect(x: 0, y: 0, width: max(width, 1), height: max(suggested.height + 8, 8)),
+            transform: nil
+        )
+        let frame = CTFramesetterCreateFrame(framesetter, range, path, nil)
+        let lines = CTFrameGetLines(frame) as! [CTLine]
+        let ns = text as NSString
+        return lines.map { line in
+            let fragment = CTLineGetStringRange(line)
+            return ns.substring(with: NSRange(location: fragment.location, length: fragment.length))
+        }
+    }
+}
+
 public struct CoreTextFontMetrics: FontMetricsPort {
     public init() {}
 
     public func measure(text: String, fontName: String, fontSize: Double, maxWidth: Double?) -> FontMetrics {
         let safeSize = max(CGFloat(fontSize), 1)
         let safeWidth = max(CGFloat(maxWidth ?? .greatestFiniteMagnitude), 1)
-        let font = CTFontCreateWithName(fontName as CFString, safeSize, nil)
-        guard let mutable = CFAttributedStringCreateMutable(kCFAllocatorDefault, 0) else {
-            return FontMetrics(width: 72, height: 32, ascent: Double(safeSize))
-        }
+        let font = NodeTextTypography.measuringFont(name: fontName, size: safeSize)
         let sample = text.isEmpty ? " " : text
-        CFAttributedStringReplaceString(mutable, CFRange(location: 0, length: 0), sample as CFString)
-        let range = CFRange(location: 0, length: CFAttributedStringGetLength(mutable))
-        CFAttributedStringSetAttribute(mutable, range, kCTFontAttributeName, font)
-        let framesetter = CTFramesetterCreateWithAttributedString(mutable)
+        let attributed = NodeTextTypography.attributed(sample, font: font)
+        let framesetter = CTFramesetterCreateWithAttributedString(attributed)
+        let range = CFRange(location: 0, length: attributed.length)
         var fit = CFRange()
         let suggested = CTFramesetterSuggestFrameSizeWithConstraints(
             framesetter,

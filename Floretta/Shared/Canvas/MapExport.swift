@@ -357,9 +357,11 @@ private struct MapExportView: View {
                 textRect = excludingChildBadge(textRect, node: node)
                 if textRect.width > 1, textRect.height > 1 {
                     context.draw(
-                        Text(node.text)
-                            .font(FlorettaTitleFont.font(design: node.fontDesign, size: node.fontSize))
-                            .foregroundStyle(color(node.textColor)),
+                        NodeTextTypography.canvasText(
+                            node.text,
+                            font: FlorettaTitleFont.font(design: node.fontDesign, size: node.fontSize)
+                        )
+                        .foregroundStyle(color(node.textColor)),
                         in: textRect
                     )
                 }
@@ -631,6 +633,16 @@ enum ThemeCurvePath {
             )
         }
         return (path, false)
+    }
+}
+
+extension NodeTextTypography {
+    /// Same paragraph style as `CoreTextFontMetrics`, so export and the canvas wrap alike.
+    static func canvasText(_ string: String, font: Font) -> Text {
+        let ns = NSAttributedString(string: string, attributes: [
+            .paragraphStyle: paragraphStyle(),
+        ])
+        return Text(AttributedString(ns)).font(font)
     }
 }
 

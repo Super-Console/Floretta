@@ -89,6 +89,72 @@ final class InspectorTabPinUITests: XCTestCase {
         assertPlaceholderSitsUnderHeader(settledFrame(marker(app, "选择一个主题")), header: emptyHeader, name: "「选择一个主题」")
     }
 
+    /// Interactive controls on the home and editor must expose an accessibility
+    /// identifier or label so VoiceOver and A27 can find them. This is not a
+    /// full-tree walk of every system chrome button.
+    @MainActor
+    func testInteractiveControlsHaveAccessibilityIdentifierOrLabel() {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-FlorettaUITest",
+            "-FlorettaOpenInspector",
+            "-FlorettaLanguage", "zh-Hans",
+            "-AppleLanguages", "(zh-Hans)",
+            "-AppleLocale", "zh_CN",
+        ]
+        app.launch()
+
+        let newMap = app.buttons["home.newMap"]
+        XCTAssertTrue(newMap.waitForExistence(timeout: 8), "首页没有「新建导图」")
+        assertIdentified(newMap, name: "home.newMap")
+        newMap.tap()
+        XCTAssertTrue(app.buttons["basicChain.back"].waitForExistence(timeout: 8), "新建导图没有进入画布")
+
+        let required: [(XCUIElement, String)] = [
+            (app.buttons["basicChain.back"], "basicChain.back"),
+            (app.descendants(matching: .any)["editor.canvas"], "editor.canvas"),
+            (app.descendants(matching: .any)["inspector.header"], "inspector.header"),
+            (app.segmentedControls["inspector.tabs"], "inspector.tabs"),
+        ]
+        for (element, name) in required {
+            XCTAssertTrue(element.waitForExistence(timeout: 8), "找不到 \(name)")
+            assertIdentified(element, name: name)
+        }
+
+        // Other interactive controls that exist after opening a new map should
+        // not be silent: a button, slider, or switch needs an identifier or a label.
+        let types: [XCUIElement.ElementType] = [
+            .button, .segmentedControl, .slider, .switch, .popUpButton, .textField,
+        ]
+        var silent: [String] = []
+        for type in types {
+            let query = app.descendants(matching: type)
+            let count = query.count
+            for index in 0..<count {
+                let element = query.element(boundBy: index)
+                guard element.exists, element.isHittable else { continue }
+                let identifier = element.identifier.trimmingCharacters(in: .whitespacesAndNewlines)
+                let label = element.label.trimmingCharacters(in: .whitespacesAndNewlines)
+                if identifier.isEmpty, label.isEmpty {
+                    silent.append("\(type.rawValue)#\(index)")
+                }
+            }
+        }
+        XCTAssertTrue(silent.isEmpty, "可交互控件没有 accessibility identifier 或 label：\(silent.joined(separator: ", "))")
+    }
+
+    @MainActor
+    private func assertIdentified(_ element: XCUIElement, name: String, file: StaticString = #filePath, line: UInt = #line) {
+        let identifier = element.identifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        let label = element.label.trimmingCharacters(in: .whitespacesAndNewlines)
+        XCTAssertFalse(
+            identifier.isEmpty && label.isEmpty,
+            "\(name) 没有 accessibility identifier 或 label",
+            file: file,
+            line: line
+        )
+    }
+
     @MainActor
     private func show(
         _ app: XCUIApplication,

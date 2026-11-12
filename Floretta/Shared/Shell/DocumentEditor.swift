@@ -1343,7 +1343,12 @@ struct DocumentEditor: View {
                 inspectorHeader
             }
             .appleGlassChrome(.inspectorPanel)
-            .containerRelativeFrame(.vertical, alignment: .top) { length, _ in length }
+            // Fill the inspector column with the proposed height. A
+            // containerRelativeFrame that returns the container length as
+            // its own height can re-enter AppKit's constraint update cycle
+            // when the column is dismissed or its page height changes.
+            // Escape / a blank-canvas click on 24aa462 crashed with
+            // EXC_BREAKPOINT in NSWindow._postWindowNeedsUpdateConstraints.
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 

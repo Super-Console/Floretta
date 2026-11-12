@@ -448,7 +448,7 @@ final class ShellTests: XCTestCase {
         XCTAssertEqual(ZoomStop.allCases.map { "\($0.percent)%" }, Array(CanvasMenus.zoom.dropLast()))
         XCTAssertEqual(EditorStatusZoomChoice.menu.map(\.menuTitle), CanvasMenus.zoom)
         XCTAssertEqual(DocumentViewMode.allCases, [.map, .focus])
-        XCTAssertEqual(CanvasMenus.more, ["大纲", "样式", "配色", "查找", "标签筛选", "粘贴", "关于"])
+        XCTAssertEqual(CanvasMenus.more, ["大纲", "样式", "配色", "查找", "标签筛选", "粘贴"])
 
         XCTAssertEqual(CanvasMenus.moreDisabled, [])
         XCTAssertFalse(CanvasMenus.more.contains("ZEN"))

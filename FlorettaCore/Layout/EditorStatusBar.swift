@@ -34,17 +34,41 @@ public enum EditorStatusZoomChoice: Hashable, Sendable {
     }
 }
 
+/// Soft fade around the borderless status strip. 8–16pt, no plate or shadow.
+public enum EditorStatusBarChrome: Sendable {
+    public static let featherInset: CGFloat = 12
+    public static let controlMinHeight: CGFloat = 44
+}
+
 /// Controls on the one bottom bar, leading to trailing.
-/// Topic counts are `TopicTitleCensus` drawn by `TopicStatusBar`. This list does not count text.
+/// Topic counts live in the overflow menu via `TopicTitleCensus`. This list does not count text.
 public enum EditorStatusControl: String, Equatable, Sendable {
-    case topicCensus
     case zoomMenu
     case viewSwitcher
 }
 
+/// How many standalone toolbar buttons fit. Compact widths keep only
+/// `insert` and the trailing overflow so iOS does not mint a second ellipsis.
+public enum EditorToolbarWidthClass: Equatable, Sendable {
+    case compact
+    case regular
+}
+
+public enum EditorToolbarLayout {
+    /// Standalone toolbar buttons for the current width. `more` is always last
+    /// and is the only command whose symbol is `ellipsis`.
+    public static func visibleItems(for width: EditorToolbarWidthClass) -> [EditorToolbarCommandID] {
+        switch width {
+        case .compact:
+            return [.insert, .more]
+        case .regular:
+            return EditorToolbarCatalog.defaultToolbarItems
+        }
+    }
+}
+
 public enum EditorStatusBarModel {
     public static let controls: [EditorStatusControl] = [
-        .topicCensus,
         .zoomMenu,
         .viewSwitcher,
     ]

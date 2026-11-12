@@ -159,7 +159,7 @@ public enum EditorToolbarCatalog {
         item(.share, "分享", "square.and.arrow.up", "把导图导出为 PDF、PNG、Markdown，或保存为已支持的文件", kind: .pulldown, customization: .visible),
         item(.zoom, "缩放", "plus.magnifyingglass", "选择缩放比例，或让导图适应窗口", kind: .pulldown, customization: .visible, toolbarFace: .zoomPercent),
         item(.immersive, "全屏沉浸", "rectangle.expand.diagonal", "进入全屏沉浸模式，暂时只留下导图", customization: .visible),
-        item(.more, "更多", "ellipsis", "大纲、样式、配色、查找、标签筛选、版本历史、粘贴和关于", kind: .pulldown, customization: .visible),
+        item(.more, "更多", "ellipsis", "大纲、样式、配色、查找、标签筛选、版本历史、粘贴和文档统计", kind: .pulldown, customization: .visible),
 
         item(.child, "子节点", "plus.square", "在选中的节点下新建一个子节点", menu: .insert, customization: .addable),
         item(.sibling, "同级", "square.on.square", "在选中的节点旁新建一个同级节点", menu: .insert, customization: .addable),
@@ -183,7 +183,7 @@ public enum EditorToolbarCatalog {
         item(.tagFilter, "标签筛选", "tag", "给选中的主题加上优先级、进度、旗帜或标签，并按标签高亮", availability: .notInMarkdown, menu: .more, customization: .addable),
         item(.history, "版本历史", "clock.arrow.circlepath", "查看已保存的历史版本，回滚或对比两份内容。", availability: .requiresSavedPackage, menu: .more, customization: .addable),
         item(.paste, "粘贴", "doc.on.clipboard", "把剪贴板里的图片放进节点；没有图片时粘贴文字", menu: .more, customization: .addable),
-        item(.about, "关于", "info.circle", "查看版本号和开源致谢", menu: .more, customization: .addable),
+        item(.about, "关于", "info.circle", "查看版本号和开源致谢", customization: .menuOnly),
 
         item(.mapMode, "地图模式", "map", "用整张地图查看导图", menu: .viewMode, customization: .addable),
         item(.focusMode, "聚焦模式", "scope", "只看当前选中的这一支", menu: .viewMode, customization: .addable),

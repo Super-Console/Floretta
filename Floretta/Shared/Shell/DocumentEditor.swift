@@ -124,7 +124,6 @@ struct DocumentEditor: View {
         macItem(.tagFilter)
         macItem(.history)
         macItem(.paste)
-        macItem(.about)
     }
 
     @ToolbarContentBuilder
@@ -210,28 +209,41 @@ struct DocumentEditor: View {
                     #endif
                     #if !os(macOS)
                     ToolbarItemGroup(placement: .principal) {
-                        toolbarControl(.undo)
-                            .appleGlassChrome(.toolbarFloatingButton)
-                        toolbarControl(.redo)
-                            .appleGlassChrome(.toolbarFloatingButton)
-                        toolbarControl(.delete)
-                            .appleGlassChrome(.toolbarFloatingButton)
+                        if toolbarVisibleItems.contains(.undo) {
+                            toolbarControl(.undo)
+                                .appleGlassChrome(.toolbarFloatingButton)
+                        }
+                        if toolbarVisibleItems.contains(.redo) {
+                            toolbarControl(.redo)
+                                .appleGlassChrome(.toolbarFloatingButton)
+                        }
+                        if toolbarVisibleItems.contains(.delete) {
+                            toolbarControl(.delete)
+                                .appleGlassChrome(.toolbarFloatingButton)
+                        }
                     }
                     ToolbarItemGroup(placement: .primaryAction) {
-                        toolbarControl(.insert)
-                            .appleGlassChrome(.toolbarFloatingButton)
-                        toolbarControl(.share)
-                            .appleGlassChrome(.toolbarFloatingButton)
-                        toolbarControl(.zoom)
-                            .appleGlassChrome(.toolbarFloatingButton)
-                        toolbarControl(.immersive)
-                            .appleGlassChrome(.toolbarFloatingButton)
-                    }
-                    #if os(iOS)
-                    // A compact inspector is a sheet. After it is dismissed, the
-                    // user needs a one-tap way back in; the more menu can be
-                    // absorbed by the system overflow and is not always findable.
-                    ToolbarItem(placement: .topBarTrailing) {
+                        if toolbarVisibleItems.contains(.insert) {
+                            toolbarControl(.insert)
+                                .appleGlassChrome(.toolbarFloatingButton)
+                        }
+                        if toolbarVisibleItems.contains(.share) {
+                            toolbarControl(.share)
+                                .appleGlassChrome(.toolbarFloatingButton)
+                        }
+                        if toolbarVisibleItems.contains(.zoom) {
+                            toolbarControl(.zoom)
+                                .appleGlassChrome(.toolbarFloatingButton)
+                        }
+                        if toolbarVisibleItems.contains(.immersive) {
+                            toolbarControl(.immersive)
+                                .appleGlassChrome(.toolbarFloatingButton)
+                        }
+                        #if os(iOS)
+                        // Keep the inspector entry and the overflow as trailing
+                        // siblings in this group so `editor.more` stays rightmost.
+                        // A compact inspector is a sheet; after it is dismissed
+                        // the user still needs a one-tap way back in.
                         Button {
                             showInspector = true
                         } label: {
@@ -240,11 +252,9 @@ struct DocumentEditor: View {
                         .accessibilityLabel(text("样式"))
                         .help(Text(verbatim: text("打开样式检查器，修改选中节点的外观")))
                         .accessibilityIdentifier("inspector.open")
-                    }
-                    ToolbarItem(placement: .topBarTrailing) {
+                        #endif
                         toolbarControl(.more)
                     }
-                    #endif
                     #endif
                 }
             }
@@ -515,7 +525,7 @@ struct DocumentEditor: View {
                 dictationReplacesPlaceholder: session.dictationReplacesPlaceholder,
                 onChromeCommand: handleChromeCommand
             )
-            .ignoresSafeArea(edges: showsCanvasTabs ? .top.union(.horizontal) : .all)
+            .ignoresSafeArea(edges: .all)
             if showOutline, session.zen.chrome.showsSidebar {
                 outlinePanel
                     .frame(width: outlineWide ? nil : 300)
@@ -543,34 +553,18 @@ struct DocumentEditor: View {
                 }
             }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+        .overlay(alignment: .bottom) {
             VStack(spacing: 0) {
                 if showsCanvasTabs { canvasTabBar }
                 if session.zen.chrome.showsStatusBar {
-                HStack(spacing: 8) {
-                    #if os(macOS)
-                    Spacer(minLength: 8)
-                    #endif
-
-                    TopicStatusBar(
-                        census: topicCensus.census(of: session.editingDocument),
-                        locale: settings.resolvedLocale
-                    )
-                    #if !os(macOS)
-                    Spacer(minLength: 8)
-                    #endif
-                    EditorStatusControls(
+                    EditorStatusStrip(
                         session: session,
                         camera: camera,
                         language: settings.language
                     )
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .appleGlassChrome(.floatingPanel)
-                .accessibilityIdentifier("statusBar")
-                }
             }
+            .safeAreaPadding(.bottom)
             .accessibilityIdentifier("editor.bottomBar")
         }
     }
@@ -873,6 +867,27 @@ struct DocumentEditor: View {
     }
     #endif
 
+    private var toolbarWidthClass: EditorToolbarWidthClass {
+        #if os(macOS)
+        return .regular
+        #else
+        return horizontalSizeClass == .compact ? .compact : .regular
+        #endif
+    }
+
+    private var toolbarVisibleItems: [EditorToolbarCommandID] {
+        EditorToolbarLayout.visibleItems(for: toolbarWidthClass)
+    }
+
+    private var overflowCensus: TopicTitleCensus {
+        topicCensus.census(of: session.editingDocument)
+    }
+
+    private func overflowAccessibilityLabel(census: TopicTitleCensus) -> String {
+        let stats = EditorOverflowCensus(census: census, locale: settings.resolvedLocale)
+        return "\(text(EditorToolbarCatalog.command(.more).title))\n\(stats.accessibilityLabel)"
+    }
+
     private func commandLabel(_ id: EditorToolbarCommandID, surface: EditorCommandSurface) -> EditorCommandLabel {
         let command = EditorToolbarCatalog.command(id)
         return EditorCommandLabel(
@@ -1107,7 +1122,17 @@ struct DocumentEditor: View {
     }
 
     private var moreMenu: some View {
-        Menu {
+        let census = overflowCensus
+        return Menu {
+            EditorOverflowCensus(census: census, locale: settings.resolvedLocale)
+                .accessibilityIdentifier("status.topicCensus")
+            Divider()
+            if !toolbarVisibleItems.contains(.insert) {
+                insertOverflowSubmenu
+            }
+            if !toolbarVisibleItems.contains(.share) {
+                shareOverflowSubmenu
+            }
             commandMenuButton(.undo) { perform(.undo) }
             commandMenuButton(.redo) { perform(.redo) }
             commandMenuButton(.delete) { perform(.delete) }
@@ -1119,10 +1144,34 @@ struct DocumentEditor: View {
             commandLabel(.more, surface: .toolbar)
                 .accessibilityIdentifier("editor.more")
         }
-        .accessibilityLabel(text(EditorToolbarCatalog.command(.more).title))
+        .accessibilityLabel(overflowAccessibilityLabel(census: census))
         .accessibilityIdentifier("editor.more")
         .help(Text(verbatim: text(EditorToolbarCatalog.command(.more).help)))
         .appleGlassChrome(.toolbarFloatingButton)
+    }
+
+    private var insertOverflowSubmenu: some View {
+        Menu {
+            ForEach(EditorToolbarCatalog.menu(.insert), id: \.self) { id in
+                insertRow(id)
+            }
+        } label: {
+            commandLabel(.insert, surface: .expandedMenu)
+        }
+        .accessibilityIdentifier("editor.insert")
+        .help(Text(verbatim: text(EditorToolbarCatalog.command(.insert).help)))
+    }
+
+    private var shareOverflowSubmenu: some View {
+        Menu {
+            ForEach(EditorToolbarCatalog.menu(.share), id: \.self) { id in
+                shareRow(id)
+            }
+        } label: {
+            commandLabel(.share, surface: .expandedMenu)
+        }
+        .accessibilityIdentifier("share.menu")
+        .help(Text(verbatim: text(EditorToolbarCatalog.command(.share).help)))
     }
 
     @ViewBuilder
@@ -3008,56 +3057,6 @@ private struct TagFilterSheet: View {
         session.updateSelectedTopicTags { topic in
             topic.labels = TopicLabels.inserting(label, into: topic.labels)
         }
-    }
-}
-
-/// Topic and word counts for the bottom bar. Mac keeps them on the trailing
-/// edge, beside the zoom menu. iPhone and iPad keep them on the leading edge.
-private struct TopicStatusBar: View {
-    var census: TopicTitleCensus
-    var locale: Locale
-
-    var body: some View {
-        HStack(spacing: 16) {
-            count("主题: %lld", census.topics, identifier: "status.topics")
-            count("字数: %lld", census.words, identifier: "status.words")
-            #if os(iOS)
-            count("字符数: %lld", census.characters, identifier: "status.characters")
-            #endif
-        }
-        .font(.caption)
-        .foregroundStyle(.secondary)
-        .frame(alignment: barAlignment)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(breakdown)
-        .accessibilityIdentifier("status.topicCensus")
-        .help(Text(verbatim: breakdown))
-    }
-
-    private var barAlignment: Alignment {
-        #if os(macOS)
-        .trailing
-        #else
-        .leading
-        #endif
-    }
-
-    private var breakdown: String {
-        [
-            line("主题: %lld", census.topics),
-            line("字数: %lld", census.words),
-            line("字符数: %lld", census.characters),
-        ].joined(separator: "\n")
-    }
-
-    private func count(_ key: String, _ value: Int, identifier: String) -> some View {
-        Text(verbatim: line(key, value))
-            .monospacedDigit()
-            .accessibilityIdentifier(identifier)
-    }
-
-    private func line(_ key: String, _ value: Int) -> String {
-        FlorettaL10n.format(key, locale: locale, arguments: [Int64(value)])
     }
 }
 

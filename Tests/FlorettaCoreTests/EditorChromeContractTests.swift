@@ -57,30 +57,33 @@ final class EditorChromeContractTests: XCTestCase {
         XCTAssertTrue(source.contains("window.titleVisibility = .hidden"))
     }
 
-    func testWordCountSitsOnTheExistingBottomBar() throws {
+    func testWordCountSitsInTheOverflowMenu() throws {
         let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
-        let bar = try slice(
-            source,
-            from: "private struct TopicStatusBar",
-            until: "private final class TopicCensusModel"
-        )
-        XCTAssertTrue(source.contains(".safeAreaInset(edge: .bottom, spacing: 0)"))
+        let bar = try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift")
+        let more = try slice(source, from: "private var moreMenu", until: "private var insertOverflowSubmenu")
+        XCTAssertTrue(source.contains(".overlay(alignment: .bottom)"))
         XCTAssertTrue(source.contains("session.zen.chrome.showsStatusBar"))
-        XCTAssertTrue(source.contains("TopicStatusBar("))
-        XCTAssertTrue(bar.contains("\"主题: %lld\""))
-        XCTAssertTrue(bar.contains("\"字数: %lld\""))
-        XCTAssertTrue(bar.contains("\"字符数: %lld\""))
-        XCTAssertTrue(bar.contains("#if os(macOS)"))
-        XCTAssertTrue(bar.contains(".trailing"))
-        XCTAssertTrue(bar.contains(".leading"))
-        XCTAssertTrue(bar.contains(".help(Text(verbatim: breakdown))"))
-        XCTAssertTrue(bar.contains("status.topicCensus"))
+        XCTAssertTrue(source.contains("EditorStatusStrip("))
+        XCTAssertFalse(source.contains("TopicStatusBar("))
+        XCTAssertTrue(more.contains("EditorOverflowCensus("))
+        XCTAssertTrue(more.contains("overflowCensus"))
+        XCTAssertFalse(more.contains("perform(.about)"))
+        XCTAssertFalse(more.contains(".about"))
+        XCTAssertTrue(bar.contains("struct EditorOverflowCensus"))
+        XCTAssertTrue(bar.contains("\"主题 %lld\""))
+        XCTAssertTrue(bar.contains("\"字数 %lld\""))
+        XCTAssertTrue(bar.contains("\"字符数 %lld\""))
+        XCTAssertTrue(bar.contains("status.topics"))
+        XCTAssertTrue(bar.contains("status.words"))
+        XCTAssertTrue(bar.contains("status.characters"))
+        XCTAssertTrue(bar.contains("TopicTitleCensus"))
         let inspector = try slice(source, from: "private var documentInfo", until: "private var relationshipLabelForm")
         XCTAssertFalse(inspector.contains("字数"))
         XCTAssertFalse(inspector.contains("字符数"))
         let editor = try repoFile("Floretta/Shared/Keyboard/NodeTextEditor.swift")
         XCTAssertFalse(editor.contains("字数"))
         XCTAssertFalse(editor.contains("TopicStatusBar"))
+        XCTAssertFalse(editor.contains("EditorOverflowCensus"))
     }
 
     private func repoFile(_ relative: String) throws -> String {

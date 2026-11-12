@@ -5487,6 +5487,74 @@
         "en": { "stringUnit": { "state": "translated", "value": "Markdown Mode can't save regions" } },
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "Markdown 模式无法保存专区" } }
       }
+    },
+    "主题 %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Topics %lld"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "主题 %lld"
+          }
+        }
+      }
+    },
+    "字数 %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Words %lld"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "字数 %lld"
+          }
+        }
+      }
+    },
+    "字符数 %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Characters %lld"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "字符数 %lld"
+          }
+        }
+      }
+    },
+    "大纲、样式、配色、查找、标签筛选、版本历史、粘贴和文档统计": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Outline, style, colors, find, tag filter, version history, paste, and document statistics"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "大纲、样式、配色、查找、标签筛选、版本历史、粘贴和文档统计"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -160,6 +160,9 @@ enum FlorettaL10n {
         "主题: %lld": "Topics: %lld",
         "字数: %lld": "Words: %lld",
         "字符数: %lld": "Characters: %lld",
+        "主题 %lld": "Topics %lld",
+        "字数 %lld": "Words %lld",
+        "字符数 %lld": "Characters %lld",
         "形状": "Shape",
         "矩形": "Rectangle",
         "圆角": "Rounded",
@@ -252,6 +255,8 @@ enum FlorettaL10n {
         "把剪贴板里的图片放进节点；没有图片时粘贴文字": "Put a clipboard image into a topic. If there is no image, paste text.",
         "查看版本号和开源致谢": "Show the version and open-source notices",
         "大纲、样式、配色、标签筛选、版本历史和关于": "Outline, style, colors, tag filter, version history, and about",
+        "大纲、样式、配色、查找、标签筛选、版本历史、粘贴和文档统计": "Outline, style, colors, find, tag filter, version history, paste, and document statistics",
+
         "版本历史": "Version History",
         "查看已保存的历史版本，回滚或对比两份内容。": "See saved versions, roll back, or compare two of them.",
         "Markdown 文件不保留版本快照。": "Markdown files don't keep version snapshots.",

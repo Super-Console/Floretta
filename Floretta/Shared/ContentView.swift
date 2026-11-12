@@ -23,7 +23,10 @@ struct ContentView: View {
     var body: some View {
         root
             .preferredColorScheme(settings.appearance.colorScheme)
-            .onAppear { recovery.checkOnLaunch() }
+            .onAppear {
+                recovery.checkOnLaunch()
+                library.openPendingLaunchDocumentIfNeeded()
+            }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     library.absorbExternalShare()

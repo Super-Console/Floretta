@@ -868,6 +868,18 @@ protocol SameDocumentWindowOpening: AnyObject {
     func openSameDocumentWindow(_ presentation: SameDocumentWindowPresentation)
 }
 
+/// Set during `AppLaunch.make()`, consumed after the first window appears.
+/// Lives outside `LibraryModel` so `App.init()` does not mutate the observable
+/// library, which would stop macOS from instantiating the WindowGroup.
+enum LaunchDocumentQueue {
+    enum Pending: Equatable {
+        case editChromeSample
+        case perfFixture(nodeCount: Int)
+    }
+
+    @MainActor static var pending: Pending?
+}
+
 @MainActor
 @Observable
 final class LibraryModel {
@@ -1060,6 +1072,18 @@ final class LibraryModel {
     func makeNew() {
         let document = MindMapDocument.newMap(title: "未命名", roots: [MindMapNode(text: "中心")], clock: ports.clock)
         openDocument(document, preferredURL: nil, sourceExtension: "floretta")
+    }
+
+    /// Opens the launch-argument document once the first window has appeared.
+    func openPendingLaunchDocumentIfNeeded() {
+        guard let pending = LaunchDocumentQueue.pending else { return }
+        LaunchDocumentQueue.pending = nil
+        switch pending {
+        case .editChromeSample:
+            openEditChromeSample()
+        case .perfFixture(let nodeCount):
+            openPerfFixture(nodeCount: nodeCount)
+        }
     }
 
     /// Opens one styled topic on the map. UI tests use it to compare idle and edit chrome.

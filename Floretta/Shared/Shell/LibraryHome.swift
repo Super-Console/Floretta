@@ -376,6 +376,7 @@ struct SettingsView: View {
                         Text(verbatim: text("浅色")).tag(AppAppearance.light)
                         Text(verbatim: text("深色")).tag(AppAppearance.dark)
                     }
+                    .accessibilityIdentifier("settings.appearance")
                 }
                 Section {
                     Picker(text("新建时默认视图"), selection: $settings.defaultView) {

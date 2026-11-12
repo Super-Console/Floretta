@@ -661,29 +661,19 @@ extension NodeTextTypography {
         nodeDesign: String = "default",
         size: CGFloat? = nil
     ) -> Text {
-        var attributes: [NSAttributedString.Key: Any] = [
+        // Do not resolve a CTFont / UIFont on this path. Building a cascade
+        // list for every visible node on every display-link frame dropped
+        // 500-node canvas-perf from ~60 FPS on 8e50c12 to ~1 FPS on fae6453
+        // with the same XCUITest harness. Font.system(design:) / Font(ctFont)
+        // from FlorettaTitleFont is enough to distinguish classic vs modern
+        // and is cheap to apply via Text.font, matching the baseline probe.
+        _ = familyID
+        _ = nodeDesign
+        _ = size
+        let ns = NSAttributedString(string: string, attributes: [
             .paragraphStyle: paragraphStyle(lineHeight: lineHeight),
-        ]
-        // Put the resolved face on the runs themselves. Canvas `Text.font`
-        // alone was not enough for system-sans: the Font identity collided
-        // with the previous system-serif face and glyphs stayed Songti /
-        // New York after the inspector already showed 跟随系统.
-        if let familyID, let size {
-            attributes[.font] = ThemeFontCascade.platformFont(
-                familyID: familyID,
-                nodeDesign: nodeDesign,
-                size: size
-            )
-        }
-        let ns = NSAttributedString(string: string, attributes: attributes)
-        let text = Text(AttributedString(ns))
-        // When the run already carries the cascaded platform font, do not
-        // also apply Text.font: on iOS, Font.system(design: .serif) falls
-        // back to PingFang for Chinese and would hide Songti.
-        if attributes[.font] != nil {
-            return text
-        }
-        return text.font(font)
+        ])
+        return Text(AttributedString(ns)).font(font)
     }
 }
 

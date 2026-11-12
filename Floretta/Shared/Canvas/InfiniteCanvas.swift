@@ -144,9 +144,6 @@ struct InfiniteCanvas: View {
                 draw(in: context, size: size, at: timeline.date.timeIntervalSinceReferenceDate)
                 CanvasPerfRun.endDraw(perf)
             }
-            // Distinct identity so a mode switch (system-serif ↔ system-sans)
-            // cannot reuse the previous Canvas glyph cache.
-            .id(appearanceProfile.fontFamilyID)
             .allowsHitTesting(false)
             .onChange(of: timeline.date) { _, date in
                 let time = date.timeIntervalSinceReferenceDate

@@ -72,9 +72,21 @@ macOS 上 `ThemeFontCascadeTests` 在本轮补了一项 `testSystemSansAndSystem
 
 ## 性能影响
 
-- 内存：按已合并的 PR #117 `CanvasPerfProbe`（未改探针）在 iPad 模拟器上经 XCUITest 路径测得。配置 Release，命令行覆盖 `CODE_SIGN_IDENTITY="Apple Development"` `DEVELOPMENT_TEAM=JY5U4D6JD3`，启动参数 `-FlorettaUITest -FlorettaPerfNodes 500`，记录 `task_vm_info.phys_footprint`。探针把结果写成 `FLORETTA_PERF_RESULT` 并写入应用临时目录 `canvas-perf-500.json`。本轮峰值内存 **64.6 MB**（JSON `peakFootprintMB`；平移阶段 60.8 MB，缩放阶段 64.6 MB，拖动阶段该轮 `tickCount` 不足未采到内存，记 0，不把它当成 0 占用）。原始 JSON：`docs/reviews/theme-modes/canvas-perf-500-ipad-xcuitest.json`，`finishedAt` 2026-11-12T15:04:53Z（23:04:53 CST），平台 `iPadOS`，`displayMaxFPS` 60。测试日志 `/tmp/theme-modes-perf500-ios.log`，`testCanvasPerf500ViaUITest` START 2026-11-12 23:03:10 CST，END 23:04:54 CST，EXIT 0，`** TEST SUCCEEDED **`，测试进程记录 `FLORETTA_PERF_UITEST_DONE elapsed=27.5 state=1`（应用在协议结束后 `exit(0)`）。macOS 直接启动路径本轮仍然 windows=0，没有新的 mac 数字，详见 `docs/reviews/theme-modes/PERF-ATTEMPT.md`；不得把 18:28 的旧容器 JSON 或包体数字当作本行。
-- 帧率：同一条 XCUITest + 同一份 JSON。500 节点、平均 / 最低 FPS：平移 **1.0 / 0**，缩放 **0.8 / 0**，拖动 **0.9 / 0**（绘制次数 4 / 5 / 3，主线程最长帧 1100 / 2516.6 / 1100 ms）。这些数字明显低于同机基线 `CANVAS-PERF-BASELINE.md` 里 iPad 500 的约 11–12 FPS；测试进程在协议期间轮询 `app.state`，且 `bodyEvaluations` 为 0，可能偏慢，但数字是探针写出的实测，未编造、未改探针、未用包体代替。
-- 包体：加字体后 iOS 12.3 MB（12,901,611 bytes，2026-11-12 20:48:15 CST）/ macOS 18.4 MB（19,336,424 bytes，`platform=macOS` arm64，2026-11-12 20:51:09 CST），Release+strip，与 `scripts/check-size.sh` 同一口径，1024 进制 MiB，门禁 iOS < 15 / macOS < 25。一次出现过的 macOS 33.0 MB 是 universal `generic/platform=macOS` 二进制，不是门禁数字。Censor 已接受这两项包体数字。
+对照实验用**同一套** XCUITest 启动器（`testCanvasPerf500ViaUITest`）、**未改写的** PR #117 `CanvasPerfProbe`、同一份 500 节点夹具（启动参数 `-FlorettaUITest -FlorettaPerfNodes 500`），Release，iPad 模拟器 `ASC-iPadPro13-M5`（`330B63B2-5EE7-477E-B564-EE7C02161EE5`），命令行覆盖 `CODE_SIGN_IDENTITY="Apple Development"` `DEVELOPMENT_TEAM=JY5U4D6JD3`。峰值内存为 `task_vm_info.phys_footprint`（JSON `peakFootprintMB`）。时间均为 Asia/Shanghai（CST）。没有编造数字。
+
+| 项 | 对照：`origin/main` / merge-base `8e50c12`（无 theme-modes） | 本分支修复后（相对 `fae6453` 去掉每帧 CTFont） |
+| --- | --- | --- |
+| HEAD | `8e50c1212d9f784ec6b38ba434f8c77cb9206cf6` | 本 tip（含本轮修复提交） |
+| 日志 | `/tmp/theme-modes-baseline-perf500.log` START 2026-11-12 23:15:21，END 23:16:58，EXIT 0，`** TEST SUCCEEDED **` | `/tmp/theme-modes-perf500-fix.log` START 2026-11-12 23:21:11，END 23:22:09，EXIT 0，`** TEST SUCCEEDED **` |
+| JSON | `docs/reviews/theme-modes/canvas-perf-500-ipad-baseline-8e50c12.json`，`finishedAt` 2026-11-12T15:16:56Z（23:16:56 CST） | `docs/reviews/theme-modes/canvas-perf-500-ipad-xcuitest.json`，`finishedAt` 2026-11-12T15:22:08Z（23:22:08 CST） |
+| 峰值内存 | 97.4 MB | 73.4 MB |
+| 平移 平均 / 最低 FPS | 59.7 / 58（179 次绘制） | 59.3 / 56（178 次绘制） |
+| 缩放 平均 / 最低 FPS | 57.3 / 50（344 次绘制） | 55.7 / 38（335 次绘制） |
+| 拖动 平均 / 最低 FPS | 59.7 / 58（180 次绘制） | 59.7 / 58（180 次绘制） |
+
+结论：同一套启动器在无 theme-modes 的 `8e50c12` 上是约 57–60 FPS，不是 1 FPS，所以先前本分支的 1.0 / 0.8 / 0.9 **不是**启动器开销，而是回归。对照日志 `/tmp/theme-modes-perf500-tip-confirm.log`（同一启动器、`fae6453`、23:18:43–23:19:29 CST，EXIT 0）与 JSON `docs/reviews/theme-modes/canvas-perf-500-ipad-fae6453-before-fix.json`（`finishedAt` 2026-11-12T15:19:27Z，23:19:27 CST）记录了回归：峰值 89.2 MB，平移 1.0 / 0，缩放 0.8 / 0，拖动 0.9 / 0（绘制 4 / 6 / 3）。原因是 `canvasText` 在每一帧为每个可见节点现场构建带级联的 `CTFont`/`UIFont`（另加过 Canvas `.id(fontFamilyID)`）。修复后改回与基线相同的廉价 `Text.font(Font.system(design:))` 路径，模式切换仍靠 `Font.system(design: .serif)` / `.default` 的不同身份区分经典与现代。上表右侧是修复后的测量，与对照同量级（约 56–60 FPS），不再用 1 FPS 申请通过。
+
+- 包体：加字体后 iOS 12.3 MB（12,901,611 bytes，2026-11-12 20:48:15 CST）/ macOS 18.4 MB（19,336,424 bytes，`platform=macOS` arm64，2026-11-12 20:51:09 CST），Release+strip，与 `scripts/check-size.sh` 同一口径，1024 进制 MiB，门禁 iOS < 15 / macOS < 25。Censor 已接受这两项包体数字。macOS 直接启动路径仍然 windows=0，本对照只走 XCUITest，见 `docs/reviews/theme-modes/PERF-ATTEMPT.md`。
 
 ## 截图
 

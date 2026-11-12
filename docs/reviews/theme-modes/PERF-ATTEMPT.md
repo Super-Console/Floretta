@@ -42,3 +42,11 @@ Hubert 要求停止失败的 macOS 直接启动路径，改走已经能创建窗
 - 峰值内存：64.6 MB
 - 平均 / 最低 FPS：平移 1.0 / 0，缩放 0.8 / 0，拖动 0.9 / 0
 - 不得把同容器里 18:30 CST 的 `canvas-perf-50.json` / `canvas-perf-200.json` 当作本 tip 的测量。
+
+## 对照实验（同一启动器，2026-11-12 23:15–23:22 CST）
+
+Hubert 指出 1.0 / 0.8 / 0.9 FPS 比同机基线低约一个数量级，不得用「可能偏慢」带过。对照只用同一套 `testCanvasPerf500ViaUITest`、同一 PR #117 探针、同一 500 节点夹具。
+
+1. 对照 `8e50c1212d9f784ec6b38ba434f8c77cb9206cf6`（`origin/main` / merge-base，无 theme-modes）：`/tmp/theme-modes-baseline-perf500.log`，23:15:21–23:16:58 CST，EXIT 0。JSON `docs/reviews/theme-modes/canvas-perf-500-ipad-baseline-8e50c12.json`，`finishedAt` 2026-11-12T15:16:56Z。峰值 97.4 MB；平移 59.7 / 58，缩放 57.3 / 50，拖动 59.7 / 58。同一启动器在对照上不是 1 FPS，所以 1 FPS 不是启动器开销。
+2. `fae6453` 复核（同一启动器）：`/tmp/theme-modes-perf500-tip-confirm.log`，23:18:43–23:19:29 CST，EXIT 0。JSON `docs/reviews/theme-modes/canvas-perf-500-ipad-fae6453-before-fix.json`，`finishedAt` 2026-11-12T15:19:27Z。峰值 89.2 MB；平移 1.0 / 0，缩放 0.8 / 0，拖动 0.9 / 0。确认是本分支回归。原因是 `canvasText` 每帧为每个可见节点构建带级联的 CTFont（以及 Canvas `.id`）。
+3. 去掉那条热路径后再测：`/tmp/theme-modes-perf500-fix.log`，23:21:11–23:22:09 CST，EXIT 0。JSON `docs/reviews/theme-modes/canvas-perf-500-ipad-xcuitest.json`，`finishedAt` 2026-11-12T15:22:08Z。峰值 73.4 MB；平移 59.3 / 56，缩放 55.7 / 38，拖动 59.7 / 58。与对照同量级。模式切换仍用 `Font.system(design:)` 区分，未重拍已通过的截图。

@@ -1755,7 +1755,9 @@ struct InfiniteCanvas: View {
             let text = styledText(node, pointSize: pointSize)
             var textLayer = layer
             textLayer.clip(to: Path(textRect))
-            textLayer.draw(text, at: CGPoint(x: textRect.midX, y: textRect.midY), anchor: .center)
+            // Same wrap path as MapExport. `draw(at:)` paints the ideal (usually
+            // single-line) size and clips mid-glyph; `draw(in:)` wraps to the node.
+            textLayer.draw(text, in: textRect)
         }
         if pose == nil, detail.drawsText {
             drawFileBadges(node, scale: scale, pointSize: pointSize, in: layer)
@@ -1857,8 +1859,10 @@ struct InfiniteCanvas: View {
             caption: node.caption,
             fileBadges: node.fileBadges
         )
-        var text = Text(shown)
-            .font(FlorettaTitleFont.font(design: node.fontDesign, size: pointSize))
+        var text = NodeTextTypography.canvasText(
+            shown,
+            font: FlorettaTitleFont.font(design: node.fontDesign, size: pointSize)
+        )
             .foregroundStyle(color(node.textColor))
         if node.bold { text = text.bold() }
         if node.italic { text = text.italic() }

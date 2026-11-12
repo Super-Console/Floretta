@@ -285,6 +285,14 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         view.layer?.masksToBounds = true
         view.layer?.borderWidth = 0
         view.textContainer?.lineFragmentPadding = 0
+        let style = NodeTextTypography.paragraphStyle()
+        view.defaultParagraphStyle = style
+        var typing = view.typingAttributes
+        typing[.paragraphStyle] = style
+        view.typingAttributes = typing
+        if let storage = view.textStorage, storage.length > 0, !view.hasMarkedText() {
+            storage.addAttribute(.paragraphStyle, value: style, range: NSRange(location: 0, length: storage.length))
+        }
         if !ownsKeys {
             view.alignCenter(nil)
         }
@@ -391,6 +399,11 @@ private struct MacNodeTextEditor: NSViewRepresentable {
             let composing = textView.hasMarkedText()
             isComposing.wrappedValue = composing
             guard let event = KeyEvent(macCommand: commandSelector, mode: .edit, isComposing: composing) else {
+                return false
+            }
+            // Shift+Enter must land at the caret. The session command only appends
+            // a newline at the end of the buffer and would also swallow this key.
+            if NodeEditLineBreak.textViewInsertsLine(for: event) {
                 return false
             }
             if returnInsertsLine, event.key == .enter, !event.modifiers.contains(.command) {
@@ -717,6 +730,13 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
         view.layer.cornerRadius = chrome.cornerRadius
         view.layer.borderWidth = 0
         view.textContainer.lineFragmentPadding = 0
+        let style = NodeTextTypography.paragraphStyle()
+        var typing = view.typingAttributes
+        typing[.paragraphStyle] = style
+        view.typingAttributes = typing
+        if view.markedTextRange == nil, view.textStorage.length > 0 {
+            view.textStorage.addAttribute(.paragraphStyle, value: style, range: NSRange(location: 0, length: view.textStorage.length))
+        }
         if !ownsKeys {
             view.textAlignment = .center
         }
@@ -905,9 +925,8 @@ private final class FlorettaTextView: UITextView {
             publishChromeProbe()
             return
         }
-        let lineHeight = font?.lineHeight ?? 0
-        let lines = (text ?? "").split(separator: "\n", omittingEmptySubsequences: false).count
-        let used = lineHeight * CGFloat(max(lines, 1))
+        layoutManager.ensureLayout(for: textContainer)
+        let used = layoutManager.usedRect(for: textContainer).height
         let vertical = max(0, (bounds.height - used) / 2)
         let next = UIEdgeInsets(
             top: vertical,
@@ -966,6 +985,10 @@ private final class FlorettaTextView: UITextView {
     override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
         let composing = markedTextRange != nil
         if let key = presses.first?.key, let mapped = KeyEvent(uiKey: key, isComposing: composing) {
+            if NodeEditLineBreak.textViewInsertsLine(for: mapped) {
+                super.pressesBegan(presses, with: event)
+                return
+            }
             if returnInsertsLine, mapped.key == .enter, !mapped.modifiers.contains(.command) {
                 super.pressesBegan(presses, with: event)
                 return
@@ -1276,3 +1299,10 @@ private extension KeyEvent {
     }
 }
 #endif
+
+/// Shift+Enter belongs to the focused text view so the break lands at the caret.
+enum NodeEditLineBreak {
+    static func textViewInsertsLine(for event: KeyEvent) -> Bool {
+        event.key == .enter && event.modifiers.contains(.shift)
+    }
+}

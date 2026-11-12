@@ -42,12 +42,31 @@ extension KeyEvent {
             key = .left
         } else if press.key == .rightArrow {
             key = .right
-        } else if press.characters.lowercased() == "z" {
-            key = .character("z")
+        } else if let mapped = KeyEvent.mappedCharacter(press.characters) {
+            key = mapped
+        } else if press.characters == "\u{F705}" || press.key == KeyEquivalent("\u{F705}") {
+            key = .f2
+        } else if press.characters == "\u{F708}" || press.key == KeyEquivalent("\u{F708}") {
+            key = .f5
         } else {
             return nil
         }
         self.init(key: key, modifiers: modifiers, mode: mode, isComposing: isComposing)
+    }
+
+    /// Letters and the XMind single-key glyphs. Shifted characters already appear
+    /// in `characters` as `+` or `*`.
+    static func mappedCharacter(_ raw: String) -> KeyToken? {
+        let lowered = raw.lowercased()
+        guard lowered.count == 1, let character = lowered.first else {
+            if raw == "+" { return .character("+") }
+            if raw == "*" { return .character("*") }
+            return nil
+        }
+        if "zayarl+-*/".contains(character) {
+            return .character(character)
+        }
+        return nil
     }
 }
 
@@ -1001,6 +1020,259 @@ private extension KeyEvent {
             }
         }
         self.init(key: key, modifiers: modifiers, mode: .edit, isComposing: isComposing)
+    }
+}
+#endif
+
+/// Collapses a physical key that SwiftUI `onKeyPress` and `UIKeyCommand` both
+/// deliver, so one press cannot insert two siblings.
+@MainActor
+final class KeyDeliveryCoalescer {
+    private var last: (KeyEvent, TimeInterval)?
+
+    func shouldApply(_ event: KeyEvent) -> Bool {
+        let now = ProcessInfo.processInfo.systemUptime
+        if let last, last.0 == event, now - last.1 < 0.05 {
+            return false
+        }
+        self.last = (event, now)
+        return true
+    }
+}
+
+enum MindMapKeyDispatch {
+    @MainActor
+    static func handle(
+        _ event: KeyEvent,
+        keyboard: inout MindMapKeyboardSession,
+        document: inout MindMapDocument,
+        frames: [NodeFrame],
+        surface: KeyboardSurface = .canvas,
+        coalescer: KeyDeliveryCoalescer? = nil,
+        onChrome: (MindMapCommand) -> Void = { _ in }
+    ) -> Bool {
+        if let coalescer, !coalescer.shouldApply(event) {
+            return true
+        }
+        let command = keyboard.handle(event, document: &document, frames: frames, surface: surface)
+        guard let command else { return false }
+        switch command {
+        case .openProperties, .showShortcutHelp, .jumpToCentralTopic:
+            onChrome(command)
+        default:
+            break
+        }
+        return true
+    }
+}
+
+#if os(iOS)
+/// Hardware-keyboard commands for iPad. `canPerformAction` refuses single-key
+/// shortcuts while a text field is focused or IME composition is active.
+struct HardwareShortcutHost: UIViewRepresentable {
+    var mode: KeyboardMode
+    var isComposing: Bool
+    var isEnabled: Bool
+    var coalescer: KeyDeliveryCoalescer
+    var onEvent: (KeyEvent) -> Bool
+
+    func makeCoordinator() -> HardwareShortcutView {
+        HardwareShortcutView()
+    }
+
+    func makeUIView(context: Context) -> HardwareShortcutView {
+        let view = context.coordinator
+        view.backgroundColor = .clear
+        view.isUserInteractionEnabled = false
+        view.isAccessibilityElement = false
+        apply(view)
+        return view
+    }
+
+    func updateUIView(_ uiView: HardwareShortcutView, context: Context) {
+        apply(uiView)
+        if isEnabled, mode == .command, !isComposing {
+            uiView.claimFirstResponder()
+        } else {
+            uiView.resignIfFirstResponder()
+        }
+    }
+
+    private func apply(_ view: HardwareShortcutView) {
+        view.mode = mode
+        view.isComposing = isComposing
+        view.coalescer = coalescer
+        view.onEvent = onEvent
+    }
+}
+
+final class HardwareShortcutView: UIView {
+    var mode: KeyboardMode = .command
+    var isComposing = false
+    var coalescer: KeyDeliveryCoalescer?
+    var onEvent: ((KeyEvent) -> Bool)?
+
+    override var canBecomeFirstResponder: Bool { true }
+
+    func claimFirstResponder() {
+        if !isFirstResponder {
+            _ = becomeFirstResponder()
+        }
+    }
+
+    func resignIfFirstResponder() {
+        if isFirstResponder {
+            _ = resignFirstResponder()
+        }
+    }
+
+    override var keyCommands: [UIKeyCommand]? {
+        HardwareShortcutCatalog.commands(action: #selector(performHardwareShortcut(_:)))
+    }
+
+    override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        guard action == #selector(performHardwareShortcut(_:)) else {
+            return super.canPerformAction(action, withSender: sender)
+        }
+        guard let keyCommand = sender as? UIKeyCommand,
+              let event = KeyEvent(keyCommand: keyCommand, mode: mode, isComposing: isComposing) else {
+            return false
+        }
+        if isComposing { return false }
+        if mode == .edit, HardwareShortcutCatalog.isSingleKey(keyCommand) { return false }
+        return KeyboardCommandMapper.map(event) != nil
+    }
+
+    @objc func performHardwareShortcut(_ sender: UIKeyCommand) {
+        guard let event = KeyEvent(keyCommand: sender, mode: mode, isComposing: isComposing) else { return }
+        _ = onEvent?(event)
+    }
+
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if let key = presses.first?.key, let mapped = KeyEvent(uiKey: key, isComposing: isComposing, mode: mode) {
+            if KeyboardCommandMapper.map(mapped) != nil, onEvent?(mapped) == true {
+                return
+            }
+        }
+        super.pressesBegan(presses, with: event)
+    }
+}
+
+enum HardwareShortcutCatalog {
+    static func commands(action: Selector) -> [UIKeyCommand] {
+        bindings.map { input, flags, title in
+            let command = UIKeyCommand(title: title, action: action, input: input, modifierFlags: flags)
+            command.wantsPriorityOverSystemBehavior = true
+            command.discoverabilityTitle = title
+            return command
+        }
+    }
+
+    static func isSingleKey(_ command: UIKeyCommand) -> Bool {
+        let flags = command.modifierFlags.intersection([.command, .alternate, .control])
+        return flags.isEmpty
+    }
+
+    private static var bindings: [(String, UIKeyModifierFlags, String)] {
+        [
+            (" ", [], "编辑主题"),
+            ("\r", [], "新建同级"),
+            ("\t", [], "新建子级"),
+            ("\r", .shift, "新建同级（前）"),
+            ("\r", .command, "新建父级"),
+            ("\r", .alternate, "属性"),
+            ("a", [.command, .shift], "全选同级"),
+            ("a", [.command, .alternate], "全选子级"),
+            ("a", .command, "全选主题"),
+            ("r", .command, "跳到中心主题"),
+            ("y", .command, "重做"),
+            ("l", [.command, .shift], "快捷键一览"),
+            ("+", [], "展开分支"),
+            ("-", [], "收起分支"),
+            ("*", [], "展开全部"),
+            ("/", [], "收起全部"),
+            (UIKeyCommand.inputUpArrow, .alternate, "上移主题"),
+            (UIKeyCommand.inputDownArrow, .alternate, "下移主题"),
+        ]
+    }
+}
+
+private extension KeyEvent {
+    init?(keyCommand: UIKeyCommand, mode: KeyboardMode, isComposing: Bool) {
+        guard let input = keyCommand.input else { return nil }
+        var modifiers = KeyModifiers()
+        if keyCommand.modifierFlags.contains(.shift) { modifiers.insert(.shift) }
+        if keyCommand.modifierFlags.contains(.command) { modifiers.insert(.command) }
+        if keyCommand.modifierFlags.contains(.alternate) { modifiers.insert(.option) }
+        if keyCommand.modifierFlags.contains(.control) { modifiers.insert(.control) }
+        let key: KeyToken
+        switch input {
+        case "\t":
+            key = .tab
+        case "\r", "\n":
+            key = .enter
+        case " ":
+            key = .space
+        case UIKeyCommand.inputEscape:
+            key = .escape
+        case UIKeyCommand.inputUpArrow:
+            key = .up
+        case UIKeyCommand.inputDownArrow:
+            key = .down
+        case UIKeyCommand.inputLeftArrow:
+            key = .left
+        case UIKeyCommand.inputRightArrow:
+            key = .right
+        default:
+            if let mapped = KeyEvent.mappedCharacter(input) {
+                key = mapped
+            } else {
+                return nil
+            }
+        }
+        self.init(key: key, modifiers: modifiers, mode: mode, isComposing: isComposing)
+    }
+
+    init?(uiKey: UIKey, isComposing: Bool, mode: KeyboardMode) {
+        var modifiers = KeyModifiers()
+        if uiKey.modifierFlags.contains(.shift) { modifiers.insert(.shift) }
+        if uiKey.modifierFlags.contains(.command) { modifiers.insert(.command) }
+        if uiKey.modifierFlags.contains(.alternate) { modifiers.insert(.option) }
+        if uiKey.modifierFlags.contains(.control) { modifiers.insert(.control) }
+        let key: KeyToken
+        switch uiKey.keyCode {
+        case .keyboardTab:
+            key = .tab
+        case .keyboardReturnOrEnter, .keypadEnter:
+            key = .enter
+        case .keyboardEscape:
+            key = .escape
+        case .keyboardDeleteOrBackspace:
+            key = .backspace
+        case .keyboardUpArrow:
+            key = .up
+        case .keyboardDownArrow:
+            key = .down
+        case .keyboardLeftArrow:
+            key = .left
+        case .keyboardRightArrow:
+            key = .right
+        case .keyboardSpacebar:
+            key = .space
+        case .keyboardF2:
+            key = .f2
+        case .keyboardF5:
+            key = .f5
+        default:
+            if let mapped = KeyEvent.mappedCharacter(uiKey.characters) {
+                key = mapped
+            } else if uiKey.charactersIgnoringModifiers == "\u{F728}" {
+                key = .delete
+            } else {
+                return nil
+            }
+        }
+        self.init(key: key, modifiers: modifiers, mode: mode, isComposing: isComposing)
     }
 }
 #endif

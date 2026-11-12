@@ -36,6 +36,8 @@ public enum KeyToken: Equatable, Sendable {
     case down
     case left
     case right
+    case f2
+    case f5
     case character(Character)
 }
 
@@ -53,9 +55,16 @@ public struct KeyEvent: Equatable, Sendable {
     }
 }
 
+public enum TopicMove: Equatable, Sendable {
+    case up
+    case down
+}
+
 public enum MindMapCommand: Equatable, Sendable {
     case createChild
     case createSibling
+    case createSiblingBefore
+    case createParent
     case insertNewline
     case beginEdit
     case commitEdit
@@ -65,6 +74,17 @@ public enum MindMapCommand: Equatable, Sendable {
     case undo
     case redo
     case toggleCollapse
+    case expandBranch
+    case collapseBranch
+    case expandAll
+    case collapseAll
+    case moveTopic(TopicMove)
+    case selectAllTopics
+    case selectAllSiblings
+    case selectAllChildren
+    case openProperties
+    case jumpToCentralTopic
+    case showShortcutHelp
 }
 
 /// Pure key → command map. The canvas calls this; it does not look at the tree.
@@ -73,6 +93,10 @@ public enum MindMapCommand: Equatable, Sendable {
 /// from creating or deleting nodes. Enter in edit mode commits and returns to command mode
 /// (it does not create a sibling). Shift+Enter inserts a newline. A second Enter, back in
 /// command mode, creates the sibling.
+///
+/// Whenever a text field is focused (edit mode) or IME composition is active
+/// (`isComposing`), every single-key shortcut (Space, Enter, Tab, +, -, *, /)
+/// is suppressed, except Enter/Shift+Enter/Escape which belong to the editor.
 ///
 /// Delete choice: in command mode, Backspace, forward Delete, and ⌘Backspace all delete the
 /// selected node. macOS prints "delete" on the large Backspace key; a full keyboard also has
@@ -92,24 +116,17 @@ public enum KeyboardCommandMapper {
     }
 
     private static func mapCommand(_ event: KeyEvent) -> MindMapCommand? {
+        if let command = XMindShortcutCatalog.command(for: event) {
+            return command
+        }
         if event.modifiers.isEmpty {
             switch event.key {
-            case .tab: return .createChild
-            case .enter: return .createSibling
-            case .space: return .beginEdit
-            case .delete, .backspace: return .deleteSelection
             case .up: return .moveSelection(.up)
             case .down: return .moveSelection(.down)
             case .left: return .moveSelection(.left)
             case .right: return .moveSelection(.right)
-            case .escape, .character: return nil
+            default: break
             }
-        }
-        if event.modifiers == .command, isZ(event.key) {
-            return .undo
-        }
-        if event.modifiers == [.command, .shift], isZ(event.key) {
-            return .redo
         }
         if event.modifiers == .command, event.key == .backspace || event.key == .delete {
             return .deleteSelection
@@ -128,10 +145,5 @@ public enum KeyboardCommandMapper {
             return .cancelEdit
         }
         return nil
-    }
-
-    private static func isZ(_ key: KeyToken) -> Bool {
-        guard case .character(let character) = key else { return false }
-        return character == "z" || character == "Z"
     }
 }

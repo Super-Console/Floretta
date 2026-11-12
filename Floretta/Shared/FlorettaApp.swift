@@ -154,12 +154,32 @@ private struct FlorettaCommands: Commands {
                     editorCommand(id, actions: editorCommands)
                 }
             }
+            CommandMenu("主题") {
+                topicButton("编辑主题", command: .beginEdit, chord: "Space")
+                topicButton("新建同级（后）", command: .createSibling, chord: "↩")
+                topicButton("新建子级", command: .createChild, chord: "⇥")
+                topicButton("新建同级（前）", command: .createSiblingBefore, chord: "⇧↩")
+                topicShortcut(.createParent)
+                Divider()
+                topicShortcut(.selectAllSiblings)
+                topicShortcut(.selectAllChildren)
+                topicShortcut(.jumpToCentralTopic)
+                topicShortcut(.moveTopic(.up))
+                topicShortcut(.moveTopic(.down))
+                Divider()
+                topicButton("展开分支", command: .expandBranch, chord: "+")
+                topicButton("收起分支", command: .collapseBranch, chord: "-")
+                topicButton("展开全部", command: .expandAll, chord: "*")
+                topicButton("收起全部", command: .collapseAll, chord: "/")
+                topicShortcut(.openProperties)
+            }
             CommandMenu("帮助") {
                 Button {
                     editorCommands.showShortcutHelp?()
                 } label: {
                     Label("快捷键一览", systemImage: "keyboard")
                 }
+                .keyboardShortcut("l", modifiers: [.command, .shift])
                 Button {
                     editorCommands.perform[.about]?()
                 } label: {
@@ -180,6 +200,32 @@ private struct FlorettaCommands: Commands {
     }
 
     #if os(macOS)
+    private func topicShortcut(_ command: MindMapCommand) -> some View {
+        guard let entry = XMindShortcutCatalog.entries.first(where: {
+            $0.command == command && $0.registersMenuEquivalent
+        }) else {
+            return AnyView(EmptyView())
+        }
+        return AnyView(topicButton(entry.title, command: command, chord: nil, entry: entry))
+    }
+
+    private func topicButton(
+        _ title: String,
+        command: MindMapCommand,
+        chord: String? = nil,
+        entry: XMindShortcutCatalog.Entry? = nil
+    ) -> some View {
+        let label = chord == nil ? title : "\(title)    \(chord!)"
+        let item = Button(label) {
+            editorCommands?.performShortcut?(command)
+        }
+        .disabled(editorCommands?.performShortcut == nil)
+        if let entry, entry.registersMenuEquivalent, let shortcut = KeyboardShortcut(entry: entry) {
+            return AnyView(item.keyboardShortcut(shortcut))
+        }
+        return AnyView(item)
+    }
+
     @ViewBuilder
     private func editorCommand(_ id: EditorToolbarCommandID, actions: FlorettaEditorMenuActions) -> some View {
         let command = EditorToolbarCatalog.command(id)
@@ -213,6 +259,7 @@ struct FlorettaEditorMenuActions {
     var setFontSize: ((Double) -> Void)?
     var toggleTextFlag: ((InspectorTextFlag) -> Void)?
     var showShortcutHelp: (() -> Void)?
+    var performShortcut: ((MindMapCommand) -> Void)?
     var zoomIn: (() -> Void)?
     var zoomOut: (() -> Void)?
     var zoomActual: (() -> Void)?
@@ -475,6 +522,35 @@ final class FlorettaAppDelegate: NSObject, NSApplicationDelegate {
 final class FlorettaAppDelegate: NSObject, UIApplicationDelegate {
     func applicationWillTerminate(_ application: UIApplication) {
         AutosaveQuitHook.perform()
+    }
+}
+#endif
+
+
+#if os(macOS)
+extension KeyboardShortcut {
+    init?(entry: XMindShortcutCatalog.Entry) {
+        let key: KeyEquivalent
+        switch entry.key {
+        case .enter: key = .return
+        case .tab: key = .tab
+        case .space: key = .space
+        case .escape: key = .escape
+        case .up: key = .upArrow
+        case .down: key = .downArrow
+        case .left: key = .leftArrow
+        case .right: key = .rightArrow
+        case .delete, .backspace: key = .delete
+        case .character(let character): key = KeyEquivalent(character)
+        case .f2, .f5:
+            return nil
+        }
+        var modifiers: EventModifiers = []
+        if entry.modifiers.contains(.shift) { modifiers.insert(.shift) }
+        if entry.modifiers.contains(.command) { modifiers.insert(.command) }
+        if entry.modifiers.contains(.option) { modifiers.insert(.option) }
+        if entry.modifiers.contains(.control) { modifiers.insert(.control) }
+        self.init(key, modifiers: modifiers)
     }
 }
 #endif

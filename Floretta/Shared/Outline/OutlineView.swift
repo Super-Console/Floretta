@@ -8,6 +8,8 @@ struct OutlineView: View {
     var tagFilter: TopicTagFilter = TopicTagFilter()
     /// Markdown mode has no collapse control. The tree stays expanded.
     var locksCollapse: Bool = false
+    var onChromeCommand: (MindMapCommand) -> Void = { _ in }
+    @State private var keyCoalescer = KeyDeliveryCoalescer()
     #if os(iOS)
     @State private var reorderMode: EditMode = .inactive
     #endif
@@ -39,8 +41,16 @@ struct OutlineView: View {
                 guard let event = KeyEvent(press: press, mode: .command, isComposing: keyboard.isComposing) else {
                     return .ignored
                 }
-                let command = keyboard.handle(event, document: &document, frames: [], surface: .outline)
-                return command == nil ? .ignored : .handled
+                let handled = MindMapKeyDispatch.handle(
+                    event,
+                    keyboard: &keyboard,
+                    document: &document,
+                    frames: [],
+                    surface: .outline,
+                    coalescer: keyCoalescer,
+                    onChrome: onChromeCommand
+                )
+                return handled ? .handled : .ignored
             }
     }
 

@@ -42,7 +42,9 @@ struct InfiniteCanvas: View {
     var persistsPlacement: Bool = true
     var dictationToken: Int = 0
     var dictationReplacesPlaceholder: Bool = false
+    var onChromeCommand: (MindMapCommand) -> Void = { _ in }
     @State private var compositionWidth: CGFloat = 0
+    @State private var keyCoalescer = KeyDeliveryCoalescer()
     @State private var fileIcons = FileIconCache()
     @State private var dotTiles = DotTileCache()
     @State private var laidOut = LaidOutFrames()
@@ -154,6 +156,19 @@ struct InfiniteCanvas: View {
 
     private func observeCanvas<V: View>(_ view: V, size: CGSize) -> some View {
         view
+            .background {
+                #if os(iOS)
+                HardwareShortcutHost(
+                    mode: keyboard.mode,
+                    isComposing: keyboard.isComposing,
+                    isEnabled: canvasFocused,
+                    coalescer: keyCoalescer,
+                    onEvent: { handleKey($0) }
+                )
+                .frame(width: 0, height: 0)
+                .accessibilityHidden(true)
+                #endif
+            }
             .onKeyPress { press in
                 if press.key == .escape, !keyboard.isComposing, onEscape() {
                     return .handled
@@ -1160,9 +1175,29 @@ struct InfiniteCanvas: View {
         if event.key == .escape, event.modifiers.isEmpty, !event.isComposing, !keyboard.isComposing, onEscape() {
             return true
         }
-        let command = keyboard.handle(event, document: &document, frames: placedFrames())
+        let handled = MindMapKeyDispatch.handle(
+            event,
+            keyboard: &keyboard,
+            document: &document,
+            frames: placedFrames(),
+            coalescer: keyCoalescer
+        ) { command in
+            handleChrome(command)
+        }
         interaction.selectedNodeID = keyboard.selectedNodeID
-        return command != nil
+        return handled
+    }
+
+    private func handleChrome(_ command: MindMapCommand) {
+        switch command {
+        case .jumpToCentralTopic:
+            if let id = keyboard.selectedNodeID,
+               let frame = placedFrames().first(where: { $0.id == id }) {
+                camera.centerOn(frame.frame)
+            }
+        default:
+            onChromeCommand(command)
+        }
     }
 
     private func addButton(_ direction: CanvasDirection, at point: CGPoint, parent: UUID) -> some View {
@@ -1645,7 +1680,7 @@ struct InfiniteCanvas: View {
             radius = normalRadius
         }
         let path = Path(roundedRect: rect, cornerRadius: radius)
-        let selected = interaction.selectedNodeID == node.id
+        let selected = interaction.selectedNodeID == node.id || keyboard.selectedNodeIDs.contains(node.id)
         var layer = context
         var opacity = pose?.opacity ?? 1
         if dimmed { opacity *= TopicTagCanvas.dimOpacity }
@@ -2605,6 +2640,15 @@ final class CanvasCamera {
         updated.snapToStop(around: center)
         viewport = updated
         chrome.syncZoomPercent(toScale: viewport.scale)
+    }
+
+    func centerOn(_ canvasRect: CGRect) {
+        guard viewSize.width > 1, viewSize.height > 1 else { return }
+        let target = CGPoint(x: canvasRect.midX, y: canvasRect.midY)
+        let current = viewport.viewPoint(fromCanvas: target)
+        var updated = viewport
+        updated.pan(by: CGSize(width: center.x - current.x, height: center.y - current.y))
+        viewport = updated
     }
 
     func restore(_ state: CanvasViewportState) {

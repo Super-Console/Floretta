@@ -13,7 +13,14 @@ public enum MacMenuShortcutCatalog {
     }
 
     public static let custom: [Chord] = [
-        Chord("return"), Chord("return", ["command", "shift"]),
+        Chord("return"), // ⌘↩ new parent
+        Chord("return", ["option"]),
+        Chord("a", ["command", "shift"]),
+        Chord("a", ["command", "option"]),
+        Chord("r"),
+        Chord("l", ["command", "shift"]),
+        Chord("uparrow", ["option"]),
+        Chord("downarrow", ["option"]),
         Chord("0"), Chord("+"), Chord("-"), Chord("="), Chord("b"), Chord("i")
     ]
 

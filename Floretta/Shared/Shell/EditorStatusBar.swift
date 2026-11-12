@@ -20,7 +20,6 @@ struct EditorStatusStrip: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .frame(minHeight: EditorStatusBarChrome.controlMinHeight)
-        .editorStatusBarFeather(EditorStatusBarChrome.featherInset)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("statusBar")
     }

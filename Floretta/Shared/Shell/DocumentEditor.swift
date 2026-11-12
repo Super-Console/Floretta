@@ -564,6 +564,7 @@ struct DocumentEditor: View {
                     )
                 }
             }
+            .editorStatusBarFeather(EditorStatusBarChrome.featherInset)
             .safeAreaPadding(.bottom)
             .accessibilityIdentifier("editor.bottomBar")
         }
@@ -588,8 +589,13 @@ struct DocumentEditor: View {
                 session.addCanvas(viewport: camera.viewport.persisted)
             } label: {
                 Image(systemName: "plus")
+                    .frame(
+                        minWidth: EditorStatusBarChrome.controlMinHeight,
+                        minHeight: EditorStatusBarChrome.controlMinHeight
+                    )
+                    .contentShape(Rectangle())
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.plain)
             .accessibilityLabel(text("新建画布"))
             .accessibilityIdentifier("canvas.tab.add")
             .help(Text(verbatim: text("在这份文档里再加一张画布")))
@@ -597,7 +603,7 @@ struct DocumentEditor: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .appleGlassChrome(.floatingPanel)
+        .frame(minHeight: EditorStatusBarChrome.controlMinHeight)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("canvas.tabs")
         .alert(Text(verbatim: text("重新命名")), isPresented: $showCanvasRename) {
@@ -620,7 +626,8 @@ struct DocumentEditor: View {
         .buttonStyle(.plain)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .appleGlassChrome(.bottomBarCapsule)
+        .frame(minHeight: EditorStatusBarChrome.controlMinHeight)
+        .contentShape(Rectangle())
         .tint(selected ? Color.accentColor : Color.secondary)
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityIdentifier("canvas.tab.\(index)")

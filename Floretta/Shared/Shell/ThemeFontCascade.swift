@@ -85,7 +85,43 @@ enum ThemeFontCascade {
         return nil
     }
 
+    /// Resolved CTFont cache. Building a cascade list is too expensive to do
+    /// for every visible node on every CADisplayLink frame. Keyed by
+    /// (family, design, size); a miss for a new size is a cheap copy of a
+    /// template already built for that family and design. The expensive
+    /// cascade walk runs only when the family or node design is new.
+    private struct FontCacheKey: Hashable {
+        var familyID: String
+        var nodeDesign: String
+        var sizeTicks: Int
+    }
+
+    private final class ResolvedFontCache: @unchecked Sendable {
+        let lock = NSLock()
+        var fonts: [FontCacheKey: CTFont] = [:]
+        var templates: [String: CTFont] = [:]
+        var cascadeNames: [String: [String]] = [:]
+    }
+
+    private static let resolvedFonts = ResolvedFontCache()
+
+    private static func sizeTicks(_ size: CGFloat) -> Int {
+        Int((max(size, 1) * 64).rounded())
+    }
+
+    private static func pointSize(fromTicks ticks: Int) -> CGFloat {
+        CGFloat(ticks) / 64
+    }
+
     static func cascadePostScriptNames(kind: AppearanceFontKind) -> [String] {
+        let cacheKey = kind.rawValue
+        resolvedFonts.lock.lock()
+        if let cached = resolvedFonts.cascadeNames[cacheKey] {
+            resolvedFonts.lock.unlock()
+            return cached
+        }
+        resolvedFonts.lock.unlock()
+
         let groups: [[String]]
         switch kind {
         case .serif:
@@ -100,24 +136,85 @@ enum ThemeFontCascade {
                 result.append(name)
             }
         }
+        resolvedFonts.lock.lock()
+        resolvedFonts.cascadeNames[cacheKey] = result
+        resolvedFonts.lock.unlock()
         return result
     }
 
     static func ctFont(familyID: String, size: CGFloat) -> CTFont {
-        registerBundledFonts()
-        let point = max(size, 1)
-        let family = AppearanceCatalog.family(id: familyID)
-            ?? AppearanceCatalog.family(id: "system-serif")!
-        let base = latinPrimary(for: family, size: point)
-        // On iOS, the native New York UI font falls back to PingFang /
-        // Apple SD Gothic for CJK — that would make Classic Chinese look
-        // gothic. Keep the explicit Songti / Mincho / Myungjo cascade on
-        // serif families. system-sans keeps the raw UI font so English is
-        // SF and CJK stays gothic (PingFang / Apple SD Gothic).
-        if family.id == "system-sans" {
-            return base
+        cachedCTFont(familyID: familyID, nodeDesign: "default", size: size)
+    }
+
+    /// Returns a cached CTFont for the family, node design, and size.
+    /// Rebuilds the cascade only when the family or design has not been seen.
+    static func cachedCTFont(familyID: String, nodeDesign: String, size: CGFloat) -> CTFont {
+        let ticks = sizeTicks(size)
+        let key = FontCacheKey(familyID: familyID, nodeDesign: nodeDesign, sizeTicks: ticks)
+        let templateKey = "\(familyID)\u{1f}\(nodeDesign)"
+
+        resolvedFonts.lock.lock()
+        if let hit = resolvedFonts.fonts[key] {
+            resolvedFonts.lock.unlock()
+            return hit
         }
-        return applyingCascade(base, kind: family.kind)
+        if let template = resolvedFonts.templates[templateKey] {
+            let sized = CTFontCreateCopyWithAttributes(template, pointSize(fromTicks: ticks), nil, nil)
+            resolvedFonts.fonts[key] = sized
+            resolvedFonts.lock.unlock()
+            return sized
+        }
+        resolvedFonts.lock.unlock()
+
+        let built = makeCTFont(familyID: familyID, nodeDesign: nodeDesign, size: pointSize(fromTicks: ticks))
+
+        resolvedFonts.lock.lock()
+        if resolvedFonts.templates[templateKey] == nil {
+            resolvedFonts.templates[templateKey] = built
+        }
+        resolvedFonts.fonts[key] = built
+        resolvedFonts.lock.unlock()
+        return built
+    }
+
+    private static func makeCTFont(familyID: String, nodeDesign: String, size: CGFloat) -> CTFont {
+        switch nodeDesign {
+        case "rounded":
+            #if os(macOS)
+            let base = NSFont.systemFont(ofSize: size)
+            if let descriptor = base.fontDescriptor.withDesign(.rounded),
+               let font = NSFont(descriptor: descriptor, size: size) {
+                return font as CTFont
+            }
+            return base as CTFont
+            #else
+            let base = UIFont.systemFont(ofSize: size)
+            if let descriptor = base.fontDescriptor.withDesign(.rounded) {
+                return UIFont(descriptor: descriptor, size: size) as CTFont
+            }
+            return base as CTFont
+            #endif
+        case "monospaced":
+            #if os(macOS)
+            return NSFont.monospacedSystemFont(ofSize: size, weight: .regular) as CTFont
+            #else
+            return UIFont.monospacedSystemFont(ofSize: size, weight: .regular) as CTFont
+            #endif
+        default:
+            registerBundledFonts()
+            let family = AppearanceCatalog.family(id: familyID)
+                ?? AppearanceCatalog.family(id: "system-serif")!
+            let base = latinPrimary(for: family, size: size)
+            // On iOS, the native New York UI font falls back to PingFang /
+            // Apple SD Gothic for CJK — that would make Classic Chinese look
+            // gothic. Keep the explicit Songti / Mincho / Myungjo cascade on
+            // serif families. system-sans keeps the raw UI font so English is
+            // SF and CJK stays gothic (PingFang / Apple SD Gothic).
+            if family.id == "system-sans" {
+                return base
+            }
+            return applyingCascade(base, kind: family.kind)
+        }
     }
 
     static func swiftFont(familyID: String, nodeDesign: String, size: CGFloat) -> Font {
@@ -228,34 +325,11 @@ enum ThemeFontCascade {
 
     #if os(macOS)
     static func platformFont(familyID: String, nodeDesign: String, size: CGFloat) -> NSFont {
-        switch nodeDesign {
-        case "rounded":
-            let base = NSFont.systemFont(ofSize: max(size, 1))
-            if let descriptor = base.fontDescriptor.withDesign(.rounded),
-               let font = NSFont(descriptor: descriptor, size: max(size, 1)) {
-                return font
-            }
-            return base
-        case "monospaced":
-            return NSFont.monospacedSystemFont(ofSize: max(size, 1), weight: .regular)
-        default:
-            return ctFont(familyID: familyID, size: size) as NSFont
-        }
+        cachedCTFont(familyID: familyID, nodeDesign: nodeDesign, size: size) as NSFont
     }
     #else
     static func platformFont(familyID: String, nodeDesign: String, size: CGFloat) -> UIFont {
-        switch nodeDesign {
-        case "rounded":
-            let base = UIFont.systemFont(ofSize: max(size, 1))
-            if let descriptor = base.fontDescriptor.withDesign(.rounded) {
-                return UIFont(descriptor: descriptor, size: max(size, 1))
-            }
-            return base
-        case "monospaced":
-            return UIFont.monospacedSystemFont(ofSize: max(size, 1), weight: .regular)
-        default:
-            return ctFont(familyID: familyID, size: size) as UIFont
-        }
+        cachedCTFont(familyID: familyID, nodeDesign: nodeDesign, size: size) as UIFont
     }
     #endif
 

@@ -74,17 +74,19 @@ macOS 上 `ThemeFontCascadeTests` 在本轮补了一项 `testSystemSansAndSystem
 
 对照实验用**同一套** XCUITest 启动器（`testCanvasPerf500ViaUITest`）、**未改写的** PR #117 `CanvasPerfProbe`、同一份 500 节点夹具（启动参数 `-FlorettaUITest -FlorettaPerfNodes 500`），Release，iPad 模拟器 `ASC-iPadPro13-M5`（`330B63B2-5EE7-477E-B564-EE7C02161EE5`），命令行覆盖 `CODE_SIGN_IDENTITY="Apple Development"` `DEVELOPMENT_TEAM=JY5U4D6JD3`。峰值内存为 `task_vm_info.phys_footprint`（JSON `peakFootprintMB`）。时间均为 Asia/Shanghai（CST）。没有编造数字。
 
-| 项 | 对照：`origin/main` / merge-base `8e50c12`（无 theme-modes） | 本分支修复后（相对 `fae6453` 去掉每帧 CTFont） |
+| 项 | 对照：`origin/main` / merge-base `8e50c12`（无 theme-modes） | 本分支（缓存 CTFont 后，画布仍走真实家族） |
 | --- | --- | --- |
-| HEAD | `8e50c1212d9f784ec6b38ba434f8c77cb9206cf6` | 本 tip（含本轮修复提交） |
-| 日志 | `/tmp/theme-modes-baseline-perf500.log` START 2026-11-12 23:15:21，END 23:16:58，EXIT 0，`** TEST SUCCEEDED **` | `/tmp/theme-modes-perf500-fix.log` START 2026-11-12 23:21:11，END 23:22:09，EXIT 0，`** TEST SUCCEEDED **` |
-| JSON | `docs/reviews/theme-modes/canvas-perf-500-ipad-baseline-8e50c12.json`，`finishedAt` 2026-11-12T15:16:56Z（23:16:56 CST） | `docs/reviews/theme-modes/canvas-perf-500-ipad-xcuitest.json`，`finishedAt` 2026-11-12T15:22:08Z（23:22:08 CST） |
-| 峰值内存 | 97.4 MB | 73.4 MB |
+| HEAD | `8e50c1212d9f784ec6b38ba434f8c77cb9206cf6` | 本 tip（含本轮缓存提交） |
+| 日志 | `/tmp/theme-modes-baseline-perf500.log` START 2026-11-12 23:15:21，END 23:16:58，EXIT 0，`** TEST SUCCEEDED **` | `/tmp/theme-modes-perf500-cache.log` START 2026-11-12 23:33:49，END 23:34:49，EXIT 0，`** TEST SUCCEEDED **`，`FLORETTA_PERF_UITEST_DONE elapsed=24.2` |
+| JSON | `docs/reviews/theme-modes/canvas-perf-500-ipad-baseline-8e50c12.json`，`finishedAt` 2026-11-12T15:16:56Z（23:16:56 CST） | `docs/reviews/theme-modes/canvas-perf-500-ipad-xcuitest.json`，`finishedAt` 2026-11-12T15:34:47Z（23:34:47 CST） |
+| 峰值内存 | 97.4 MB | 105.5 MB |
 | 平移 平均 / 最低 FPS | 59.7 / 58（179 次绘制） | 59.3 / 56（178 次绘制） |
-| 缩放 平均 / 最低 FPS | 57.3 / 50（344 次绘制） | 55.7 / 38（335 次绘制） |
-| 拖动 平均 / 最低 FPS | 59.7 / 58（180 次绘制） | 59.7 / 58（180 次绘制） |
+| 缩放 平均 / 最低 FPS | 57.3 / 50（344 次绘制） | 53.7 / 40（323 次绘制） |
+| 拖动 平均 / 最低 FPS | 59.7 / 58（180 次绘制） | 59.7 / 58（179 次绘制） |
 
-结论：同一套启动器在无 theme-modes 的 `8e50c12` 上是约 57–60 FPS，不是 1 FPS，所以先前本分支的 1.0 / 0.8 / 0.9 **不是**启动器开销，而是回归。对照日志 `/tmp/theme-modes-perf500-tip-confirm.log`（同一启动器、`fae6453`、23:18:43–23:19:29 CST，EXIT 0）与 JSON `docs/reviews/theme-modes/canvas-perf-500-ipad-fae6453-before-fix.json`（`finishedAt` 2026-11-12T15:19:27Z，23:19:27 CST）记录了回归：峰值 89.2 MB，平移 1.0 / 0，缩放 0.8 / 0，拖动 0.9 / 0（绘制 4 / 6 / 3）。原因是 `canvasText` 在每一帧为每个可见节点现场构建带级联的 `CTFont`/`UIFont`（另加过 Canvas `.id(fontFamilyID)`）。修复后改回与基线相同的廉价 `Text.font(Font.system(design:))` 路径，模式切换仍靠 `Font.system(design: .serif)` / `.default` 的不同身份区分经典与现代。上表右侧是修复后的测量，与对照同量级（约 56–60 FPS），不再用 1 FPS 申请通过。
+结论：同一套启动器在无 theme-modes 的 `8e50c12` 上是约 57–60 FPS，不是 1 FPS，所以先前本分支的 1.0 / 0.8 / 0.9 **不是**启动器开销，而是回归。对照日志 `/tmp/theme-modes-perf500-tip-confirm.log`（同一启动器、`fae6453`、23:18:43–23:19:29 CST，EXIT 0）与 JSON `docs/reviews/theme-modes/canvas-perf-500-ipad-fae6453-before-fix.json`（`finishedAt` 2026-11-12T15:19:27Z，23:19:27 CST）记录了回归：峰值 89.2 MB，平移 1.0 / 0，缩放 0.8 / 0，拖动 0.9 / 0（绘制 4 / 6 / 3）。原因是 `canvasText` 在每一帧为每个可见节点现场构建带级联的 `CTFont`/`UIFont`（另加过 Canvas `.id(fontFamilyID)`）。
+
+正确修复是按 (family, design, size) 缓存已解析的 CTFont：家族或模式变化时才重建级联，每一帧只做查找；新字号从已缓存的模板做一次廉价 `CTFontCreateCopyWithAttributes`。画布仍然把缓存里的真实 `UIFont`/`CTFont` 写进 `NSAttributedString`，所以选 EB Garamond 时拉丁字形会变成 `EBGaramond-Regular`，不能再退回 `Font.system(design:)` 作为画布路径（那会让内置家族全部画成系统衬线/无衬线）。上表右侧是缓存修复后的测量：平移 59.3、拖动 59.7，落在对照 57–60 区间；缩放平均 53.7（对照 57.3），略低于对照，但仍与 1 FPS 回归不是同一量级。
 
 - 包体：加字体后 iOS 12.3 MB（12,901,611 bytes，2026-11-12 20:48:15 CST）/ macOS 18.4 MB（19,336,424 bytes，`platform=macOS` arm64，2026-11-12 20:51:09 CST），Release+strip，与 `scripts/check-size.sh` 同一口径，1024 进制 MiB，门禁 iOS < 15 / macOS < 25。Censor 已接受这两项包体数字。macOS 直接启动路径仍然 windows=0，本对照只走 XCUITest，见 `docs/reviews/theme-modes/PERF-ATTEMPT.md`。
 
@@ -102,11 +104,13 @@ macOS 上 `ThemeFontCascadeTests` 在本轮补了一项 `testSystemSansAndSystem
 | `modern.png` | 同一份文档切到现代 / 跟随系统：白纸、行高 1.20、圆角 8。英文已变成 SF 无衬线，与经典明显不同；中文仍是 PingFang，韩文仍是 SD Gothic，与经典同一张脸，不得说这两种语言在现代里「换成了另一种黑体」；日文为 `.CJKSymbolsFallbackSC-Regular`，不是 Hiragino Sans | 2026-11-12 22:56:29 | 402,228 |
 | `custom.png` | 自定义（默认从经典复制）：奶油纸、系统衬线、行高 1.25、圆角 12 | 2026-11-12 22:14:02 | 424,626 |
 | `classic-sans.png` | 同一份文档，经典模式把字体族改成 Inter。英文是 Inter 无衬线；中文 `PingFangSC-Regular`；日文 `HiraginoSans-W3`；韩文 `AppleSDGothicNeo-Regular` | 2026-11-12 22:57:01 | 456,511 |
+| `latin-system-serif.png` | 同一份字形样本、同一句中英文，经典 + 系统衬线。与已通过的 `classic.png` 字节完全相同（472,011），作为本轮「选 EB Garamond 之前」的对照 | 2026-11-12 23:33:08 | 472,011 |
+| `latin-eb-garamond.png` | 同一份文档、同一句中英文，经典模式把字体族改成 EB Garamond。英文 “Serif English: The quick brown fox jumps.” 的拉丁字母明显换成旧式 Garamond（与系统 New York 不同）；中文仍是本模拟器上的 PingFang 回退，没有被拉丁面吃掉。检查器已关掉 | 2026-11-12 23:33:32 | 478,594 |
 
-日志：`/tmp/theme-modes-shot-poller.log`、`/tmp/theme-modes-glyph-songti.log`（`SONGTI_SHOT_START` 2026-11-12 22:55:10 CST，`SONGTI_SHOT_END` 22:57:02 CST，EXIT 0，`** TEST SUCCEEDED **`）。较早一轮空画布截图（22:13–22:14）已作废，不作为节点正文证据。
+已通过的 classic / modern / classic-sans 三张未重拍。EB Garamond 对照日志：`/tmp/theme-modes-eb-shot-poller.log`、`/tmp/theme-modes-eb-shot.log`（`EB_SHOT_START` 2026-11-12 23:31:29 CST，`EB_SHOT_END` 23:33:34 CST，EXIT 0，`** TEST SUCCEEDED **`）。经典/现代重拍日志仍是 `/tmp/theme-modes-shot-poller.log`、`/tmp/theme-modes-glyph-songti.log`（`SONGTI_SHOT_START` 2026-11-12 22:55:10 CST，`SONGTI_SHOT_END` 22:57:02 CST，EXIT 0）。较早一轮空画布截图（22:13–22:14）已作废，不作为节点正文证据。
 
 ## 测试（Asia/Shanghai）
 
 - `swift test --package-path FlorettaCore --filter AppearanceModeTests`：4/0，2026-11-12 21:35:54 CST。
-- `xcodebuild test`（Floretta-macOS）：`AppearanceSettingsTests` 4/0（含共享状态与立即同步、三模式切换、经典+非衬线跨重启持久化、标识前缀）、`ThemeFontCascadeTests` 先 6/0（21:37:44 CST）后在本轮补测为 7/0（22:44:00 CST，日志 `/tmp/theme-modes-font-mac-test.log`），`ShellTests` 相关 2/0，`** TEST SUCCEEDED **`。
-- iOS `generic/platform=iOS` 构建必须跑在本轮新 tip 上（不得用 `88e6640` 的 EXIT 0 代替）。跑完后把命令、日志路径、HEAD SHA、CST 起止和退出码补在本节。
+- `xcodebuild test`（Floretta-macOS）：`AppearanceSettingsTests` 4/0（含共享状态与立即同步、三模式切换、经典+非衬线跨重启持久化、标识前缀）、`ThemeFontCascadeTests` 8/0（2026-11-12 23:30:23–23:31:07 CST，日志 `/tmp/theme-modes-font-mac-test3.log`，`** TEST SUCCEEDED **`）。缓存填满多个字号之后，`eb-garamond` 的 “Hello” 仍是 `EBGaramond-Regular`，汉字仍是 `STSongti-SC-Regular`；`system-serif` 汉字同样仍是宋体。同一套测试在 22:44:00 CST 为 7/0（当时尚未加缓存用例）。
+- iOS `generic/platform=iOS`（`CODE_SIGNING_ALLOWED=NO`）必须跑在本轮新 tip 上，不得用 `88e6640` 或 `fe82126` 的 EXIT 0 代替。命令、日志路径、HEAD SHA、CST 起止和退出码写在 PR #119 与 `.dispatch/review-119.md`。

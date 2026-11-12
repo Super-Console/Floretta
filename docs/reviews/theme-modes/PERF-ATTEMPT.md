@@ -50,3 +50,9 @@ Hubert 指出 1.0 / 0.8 / 0.9 FPS 比同机基线低约一个数量级，不得�
 1. 对照 `8e50c1212d9f784ec6b38ba434f8c77cb9206cf6`（`origin/main` / merge-base，无 theme-modes）：`/tmp/theme-modes-baseline-perf500.log`，23:15:21–23:16:58 CST，EXIT 0。JSON `docs/reviews/theme-modes/canvas-perf-500-ipad-baseline-8e50c12.json`，`finishedAt` 2026-11-12T15:16:56Z。峰值 97.4 MB；平移 59.7 / 58，缩放 57.3 / 50，拖动 59.7 / 58。同一启动器在对照上不是 1 FPS，所以 1 FPS 不是启动器开销。
 2. `fae6453` 复核（同一启动器）：`/tmp/theme-modes-perf500-tip-confirm.log`，23:18:43–23:19:29 CST，EXIT 0。JSON `docs/reviews/theme-modes/canvas-perf-500-ipad-fae6453-before-fix.json`，`finishedAt` 2026-11-12T15:19:27Z。峰值 89.2 MB；平移 1.0 / 0，缩放 0.8 / 0，拖动 0.9 / 0。确认是本分支回归。原因是 `canvasText` 每帧为每个可见节点构建带级联的 CTFont（以及 Canvas `.id`）。
 3. 去掉那条热路径后再测：`/tmp/theme-modes-perf500-fix.log`，23:21:11–23:22:09 CST，EXIT 0。JSON `docs/reviews/theme-modes/canvas-perf-500-ipad-xcuitest.json`，`finishedAt` 2026-11-12T15:22:08Z。峰值 73.4 MB；平移 59.3 / 56，缩放 55.7 / 38，拖动 59.7 / 58。与对照同量级。模式切换仍用 `Font.system(design:)` 区分，未重拍已通过的截图。
+
+## 缓存 CTFont 后再测（2026-11-12 23:33–23:34 CST）
+
+Hubert 否决了把画布退回 `Font.system(design:)` 的修法：那样选 EB Garamond / Inter 仍会画成系统衬线或无衬线。正确修法是按 (family, design, size) 缓存已解析的 CTFont，每帧只查找。
+
+同一套 `testCanvasPerf500ViaUITest`、同一 PR #117 探针、同一 500 节点夹具，Release：`/tmp/theme-modes-perf500-cache.log`，23:33:49–23:34:49 CST，EXIT 0，`FLORETTA_PERF_UITEST_DONE elapsed=24.2`。JSON `docs/reviews/theme-modes/canvas-perf-500-ipad-xcuitest.json`，`finishedAt` 2026-11-12T15:34:47Z。峰值 105.5 MB；平移 59.3 / 56，缩放 53.7 / 40，拖动 59.7 / 58。平移和拖动落在对照 57–60 区间；缩放平均 53.7，略低于对照 57.3。中文级联在缓存填满后仍由 macOS `ThemeFontCascadeTests` 8/0 断言为宋体（23:30:23–23:31:07 CST，`/tmp/theme-modes-font-mac-test3.log`）。

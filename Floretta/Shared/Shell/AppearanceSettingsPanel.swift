@@ -50,7 +50,9 @@ struct AppearanceSettingsPanel: View {
 
             Picker(text("字体族"), selection: fontFamilyID) {
                 ForEach(AppearanceCatalog.families) { family in
-                    Text(verbatim: text(family.nameKey)).tag(family.id)
+                    Text(verbatim: text(family.nameKey))
+                        .tag(family.id)
+                        .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "fontFamily.\(family.id)"))
                 }
             }
             .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "fontFamily"))

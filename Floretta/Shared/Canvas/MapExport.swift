@@ -661,15 +661,24 @@ extension NodeTextTypography {
         nodeDesign: String = "default",
         size: CGFloat? = nil
     ) -> Text {
-        // Do not resolve a CTFont / UIFont on this path. Building a cascade
-        // list for every visible node on every display-link frame dropped
-        // 500-node canvas-perf from ~60 FPS on 8e50c12 to ~1 FPS on fae6453
-        // with the same XCUITest harness. Font.system(design:) / Font(ctFont)
-        // from FlorettaTitleFont is enough to distinguish classic vs modern
-        // and is cheap to apply via Text.font, matching the baseline probe.
-        _ = familyID
-        _ = nodeDesign
-        _ = size
+        // Apply the resolved family (EB Garamond, Inter, system-serif, …)
+        // plus the zh/ja/ko cascade onto the attributed string so choosing a
+        // bundled face actually changes Latin glyphs. ThemeFontCascade caches
+        // the CTFont by (family, design, size); a display-link frame only
+        // looks the font up. Do not fall back to Font.system(design:) here —
+        // that would paint New York / SF even when the user picked Garamond.
+        if let familyID, let size {
+            let resolved = ThemeFontCascade.platformFont(
+                familyID: familyID,
+                nodeDesign: nodeDesign,
+                size: size
+            )
+            let ns = NSAttributedString(string: string, attributes: [
+                .font: resolved,
+                .paragraphStyle: paragraphStyle(lineHeight: lineHeight),
+            ])
+            return Text(AttributedString(ns))
+        }
         let ns = NSAttributedString(string: string, attributes: [
             .paragraphStyle: paragraphStyle(lineHeight: lineHeight),
         ])

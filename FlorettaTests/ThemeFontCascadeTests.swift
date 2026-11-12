@@ -149,6 +149,35 @@ final class ThemeFontCascadeTests: XCTestCase {
         XCTAssertEqual(english, "EBGaramond-Regular")
     }
 
+    func testCachedSizesKeepLatinAndChinesePostScriptNames() {
+        // The (family, design, size) cache must not change what a run resolves
+        // to: Latin stays on the bundled face, Chinese stays on Songti (or the
+        // documented system serif). Hitting several sizes exercises the
+        // cheap size-copy path after the first cascade build.
+        let sizes: [CGFloat] = [12, 16, 18.5, 24, 32, 48]
+        for size in sizes {
+            _ = ThemeFontCascade.platformFont(familyID: "eb-garamond", nodeDesign: "default", size: size)
+            _ = ThemeFontCascade.platformFont(familyID: "system-serif", nodeDesign: "default", size: size)
+        }
+        XCTAssertEqual(ThemeFontCascade.postScriptName(familyID: "eb-garamond", for: "Hello"), "EBGaramond-Regular")
+        let chineseGaramond = ThemeFontCascade.postScriptName(familyID: "eb-garamond", for: "汉字")
+        XCTAssertNotEqual(chineseGaramond, "EBGaramond-Regular")
+        XCTAssertTrue(
+            ["STSongti-SC-Regular", "STSong", "STSongti-TC-Regular"].contains(chineseGaramond)
+                || chineseGaramond.localizedCaseInsensitiveContains("Song"),
+            "EB Garamond Chinese run used \(chineseGaramond) after cache fills"
+        )
+        let chineseSystem = ThemeFontCascade.postScriptName(familyID: "system-serif", for: "汉字")
+        XCTAssertTrue(
+            ["STSongti-SC-Regular", "STSong", "STSongti-TC-Regular"].contains(chineseSystem)
+                || chineseSystem.localizedCaseInsensitiveContains("Song"),
+            "system-serif Chinese run used \(chineseSystem) after cache fills"
+        )
+        // A second lookup at a size already cached must be identical.
+        XCTAssertEqual(ThemeFontCascade.postScriptName(familyID: "eb-garamond", for: "Hello"), "EBGaramond-Regular")
+        XCTAssertEqual(ThemeFontCascade.postScriptName(familyID: "eb-garamond", for: "汉字"), chineseGaramond)
+    }
+
     func testSourceHanSerifIsNotBundled() {
         let names = ThemeFontCascade.bundledFontURLs().map(\.lastPathComponent)
         XCTAssertFalse(names.contains { $0.contains("SourceHan") || $0.contains("CJK") })

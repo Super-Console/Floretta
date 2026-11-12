@@ -1419,6 +1419,22 @@ struct DocumentEditor: View {
 
     @ViewBuilder
     private var stylePage: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Form {
+                AppearanceSettingsPanel(
+                    settings: settings,
+                    identifierPrefix: "inspector.appearance",
+                    density: .inspector
+                )
+            }
+            .formStyle(.grouped)
+            .appleGlassInspectorFormPlate()
+            inspectorDocumentStyle
+        }
+    }
+
+    @ViewBuilder
+    private var inspectorDocumentStyle: some View {
         if session.keyboard.selectedRelationshipID != nil {
             relationshipLabelForm
         } else if session.keyboard.selectedSummaryID != nil {

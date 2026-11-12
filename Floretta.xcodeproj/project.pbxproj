@@ -107,6 +107,9 @@
 		CA1100000000000000000001 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1100000000000000000001 /* AppSettings.swift */; };
 		CA1100000000000000000002 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1100000000000000000001 /* AppSettings.swift */; };
 		CA1100000000000000000003 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1100000000000000000001 /* AppSettings.swift */; };
+		CA8A00000000000000000001 /* AppearanceSettingsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8A00000000000000000001 /* AppearanceSettingsPanel.swift */; };
+		CA8A00000000000000000002 /* AppearanceSettingsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8A00000000000000000001 /* AppearanceSettingsPanel.swift */; };
+		CA8A00000000000000000003 /* AppearanceSettingsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8A00000000000000000001 /* AppearanceSettingsPanel.swift */; };
 		CA2100000000000000000001 /* RecentMapsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA2100000000000000000001 /* RecentMapsStore.swift */; };
 		CA2100000000000000000002 /* RecentMapsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA2100000000000000000001 /* RecentMapsStore.swift */; };
 		CA2100000000000000000003 /* RecentMapsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA2100000000000000000001 /* RecentMapsStore.swift */; };
@@ -266,6 +269,7 @@
 		F90000000000000000000002 /* OutlineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutlineView.swift; sourceTree = "<group>"; };
 		F90000000000000000000003 /* OutlineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OutlineTests.swift; path = Tests/FlorettaCoreTests/OutlineTests.swift; sourceTree = SOURCE_ROOT; };
 		FA1100000000000000000001 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		FA8A00000000000000000001 /* AppearanceSettingsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettingsPanel.swift; sourceTree = "<group>"; };
 		FA2100000000000000000001 /* RecentMapsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentMapsStore.swift; sourceTree = "<group>"; };
 		FA3100000000000000000001 /* DocumentSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentSession.swift; sourceTree = "<group>"; };
 		FA3200000000000000000001 /* MarkdownDocumentUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownDocumentUI.swift; sourceTree = "<group>"; };
@@ -547,6 +551,7 @@
 			isa = PBXGroup;
 			children = (
 				FA1100000000000000000001 /* AppSettings.swift */,
+				FA8A00000000000000000001 /* AppearanceSettingsPanel.swift */,
 				FA5100000000000000000001 /* DocumentEditor.swift */,
 				FA4500000000000000000001 /* EditorStatusBar.swift */,
 				FA4500000000000000000002 /* EditorToolbarChrome.swift */,
@@ -1080,6 +1085,7 @@
 				C73000000000000000000001 /* SystemDictation.swift in Sources */,
 				C90000000000000000000002 /* OutlineView.swift in Sources */,
 				CA1100000000000000000001 /* AppSettings.swift in Sources */,
+				CA8A00000000000000000001 /* AppearanceSettingsPanel.swift in Sources */,
 				CA2100000000000000000001 /* RecentMapsStore.swift in Sources */,
 				CA3100000000000000000001 /* DocumentSession.swift in Sources */,
 				CA3200000000000000000001 /* MarkdownDocumentUI.swift in Sources */,
@@ -1120,6 +1126,7 @@
 				C73000000000000000000002 /* SystemDictation.swift in Sources */,
 				C90000000000000000000004 /* OutlineView.swift in Sources */,
 				CA1100000000000000000002 /* AppSettings.swift in Sources */,
+				CA8A00000000000000000002 /* AppearanceSettingsPanel.swift in Sources */,
 				CA2100000000000000000002 /* RecentMapsStore.swift in Sources */,
 				CA3100000000000000000002 /* DocumentSession.swift in Sources */,
 				CA3200000000000000000002 /* MarkdownDocumentUI.swift in Sources */,
@@ -1200,6 +1207,7 @@
 				C90000000000000000000006 /* OutlineView.swift in Sources */,
 				C90000000000000000000007 /* OutlineTests.swift in Sources */,
 				CA1100000000000000000003 /* AppSettings.swift in Sources */,
+				CA8A00000000000000000003 /* AppearanceSettingsPanel.swift in Sources */,
 				CA4200000000000000000003 /* LocalDeviceLabel.swift in Sources */,
 				CA2100000000000000000003 /* RecentMapsStore.swift in Sources */,
 				CA3100000000000000000003 /* DocumentSession.swift in Sources */,

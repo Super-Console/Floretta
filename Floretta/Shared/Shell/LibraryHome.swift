@@ -378,6 +378,7 @@ struct SettingsView: View {
                     }
                     .accessibilityIdentifier("settings.appearance")
                 }
+                AppearanceSettingsPanel(settings: settings, identifierPrefix: "settings.appearance", density: .settings)
                 Section {
                     Picker(text("新建时默认视图"), selection: $settings.defaultView) {
                         Text(verbatim: text("地图模式")).tag(DocumentViewMode.map)

@@ -1,0 +1,295 @@
+LineBreakProbe 2026-11-12 10:09:47 +0000 CST machine local
+
+======= A-zh40 =======
+text(40 chars): "春眠不觉晓处处闻啼鸟夜来风雨声花落知多少春眠不觉晓处处闻啼鸟夜来风雨声花落知多少"
+  [currentHelveticaNoStyle] measured=240.0x112.0 cacheNode=264.0x128.0 overflow=false lines=4
+    L1 first=春 last=来 |春眠不觉晓处处闻啼鸟夜来|
+    L2 first=风 last=觉 |风雨声花落知多少春眠不觉|
+    L3 first=晓 last=花 |晓处处闻啼鸟夜来风雨声花|
+    L4 first=落 last=少 |落知多少|
+  [systemNoStyle] measured=229.8x91.0 cacheNode=254.0x107.0 overflow=false lines=4
+    L1 first=春 last=来 |春眠不觉晓处处闻啼鸟夜来|
+    L2 first=风 last=觉 |风雨声花落知多少春眠不觉|
+    L3 first=晓 last=花 |晓处处闻啼鸟夜来风雨声花|
+    L4 first=落 last=少 |落知多少|
+  [systemStandardStrategy] measured=229.8x91.0 cacheNode=254.0x107.0 overflow=false lines=4
+    L1 first=春 last=来 |春眠不觉晓处处闻啼鸟夜来|
+    L2 first=风 last=觉 |风雨声花落知多少春眠不觉|
+    L3 first=晓 last=花 |晓处处闻啼鸟夜来风雨声花|
+    L4 first=落 last=少 |落知多少|
+  [systemStandardCharWrap] measured=229.8x91.0 cacheNode=254.0x107.0 overflow=false lines=4
+    L1 first=春 last=来 |春眠不觉晓处处闻啼鸟夜来|
+    L2 first=风 last=觉 |风雨声花落知多少春眠不觉|
+    L3 first=晓 last=花 |晓处处闻啼鸟夜来风雨声花|
+    L4 first=落 last=少 |落知多少|
+
+======= A-zh80 =======
+text(80 chars): "春眠不觉晓处处闻啼鸟夜来风雨声花落知多少春眠不觉晓处处闻啼鸟夜来风雨声花落知多少春眠不觉晓处处闻啼鸟夜来风雨声花落知多少春眠不觉晓处处闻啼鸟夜来风雨声花落知多少"
+  [currentHelveticaNoStyle] measured=240.0x196.0 cacheNode=264.0x212.0 overflow=false lines=7
+    L1 first=春 last=来 |春眠不觉晓处处闻啼鸟夜来|
+    L2 first=风 last=觉 |风雨声花落知多少春眠不觉|
+    L3 first=晓 last=花 |晓处处闻啼鸟夜来风雨声花|
+    L4 first=落 last=闻 |落知多少春眠不觉晓处处闻|
+    L5 first=啼 last=少 |啼鸟夜来风雨声花落知多少|
+    L6 first=春 last=来 |春眠不觉晓处处闻啼鸟夜来|
+    L7 first=风 last=少 |风雨声花落知多少|
+  [systemNoStyle] measured=229.8x160.0 cacheNode=254.0x176.0 overflow=false lines=7
+    L1 first=春 last=来 |春眠不觉晓处处闻啼鸟夜来|
+    L2 first=风 last=觉 |风雨声花落知多少春眠不觉|
+    L3 first=晓 last=花 |晓处处闻啼鸟夜来风雨声花|
+    L4 first=落 last=闻 |落知多少春眠不觉晓处处闻|
+    L5 first=啼 last=少 |啼鸟夜来风雨声花落知多少|
+    L6 first=春 last=来 |春眠不觉晓处处闻啼鸟夜来|
+    L7 first=风 last=少 |风雨声花落知多少|
+  [systemStandardStrategy] measured=229.8x160.0 cacheNode=254.0x176.0 overflow=false lines=7
+    L1 first=春 last=来 |春眠不觉晓处处闻啼鸟夜来|
+    L2 first=风 last=觉 |风雨声花落知多少春眠不觉|
+    L3 first=晓 last=花 |晓处处闻啼鸟夜来风雨声花|
+    L4 first=落 last=闻 |落知多少春眠不觉晓处处闻|
+    L5 first=啼 last=少 |啼鸟夜来风雨声花落知多少|
+    L6 first=春 last=来 |春眠不觉晓处处闻啼鸟夜来|
+    L7 first=风 last=少 |风雨声花落知多少|
+  [systemStandardCharWrap] measured=229.8x160.0 cacheNode=254.0x176.0 overflow=false lines=7
+    L1 first=春 last=来 |春眠不觉晓处处闻啼鸟夜来|
+    L2 first=风 last=觉 |风雨声花落知多少春眠不觉|
+    L3 first=晓 last=花 |晓处处闻啼鸟夜来风雨声花|
+    L4 first=落 last=闻 |落知多少春眠不觉晓处处闻|
+    L5 first=啼 last=少 |啼鸟夜来风雨声花落知多少|
+    L6 first=春 last=来 |春眠不觉晓处处闻啼鸟夜来|
+    L7 first=风 last=少 |风雨声花落知多少|
+
+======= A-zh120 =======
+text(120 chars): "春眠不觉晓处处闻啼鸟夜来风雨声花落知多少春眠不觉晓处处闻啼鸟夜来风雨声花落知多少春眠不觉晓处处闻啼鸟夜来风雨声花落知多少春眠不觉晓处处闻啼鸟夜来风雨声花落知多少春眠不觉晓处处闻啼鸟夜来风雨声花落知多少春眠不觉晓处处闻啼鸟夜来风雨声花落知多少"
+  [currentHelveticaNoStyle] measured=240.0x280.0 cacheNode=264.0x296.0 overflow=false lines=10
+    L1 first=春 last=来 |春眠不觉晓处处闻啼鸟夜来|
+    L2 first=风 last=觉 |风雨声花落知多少春眠不觉|
+    L3 first=晓 last=花 |晓处处闻啼鸟夜来风雨声花|
+    L4 first=落 last=闻 |落知多少春眠不觉晓处处闻|
+    L5 first=啼 last=少 |啼鸟夜来风雨声花落知多少|
+    L6 first=春 last=来 |春眠不觉晓处处闻啼鸟夜来|
+    L7 first=风 last=觉 |风雨声花落知多少春眠不觉|
+    L8 first=晓 last=花 |晓处处闻啼鸟夜来风雨声花|
+    L9 first=落 last=闻 |落知多少春眠不觉晓处处闻|
+    L10 first=啼 last=少 |啼鸟夜来风雨声花落知多少|
+  [systemNoStyle] measured=229.8x229.0 cacheNode=254.0x245.0 overflow=false lines=10
+    L1 first=春 last=来 |春眠不觉晓处处闻啼鸟夜来|
+    L2 first=风 last=觉 |风雨声花落知多少春眠不觉|
+    L3 first=晓 last=花 |晓处处闻啼鸟夜来风雨声花|
+    L4 first=落 last=闻 |落知多少春眠不觉晓处处闻|
+    L5 first=啼 last=少 |啼鸟夜来风雨声花落知多少|
+    L6 first=春 last=来 |春眠不觉晓处处闻啼鸟夜来|
+    L7 first=风 last=觉 |风雨声花落知多少春眠不觉|
+    L8 first=晓 last=花 |晓处处闻啼鸟夜来风雨声花|
+    L9 first=落 last=闻 |落知多少春眠不觉晓处处闻|
+    L10 first=啼 last=少 |啼鸟夜来风雨声花落知多少|
+  [systemStandardStrategy] measured=229.8x229.0 cacheNode=254.0x245.0 overflow=false lines=10
+    L1 first=春 last=来 |春眠不觉晓处处闻啼鸟夜来|
+    L2 first=风 last=觉 |风雨声花落知多少春眠不觉|
+    L3 first=晓 last=花 |晓处处闻啼鸟夜来风雨声花|
+    L4 first=落 last=闻 |落知多少春眠不觉晓处处闻|
+    L5 first=啼 last=少 |啼鸟夜来风雨声花落知多少|
+    L6 first=春 last=来 |春眠不觉晓处处闻啼鸟夜来|
+    L7 first=风 last=觉 |风雨声花落知多少春眠不觉|
+    L8 first=晓 last=花 |晓处处闻啼鸟夜来风雨声花|
+    L9 first=落 last=闻 |落知多少春眠不觉晓处处闻|
+    L10 first=啼 last=少 |啼鸟夜来风雨声花落知多少|
+  [systemStandardCharWrap] measured=229.8x229.0 cacheNode=254.0x245.0 overflow=false lines=10
+    L1 first=春 last=来 |春眠不觉晓处处闻啼鸟夜来|
+    L2 first=风 last=觉 |风雨声花落知多少春眠不觉|
+    L3 first=晓 last=花 |晓处处闻啼鸟夜来风雨声花|
+    L4 first=落 last=闻 |落知多少春眠不觉晓处处闻|
+    L5 first=啼 last=少 |啼鸟夜来风雨声花落知多少|
+    L6 first=春 last=来 |春眠不觉晓处处闻啼鸟夜来|
+    L7 first=风 last=觉 |风雨声花落知多少春眠不觉|
+    L8 first=晓 last=花 |晓处处闻啼鸟夜来风雨声花|
+    L9 first=落 last=闻 |落知多少春眠不觉晓处处闻|
+    L10 first=啼 last=少 |啼鸟夜来风雨声花落知多少|
+
+======= A-en80 =======
+text(104 chars): "The quick brown fox jumps over the lazy dog again and again while rain falls softly over the quiet hill."
+  [currentHelveticaNoStyle] measured=237.9x96.0 cacheNode=262.0x112.0 overflow=false lines=4
+    L1 first=T last=  |The quick brown fox jumps |
+    L2 first=o last=  |over the lazy dog again |
+    L3 first=a last=  |and again while rain falls |
+    L4 first=s last=. |softly over the quiet hill.|
+  [systemNoStyle] measured=239.5x93.0 cacheNode=264.0x109.0 overflow=false lines=4
+    L1 first=T last=  |The quick brown fox jumps |
+    L2 first=o last=  |over the lazy dog again and |
+    L3 first=a last=  |again while rain falls softly |
+    L4 first=o last=. |over the quiet hill.|
+  [systemStandardStrategy] measured=239.5x93.0 cacheNode=264.0x109.0 overflow=false lines=4
+    L1 first=T last=  |The quick brown fox jumps |
+    L2 first=o last=  |over the lazy dog again and |
+    L3 first=a last=  |again while rain falls softly |
+    L4 first=o last=. |over the quiet hill.|
+  [systemStandardCharWrap] measured=239.5x93.0 cacheNode=264.0x109.0 overflow=false lines=4
+    L1 first=T last=  |The quick brown fox jumps |
+    L2 first=o last=d |over the lazy dog again and|
+    L3 first=  last=  | again while rain falls softly |
+    L4 first=o last=. |over the quiet hill.|
+
+======= B-manual =======
+text(13 chars): "第一行手动换行\n第二行还在"
+  [currentHelveticaNoStyle] measured=140.0x56.0 cacheNode=164.0x72.0 overflow=false lines=2
+    L1 first=第 last=行 |第一行手动换行⏎|
+    L2 first=第 last=在 |第二行还在|
+  [systemNoStyle] measured=134.1x45.0 cacheNode=159.0x61.0 overflow=false lines=2
+    L1 first=第 last=行 |第一行手动换行⏎|
+    L2 first=第 last=在 |第二行还在|
+  [systemStandardStrategy] measured=134.1x45.0 cacheNode=159.0x61.0 overflow=false lines=2
+    L1 first=第 last=行 |第一行手动换行⏎|
+    L2 first=第 last=在 |第二行还在|
+  [systemStandardCharWrap] measured=134.1x45.0 cacheNode=159.0x61.0 overflow=false lines=2
+    L1 first=第 last=行 |第一行手动换行⏎|
+    L2 first=第 last=在 |第二行还在|
+
+======= C-kinsoku =======
+text(38 chars): "学习时我们总是说，坚持下去就会成功。可是（有时候）事情并没有那么简单，对吗？"
+  [currentHelveticaNoStyle] measured=240.0x112.0 cacheNode=264.0x128.0 overflow=false lines=4
+    L1 first=学 last=下 |学习时我们总是说，坚持下|
+    L2 first=去 last=时 |去就会成功。可是（有时|
+    L3 first=候 last=， |候）事情并没有那么简单，|
+    L4 first=对 last=？ |对吗？|
+    kinsoku: no violations at width 240.0
+  [systemNoStyle] measured=236.5x91.0 cacheNode=261.0x107.0 overflow=false lines=4
+    L1 first=学 last=下 |学习时我们总是说，坚持下|
+    L2 first=去 last=） |去就会成功。可是（有时候）|
+    L3 first=事 last=对 |事情并没有那么简单，对|
+    L4 first=吗 last=？ |吗？|
+    kinsoku: no violations at width 240.0
+  [systemStandardStrategy] measured=236.5x91.0 cacheNode=261.0x107.0 overflow=false lines=4
+    L1 first=学 last=下 |学习时我们总是说，坚持下|
+    L2 first=去 last=） |去就会成功。可是（有时候）|
+    L3 first=事 last=对 |事情并没有那么简单，对|
+    L4 first=吗 last=？ |吗？|
+    kinsoku: no violations at width 240.0
+  [systemStandardCharWrap] measured=236.5x91.0 cacheNode=261.0x107.0 overflow=false lines=4
+    L1 first=学 last=下 |学习时我们总是说，坚持下|
+    L2 first=去 last=） |去就会成功。可是（有时候）|
+    L3 first=事 last=对 |事情并没有那么简单，对|
+    L4 first=吗 last=？ |吗？|
+    kinsoku: no violations at width 240.0
+
+======= C-kinsoku2 =======
+text(48 chars): "这句话专门用来把句号和逗号顶到行首看看，。以及把左括号留在行尾（然后继续写足够长的正文让它折行。"
+  [currentHelveticaNoStyle] measured=240.0x112.0 cacheNode=264.0x128.0 overflow=false lines=4
+    L1 first=这 last=逗 |这句话专门用来把句号和逗|
+    L2 first=号 last=把 |号顶到行首看看，。以及把|
+    L3 first=左 last=续 |左括号留在行尾（然后继续|
+    L4 first=写 last=。 |写足够长的正文让它折行。|
+    kinsoku: no violations at width 240.0
+  [systemNoStyle] measured=229.8x91.0 cacheNode=254.0x107.0 overflow=false lines=4
+    L1 first=这 last=逗 |这句话专门用来把句号和逗|
+    L2 first=号 last=把 |号顶到行首看看，。以及把|
+    L3 first=左 last=续 |左括号留在行尾（然后继续|
+    L4 first=写 last=。 |写足够长的正文让它折行。|
+    kinsoku: no violations at width 240.0
+  [systemStandardStrategy] measured=229.8x91.0 cacheNode=254.0x107.0 overflow=false lines=4
+    L1 first=这 last=逗 |这句话专门用来把句号和逗|
+    L2 first=号 last=把 |号顶到行首看看，。以及把|
+    L3 first=左 last=续 |左括号留在行尾（然后继续|
+    L4 first=写 last=。 |写足够长的正文让它折行。|
+    kinsoku: no violations at width 240.0
+  [systemStandardCharWrap] measured=229.8x91.0 cacheNode=254.0x107.0 overflow=false lines=4
+    L1 first=这 last=逗 |这句话专门用来把句号和逗|
+    L2 first=号 last=把 |号顶到行首看看，。以及把|
+    L3 first=左 last=续 |左括号留在行尾（然后继续|
+    L4 first=写 last=。 |写足够长的正文让它折行。|
+    kinsoku: no violations at width 240.0
+
+======= D-longword =======
+text(34 chars): "supercalifragilisticexpialidocious"
+  [currentHelveticaNoStyle] measured=236.8x48.0 cacheNode=261.0x64.0 overflow=false lines=2
+    L1 first=s last=o |supercalifragilisticexpialido|
+    L2 first=c last=s |cious|
+  [systemNoStyle] measured=235.4x47.0 cacheNode=260.0x63.0 overflow=false lines=2
+    L1 first=s last=o |supercalifragilisticexpialido|
+    L2 first=c last=s |cious|
+  [systemStandardStrategy] measured=235.4x47.0 cacheNode=260.0x63.0 overflow=false lines=2
+    L1 first=s last=o |supercalifragilisticexpialido|
+    L2 first=c last=s |cious|
+  [systemStandardCharWrap] measured=235.4x47.0 cacheNode=260.0x63.0 overflow=false lines=2
+    L1 first=s last=o |supercalifragilisticexpialido|
+    L2 first=c last=s |cious|
+
+======= D-longword-in-sentence =======
+text(54 chars): "The word is supercalifragilisticexpialidocious indeed."
+  [currentHelveticaNoStyle] measured=236.8x72.0 cacheNode=261.0x88.0 overflow=false lines=3
+    L1 first=T last=  |The word is |
+    L2 first=s last=o |supercalifragilisticexpialido|
+    L3 first=c last=. |cious indeed.|
+  [systemNoStyle] measured=235.4x70.0 cacheNode=260.0x86.0 overflow=false lines=3
+    L1 first=T last=  |The word is |
+    L2 first=s last=o |supercalifragilisticexpialido|
+    L3 first=c last=. |cious indeed.|
+  [systemStandardStrategy] measured=235.4x70.0 cacheNode=260.0x86.0 overflow=false lines=3
+    L1 first=T last=  |The word is |
+    L2 first=s last=o |supercalifragilisticexpialido|
+    L3 first=c last=. |cious indeed.|
+  [systemStandardCharWrap] measured=232.7x47.0 cacheNode=257.0x63.0 overflow=false lines=2
+    L1 first=T last=i |The word is supercalifragili|
+    L2 first=s last=. |sticexpialidocious indeed.|
+
+======= E-zoom reflow (system + standard strategy) =======
+  scale=0.5 font=10.0 width=120.0 size=119.3x85.0 lines=7
+    L1 |春眠不觉晓处处闻啼鸟夜来|
+    L2 |风雨声花落知多少春眠不觉|
+    L3 |晓处处闻啼鸟夜来风雨声花|
+    L4 |落知多少春眠不觉晓处处闻|
+    L5 |啼鸟夜来风雨声花落知多少|
+    L6 |春眠不觉晓处处闻啼鸟夜来|
+    L7 |风雨声花落知多少|
+  scale=1.0 font=20.0 width=240.0 size=229.8x160.0 lines=7
+    L1 |春眠不觉晓处处闻啼鸟夜来|
+    L2 |风雨声花落知多少春眠不觉|
+    L3 |晓处处闻啼鸟夜来风雨声花|
+    L4 |落知多少春眠不觉晓处处闻|
+    L5 |啼鸟夜来风雨声花落知多少|
+    L6 |春眠不觉晓处处闻啼鸟夜来|
+    L7 |风雨声花落知多少|
+  scale=2.0 font=40.0 width=480.0 size=453.8x327.0 lines=7
+    L1 |春眠不觉晓处处闻啼鸟夜来|
+    L2 |风雨声花落知多少春眠不觉|
+    L3 |晓处处闻啼鸟夜来风雨声花|
+    L4 |落知多少春眠不觉晓处处闻|
+    L5 |啼鸟夜来风雨声花落知多少|
+    L6 |春眠不觉晓处处闻啼鸟夜来|
+    L7 |风雨声花落知多少|
+  line-count consistent across 50/100/200%: true counts=[1.0: 7, 2.0: 7, 0.5: 7]
+  50% vs 100% same breaks: true
+  100% vs 200% same breaks: true
+
+======= E-LOD (on-screen point size < 9 hides title) =======
+  root font=30.0 scale=0.5 onScreen=15.0 lod=full
+  root font=30.0 scale=1.0 onScreen=30.0 lod=full
+  root font=30.0 scale=2.0 onScreen=60.0 lod=full
+  level1 font=20.0 scale=0.5 onScreen=10.0 lod=title
+  level1 font=20.0 scale=1.0 onScreen=20.0 lod=full
+  level1 font=20.0 scale=2.0 onScreen=40.0 lod=full
+  level2 font=18.0 scale=0.5 onScreen=9.0 lod=title
+  level2 font=18.0 scale=1.0 onScreen=18.0 lod=full
+  level2 font=18.0 scale=2.0 onScreen=36.0 lod=full
+  deeper font=16.0 scale=0.5 onScreen=8.0 lod=blocks (title hidden)
+  deeper font=16.0 scale=1.0 onScreen=16.0 lod=full
+  deeper font=16.0 scale=2.0 onScreen=32.0 lod=full
+
+======= G-edit vs measure height =======
+  zh80: currentHelvetica measureH=196.0 nodeH=212.0 textKitInThatNode=140.0 delta(node-tk)=72.0
+           proposedSystem measureH=160.0 nodeH=176.0 textKitInThatNode=140.0 delta=36.0
+           current lines=7 proposed lines=7
+  manual: currentHelvetica measureH=56.0 nodeH=72.0 textKitInThatNode=40.0 delta(node-tk)=32.0
+           proposedSystem measureH=45.0 nodeH=61.0 textKitInThatNode=40.0 delta=21.0
+           current lines=2 proposed lines=2
+  longword: currentHelvetica measureH=48.0 nodeH=64.0 textKitInThatNode=46.0 delta(node-tk)=18.0
+           proposedSystem measureH=47.0 nodeH=63.0 textKitInThatNode=46.0 delta=17.0
+           current lines=2 proposed lines=2
+  en80: currentHelvetica measureH=96.0 nodeH=112.0 textKitInThatNode=92.0 delta(node-tk)=20.0
+           proposedSystem measureH=93.0 nodeH=109.0 textKitInThatNode=92.0 delta=17.0
+           current lines=4 proposed lines=4
+
+======= D overflow numbers =======
+  currentHelveticaNoStyle unconstrainedW=283.5 constrained=236.8x48.0 lines=2 overflow=false
+  systemNoStyle unconstrainedW=282.0 constrained=235.4x47.0 lines=2 overflow=false
+  systemStandardStrategy unconstrainedW=282.0 constrained=235.4x47.0 lines=2 overflow=false
+  systemStandardCharWrap unconstrainedW=282.0 constrained=235.4x47.0 lines=2 overflow=false
+

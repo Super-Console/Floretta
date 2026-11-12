@@ -141,14 +141,17 @@ struct ContentView: View {
             .navigationTitle("Floretta")
             .listStyle(.sidebar)
             .scrollContentBackground(.hidden)
-            .background(.regularMaterial)
+            .appleGlassChrome(.sidebarColumn)
         } detail: {
-            switch library.tab {
-            case .home:
-                homeStack
-            case .settings:
-                SettingsView(settings: settings)
+            Group {
+                switch library.tab {
+                case .home:
+                    homeStack
+                case .settings:
+                    SettingsView(settings: settings)
+                }
             }
+            .backgroundExtensionEffect()
         }
         #endif
     }
@@ -192,8 +195,10 @@ struct ContentView: View {
                 openICloud: openICloud,
                 browsePad: browsePad
             )
+            .appleGlassChrome(.sidebarColumn)
         } detail: {
             homeStack
+                .backgroundExtensionEffect()
         }
     }
     #endif

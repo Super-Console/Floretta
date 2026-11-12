@@ -42,7 +42,7 @@ struct CanvasAudioPlaybackBar: View {
                 }
             }
             .padding(8)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+            .appleGlassChrome(.floatingPanel)
         }
     }
 

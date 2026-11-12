@@ -3,13 +3,13 @@ import SwiftUI
 import AppKit
 #endif
 
-/// Official Apple glass for editor chrome that is not the Mac outline or
-/// inspector panel plate.
+/// Official Apple glass for shell and editor chrome.
 ///
-/// The Mac outline and the Mac inspector column are a separate change. This
-/// file does not draw that panel, and on macOS `inspectorPanel` is a no-op so
-/// a second plate is not stacked on top of it. iOS has no such plate yet, so
-/// the inspector column uses the path below.
+/// On macOS `inspectorPanel` is a no-op so a second plate is not stacked on
+/// the system inspector column, which already provides Liquid Glass. The
+/// iOS inspector, both platforms' sidebars, and the editor outline column
+/// use the path below. `sidebarColumn` is the shared token for the iPad
+/// home sidebar, the Mac home sidebar, and the editor outline.
 ///
 /// API, in order:
 /// 1. SwiftUI `GlassEffectContainer` + `glassEffect(.regular, in:)`. This is
@@ -47,6 +47,10 @@ enum AppleGlassChromeRole: String, Equatable {
     /// Toolbar buttons that float over the canvas. Not the back button.
     /// On iOS this is a no-op; the system toolbar item already has official glass.
     case toolbarFloatingButton
+    /// NavigationSplitView sidebar and the editor outline column.
+    case sidebarColumn
+    /// Floating banners, status strips, and the in-canvas audio bar.
+    case floatingPanel
 }
 
 enum AppleGlassChromeBackend: String, Equatable {
@@ -77,6 +81,7 @@ enum AppleGlassChromeBackend: String, Equatable {
 
 enum AppleGlassChromeMetrics {
     static let panelCornerRadius: CGFloat = 16
+    static let sidebarCornerRadius: CGFloat = 24
 }
 
 extension View {
@@ -134,14 +139,20 @@ private struct AppleGlassChromePlate<Content: View>: View {
             plated(inked(view), shape: RoundedRectangle(cornerRadius: AppleGlassChromeMetrics.panelCornerRadius, style: .continuous))
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("inspector.panel.glass")
+        case .sidebarColumn:
+            plated(inked(view), shape: RoundedRectangle(cornerRadius: AppleGlassChromeMetrics.sidebarCornerRadius, style: .continuous))
+        case .floatingPanel:
+            plated(inked(view), shape: RoundedRectangle(cornerRadius: AppleGlassChromeMetrics.panelCornerRadius, style: .continuous))
         }
     }
 
     @ViewBuilder
     private func inked<V: View>(_ view: V) -> some View {
         switch role {
-        case .inspectorPanel:
+        case .inspectorPanel, .sidebarColumn:
             view.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        case .floatingPanel:
+            view
         case .iconButton:
             view.symbolRenderingMode(.monochrome).foregroundStyle(.primary)
         case .toolbarFloatingButton, .segmentedContainer, .bottomBarCapsule:
@@ -193,7 +204,7 @@ private struct AppleGlassChromePlate<Content: View>: View {
 extension AppleGlassChromeRole {
     var fallbackMaterial: NSVisualEffectView.Material {
         switch self {
-        case .bottomBarCapsule, .inspectorPanel:
+        case .bottomBarCapsule, .inspectorPanel, .sidebarColumn, .floatingPanel:
             .sidebar
         case .segmentedContainer, .iconButton, .toolbarFloatingButton:
             .underWindowBackground
@@ -202,8 +213,10 @@ extension AppleGlassChromeRole {
 
     var plateCornerRadius: CGFloat {
         switch self {
-        case .inspectorPanel:
+        case .inspectorPanel, .floatingPanel:
             AppleGlassChromeMetrics.panelCornerRadius
+        case .sidebarColumn:
+            AppleGlassChromeMetrics.sidebarCornerRadius
         case .iconButton:
             22
         case .segmentedContainer, .bottomBarCapsule, .toolbarFloatingButton:

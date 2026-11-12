@@ -1,0 +1,59 @@
+{
+  "displayMaxFPS": 60,
+  "finishedAt": "2026-11-12T10:11:15Z",
+  "nodes": 200,
+  "peakFootprintMB": 64.6,
+  "phases": [
+    {
+      "avgFPS": 12.6,
+      "bodyEvaluations": 156,
+      "draws": 39,
+      "longestMainThreadFrameMs": 133.3,
+      "maxDrawMs": 7.4,
+      "maxVisibleNodes": 33,
+      "meanDrawMs": 3.5,
+      "minFPS": 12,
+      "name": "pan",
+      "p95DrawMs": 5.6,
+      "peakFootprintMB": 59.9,
+      "seconds": 3.1,
+      "tickFPS": 12.7,
+      "ticks": 39
+    },
+    {
+      "avgFPS": 14.2,
+      "bodyEvaluations": 344,
+      "draws": 86,
+      "longestMainThreadFrameMs": 116.7,
+      "maxDrawMs": 7.8,
+      "maxVisibleNodes": 85,
+      "meanDrawMs": 4,
+      "minFPS": 10,
+      "name": "zoom",
+      "p95DrawMs": 5.2,
+      "peakFootprintMB": 62.9,
+      "seconds": 6.1,
+      "tickFPS": 14.2,
+      "ticks": 86
+    },
+    {
+      "avgFPS": 14.2,
+      "bodyEvaluations": 215,
+      "draws": 43,
+      "longestMainThreadFrameMs": 83.4,
+      "maxDrawMs": 4.1,
+      "maxVisibleNodes": 28,
+      "meanDrawMs": 2.8,
+      "minFPS": 12,
+      "name": "drag",
+      "p95DrawMs": 3.7,
+      "peakFootprintMB": 64.6,
+      "seconds": 3,
+      "tickFPS": 14.2,
+      "ticks": 43
+    }
+  ],
+  "platform": "iPadOS",
+  "_log": "ipad-B2-200.out",
+  "_header": "START B2 200 2026-11-12 18:10:47 +0800"
+}

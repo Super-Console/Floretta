@@ -13,7 +13,7 @@ import UIKit
 ///
 /// The run opens `CanvasPerfFixture.document(nodeCount:)`, waits for the open animation, then drives the
 /// same camera and document mutations the pan, pinch, and root-drag gestures make, once per display frame:
-/// pan 3 s, zoom 50%↔200% two rounds (6 s), drag the fixture's free topic around a circle (3 s).
+/// pan 3 s, zoom 50%↔200% two rounds (6 s), drag the fixture's free topic around a circle (3 s), using the same live-origin path as a user drag.
 /// It records canvas draws, display-link ticks, and memory, prints one `FLORETTA_PERF_RESULT {json}` line,
 /// writes the same JSON to the temporary directory, and quits.
 /// `os_signpost` intervals named `InfiniteCanvas.draw` and events named `InfiniteCanvas.body` are emitted

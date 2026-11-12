@@ -354,6 +354,19 @@ final class CanvasTests: XCTestCase {
         XCTAssertEqual(NodeEditChrome.size(in: idle), NodeEditChrome.size(in: editing))
     }
 
+    func testLiveOriginMovesOnlyThatFrameAndLeavesTheDocumentAlone() {
+        let freeID = UUID()
+        let otherID = UUID()
+        let frames = [
+            sampleFrame(id: otherID, origin: CGPoint(x: 10, y: 20)),
+            sampleFrame(id: freeID, origin: CGPoint(x: 40, y: 80)),
+        ]
+        let moved = CanvasPlacement.applyingLiveOrigin(frames, id: freeID, origin: CGPoint(x: 100, y: 60))
+        XCTAssertEqual(moved.first { $0.id == freeID }?.origin, CGPoint(x: 100, y: 60))
+        XCTAssertEqual(moved.first { $0.id == otherID }?.origin, CGPoint(x: 10, y: 20))
+        XCTAssertEqual(CanvasPlacement.applyingLiveOrigin(frames, id: UUID(), origin: CGPoint(x: 1, y: 1)), frames)
+    }
+
     func testLayoutCacheStaysPutWhileAPetalWouldBeSampling() {
         let root = MindMapNode(text: "根", children: [MindMapNode(text: "甲"), MindMapNode(text: "乙")])
         let document = MindMapDocument(title: "cache", roots: [root])

@@ -1127,7 +1127,9 @@ struct InfiniteCanvas: View {
     }
 
     private func placedFrames() -> [NodeFrame] {
-        laidOut.frames(for: layoutSource(), scheme: branchScheme)
+        let frames = laidOut.frames(for: layoutSource(), scheme: branchScheme)
+        guard let live = camera.liveNodeOrigin else { return frames }
+        return CanvasPlacement.applyingLiveOrigin(frames, id: live.id, origin: live.origin)
     }
 
     private var branchScheme: MapColorScheme {
@@ -1261,7 +1263,7 @@ struct InfiniteCanvas: View {
                 } else if let drag {
                     let point = camera.viewport.canvasPoint(fromView: value.location)
                     let origin = CGPoint(x: point.x - drag.grabX, y: point.y - drag.grabY)
-                    document = CanvasPlacement.movingNode(drag.id, to: origin, in: document)
+                    camera.liveNodeOrigin = (drag.id, origin)
                 } else if let panAnchor {
                     camera.viewport.offset = CGPoint(
                         x: panAnchor.x + value.translation.width,
@@ -1275,6 +1277,10 @@ struct InfiniteCanvas: View {
                 }
                 if regionDrag != nil {
                     keyboard.commitRegionChange(document: document)
+                }
+                if let live = camera.liveNodeOrigin {
+                    camera.liveNodeOrigin = nil
+                    document = CanvasPlacement.movingNode(live.id, to: live.origin, in: document)
                 }
                 drag = nil
                 stickyDrag = nil
@@ -1305,7 +1311,7 @@ struct InfiniteCanvas: View {
         CGPoint(x: size.width / 2, y: size.height / 2)
     }
 
-    /// `-FlorettaPerfNodes` only. Uses the same camera and document writes as the pan, pinch, and root-drag gestures.
+    /// `-FlorettaPerfNodes` only. Uses the same camera path as pan and pinch, and the same live-origin path as a node drag.
     private func startPerfRunIfRequested() {
         guard let nodeCount = CanvasPerfRun.requestedNodeCount else { return }
         let camera = camera
@@ -1328,7 +1334,7 @@ struct InfiniteCanvas: View {
                 return (id, frame.frame.origin)
             },
             move: { id, origin in
-                binding.wrappedValue = CanvasPlacement.movingNode(id, to: origin, in: binding.wrappedValue)
+                camera.liveNodeOrigin = (id, origin)
             }
         ))
     }
@@ -2645,6 +2651,9 @@ final class CanvasCamera {
     var chrome = CanvasChrome.standard
     var viewSize: CGSize = .zero
     var contentBounds: CGRect?
+    /// Origin of the topic being dragged, applied on top of the last layout.
+    /// The document is not rewritten until the drag ends, so the editor body and toolbar stay still.
+    var liveNodeOrigin: (id: UUID, origin: CGPoint)? = nil
 
     func stepZoom(_ direction: Int) {
         let anchor = center

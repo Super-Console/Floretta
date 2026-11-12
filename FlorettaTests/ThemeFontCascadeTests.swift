@@ -184,35 +184,65 @@ final class ThemeFontCascadeTests: XCTestCase {
         XCTAssertEqual(names.filter { $0.hasSuffix(".otf") }.count, 7)
     }
 
-    func testSizeQuantizationRoundsToHalfPoints() {
-        XCTAssertEqual(ThemeFontCascade.quantizedPointSize(16), 16)
-        XCTAssertEqual(ThemeFontCascade.quantizedPointSize(16.24), 16)
-        XCTAssertEqual(ThemeFontCascade.quantizedPointSize(16.25), 16.5)
-        XCTAssertEqual(ThemeFontCascade.quantizedPointSize(16.49), 16.5)
-        XCTAssertEqual(ThemeFontCascade.quantizedPointSize(16.75), 17)
-        XCTAssertEqual(ThemeFontCascade.quantizedPointSize(1), 1)
-        XCTAssertEqual(ThemeFontCascade.quantizedPointSize(0.1), 1, "sizes below 1pt still clamp to 1 before quantizing")
+    func testSizeQuantizationUsesRelativeLogBuckets() {
+        XCTAssertEqual(ThemeFontCascade.quantizedPointSize(1), 1, accuracy: 0.000_1)
+        XCTAssertEqual(ThemeFontCascade.quantizedPointSize(0.1), 1, accuracy: 0.000_1, "sizes below 1pt still clamp to 1 before quantizing")
+
+        // 16.24 and 16.3 used to be the 0.5pt fixtures (16 and 16.5). They
+        // now share one ~2% bucket whose CTFont size is the bucket value,
+        // not a half-point grid.
+        let sixteen = ThemeFontCascade.quantizedPointSize(16)
+        XCTAssertEqual(sixteen, 16, accuracy: 0.02)
+        let aroundSixteen = ThemeFontCascade.quantizedPointSize(16.24)
+        XCTAssertEqual(ThemeFontCascade.quantizedPointSize(16.3), aroundSixteen, accuracy: 0.000_1)
+        XCTAssertNotEqual(aroundSixteen, 16)
+        XCTAssertNotEqual(aroundSixteen, 16.5)
+        XCTAssertLessThanOrEqual(abs(aroundSixteen - 16.24) / 16.24, 0.02)
+
+        // At 4pt a 0.5pt step is 12.5%; at 20pt it is 2.5%. Log buckets
+        // must stay ≤2% at both ends, and across the pinch range.
+        for size in stride(from: CGFloat(1), through: 200, by: 0.25) {
+            let quantized = ThemeFontCascade.quantizedPointSize(size)
+            XCTAssertLessThanOrEqual(abs(quantized - size) / size, 0.01 + 1e-9, "quantization error at \(size)pt is more than half a 2% step")
+        }
+        var previous = ThemeFontCascade.quantizedPointSize(1)
+        var size: CGFloat = 1
+        var jumped = false
+        while size <= 200 {
+            size *= 1.001
+            let quantized = ThemeFontCascade.quantizedPointSize(size)
+            if abs(quantized - previous) > 0.000_000_1 {
+                let jump = (quantized - previous) / previous
+                XCTAssertGreaterThan(jump, 0, "buckets must increase with size")
+                XCTAssertLessThanOrEqual(jump, 0.02 + 1e-9, "adjacent buckets at \(previous)→\(quantized) jumped more than 2%")
+                previous = quantized
+                jumped = true
+            }
+        }
+        XCTAssertTrue(jumped)
     }
 
-    func testContinuousZoomSizesShareACachedHalfPointFont() {
+    func testContinuousZoomSizesShareACachedRelativeBucket() {
         ThemeFontCascade.resetResolvedFontCacheForTests()
         defer { ThemeFontCascade.resetResolvedFontCacheForTests() }
 
         let family = "eb-garamond"
         let design = "default"
-        // A pinch-zoom's continuously changing sizes around 16pt must hit one bucket.
-        let nearSixteen: [CGFloat] = [16.0, 16.04, 16.12, 16.24]
-        for size in nearSixteen {
+        let bucket = ThemeFontCascade.quantizedPointSize(16.24)
+        // 16.24 and 16.3 are 0.37% apart, well inside a 2% bucket.
+        let near: [CGFloat] = [16.24, 16.27, 16.3]
+        for size in near {
             let font = ThemeFontCascade.cachedCTFont(familyID: family, nodeDesign: design, size: size)
-            XCTAssertEqual(CTFontGetSize(font), 16, "size \(size) should quantize to 16pt")
+            XCTAssertEqual(CTFontGetSize(font), bucket, accuracy: 0.000_1, "size \(size) should share the 16.24 bucket")
             XCTAssertEqual(CTFontCopyPostScriptName(font) as String, "EBGaramond-Regular")
         }
         XCTAssertEqual(ThemeFontCascade.resolvedFontCacheCountForTests(), 1)
 
-        let mid = ThemeFontCascade.cachedCTFont(familyID: family, nodeDesign: design, size: 16.3)
-        XCTAssertEqual(CTFontGetSize(mid), 16.5)
+        // A size more than a full 2% step away must be a different bucket.
+        let far = ThemeFontCascade.cachedCTFont(familyID: family, nodeDesign: design, size: 16.24 * 1.025)
+        XCTAssertNotEqual(CTFontGetSize(far), bucket, accuracy: 0.000_1)
         XCTAssertEqual(ThemeFontCascade.resolvedFontCacheCountForTests(), 2)
-        XCTAssertEqual(CTFontCopyPostScriptName(mid) as String, "EBGaramond-Regular")
+        XCTAssertEqual(CTFontCopyPostScriptName(far) as String, "EBGaramond-Regular")
     }
 
     func testFontCacheEvictsLeastRecentlyUsedWhenOverCapacity() {
@@ -224,9 +254,12 @@ final class ThemeFontCascadeTests: XCTestCase {
 
         let family = "eb-garamond"
         let design = "default"
-        // Six distinct 0.5pt buckets. After the fifth and sixth inserts, the
-        // two oldest sizes must leave so the cache stays at the cap.
+        // Six sizes more than 2% apart, so six distinct log buckets. After
+        // the fifth and sixth inserts, the two oldest sizes must leave so
+        // the cache stays at the cap.
         let sizes: [CGFloat] = [10, 10.5, 11, 11.5, 12, 12.5]
+        let uniqueBuckets = Set(sizes.map { ThemeFontCascade.quantizedPointSize($0) })
+        XCTAssertEqual(uniqueBuckets.count, 6)
         for size in sizes {
             _ = ThemeFontCascade.cachedCTFont(familyID: family, nodeDesign: design, size: size)
         }
@@ -237,7 +270,7 @@ final class ThemeFontCascadeTests: XCTestCase {
         // Touch the sizes we want to keep first so 11 is the one that goes.
         ThemeFontCascade.touchResolvedFontCacheForTests(familyID: family, nodeDesign: design, sizes: [11.5, 12, 12.5])
         let evicted = ThemeFontCascade.cachedCTFont(familyID: family, nodeDesign: design, size: 10)
-        XCTAssertEqual(CTFontGetSize(evicted), 10)
+        XCTAssertEqual(CTFontGetSize(evicted), ThemeFontCascade.quantizedPointSize(10), accuracy: 0.000_1)
         XCTAssertEqual(ThemeFontCascade.resolvedFontCacheCountForTests(), 4)
         XCTAssertEqual(CTFontCopyPostScriptName(evicted) as String, "EBGaramond-Regular")
 
@@ -245,7 +278,7 @@ final class ThemeFontCascadeTests: XCTestCase {
         // (same pointer as a fresh snapshot lookup after beginFrame).
         ThemeFontCascade.beginFrame()
         let kept = ThemeFontCascade.cachedCTFont(familyID: family, nodeDesign: design, size: 12.5)
-        XCTAssertEqual(CTFontGetSize(kept), 12.5)
+        XCTAssertEqual(CTFontGetSize(kept), ThemeFontCascade.quantizedPointSize(12.5), accuracy: 0.000_1)
         XCTAssertEqual(ThemeFontCascade.resolvedFontCacheCountForTests(), 4)
     }
 }

@@ -87,15 +87,16 @@ enum ThemeFontCascade {
 
     /// Resolved CTFont cache. Building a cascade list is too expensive to do
     /// for every visible node on every CADisplayLink frame. Keyed by
-    /// (family, design, size quantized to 0.5pt); a miss for a new bucket is
-    /// a cheap copy of a template already built for that family and design.
-    /// The expensive cascade walk runs only when the family or node design
-    /// is new. A capacity cap and LRU keep back-and-forth pinch-zoom from
-    /// growing the sized-font table without bound.
+    /// (family, design, size quantized to log-spaced ~2% buckets); a miss
+    /// for a new bucket is a cheap copy of a template already built for
+    /// that family and design. The expensive cascade walk runs only when
+    /// the family or node design is new. A capacity cap and LRU keep
+    /// back-and-forth pinch-zoom from growing the sized-font table
+    /// without bound.
     ///
     /// The hot path must not take a lock per lookup. `beginFrame()` captures
     /// an immutable snapshot; draw then only reads that snapshot. A miss
-    /// (pinch to a new 0.5pt bucket) copies the template without holding
+    /// (pinch to a new ~2% size bucket) copies the template without holding
     /// the lock, then publishes a new snapshot.
     private struct FontCacheKey: Hashable {
         var familyID: String
@@ -274,18 +275,21 @@ enum ThemeFontCascade {
         resolvedFonts.touchKeys(seen)
     }
 
-    /// Quantize to the nearest 0.5pt before the size enters the cache key.
-    /// A 1/64-pt key misses on every pinch-zoom frame, so the hot path still
-    /// called CTFontCreateCopyWithAttributes continuously. Half-point buckets
-    /// keep consecutive zoom frames on the same entry.
-    private static let sizeTickDivisor: CGFloat = 2
+    /// Log-spaced size buckets, about 2% apart, before the size enters the
+    /// cache key. A 1/64-pt key missed every pinch-zoom frame. Fixed 0.5pt
+    /// buckets were 2.5% at 20pt and 12.5% at 4pt, a visible step on the
+    /// shrink end. Adjacent log buckets differ by at most 2% at any size,
+    /// so a pinch-zoom glyph jump stays ≤2%.
+    private static let sizeTickRatio: CGFloat = 1.02
+    private static let minPointSize: CGFloat = 1
 
     private static func sizeTicks(_ size: CGFloat) -> Int {
-        Int((max(size, 1) * sizeTickDivisor).rounded())
+        let clamped = max(size, minPointSize)
+        return Int((log(Double(clamped)) / log(Double(sizeTickRatio))).rounded())
     }
 
     private static func pointSize(fromTicks ticks: Int) -> CGFloat {
-        CGFloat(ticks) / sizeTickDivisor
+        CGFloat(pow(Double(sizeTickRatio), Double(max(ticks, 0))))
     }
 
     static func cascadePostScriptNames(kind: AppearanceFontKind) -> [String] {
@@ -318,7 +322,7 @@ enum ThemeFontCascade {
 
     /// Returns a cached CTFont for the family, node design, and size.
     /// Rebuilds the cascade only when the family or design has not been seen.
-    /// Hits read the frame snapshot with no lock. A new 0.5pt size bucket
+    /// Hits read the frame snapshot with no lock. A new ~2% size bucket
     /// copies the template outside the lock, then publishes.
     static func cachedCTFont(familyID: String, nodeDesign: String, size: CGFloat) -> CTFont {
         let ticks = sizeTicks(size)
@@ -494,7 +498,8 @@ enum ThemeFontCascade {
     }
 
 
-    /// Nearest 0.5pt bucket stored in the cache key.
+    /// Log-spaced ~2% bucket stored in the cache key, and used as the
+    /// CTFont point size. Adjacent buckets jump by at most 2%.
     static func quantizedPointSize(_ size: CGFloat) -> CGFloat {
         pointSize(fromTicks: sizeTicks(size))
     }

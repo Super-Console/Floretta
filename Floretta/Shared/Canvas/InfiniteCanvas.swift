@@ -94,6 +94,7 @@ struct InfiniteCanvas: View {
         .overlay { editField }
         .overlay { nodeChromeProbe }
         .overlay { stickyChrome }
+        .overlay(alignment: .topLeading) { heldCanvasScaleLabel }
     }
 
     private func canvasSecondaryOverlays<V: View>(_ view: V) -> some View {
@@ -195,6 +196,14 @@ struct InfiniteCanvas: View {
                 openPetalMap()
                 canvasFocused = true
                 startPerfRunIfRequested()
+                applyPendingHeldCanvasScale(in: size)
+            }
+            .background {
+                if CanvasScaleHook.isEnabled {
+                    HeldCanvasScaleTick {
+                        applyPendingHeldCanvasScale(in: size)
+                    }
+                }
             }
             .onChange(of: size) { _, newSize in
                 camera.viewSize = newSize
@@ -1306,13 +1315,38 @@ struct InfiniteCanvas: View {
             }
             .onEnded { _ in
                 pinchStartScale = nil
-                camera.viewport.snapToStop(around: center(of: size))
+                // Pinch-shot UI tests hold mid-gesture scales (85/70/55),
+                // which are not legal ZoomStop values. Do not snap those away.
+                if !CanvasScaleHook.isEnabled {
+                    camera.viewport.snapToStop(around: center(of: size))
+                }
                 camera.chrome.syncZoomPercent(toScale: camera.viewport.scale)
             }
     }
 
     private func center(of size: CGSize) -> CGPoint {
         CGPoint(x: size.width / 2, y: size.height / 2)
+    }
+
+    private func applyPendingHeldCanvasScale(in size: CGSize) {
+        guard let scale = CanvasScaleHook.pendingScale() else { return }
+        camera.viewport.zoom(to: scale, around: center(of: size))
+        camera.chrome.syncZoomPercent(toScale: camera.viewport.scale)
+        CanvasScaleHook.markApplied(scale)
+    }
+
+    @ViewBuilder
+    private var heldCanvasScaleLabel: some View {
+        if CanvasScaleHook.isEnabled {
+            Text("pinch scale \(Int((camera.viewport.scale * 100).rounded()))%")
+                .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 6))
+                .padding(12)
+                .accessibilityIdentifier("uitest.heldCanvasScale")
+                .allowsHitTesting(false)
+        }
     }
 
     /// `-FlorettaPerfNodes` only. Uses the same camera path as pan and pinch, and the same live-origin path as a node drag.
@@ -2792,3 +2826,18 @@ private final class FocusRingFreeView: NSView {
     }
 }
 #endif
+
+/// Polls the UI-test scale file only when `-FlorettaPinchShot` is set.
+private struct HeldCanvasScaleTick: View {
+    var onTick: () -> Void
+
+    var body: some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .accessibilityHidden(true)
+            .onAppear(perform: onTick)
+            .onReceive(Timer.publish(every: 0.15, on: .main, in: .common).autoconnect()) { _ in
+                onTick()
+            }
+    }
+}

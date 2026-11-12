@@ -5555,7 +5555,162 @@
           }
         }
       }
+    },
+    "外观模式": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Appearance Mode" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "外观模式" } }
+      }
+    },
+    "经典模式": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Classic" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "经典模式" } }
+      }
+    },
+    "现代模式": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Modern" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "现代模式" } }
+      }
+    },
+    "自定义": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Custom" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "自定义" } }
+      }
+    },
+    "字体族": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Font Family" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "字体族" } }
+      }
+    },
+    "系统衬线": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "System Serif" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "系统衬线" } }
+      }
+    },
+    "系统非衬线": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "System Sans" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "系统非衬线" } }
+      }
+    },
+    "EB Garamond": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "EB Garamond" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "EB Garamond" } }
+      }
+    },
+    "Crimson Pro": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Crimson Pro" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Crimson Pro" } }
+      }
+    },
+    "Libre Baskerville": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Libre Baskerville" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Libre Baskerville" } }
+      }
+    },
+    "Noto Serif": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Noto Serif" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Noto Serif" } }
+      }
+    },
+    "Inter": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Inter" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Inter" } }
+      }
+    },
+    "IBM Plex Sans": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "IBM Plex Sans" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "IBM Plex Sans" } }
+      }
+    },
+    "Noto Sans": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Noto Sans" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Noto Sans" } }
+      }
+    },
+    "底色": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Background" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "底色" } }
+      }
+    },
+    "文字色": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Text Color" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "文字色" } }
+      }
+    },
+    "次级文字色": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Secondary Text" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "次级文字色" } }
+      }
+    },
+    "节点底色": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Topic Fill" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "节点底色" } }
+      }
+    },
+    "字号缩放": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Type Size" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "字号缩放" } }
+      }
+    },
+    "行高": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Line Height" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "行高" } }
+      }
+    },
+    "圆角半径": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Corner Radius" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "圆角半径" } }
+      }
+    },
+    "恢复该模式默认值": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Restore This Mode's Defaults" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "恢复该模式默认值" } }
+      }
     }
+
   },
   "version": "1.0"
 }

@@ -20,6 +20,7 @@ struct FlorettaApp: App {
     @State private var library: LibraryModel
 
     init() {
+        ThemeFontCascade.registerBundledFonts()
         let session = AppLaunch.make()
         _recovery = State(initialValue: session.recovery)
         _settings = State(initialValue: session.settings)
@@ -381,8 +382,38 @@ enum AppLaunch {
         var library: LibraryModel
     }
 
+    /// Prints resolved PostScript names for typography evidence. Off unless
+    /// launched with `-FlorettaDumpFonts`.
+    static func dumpFontsIfRequested() {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard arguments.contains("-FlorettaDumpFonts") else { return }
+        ThemeFontCascade.registerBundledFonts()
+        let families = ["system-serif", "system-sans", "inter"]
+        let samples = [("en", "Hello"), ("zh", "汉字"), ("ja", "あいうえお"), ("ko", "한국어")]
+        var lines: [String] = []
+        for family in families {
+            for (lang, text) in samples {
+                let ps = ThemeFontCascade.postScriptName(familyID: family, for: text)
+                let line = "FONT_RESOLVE family=\(family) lang=\(lang) text=\(text) ps=\(ps)"
+                print(line)
+                lines.append(line)
+            }
+        }
+        fflush(stdout)
+        let payload = lines.joined(separator: "\n") + "\n"
+        let data = Data(payload.utf8)
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("font-resolve.txt")
+        try? data.write(to: tmp)
+        if let raw = getenv("FLORETTA_UITEST_DIR") {
+            let dir = URL(fileURLWithPath: String(cString: raw), isDirectory: true)
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try? data.write(to: dir.appendingPathComponent("font-resolve.txt"))
+        }
+    }
+
     @MainActor
     static func make() -> Session {
+        dumpFontsIfRequested()
         let arguments = ProcessInfo.processInfo.arguments
         guard arguments.contains(uiTestArgument) else {
             let session = Session(recovery: RecoveryPresenter(), settings: .shared, library: .shared)

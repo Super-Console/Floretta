@@ -11,11 +11,21 @@ public final class TextMeasurementCache: @unchecked Sendable {
         public var text: String
         public var fontSize: CGFloat
         public var maxWidth: CGFloat
+        public var fontFamilyID: String
+        public var nodeDesign: String
 
-        public init(text: String, fontSize: CGFloat, maxWidth: CGFloat) {
+        public init(
+            text: String,
+            fontSize: CGFloat,
+            maxWidth: CGFloat,
+            fontFamilyID: String = "",
+            nodeDesign: String = "default"
+        ) {
             self.text = text
             self.fontSize = fontSize
             self.maxWidth = maxWidth
+            self.fontFamilyID = fontFamilyID
+            self.nodeDesign = nodeDesign
         }
     }
 
@@ -28,15 +38,33 @@ public final class TextMeasurementCache: @unchecked Sendable {
         self.metrics = metrics
     }
 
-    public func size(text: String, fontSize: CGFloat, maxWidth: CGFloat) -> CGSize {
-        let key = Key(text: text, fontSize: fontSize, maxWidth: maxWidth)
+    public func size(
+        text: String,
+        fontSize: CGFloat,
+        maxWidth: CGFloat,
+        fontFamilyID: String = "",
+        nodeDesign: String = "default"
+    ) -> CGSize {
+        let key = Key(
+            text: text,
+            fontSize: fontSize,
+            maxWidth: maxWidth,
+            fontFamilyID: fontFamilyID,
+            nodeDesign: nodeDesign
+        )
         lock.lock()
         if let cached = store[key] {
             lock.unlock()
             return cached
         }
         lock.unlock()
-        let measured = measure(text: text, fontSize: fontSize, maxWidth: maxWidth)
+        let measured = measure(
+            text: text,
+            fontSize: fontSize,
+            maxWidth: maxWidth,
+            fontFamilyID: fontFamilyID,
+            nodeDesign: nodeDesign
+        )
         lock.lock()
         if store[key] == nil {
             store[key] = measured
@@ -47,15 +75,26 @@ public final class TextMeasurementCache: @unchecked Sendable {
         return result
     }
 
-    private func measure(text: String, fontSize: CGFloat, maxWidth: CGFloat) -> CGSize {
+    private func measure(
+        text: String,
+        fontSize: CGFloat,
+        maxWidth: CGFloat,
+        fontFamilyID: String,
+        nodeDesign: String
+    ) -> CGSize {
         let safeSize = max(fontSize, 1)
         let safeWidth = max(maxWidth, 1)
         let sample = text.isEmpty ? " " : text
+        // An empty family id keeps the historical Helvetica → system UI path
+        // for Core tests and un-themed layout. The canvas passes the painted
+        // family so node width matches ThemeFontCascade glyphs.
         let raw = metrics.measure(
             text: sample,
             fontName: "Helvetica",
             fontSize: Double(safeSize),
-            maxWidth: Double(safeWidth)
+            maxWidth: Double(safeWidth),
+            fontFamilyID: fontFamilyID,
+            nodeDesign: nodeDesign
         )
         let width = min(safeWidth + 24, max(72, ceil(raw.width) + 24))
         let height = max(32, ceil(raw.height) + 16)

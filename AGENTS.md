@@ -36,11 +36,12 @@
 
 ## 文档更新规则（重要）
 
-PR **不要**修改这四个共享文档：
+进度只写在 `docs/ROADMAP.md`（原 `docs/STATUS.md` 已并入后删除）。每轮覆盖文首的「本轮」段（本轮进度 / 下一步 / 阻塞）。不要再新建一份平行的状态文档。
+
+功能 PR **不要**修改这三个共享检查文档：
 
 ```
 docs/FEATURES-CHECKLIST.md
-docs/STATUS.md
 docs/SMOKE.md
 docs/VERIFY.md
 ```

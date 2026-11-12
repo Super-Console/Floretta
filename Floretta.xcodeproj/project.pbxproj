@@ -35,16 +35,19 @@
 		C40000000000000000000002 /* CanvasPlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000002 /* CanvasPlacement.swift */; };
 		C40000000000000000000003 /* InfiniteCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000003 /* InfiniteCanvas.swift */; };
 		C4D0000000000000000000A1 /* CanvasPerfProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D0000000000000000000A1 /* CanvasPerfProbe.swift */; };
+		C4D0000000000000000000B1 /* CanvasScaleHook.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D0000000000000000000B1 /* CanvasScaleHook.swift */; };
 		C40000000000000000000004 /* CanvasScrollInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000004 /* CanvasScrollInput.swift */; };
 		C40000000000000000000005 /* CanvasViewport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000001 /* CanvasViewport.swift */; };
 		C40000000000000000000006 /* CanvasPlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000002 /* CanvasPlacement.swift */; };
 		C40000000000000000000007 /* InfiniteCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000003 /* InfiniteCanvas.swift */; };
 		C4D0000000000000000000A2 /* CanvasPerfProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D0000000000000000000A1 /* CanvasPerfProbe.swift */; };
+		C4D0000000000000000000B2 /* CanvasScaleHook.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D0000000000000000000B1 /* CanvasScaleHook.swift */; };
 		C40000000000000000000008 /* CanvasScrollInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000004 /* CanvasScrollInput.swift */; };
 		C40000000000000000000009 /* CanvasViewport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000001 /* CanvasViewport.swift */; };
 		C4000000000000000000000A /* CanvasPlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000002 /* CanvasPlacement.swift */; };
 		C4000000000000000000000B /* InfiniteCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000003 /* InfiniteCanvas.swift */; };
 		C4D0000000000000000000A3 /* CanvasPerfProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D0000000000000000000A1 /* CanvasPerfProbe.swift */; };
+		C4D0000000000000000000B3 /* CanvasScaleHook.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D0000000000000000000B1 /* CanvasScaleHook.swift */; };
 		C93000000000000000000001 /* MapExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F93000000000000000000001 /* MapExport.swift */; };
 		C93000000000000000000002 /* MapExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F93000000000000000000001 /* MapExport.swift */; };
 		C93000000000000000000003 /* MapExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F93000000000000000000001 /* MapExport.swift */; };
@@ -107,6 +110,58 @@
 		CA1100000000000000000001 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1100000000000000000001 /* AppSettings.swift */; };
 		CA1100000000000000000002 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1100000000000000000001 /* AppSettings.swift */; };
 		CA1100000000000000000003 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1100000000000000000001 /* AppSettings.swift */; };
+		CA8A00000000000000000001 /* AppearanceSettingsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8A00000000000000000001 /* AppearanceSettingsPanel.swift */; };
+		CA8A00000000000000000002 /* AppearanceSettingsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8A00000000000000000001 /* AppearanceSettingsPanel.swift */; };
+		CA8A00000000000000000003 /* AppearanceSettingsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8A00000000000000000001 /* AppearanceSettingsPanel.swift */; };
+		C8F20010000000000000000 /* CrimsonPro-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10010000000000000000 /* CrimsonPro-Regular.otf */; };
+		C8F21010000000000000000 /* CrimsonPro-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10010000000000000000 /* CrimsonPro-Regular.otf */; };
+		C8F22010000000000000000 /* CrimsonPro-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10010000000000000000 /* CrimsonPro-Regular.otf */; };
+		C8F20020000000000000000 /* EBGaramond-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10020000000000000000 /* EBGaramond-Regular.otf */; };
+		C8F21020000000000000000 /* EBGaramond-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10020000000000000000 /* EBGaramond-Regular.otf */; };
+		C8F22020000000000000000 /* EBGaramond-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10020000000000000000 /* EBGaramond-Regular.otf */; };
+		C8F20030000000000000000 /* IBMPlexSans-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10030000000000000000 /* IBMPlexSans-Regular.otf */; };
+		C8F21030000000000000000 /* IBMPlexSans-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10030000000000000000 /* IBMPlexSans-Regular.otf */; };
+		C8F22030000000000000000 /* IBMPlexSans-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10030000000000000000 /* IBMPlexSans-Regular.otf */; };
+		C8F20040000000000000000 /* Inter-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10040000000000000000 /* Inter-Regular.otf */; };
+		C8F21040000000000000000 /* Inter-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10040000000000000000 /* Inter-Regular.otf */; };
+		C8F22040000000000000000 /* Inter-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10040000000000000000 /* Inter-Regular.otf */; };
+		C8F20050000000000000000 /* LibreBaskerville-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10050000000000000000 /* LibreBaskerville-Regular.otf */; };
+		C8F21050000000000000000 /* LibreBaskerville-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10050000000000000000 /* LibreBaskerville-Regular.otf */; };
+		C8F22050000000000000000 /* LibreBaskerville-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10050000000000000000 /* LibreBaskerville-Regular.otf */; };
+		C8F20060000000000000000 /* NotoSans-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10060000000000000000 /* NotoSans-Regular.otf */; };
+		C8F21060000000000000000 /* NotoSans-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10060000000000000000 /* NotoSans-Regular.otf */; };
+		C8F22060000000000000000 /* NotoSans-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10060000000000000000 /* NotoSans-Regular.otf */; };
+		C8F20070000000000000000 /* NotoSerif-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10070000000000000000 /* NotoSerif-Regular.otf */; };
+		C8F21070000000000000000 /* NotoSerif-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10070000000000000000 /* NotoSerif-Regular.otf */; };
+		C8F22070000000000000000 /* NotoSerif-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10070000000000000000 /* NotoSerif-Regular.otf */; };
+		C8F30010000000000000000 /* CrimsonPro-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = F8F11010000000000000000 /* CrimsonPro-OFL.txt */; };
+		C8F31010000000000000000 /* CrimsonPro-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = F8F11010000000000000000 /* CrimsonPro-OFL.txt */; };
+		C8F32010000000000000000 /* CrimsonPro-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = F8F11010000000000000000 /* CrimsonPro-OFL.txt */; };
+		C8F30020000000000000000 /* EBGaramond-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = F8F11020000000000000000 /* EBGaramond-OFL.txt */; };
+		C8F31020000000000000000 /* EBGaramond-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = F8F11020000000000000000 /* EBGaramond-OFL.txt */; };
+		C8F32020000000000000000 /* EBGaramond-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = F8F11020000000000000000 /* EBGaramond-OFL.txt */; };
+		C8F30030000000000000000 /* IBMPlex-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = F8F11030000000000000000 /* IBMPlex-LICENSE.txt */; };
+		C8F31030000000000000000 /* IBMPlex-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = F8F11030000000000000000 /* IBMPlex-LICENSE.txt */; };
+		C8F32030000000000000000 /* IBMPlex-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = F8F11030000000000000000 /* IBMPlex-LICENSE.txt */; };
+		C8F30040000000000000000 /* Inter-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = F8F11040000000000000000 /* Inter-LICENSE.txt */; };
+		C8F31040000000000000000 /* Inter-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = F8F11040000000000000000 /* Inter-LICENSE.txt */; };
+		C8F32040000000000000000 /* Inter-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = F8F11040000000000000000 /* Inter-LICENSE.txt */; };
+		C8F30050000000000000000 /* LibreBaskerville-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = F8F11050000000000000000 /* LibreBaskerville-OFL.txt */; };
+		C8F31050000000000000000 /* LibreBaskerville-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = F8F11050000000000000000 /* LibreBaskerville-OFL.txt */; };
+		C8F32050000000000000000 /* LibreBaskerville-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = F8F11050000000000000000 /* LibreBaskerville-OFL.txt */; };
+		C8F30060000000000000000 /* NotoSans-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = F8F11060000000000000000 /* NotoSans-OFL.txt */; };
+		C8F31060000000000000000 /* NotoSans-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = F8F11060000000000000000 /* NotoSans-OFL.txt */; };
+		C8F32060000000000000000 /* NotoSans-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = F8F11060000000000000000 /* NotoSans-OFL.txt */; };
+		C8F30070000000000000000 /* NotoSerif-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = F8F11070000000000000000 /* NotoSerif-OFL.txt */; };
+		C8F31070000000000000000 /* NotoSerif-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = F8F11070000000000000000 /* NotoSerif-OFL.txt */; };
+		C8F32070000000000000000 /* NotoSerif-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = F8F11070000000000000000 /* NotoSerif-OFL.txt */; };
+		C8F4010000000000000000 /* ThemeFontCascade.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F1200000000000000000 /* ThemeFontCascade.swift */; };
+		C8F4020000000000000000 /* ThemeFontCascade.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F1200000000000000000 /* ThemeFontCascade.swift */; };
+		C8F4030000000000000000 /* ThemeFontCascade.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F1200000000000000000 /* ThemeFontCascade.swift */; };
+		C8F4040000000000000000 /* ThemeFontCascadeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F1210000000000000000 /* ThemeFontCascadeTests.swift */; };
+		C8F4070000000000000000 /* AppearanceSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F1220000000000000000 /* AppearanceSettingsTests.swift */; };
+		C8F4050000000000000000 /* ThemeFontCascade.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F1200000000000000000 /* ThemeFontCascade.swift */; };
+		C8F4060000000000000000 /* ThemeFontCascade.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F1200000000000000000 /* ThemeFontCascade.swift */; };
 		CA2100000000000000000001 /* RecentMapsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA2100000000000000000001 /* RecentMapsStore.swift */; };
 		CA2100000000000000000002 /* RecentMapsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA2100000000000000000001 /* RecentMapsStore.swift */; };
 		CA2100000000000000000003 /* RecentMapsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA2100000000000000000001 /* RecentMapsStore.swift */; };
@@ -144,6 +199,7 @@
 		C72000000000000000000001 /* HomeSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72000000000000000000001 /* HomeSmokeTests.swift */; };
 		C72000000000000000000002 /* NodeEditChromeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72000000000000000000003 /* NodeEditChromeUITests.swift */; };
 		C72000000000000000000003 /* InspectorTabPinUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72000000000000000000004 /* InspectorTabPinUITests.swift */; };
+		C72000000000000000000004 /* ThemeModesScreenshotUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72000000000000000000005 /* ThemeModesScreenshotUITests.swift */; };
 		C31000000000000000000011 /* ShareIngressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F31000000000000000000001 /* ShareIngressTests.swift */; };
 		C31000000000000000000012 /* ShareCatalogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F31000000000000000000002 /* ShareCatalogStore.swift */; };
 		C31000000000000000000013 /* ShareCatalogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F31000000000000000000002 /* ShareCatalogStore.swift */; };
@@ -228,6 +284,7 @@
 		F30000000000000000000002 /* CanvasPlacement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasPlacement.swift; sourceTree = "<group>"; };
 		F30000000000000000000003 /* InfiniteCanvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfiniteCanvas.swift; sourceTree = "<group>"; };
 		F3D0000000000000000000A1 /* CanvasPerfProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasPerfProbe.swift; sourceTree = "<group>"; };
+		F3D0000000000000000000B1 /* CanvasScaleHook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasScaleHook.swift; sourceTree = "<group>"; };
 		F8B500000000000000000001 /* CanvasAudioPlaybackBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasAudioPlaybackBar.swift; sourceTree = "<group>"; };
 		F8B600000000000000000001 /* MediaVideoPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaVideoPlayer.swift; sourceTree = "<group>"; };
 		F93000000000000000000001 /* MapExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapExport.swift; sourceTree = "<group>"; };
@@ -266,6 +323,24 @@
 		F90000000000000000000002 /* OutlineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutlineView.swift; sourceTree = "<group>"; };
 		F90000000000000000000003 /* OutlineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OutlineTests.swift; path = Tests/FlorettaCoreTests/OutlineTests.swift; sourceTree = SOURCE_ROOT; };
 		FA1100000000000000000001 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		FA8A00000000000000000001 /* AppearanceSettingsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettingsPanel.swift; sourceTree = "<group>"; };
+		F8F10010000000000000000 /* CrimsonPro-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = CrimsonPro-Regular.otf; sourceTree = "<group>"; };
+		F8F10020000000000000000 /* EBGaramond-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = EBGaramond-Regular.otf; sourceTree = "<group>"; };
+		F8F10030000000000000000 /* IBMPlexSans-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = IBMPlexSans-Regular.otf; sourceTree = "<group>"; };
+		F8F10040000000000000000 /* Inter-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Inter-Regular.otf; sourceTree = "<group>"; };
+		F8F10050000000000000000 /* LibreBaskerville-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = LibreBaskerville-Regular.otf; sourceTree = "<group>"; };
+		F8F10060000000000000000 /* NotoSans-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = NotoSans-Regular.otf; sourceTree = "<group>"; };
+		F8F10070000000000000000 /* NotoSerif-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = NotoSerif-Regular.otf; sourceTree = "<group>"; };
+		F8F11010000000000000000 /* CrimsonPro-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = CrimsonPro-OFL.txt; sourceTree = "<group>"; };
+		F8F11020000000000000000 /* EBGaramond-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = EBGaramond-OFL.txt; sourceTree = "<group>"; };
+		F8F11030000000000000000 /* IBMPlex-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = IBMPlex-LICENSE.txt; sourceTree = "<group>"; };
+		F8F11040000000000000000 /* Inter-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = Inter-LICENSE.txt; sourceTree = "<group>"; };
+		F8F11050000000000000000 /* LibreBaskerville-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = LibreBaskerville-OFL.txt; sourceTree = "<group>"; };
+		F8F11060000000000000000 /* NotoSans-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = NotoSans-OFL.txt; sourceTree = "<group>"; };
+		F8F11070000000000000000 /* NotoSerif-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = NotoSerif-OFL.txt; sourceTree = "<group>"; };
+		F8F1200000000000000000 /* ThemeFontCascade.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeFontCascade.swift; sourceTree = "<group>"; };
+		F8F1210000000000000000 /* ThemeFontCascadeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeFontCascadeTests.swift; sourceTree = "<group>"; };
+		F8F1220000000000000000 /* AppearanceSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettingsTests.swift; sourceTree = "<group>"; };
 		FA2100000000000000000001 /* RecentMapsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentMapsStore.swift; sourceTree = "<group>"; };
 		FA3100000000000000000001 /* DocumentSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentSession.swift; sourceTree = "<group>"; };
 		FA3200000000000000000001 /* MarkdownDocumentUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownDocumentUI.swift; sourceTree = "<group>"; };
@@ -286,6 +361,7 @@
 		F72000000000000000000001 /* HomeSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeSmokeTests.swift; sourceTree = "<group>"; };
 		F72000000000000000000003 /* NodeEditChromeUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeEditChromeUITests.swift; sourceTree = "<group>"; };
 		F72000000000000000000004 /* InspectorTabPinUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorTabPinUITests.swift; sourceTree = "<group>"; };
+		F72000000000000000000005 /* ThemeModesScreenshotUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeModesScreenshotUITests.swift; sourceTree = "<group>"; };
 		F72000000000000000000002 /* FlorettaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FlorettaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F31000000000000000000001 /* ShareIngressTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ShareIngressTests.swift; path = Tests/FlorettaCoreTests/ShareIngressTests.swift; sourceTree = SOURCE_ROOT; };
 		F31000000000000000000002 /* ShareCatalogStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCatalogStore.swift; sourceTree = "<group>"; };
@@ -470,6 +546,7 @@
 				A42000000000000000000001 /* QuickLook */,
 				A10000000000000000000005 /* macOS */,
 				A10000000000000000000006 /* iOS */,
+				A8F1000000000000000000 /* Resources */,
 			);
 			path = Floretta;
 			sourceTree = "<group>";
@@ -520,6 +597,7 @@
 				F30000000000000000000001 /* CanvasViewport.swift */,
 				F30000000000000000000003 /* InfiniteCanvas.swift */,
 				F3D0000000000000000000A1 /* CanvasPerfProbe.swift */,
+				F3D0000000000000000000B1 /* CanvasScaleHook.swift */,
 				F93000000000000000000001 /* MapExport.swift */,
 				F42000000000000000000001 /* MapPictureMarks.swift */,
 			);
@@ -547,6 +625,8 @@
 			isa = PBXGroup;
 			children = (
 				FA1100000000000000000001 /* AppSettings.swift */,
+				FA8A00000000000000000001 /* AppearanceSettingsPanel.swift */,
+				F8F1200000000000000000 /* ThemeFontCascade.swift */,
 				FA5100000000000000000001 /* DocumentEditor.swift */,
 				FA4500000000000000000001 /* EditorStatusBar.swift */,
 				FA4500000000000000000002 /* EditorToolbarChrome.swift */,
@@ -613,6 +693,8 @@
 				F93000000000000000000002 /* MapExportTests.swift */,
 				F42000000000000000000008 /* QuickLookThumbnailTests.swift */,
 				FA7100000000000000000001 /* ShellTests.swift */,
+				F8F1210000000000000000 /* ThemeFontCascadeTests.swift */,
+				F8F1220000000000000000 /* AppearanceSettingsTests.swift */,
 				FB2200000000000000000001 /* SnapshotHistoryTests.swift */,
 				FA7200000000000000000001 /* MarkdownDocumentUITests.swift */,
 				F20000000000000000000005 /* RecoveryPresenterTests.swift */,
@@ -624,10 +706,48 @@
 			isa = PBXGroup;
 			children = (
 				F72000000000000000000004 /* InspectorTabPinUITests.swift */,
+				F72000000000000000000005 /* ThemeModesScreenshotUITests.swift */,
 				F72000000000000000000001 /* HomeSmokeTests.swift */,
 				F72000000000000000000003 /* NodeEditChromeUITests.swift */,
 			);
 			path = FlorettaUITests;
+			sourceTree = "<group>";
+		};
+		A8F1000000000000000000 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A8F1100000000000000000 /* Fonts */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		A8F1100000000000000000 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				F8F10010000000000000000 /* CrimsonPro-Regular.otf */,
+				F8F10020000000000000000 /* EBGaramond-Regular.otf */,
+				F8F10030000000000000000 /* IBMPlexSans-Regular.otf */,
+				F8F10040000000000000000 /* Inter-Regular.otf */,
+				F8F10050000000000000000 /* LibreBaskerville-Regular.otf */,
+				F8F10060000000000000000 /* NotoSans-Regular.otf */,
+				F8F10070000000000000000 /* NotoSerif-Regular.otf */,
+				A8F1200000000000000000 /* licenses */,
+			);
+			path = Fonts;
+			sourceTree = "<group>";
+		};
+		A8F1200000000000000000 /* licenses */ = {
+			isa = PBXGroup;
+			children = (
+				F8F11010000000000000000 /* CrimsonPro-OFL.txt */,
+				F8F11020000000000000000 /* EBGaramond-OFL.txt */,
+				F8F11030000000000000000 /* IBMPlex-LICENSE.txt */,
+				F8F11040000000000000000 /* Inter-LICENSE.txt */,
+				F8F11050000000000000000 /* LibreBaskerville-OFL.txt */,
+				F8F11060000000000000000 /* NotoSans-OFL.txt */,
+				F8F11070000000000000000 /* NotoSerif-OFL.txt */,
+			);
+			path = licenses;
 			sourceTree = "<group>";
 		};
 		A10000000000000000000005 /* macOS */ = {
@@ -716,6 +836,7 @@
 			buildPhases = (
 				B20000000000000000000001 /* Sources */,
 				B20000000000000000000002 /* Frameworks */,
+				B8F1000000000000000000 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -1027,6 +1148,20 @@
 				C10000000000000000000003 /* Assets.xcassets in Resources */,
 				CA8100000000000000000001 /* NOTICE in Resources */,
 				CA4400000000000000000001 /* Localizable.xcstrings in Resources */,
+				C8F20010000000000000000 /* CrimsonPro-Regular.otf in Resources */,
+				C8F20020000000000000000 /* EBGaramond-Regular.otf in Resources */,
+				C8F20030000000000000000 /* IBMPlexSans-Regular.otf in Resources */,
+				C8F20040000000000000000 /* Inter-Regular.otf in Resources */,
+				C8F20050000000000000000 /* LibreBaskerville-Regular.otf in Resources */,
+				C8F20060000000000000000 /* NotoSans-Regular.otf in Resources */,
+				C8F20070000000000000000 /* NotoSerif-Regular.otf in Resources */,
+				C8F30010000000000000000 /* CrimsonPro-OFL.txt in Resources */,
+				C8F30020000000000000000 /* EBGaramond-OFL.txt in Resources */,
+				C8F30030000000000000000 /* IBMPlex-LICENSE.txt in Resources */,
+				C8F30040000000000000000 /* Inter-LICENSE.txt in Resources */,
+				C8F30050000000000000000 /* LibreBaskerville-OFL.txt in Resources */,
+				C8F30060000000000000000 /* NotoSans-OFL.txt in Resources */,
+				C8F30070000000000000000 /* NotoSerif-OFL.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1037,6 +1172,20 @@
 				C10000000000000000000006 /* Assets.xcassets in Resources */,
 				CA8100000000000000000002 /* NOTICE in Resources */,
 				CA4400000000000000000002 /* Localizable.xcstrings in Resources */,
+				C8F21010000000000000000 /* CrimsonPro-Regular.otf in Resources */,
+				C8F21020000000000000000 /* EBGaramond-Regular.otf in Resources */,
+				C8F21030000000000000000 /* IBMPlexSans-Regular.otf in Resources */,
+				C8F21040000000000000000 /* Inter-Regular.otf in Resources */,
+				C8F21050000000000000000 /* LibreBaskerville-Regular.otf in Resources */,
+				C8F21060000000000000000 /* NotoSans-Regular.otf in Resources */,
+				C8F21070000000000000000 /* NotoSerif-Regular.otf in Resources */,
+				C8F31010000000000000000 /* CrimsonPro-OFL.txt in Resources */,
+				C8F31020000000000000000 /* EBGaramond-OFL.txt in Resources */,
+				C8F31030000000000000000 /* IBMPlex-LICENSE.txt in Resources */,
+				C8F31040000000000000000 /* Inter-LICENSE.txt in Resources */,
+				C8F31050000000000000000 /* LibreBaskerville-OFL.txt in Resources */,
+				C8F31060000000000000000 /* NotoSans-OFL.txt in Resources */,
+				C8F31070000000000000000 /* NotoSerif-OFL.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1056,6 +1205,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B8F1000000000000000000 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C8F22010000000000000000 /* CrimsonPro-Regular.otf in Resources */,
+				C8F22020000000000000000 /* EBGaramond-Regular.otf in Resources */,
+				C8F22030000000000000000 /* IBMPlexSans-Regular.otf in Resources */,
+				C8F22040000000000000000 /* Inter-Regular.otf in Resources */,
+				C8F22050000000000000000 /* LibreBaskerville-Regular.otf in Resources */,
+				C8F22060000000000000000 /* NotoSans-Regular.otf in Resources */,
+				C8F22070000000000000000 /* NotoSerif-Regular.otf in Resources */,
+				C8F32010000000000000000 /* CrimsonPro-OFL.txt in Resources */,
+				C8F32020000000000000000 /* EBGaramond-OFL.txt in Resources */,
+				C8F32030000000000000000 /* IBMPlex-LICENSE.txt in Resources */,
+				C8F32040000000000000000 /* Inter-LICENSE.txt in Resources */,
+				C8F32050000000000000000 /* LibreBaskerville-OFL.txt in Resources */,
+				C8F32060000000000000000 /* NotoSans-OFL.txt in Resources */,
+				C8F32070000000000000000 /* NotoSerif-OFL.txt in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -1071,6 +1241,7 @@
 				C40000000000000000000002 /* CanvasPlacement.swift in Sources */,
 				C40000000000000000000003 /* InfiniteCanvas.swift in Sources */,
 				C4D0000000000000000000A1 /* CanvasPerfProbe.swift in Sources */,
+				C4D0000000000000000000B1 /* CanvasScaleHook.swift in Sources */,
 				C8B500000000000000000001 /* CanvasAudioPlaybackBar.swift in Sources */,
 				C8B600000000000000000001 /* MediaVideoPlayer.swift in Sources */,
 				C93000000000000000000001 /* MapExport.swift in Sources */,
@@ -1080,6 +1251,8 @@
 				C73000000000000000000001 /* SystemDictation.swift in Sources */,
 				C90000000000000000000002 /* OutlineView.swift in Sources */,
 				CA1100000000000000000001 /* AppSettings.swift in Sources */,
+				CA8A00000000000000000001 /* AppearanceSettingsPanel.swift in Sources */,
+				C8F4010000000000000000 /* ThemeFontCascade.swift in Sources */,
 				CA2100000000000000000001 /* RecentMapsStore.swift in Sources */,
 				CA3100000000000000000001 /* DocumentSession.swift in Sources */,
 				CA3200000000000000000001 /* MarkdownDocumentUI.swift in Sources */,
@@ -1111,6 +1284,7 @@
 				C40000000000000000000006 /* CanvasPlacement.swift in Sources */,
 				C40000000000000000000007 /* InfiniteCanvas.swift in Sources */,
 				C4D0000000000000000000A2 /* CanvasPerfProbe.swift in Sources */,
+				C4D0000000000000000000B2 /* CanvasScaleHook.swift in Sources */,
 				C8B500000000000000000002 /* CanvasAudioPlaybackBar.swift in Sources */,
 				C8B600000000000000000002 /* MediaVideoPlayer.swift in Sources */,
 				C93000000000000000000002 /* MapExport.swift in Sources */,
@@ -1120,6 +1294,8 @@
 				C73000000000000000000002 /* SystemDictation.swift in Sources */,
 				C90000000000000000000004 /* OutlineView.swift in Sources */,
 				CA1100000000000000000002 /* AppSettings.swift in Sources */,
+				CA8A00000000000000000002 /* AppearanceSettingsPanel.swift in Sources */,
+				C8F4020000000000000000 /* ThemeFontCascade.swift in Sources */,
 				CA2100000000000000000002 /* RecentMapsStore.swift in Sources */,
 				CA3100000000000000000002 /* DocumentSession.swift in Sources */,
 				CA3200000000000000000002 /* MarkdownDocumentUI.swift in Sources */,
@@ -1160,6 +1336,7 @@
 				C4000000000000000000000A /* CanvasPlacement.swift in Sources */,
 				C4000000000000000000000B /* InfiniteCanvas.swift in Sources */,
 				C4D0000000000000000000A3 /* CanvasPerfProbe.swift in Sources */,
+				C4D0000000000000000000B3 /* CanvasScaleHook.swift in Sources */,
 				C8B500000000000000000003 /* CanvasAudioPlaybackBar.swift in Sources */,
 				C93000000000000000000003 /* MapExport.swift in Sources */,
 				C42000000000000000000003 /* MapPictureMarks.swift in Sources */,
@@ -1200,6 +1377,10 @@
 				C90000000000000000000006 /* OutlineView.swift in Sources */,
 				C90000000000000000000007 /* OutlineTests.swift in Sources */,
 				CA1100000000000000000003 /* AppSettings.swift in Sources */,
+				CA8A00000000000000000003 /* AppearanceSettingsPanel.swift in Sources */,
+				C8F4030000000000000000 /* ThemeFontCascade.swift in Sources */,
+				C8F4040000000000000000 /* ThemeFontCascadeTests.swift in Sources */,
+				C8F4070000000000000000 /* AppearanceSettingsTests.swift in Sources */,
 				CA4200000000000000000003 /* LocalDeviceLabel.swift in Sources */,
 				CA2100000000000000000003 /* RecentMapsStore.swift in Sources */,
 				CA3100000000000000000003 /* DocumentSession.swift in Sources */,
@@ -1232,6 +1413,7 @@
 				C72000000000000000000001 /* HomeSmokeTests.swift in Sources */,
 				C72000000000000000000002 /* NodeEditChromeUITests.swift in Sources */,
 				C72000000000000000000003 /* InspectorTabPinUITests.swift in Sources */,
+				C72000000000000000000004 /* ThemeModesScreenshotUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1269,6 +1451,7 @@
 				C42000000000000000000011 /* FlorettaQuickLook.swift in Sources */,
 				C42000000000000000000017 /* FlorettaL10n.swift in Sources */,
 				C42000000000000000000012 /* MapExport.swift in Sources */,
+				C8F4050000000000000000 /* ThemeFontCascade.swift in Sources */,
 				C42000000000000000000015 /* MapPictureMarks.swift in Sources */,
 				C42000000000000000000018 /* ThumbnailProvider.swift in Sources */,
 			);
@@ -1284,6 +1467,7 @@
 				C42000000000000000000021 /* FlorettaQuickLook.swift in Sources */,
 				C42000000000000000000027 /* FlorettaL10n.swift in Sources */,
 				C42000000000000000000022 /* MapExport.swift in Sources */,
+				C8F4060000000000000000 /* ThemeFontCascade.swift in Sources */,
 				C42000000000000000000025 /* MapPictureMarks.swift in Sources */,
 				C42000000000000000000028 /* PreviewProvider.swift in Sources */,
 			);

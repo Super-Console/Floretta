@@ -448,36 +448,57 @@ public struct LayoutEngine: Sendable {
     public var cache: TextMeasurementCache
     public var metrics: LayoutMetrics
     public var appearance: LayoutAppearance
+    /// Multiplier from the current appearance profile. 1 keeps theme sizes.
+    public var fontSizeScale: CGFloat = 1
+    /// Painted family id (`eb-garamond`, `system-serif`, …). Empty keeps the
+    /// historical Helvetica → system UI measurement path.
+    public var fontFamilyID: String = ""
 
     public init(
         kind: LayoutKind = .bilateral,
         cache: TextMeasurementCache = TextMeasurementCache(),
         metrics: LayoutMetrics = LayoutMetrics(),
-        appearance: LayoutAppearance = .standard
+        appearance: LayoutAppearance = .standard,
+        fontSizeScale: CGFloat = 1,
+        fontFamilyID: String = ""
     ) {
         self.kind = kind
         self.cache = cache
         self.metrics = metrics
         self.appearance = appearance
+        self.fontSizeScale = fontSizeScale
+        self.fontFamilyID = fontFamilyID
     }
 
     public func fontSize(depth: Int) -> CGFloat {
-        metrics.fontSize(depth: depth)
+        metrics.fontSize(depth: depth) * max(fontSizeScale, 0.01)
     }
 
     /// `scheme` selects the light or dark set of the document's preset.
     /// An unset theme in light mode keeps `appearance`, so a saved map with no theme id stays on `LayoutAppearance.standard`.
-    public func layout(_ document: MindMapDocument, scheme: MapColorScheme = .light) -> [NodeFrame] {
-        let resolved = MapThemeCatalog.appearance(
+    /// `profile` overlays the user's appearance mode (paper, fill, ink, corner, type scale).
+    public func layout(
+        _ document: MindMapDocument,
+        scheme: MapColorScheme = .light,
+        profile: AppearanceProfile? = nil
+    ) -> [NodeFrame] {
+        var resolved = MapThemeCatalog.appearance(
             themeID: document.themeID,
             scheme: scheme,
             fallback: appearance
         )
-        if resolved == appearance {
+        if let profile {
+            resolved = profile.applying(to: resolved, scheme: scheme)
+        }
+        let scale = CGFloat(profile?.clampedFontSizeScale ?? Double(fontSizeScale))
+        let familyID = profile?.fontFamilyID ?? fontFamilyID
+        if resolved == appearance, scale == fontSizeScale, familyID == fontFamilyID {
             return placed(document)
         }
         var themed = self
         themed.appearance = resolved
+        themed.fontSizeScale = scale
+        themed.fontFamilyID = familyID
         return themed.placed(document)
     }
 
@@ -553,7 +574,14 @@ public struct LayoutEngine: Sendable {
 
     private func appendFree(_ node: MindMapNode, into frames: inout [NodeFrame]) {
         let font = resolvedFontSize(node, depth: 1)
-        let raw = cache.size(text: layoutText(node), fontSize: font, maxWidth: metrics.maxTextWidth)
+        let face = typography(for: node, depth: 1)
+        let raw = cache.size(
+            text: layoutText(node),
+            fontSize: font,
+            maxWidth: metrics.maxTextWidth,
+            fontFamilyID: face.familyID,
+            nodeDesign: face.nodeDesign
+        )
         let size = nodeSize(node, depth: 1, heights: [1: raw.height], reservesChildBadge: false)
         let origin = CGPoint(x: node.position?.x ?? 0, y: node.position?.y ?? 0)
         frames.append(
@@ -576,7 +604,14 @@ public struct LayoutEngine: Sendable {
     }
 
     private func collectHeights(_ node: MindMapNode, depth: Int, into heights: inout [Int: CGFloat]) {
-        let raw = cache.size(text: layoutText(node), fontSize: resolvedFontSize(node, depth: depth), maxWidth: metrics.maxTextWidth)
+        let face = typography(for: node, depth: depth)
+        let raw = cache.size(
+            text: layoutText(node),
+            fontSize: resolvedFontSize(node, depth: depth),
+            maxWidth: metrics.maxTextWidth,
+            fontFamilyID: face.familyID,
+            nodeDesign: face.nodeDesign
+        )
         heights[depth] = max(heights[depth] ?? 0, raw.height)
         if node.position != nil || node.isCollapsed { return }
         for child in node.children {
@@ -591,7 +626,14 @@ public struct LayoutEngine: Sendable {
         reservesChildBadge: Bool = false
     ) -> CGSize {
         let font = resolvedFontSize(node, depth: depth)
-        let raw = cache.size(text: layoutText(node), fontSize: font, maxWidth: metrics.maxTextWidth)
+        let face = typography(for: node, depth: depth)
+        let raw = cache.size(
+            text: layoutText(node),
+            fontSize: font,
+            maxWidth: metrics.maxTextWidth,
+            fontFamilyID: face.familyID,
+            nodeDesign: face.nodeDesign
+        )
         let band = thumbnailBand(node)
         let files = FileBadgeLayout.fileAttachments(in: node)
         let fileBand = CGFloat(FileBadgeMetrics.bandHeight(count: files.count))
@@ -600,7 +642,13 @@ public struct LayoutEngine: Sendable {
         var fileWidth: CGFloat = 0
         if !files.isEmpty {
             let label = files.map { "\($0.filename) \(AttachmentByteFormat.label($0.byteCount))" }.joined(separator: "\n")
-            let measured = cache.size(text: label, fontSize: font, maxWidth: metrics.maxTextWidth)
+            let measured = cache.size(
+                text: label,
+                fontSize: font,
+                maxWidth: metrics.maxTextWidth,
+                fontFamilyID: face.familyID,
+                nodeDesign: face.nodeDesign
+            )
             fileWidth = measured.width + CGFloat(FileBadgeMetrics.iconSide + FileBadgeMetrics.gap + FileBadgeMetrics.horizontalInset * 2)
         }
         let width = max(raw.width, CGFloat(node.style?.topicWidth ?? 0), imageWidth, fileWidth)
@@ -613,9 +661,21 @@ public struct LayoutEngine: Sendable {
         return CGFloat(ImageSlot.bandHeight(hasImage: hasImage))
     }
 
+    /// Same family + design the canvas will paint, so measured width matches glyphs.
+    private func typography(for node: MindMapNode, depth: Int) -> (familyID: String, nodeDesign: String) {
+        let design = node.style?.fontDesign
+            ?? (depth == 0 ? appearance.rootFontDesign : appearance.bodyFontDesign)
+        return (fontFamilyID, design)
+    }
+
     private func resolvedFontSize(_ node: MindMapNode, depth: Int) -> CGFloat {
-        if let size = node.style?.fontSize, size > 0 { return CGFloat(size) }
-        return fontSize(depth: depth)
+        let base: CGFloat
+        if let size = node.style?.fontSize, size > 0 {
+            base = CGFloat(size)
+        } else {
+            base = metrics.fontSize(depth: depth)
+        }
+        return base * max(fontSizeScale, 0.01)
     }
 
     private func split(

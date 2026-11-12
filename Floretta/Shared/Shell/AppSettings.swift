@@ -288,7 +288,9 @@ extension MapExportOptions {
         self.init(
             scale: settings.pngScale.exportScale,
             background: settings.pngBackground.exportBackground,
-            includeStickies: settings.exportIncludesStickies
+            includeStickies: settings.exportIncludesStickies,
+            fontFamilyID: settings.currentProfile.fontFamilyID,
+            appearanceProfile: settings.currentProfile
         )
     }
 }
@@ -357,6 +359,34 @@ final class AppSettings {
         didSet { defaults.set(appearance.rawValue, forKey: Key.appearance) }
     }
 
+    /// Content appearance preset. Default is classic. Changing a profile (for
+    /// example, setting classic to a sans family) is stored with that mode.
+    var appearanceMode: AppearanceMode {
+        didSet { defaults.set(appearanceMode.rawValue, forKey: Key.appearanceMode) }
+    }
+
+    /// One profile per mode. Missing keys fall back to catalog defaults.
+    var appearanceProfiles: [AppearanceMode: AppearanceProfile] {
+        didSet { persistAppearanceProfiles() }
+    }
+
+    var currentProfile: AppearanceProfile {
+        get { appearanceProfiles[appearanceMode] ?? AppearanceCatalog.defaultProfile(for: appearanceMode) }
+        set {
+            appearanceProfiles[appearanceMode] = newValue
+        }
+    }
+
+    func updateCurrentProfile(_ body: (inout AppearanceProfile) -> Void) {
+        var profile = currentProfile
+        body(&profile)
+        currentProfile = profile
+    }
+
+    func restoreCurrentModeDefaults() {
+        appearanceProfiles[appearanceMode] = AppearanceCatalog.defaultProfile(for: appearanceMode)
+    }
+
     var defaultView: DocumentViewMode {
         didSet { defaults.set(defaultView.rawValue, forKey: Key.defaultView) }
     }
@@ -391,6 +421,15 @@ final class AppSettings {
         } else {
             exportIncludesStickies = defaults.bool(forKey: Key.exportIncludesStickies)
         }
+        appearanceMode = AppearanceMode(rawValue: defaults.string(forKey: Key.appearanceMode) ?? "")
+            ?? AppearanceCatalog.defaultMode
+        appearanceProfiles = AppearanceCatalog.profiles(from: defaults.data(forKey: Key.appearanceProfiles))
+    }
+
+    private func persistAppearanceProfiles() {
+        if let data = try? AppearanceCatalog.encodeProfiles(appearanceProfiles) {
+            defaults.set(data, forKey: Key.appearanceProfiles)
+        }
     }
 
     static let shared = AppSettings(defaults: .standard)
@@ -421,5 +460,7 @@ final class AppSettings {
         static let pngScale = "floretta.pngScale"
         static let pngBackground = "floretta.pngBackground"
         static let exportIncludesStickies = "floretta.exportIncludesStickies"
+        static let appearanceMode = "floretta.appearanceMode"
+        static let appearanceProfiles = "floretta.appearanceProfiles"
     }
 }

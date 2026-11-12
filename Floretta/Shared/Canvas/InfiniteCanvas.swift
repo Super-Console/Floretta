@@ -57,6 +57,7 @@ struct InfiniteCanvas: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.locale) private var locale
+    @Environment(\.appearanceProfile) private var appearanceProfile
     @FocusState private var canvasFocused: Bool
 
     var body: some View {
@@ -93,6 +94,7 @@ struct InfiniteCanvas: View {
         .overlay { editField }
         .overlay { nodeChromeProbe }
         .overlay { stickyChrome }
+        .overlay(alignment: .topLeading) { heldCanvasScaleLabel }
     }
 
     private func canvasSecondaryOverlays<V: View>(_ view: V) -> some View {
@@ -194,6 +196,14 @@ struct InfiniteCanvas: View {
                 openPetalMap()
                 canvasFocused = true
                 startPerfRunIfRequested()
+                applyPendingHeldCanvasScale(in: size)
+            }
+            .background {
+                if CanvasScaleHook.isEnabled {
+                    HeldCanvasScaleTick {
+                        applyPendingHeldCanvasScale(in: size)
+                    }
+                }
             }
             .onChange(of: size) { _, newSize in
                 camera.viewSize = newSize
@@ -553,7 +563,11 @@ struct InfiniteCanvas: View {
     }
 
     private func publishBounds() {
-        camera.contentBounds = CanvasPlacement.contentBounds(in: layoutSource())
+        camera.contentBounds = CanvasPlacement.contentBounds(
+            in: layoutSource(),
+            scheme: branchScheme,
+            profile: appearanceProfile
+        )
     }
 
     @ViewBuilder
@@ -1127,7 +1141,7 @@ struct InfiniteCanvas: View {
     }
 
     private func placedFrames() -> [NodeFrame] {
-        let frames = laidOut.frames(for: layoutSource(), scheme: branchScheme)
+        let frames = laidOut.frames(for: layoutSource(), scheme: branchScheme, profile: appearanceProfile)
         guard let live = camera.liveNodeOrigin else { return frames }
         return CanvasPlacement.applyingLiveOrigin(frames, id: live.id, origin: live.origin)
     }
@@ -1138,10 +1152,13 @@ struct InfiniteCanvas: View {
 
     /// The color scheme's paper, or the system background when the map has no scheme.
     private var resolvedAppearance: LayoutAppearance {
-        MapThemeCatalog.appearance(
-            themeID: document.themeID,
-            scheme: branchScheme,
-            fallback: .standard
+        appearanceProfile.applying(
+            to: MapThemeCatalog.appearance(
+                themeID: document.themeID,
+                scheme: branchScheme,
+                fallback: .standard
+            ),
+            scheme: branchScheme
         )
     }
 
@@ -1302,13 +1319,38 @@ struct InfiniteCanvas: View {
             }
             .onEnded { _ in
                 pinchStartScale = nil
-                camera.viewport.snapToStop(around: center(of: size))
+                // Pinch-shot UI tests hold mid-gesture scales (85/70/55),
+                // which are not legal ZoomStop values. Do not snap those away.
+                if !CanvasScaleHook.isEnabled {
+                    camera.viewport.snapToStop(around: center(of: size))
+                }
                 camera.chrome.syncZoomPercent(toScale: camera.viewport.scale)
             }
     }
 
     private func center(of size: CGSize) -> CGPoint {
         CGPoint(x: size.width / 2, y: size.height / 2)
+    }
+
+    private func applyPendingHeldCanvasScale(in size: CGSize) {
+        guard let scale = CanvasScaleHook.pendingScale() else { return }
+        camera.viewport.zoom(to: scale, around: center(of: size))
+        camera.chrome.syncZoomPercent(toScale: camera.viewport.scale)
+        CanvasScaleHook.markApplied(scale)
+    }
+
+    @ViewBuilder
+    private var heldCanvasScaleLabel: some View {
+        if CanvasScaleHook.isEnabled {
+            Text("pinch scale \(Int((camera.viewport.scale * 100).rounded()))%")
+                .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 6))
+                .padding(12)
+                .accessibilityIdentifier("uitest.heldCanvasScale")
+                .allowsHitTesting(false)
+        }
     }
 
     /// `-FlorettaPerfNodes` only. Uses the same camera path as pan and pinch, and the same live-origin path as a node drag.
@@ -1340,6 +1382,10 @@ struct InfiniteCanvas: View {
     }
 
     private func draw(in context: GraphicsContext, size: CGSize, at time: TimeInterval) {
+        // One lock to snapshot the font tables; per-node draws then read
+        // immutable CTFont references. prepareCanvasFonts below resolves
+        // unique (design, size) pairs for this scale before the node loop.
+        ThemeFontCascade.beginFrame()
         drawGrid(in: context, size: size)
         // The open petal starts from a bud. Don't paint the settled tree for one frame first.
         if !petalMapOpened && !reduceMotion { return }
@@ -1433,6 +1479,15 @@ struct InfiniteCanvas: View {
         }
         let highlightedIDs = tagFilter.isActive ? tagFilter.highlightedIDs(in: document) : []
         CanvasPerfRun.noteVisible(visible.count)
+        ThemeFontCascade.prepareCanvasFonts(
+            familyID: appearanceProfile.fontFamilyID,
+            designsAndSizes: (visible + ghosts.map(\.frame)).map { node in
+                (
+                    node.fontDesign,
+                    CanvasTextScale.onScreenPointSize(fontSize: node.fontSize, scale: scale)
+                )
+            }
+        )
         for node in visible {
             let pose: PetalPose?
             if blooming {
@@ -1871,7 +1926,7 @@ struct InfiniteCanvas: View {
             maxX: view.maxX,
             maxY: view.maxY
         )
-        let nodes = laidOut.frames(for: document, scheme: branchScheme).map { frame in
+        let nodes = laidOut.frames(for: document, scheme: branchScheme, profile: appearanceProfile).map { frame in
             (
                 AttachmentViewportRect(
                     minX: frame.origin.x,
@@ -1900,7 +1955,10 @@ struct InfiniteCanvas: View {
         )
         var text = NodeTextTypography.canvasText(
             shown,
-            font: FlorettaTitleFont.font(design: node.fontDesign, size: pointSize)
+            lineHeight: appearanceProfile.lineHeight,
+            familyID: appearanceProfile.fontFamilyID,
+            nodeDesign: node.fontDesign,
+            size: pointSize
         )
             .foregroundStyle(color(node.textColor))
         if node.bold { text = text.bold() }
@@ -2354,15 +2412,17 @@ final class LaidOutFrames {
     private var source: MindMapDocument?
     private var cached: [NodeFrame] = []
     private var cachedScheme: MapColorScheme?
+    private var cachedProfile: AppearanceProfile?
     /// Increments only when the cache misses. Petal playback must not move this.
     private(set) var layoutPassCount = 0
 
-    func frames(for document: MindMapDocument, scheme: MapColorScheme) -> [NodeFrame] {
-        if let source, source == document, cachedScheme == scheme { return cached }
+    func frames(for document: MindMapDocument, scheme: MapColorScheme, profile: AppearanceProfile? = nil) -> [NodeFrame] {
+        if let source, source == document, cachedScheme == scheme, cachedProfile == profile { return cached }
         layoutPassCount += 1
-        cached = CanvasPlacement.nodes(in: document, scheme: scheme)
+        cached = CanvasPlacement.nodes(in: document, scheme: scheme, profile: profile)
         source = document
         cachedScheme = scheme
+        cachedProfile = profile
         return cached
     }
 }
@@ -2770,3 +2830,18 @@ private final class FocusRingFreeView: NSView {
     }
 }
 #endif
+
+/// Polls the UI-test scale file only when `-FlorettaPinchShot` is set.
+private struct HeldCanvasScaleTick: View {
+    var onTick: () -> Void
+
+    var body: some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .accessibilityHidden(true)
+            .onAppear(perform: onTick)
+            .onReceive(Timer.publish(every: 0.15, on: .main, in: .common).autoconnect()) { _ in
+                onTick()
+            }
+    }
+}

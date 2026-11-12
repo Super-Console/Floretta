@@ -1,4 +1,49 @@
-# 状态
+# 路线图
+
+这是 Floretta 唯一的进度文档（原 `docs/STATUS.md` 已并入本文后删除）。功能合入后只更新这一份。顶部「本轮」每轮覆盖；下面的矩阵用统一状态词；更早的申报与流水记在文末历史记录里。
+
+## 本轮
+
+- 本轮进度：PR #119 已开、未合并（基线 `8e50c1212d9f784ec6b38ba434f8c77cb9206cf6`）。双入口共用 `AppSettings`、三模式可切、经典改非衬线可持久化，见 `docs/THEME-MODES.md`。包体以对应 SHA 的 `scripts/check-size.sh` 为准，见 `docs/THEME-MODES.md`：`9a92549` 为 iOS 12,951,415 / macOS arm64 19,404,744（2026-11-13 00:45:20 / 00:45:53 CST）；上轮产品 `ebe0874` 为 iOS 12,953,439 / macOS arm64 19,423,352（01:35:11 / 01:36:00 CST）；干净 tip `aef98b0` 重跑（产品代码 `44723d0`）为 iOS 12,970,647 / macOS arm64 19,441,560（03:07:18 / 03:07:22 CST），与 `44723d0` 那次字节相同，不得用 `ebe0874` 的字节代替。思源宋体子集 4,876,368 bytes 未打包。画布三张（classic / modern / classic-sans）已用同一份中英日韩+换行文档重拍（22:56:04–22:57:01 CST）。iPad 模拟器没有宋体和 AppleMyungjo，经典中文回退 PingFang，韩文回退 SD Gothic，据实写在 `THEME-MODES.md`，不把 PingFang 写成宋体。E2：同一 XCUITest 启动器+PR #117 探针、500 节点。对照 `8e50c12` 原测 59.7 / 57.3 / 59.7（23:16:56 CST），同参数重测 59.3 / 55.5 / 59.7（2026-11-13 00:25:32 CST）。`fae6453` 曾回归到 1.0 / 0.8 / 0.9。已按 (family, design, log 等距约 2% 字号桶) 缓存 CTFont，每帧快照、绘制只读不可变引用，并加 256 条 LRU 上限（不再用 `Font.system(design:)` 当画布路径）。干净 tip `aef98b0`（产品代码 `44723d0`）重测为 58.7 / 57.7 / 59，缩放须写成 57.7 / 50，峰值内存 93 MB（2026-11-13 03:06:35 CST，日志 HEAD=`aef98b0…`，测量前后 `git status` 干净）；不得把 93 MB 写成已证实的缓存收益，也不得再用 `ebe0874` 的 59.7 / 57.2 / 59.7、57.2 / 50 或 65.2 MB 当作本 tip 的数。上轮 `9a92549` 为 59.7 / 55.3 / 59.7，峰值 92.8 MB。不得写成 57–60，也不得用脏树 53.7 / 105.5 MB（23:34:47 CST）当本 tip 证据。`30e2e91` 在 70% 把中心节点「字形样本」裁成「字形…」，根因是排版用 Helvetica / 系统 UI 测宽、绘制走 cascade，不是 log 桶字号差（70% 桶量化约 +0.10%）；`44723d0` 改为用绘制同一套 `ThemeFontCascade.cachedCTFont` 测宽。已知残留（空 `fontFamilyID` 仍走系统 UI、`NodeTextEditor` 仍用四参数 `CoreTextFontMetrics`、`MapExport.images` 无 profile、徽章/区域标签仍 `Font.system`）不是本轮硬阻断。官方干净树捏合四张（100/85/70/55%，02:34:35–02:34:50 CST，日志 HEAD=`44723d0…`，`git status` 为空）中心节点四个字都完整，见 `docs/reviews/theme-modes/pinch-*.png`。EB Garamond 对照图见 `docs/reviews/theme-modes/latin-eb-garamond.png`（23:33:32 CST）。矩阵里的已知缺口没有抹掉。
+- 下一步：等 Censor 审 PR #119，不合并。并行待办仍是 Quick Look 扩展包 ID 发布阻塞、A27 空态与钉住、`-FlorettaEditChrome` 开窗、补 macOS / iPhone 玻璃截图、音视频 / iPad 蓝牙键盘 / 组字保护的真机验收，以及 FlorettaWeb 自 2026-11-11 04:29:43 CST 之后的同步。
+- 阻塞：1.0(9) 上传因 Quick Look 扩展包 ID 两段后缀 `quicklook.preview` / `quicklook.thumbnail` 被拒。当时构建是 `CURRENT_PROJECT_VERSION = 9`（`811b2f5`，2026-11-10 21:33:57 CST），ID 为 `net.timhuang.floretta.quicklook.preview` 与 `net.timhuang.floretta.quicklook.thumbnail`。其后 PR #90 → main `9885b13`（2026-11-11 01:47:58 CST）改为 `net.timhuang.floretta.qlpreview` / `net.timhuang.floretta.qlthumbnail`，本分支 `project.pbxproj` 仍是这一对；没有成功重传 App Store Connect 的证据，故不能算已交付。另：A27 空态仍无法读取；`-FlorettaEditChrome` 启动后 AX 只有菜单栏（2026-11-12 19:32:59 CST 复现）。
+
+状态词只用：✅ 已交付 / 🚧 进行中(PR#) / ❌ 缺失 / ⛔ 不做(原因)。证据列只写已存在的 PR、提交、路径或已核验的时间。不得用 ✅ 掩盖未收口项。
+
+## 功能矩阵
+
+| 功能 | macOS | iPad | iPhone | Web | 证据 |
+| --- | --- | --- | --- | --- | --- |
+| 首页与文档库 | ✅ 已交付 | ✅ 已交付 | ✅ 已交付 | ✅ 已交付 | 原生：PR #42 → main `cbd2dba`；`Floretta/Shared/Shell/LibraryHome.swift`。网页：`docs/WEB-PARITY.md`（2026-11-11）写明已同步；FlorettaWeb origin/main `ecdf695`（2026-11-11 04:29:43 CST，PR #11） |
+| 界面本地化（zh-Hans / en） | ✅ 已交付 | ✅ 已交付 | ✅ 已交付 | ✅ 已交付 | 原生：PR #46 → main `4848d35`；`Floretta/Shared/Localizable.xcstrings`。网页：FlorettaWeb README 写明中英界面；介绍页与网关按语言分流（PR #8 / #9） |
+| 双边画布布局与节点编辑 | ✅ 已交付 | ✅ 已交付 | ✅ 已交付 | ✅ 已交付 | 原生：`FlorettaCore/Layout/LayoutEngine.swift`；`Floretta/Shared/Canvas/InfiniteCanvas.swift`；P1-b / P1-c 验收见下文历史记录。网页：`docs/WEB-PARITY.md` 大纲编辑、画布与检查器已同步 |
+| 键盘映射 | ✅ 已交付 | ✅ 已交付 | ✅ 已交付 | ❌ 缺失 | 原生快捷键：`FlorettaCore/Keyboard/KeyboardCommandMapper.swift`；XMind 快捷键 PR #114 → main `8013478`。网页快捷键是否对齐未在 `docs/WEB-PARITY.md` 证实。iPad 蓝牙键盘见下行，不得并入本行的 ✅ |
+| iPad 蓝牙键盘 | ⛔ 不做(iPad 项) | ❌ 缺失 | ⛔ 不做(iPad 项) | ⛔ 不做(不适用) | `docs/REVIEW-CHECKLIST-2026-11-12.md` B4（连实体键盘，Space / Enter / Tab）。仅有模拟器/代码路径，未在真机连蓝牙键盘验收 |
+| 输入法组字保护 | ❌ 缺失 | ❌ 缺失 | ❌ 缺失 | ❌ 缺失 | 代码有 `isComposing` 守卫（`KeyboardCommandMapper`），不得据此标 ✅。`docs/SMOKE.md` 第 3 条仍为「未通」；`docs/VERIFY.md` 实验 A 未勾；`docs/reviews/A24-smoke-coverage.md` 写明不验证键入或中文组字；`docs/REVIEW-CHECKLIST-2026-11-12.md` B5。仅模拟器/单测，未在真机验收 |
+| 大纲视图（同一份文档） | ✅ 已交付 | ✅ 已交付 | ✅ 已交付 | ✅ 已交付 | 原生：`Floretta/Shared/Outline/OutlineView.swift`；P1-d 验收见下文历史记录。网页：`docs/WEB-PARITY.md` 已同步 |
+| 导入导出（.floretta / .mm / OPML / Markdown / XMind / TextBundle / PNG / PDF） | ✅ 已交付 | ✅ 已交付 | ✅ 已交付 | 🚧 进行中(无 PR) | 原生：`.mm` `b51b8c5`；OPML/Markdown 合流 `4c51de7`；PNG/PDF `1b277ce`；XMind PR #43 → `4aed816`；TextBundle PR #45 / #103。网页：`docs/WEB-PARITY.md` 写明常见格式已同步，但 PDF 仅为单页 JPEG 图像 PDF，不是打印面板；FlorettaWeb PR #11（`ecdf695`）提供工程 ZIP 导入导出 |
+| 附件（模型、图片、任意文件） | ✅ 已交付 | ✅ 已交付 | ✅ 已交付 | 🚧 进行中(无 PR) | 原生：PR #30 → `8f64c32`；PR #34 → `c80d138`；PR #35 → `59aa8a0`。网页：`docs/WEB-PARITY.md` 为「部分」（工程 ZIP 与 `assets/<sha256>`，完整 App 打开兼容性未独立确认） |
+| 节点级音视频真机播放 | ❌ 缺失 | ❌ 缺失 | ❌ 缺失 | ❌ 缺失 | 检查单 B5 / B6 仍为 `[~]`（PR #96 单测通过、AVPlayer 已接入；音频帧率/内存与 GUI 验收未测，iOS/macOS 最新完整构建及 GUI 验收未完成）。仅模拟器路径，未在真机验收播放。不得标 ✅ |
+| 自由节点与便签 | ✅ 已交付 | ✅ 已交付 | ✅ 已交付 | ❌ 缺失 | 原生：PR #36 → `31a7740`；PR #38 → `dfd7af9`。`docs/WEB-PARITY.md` 未列此项，未核实网页是否已有 |
+| 关系线、概要/边界、标签筛选、分支配色 | ✅ 已交付 | ✅ 已交付 | ✅ 已交付 | ❌ 缺失 | 原生：PR #48 → `22a48dd`；PR #51 → `37a97aa`；PR #53 → `fd97255`；PR #55 → `88d50e9`。`docs/WEB-PARITY.md` 未逐项列出，未核实网页是否已有 |
+| 版本快照与回滚 | ✅ 已交付 | ✅ 已交付 | ✅ 已交付 | ❌ 缺失 | 原生：PR #40 → `20ffc7b`；PR #64 → `b0fb7fc`。`docs/WEB-PARITY.md` 未列，未核实 |
+| 分享扩展与语音输入 | ✅ 已交付 | ✅ 已交付 | ✅ 已交付 | ⛔ 不做(Apple 系统扩展，网页不适用) | PR #57 → `2bf1f4a`；PR #58 → `536f6c8`。`docs/WEB-PARITY.md` 列为不适用 |
+| Markdown 一等文档 | ✅ 已交付 | ✅ 已交付 | ✅ 已交付 | ❌ 缺失 | 原生：PR #62 → `5631b42`。FlorettaWeb `09adf46` 将「Markdown as document」标为 planned, not shipped（未把该提交以后的变更再核一次） |
+| Finder Quick Look | ❌ 缺失 | ⛔ 不做(macOS Finder 插件) | ⛔ 不做(macOS Finder 插件) | ⛔ 不做(不适用，Apple 平台能力) | 功能实现已合入 PR #67 → `a9ad9b92`，但不能标 ✅：1.0(9) 上传因扩展包 ID 两段后缀 `quicklook.preview` / `quicklook.thumbnail` 被拒（构建 `811b2f5`，2026-11-10 21:33:57 CST）。PR #90 → `9885b13`（2026-11-11 01:47:58 CST）把当前 `project.pbxproj` 改为 `net.timhuang.floretta.qlpreview` / `qlthumbnail`；无成功重传证据，仍是发布阻塞。扩展点标识仍是 `com.apple.quicklook.preview` / `com.apple.quicklook.thumbnail`（系统规定，不是包 ID） |
+| 同一文档多窗口 | ✅ 已交付 | ⛔ 不做(该能力按 macOS 交付) | ⛔ 不做(该能力按 macOS 交付) | ⛔ 不做(不适用，浏览器标签语义不同) | PR #66 → `5d6b994`；`docs/FEATURES-CHECKLIST.md` G6。`docs/WEB-PARITY.md` 列为不适用 |
+| CLI 与 MCP | ✅ 已交付 | ⛔ 不做(命令行组件) | ⛔ 不做(命令行组件) | ⛔ 不做(网页仓库列为不做) | PR #71 → `dbde570c`。`docs/WEB-PARITY.md` 写明网页不做 MCP / CLI |
+| 底栏字数与无底板状态条 | ✅ 已交付 | ✅ 已交付 | ✅ 已交付 | ❌ 缺失 | 实现：PR #75 → `658b0c37`；PR #115 → `e20c28d`。截图：`docs/reviews/statusbar-macos-light.png`、`statusbar-macos-dark.png`（随 PR #118 合入 `8e50c12`，提交 `1df65eb` 2026-11-12 19:40:01 CST；文件存在，不得报缺失）；另有 `statusbar-ipad-light/dark.png`、`statusbar-iphone-light/dark.png`、`statusbar-overflow-menu.png`、`statusbar-settings-about.png`。`docs/WEB-PARITY.md` 未列网页底栏 |
+| Liquid Glass 外壳 | ❌ 缺失 | ✅ 已交付 | ❌ 缺失 | ⛔ 不做(无法提供系统液态玻璃，仅能 CSS 等效) | 实现：PR #113 → `70801fa`；审计 `docs/reviews/GLASS-AUDIT.md`。已入树截图只有 iPad 模拟器侧栏四张：`glass-sidebar-expanded/collapsed-light/dark.png`（`GLASS-AUDIT.md` 写明拍自 `ASC-iPadPro13-M5`）。仓库中没有 macOS 或 iPhone 玻璃观感截图；`docs/REVIEW-CHECKLIST-2026-11-12.md` C2 仍记「macOS 端状态栏/玻璃截图」缺玻璃这一半。网页：`docs/WEB-PARITY.md` 为 CSS `backdrop-filter` 等效 |
+| 节点折行 | ✅ 已交付 | ✅ 已交付 | ✅ 已交付 | ❌ 缺失 | 原生：PR #116 → `e373a04`；`docs/reviews/LINEBREAK-AUDIT.md`。`docs/WEB-PARITY.md` 未列网页折行验收 |
+| 画布平移/拖拽性能 | ✅ 已交付 | ✅ 已交付 | ✅ 已交付 | ❌ 缺失 | 原生：PR #117 → `918e43f`；`docs/reviews/CANVAS-PERF-RESULT.md`。网页性能未在该审计中核实 |
+| macOS 辅助功能树 | 🚧 进行中(PR #118 已合入，仍有残留) | ⛔ 不做(#118 修的是 macOS AX 空树) | ⛔ 不做(#118 修的是 macOS AX 空树) | ⛔ 不做(不适用，Apple 辅助功能) | PR #118 → main `8e50c12`（2026-11-12 19:50:18 CST）用延迟打开文档，让首页 WindowGroup 能建窗。残留：`-FlorettaEditChrome` 启动仍不创建窗口，2026-11-12 19:32:59 CST 复现，AX 只有菜单栏。Censor 明确不能算已修好；`8e50c12` 的 deferred-open 不是完全收口。见 `docs/reviews/A27-inspector-pin-mac.md` |
+| A27 检查器钉住 | ❌ 缺失 | ⛔ 不做(A27 是 macOS 验收项) | ⛔ 不做(A27 是 macOS 验收项) | ⛔ 不做(不适用) | `docs/reviews/A27-inspector-pin-mac.md`；PR #118。当前构建仅读到选中态：Style MINY=94.0，FRAME=945.0,94.0,50.0,24.0（2026-11-12 19:32:26–19:32:27 CST）。空态仍「无法读取」：Escape 或点击空白画布会收起 inspector 列，树里没有 `inspector.tabs` /「样式」/ `inspector.empty`。钉住/锁定验收未完成，不得标 ✅ |
+| 外观三模式（经典 / 现代 / 自定义）与开源字体 | 🚧 进行中(PR #119) | 🚧 进行中(PR #119) | 🚧 进行中(PR #119) | ❌ 缺失 | 骨架 `06afca1`；字体 `b4c3ece`；双入口 `ba98953`；见 PR #119 与 `docs/THEME-MODES.md`。共享状态、立即同步、经典+非衬线持久化、标识前缀已在 `AppearanceSettingsTests` 验证（2026-11-12 21:37:44 CST）。画布重拍与 iPad 字体回退见 `docs/THEME-MODES.md`（22:56:04–22:57:01 CST）。E2 对照见 `docs/THEME-MODES.md`：`8e50c12` 原测 59.7 / 57.3 / 59.7，同参数重测 59.3 / 55.5 / 59.7；上轮 `9a92549` 为 59.7 / 55.3 / 59.7，峰值 92.8 MB；干净 tip `aef98b0`（产品代码 `44723d0`）重测为 58.7 / 57.7 / 59，缩放 57.7 / 50，峰值内存 93 MB，不得写成已证实的缓存收益，也不得写成 57–60，也不得再用 `ebe0874` 的 57.2 / 50 或 65.2 MB。70% 裁切根因是 Helvetica / 系统 UI 测宽对 cascade 绘制，不是 log 桶字号差；残留路径见 `THEME-MODES.md`，不是本轮硬阻断。`44723d0` 按绘制同一套 `cachedCTFont` 测宽后，干净树捏合 100/85/70/55% 中心节点「字形样本」完整。FlorettaWeb 自 `ecdf695` 后再无提交，未接入三模式 |
+| 网页版应用 | ⛔ 不做(Web 资产，非原生 App) | ⛔ 不做(Web 资产，非原生 App) | ⛔ 不做(Web 资产，非原生 App) | ✅ 已交付 | 官方仓库 Super-Console/FlorettaWeb。origin/main tip `ecdf695`（2026-11-11 04:29:43 CST）合并 PR #11 工程导入导出，此前 PR #10 为主题与图标。线上 `https://apps.timhuang.net/floretta/app/` HTTP 200，`Last-Modified: Tue, 10 Nov 2026 20:29:48 GMT`（2026-11-11 04:29:48 CST），与 tip 时刻一致。此后至本轮记录时未见新提交；未与原生 2026-11-12 的 #113–#118 同步。对照 App 仓 `docs/WEB-PARITY.md`（写明更新日期 2026-11-11） |
+| 官网展示页 | ⛔ 不做(Web 资产，非原生 App) | ⛔ 不做(Web 资产，非原生 App) | ⛔ 不做(Web 资产，非原生 App) | ✅ 已交付 | 同一 FlorettaWeb 仓库的语言网关与介绍页（`/floretta/`、`/zh/`、`/en/`；PR #7–#9，主题对齐随 PR #10）。线上 `https://apps.timhuang.net/floretta/` HTTP 200，`Last-Modified` 同上（2026-11-11 04:29:48 CST）。原「产品网站」行并入本行；App 仓 PR #98 只是文档纪律，不是网页实现 |
+| Windows / Linux 客户端 | ⛔ 不做(F5 结论为 UI 须重写，尚未开工) | ⛔ 不做(非该端) | ⛔ 不做(非该端) | ⛔ 不做(非该端) | `docs/FEATURES-CHECKLIST.md` F5；`docs/HANDOFF-WINDOWS-ANDROID.md` |
+
+## 历史记录（原 docs/STATUS.md）
 
 ## 当前阶段
 

@@ -23,6 +23,7 @@ struct ContentView: View {
     var body: some View {
         root
             .preferredColorScheme(settings.appearance.colorScheme)
+        .environment(\.appearanceProfile, settings.currentProfile)
             .onAppear {
                 recovery.checkOnLaunch()
                 library.openPendingLaunchDocumentIfNeeded()
@@ -336,6 +337,7 @@ struct SameDocumentWindow: View {
             }
         }
         .preferredColorScheme(settings.appearance.colorScheme)
+        .environment(\.appearanceProfile, settings.currentProfile)
         .environment(\.locale, settings.resolvedLocale)
         .background {
             SameDocumentWindowInstaller(library: library)

@@ -36,7 +36,7 @@ open Floretta.xcodeproj
 - `docs/WORKFLOW.md` — 分步提交推送规则、验收方式
 - `docs/DECISIONS.md` — 决策与理由（含命名）
 - `docs/design/` — 设计素材（App 图标参考图）
-- `docs/STATUS.md` — 当前进度
+- `docs/ROADMAP.md` — 当前进度（唯一进度文档）
 
 ## 命名说明
 

@@ -33,6 +33,8 @@ struct MapExportOptions: Equatable, Sendable {
     /// When set, the whole padded map is drawn and the longest pixel edge stays at most this value.
     /// Nil keeps the export clip at `maxPixelDimension`. Quick Look sets this so Finder sees the map, not a corner.
     var fitLongestPixelEdge: CGFloat? = nil
+    var fontFamilyID: String = "system-serif"
+    var appearanceProfile: AppearanceProfile = AppearanceCatalog.defaultProfile(for: .classic)
 }
 
 struct MapExportResult: Equatable, Sendable {
@@ -56,8 +58,12 @@ enum MapExporter {
     static let clippingNotice = "导出已按最大尺寸裁切，超出的内容没有画进文件。"
     static let emptyNotice = "没有可导出的节点。"
 
-    static func visibleFrames(in document: MindMapDocument, scheme: MapColorScheme = .light) -> [NodeFrame] {
-        CanvasPlacement.nodes(in: document, scheme: scheme)
+    static func visibleFrames(
+        in document: MindMapDocument,
+        scheme: MapColorScheme = .light,
+        profile: AppearanceProfile? = nil
+    ) -> [NodeFrame] {
+        CanvasPlacement.nodes(in: document, scheme: scheme, profile: profile)
     }
 
     static func png(
@@ -139,11 +145,13 @@ enum MapExporter {
     }
 
     private static func plan(document: MindMapDocument, options: MapExportOptions, scheme: MapColorScheme) -> Plan {
-        let frames = visibleFrames(in: document, scheme: scheme)
+        let frames = visibleFrames(in: document, scheme: scheme, profile: options.appearanceProfile)
         let ids = frames.map(\.id)
         guard let content = CanvasPlacement.contentBounds(
             in: document,
-            includingStickies: options.includeStickies
+            includingStickies: options.includeStickies,
+            scheme: scheme,
+            profile: options.appearanceProfile
         ),
               content.width > 0, content.height > 0 else {
             return Plan(
@@ -196,11 +204,14 @@ enum MapExporter {
         images: [String: CGImage],
         scheme: MapColorScheme
     ) -> ImageRenderer<MapExportView> {
-        let frames = visibleFrames(in: document, scheme: scheme)
-        let appearance = MapThemeCatalog.appearance(
-            themeID: document.themeID,
-            scheme: scheme,
-            fallback: .standard
+        let frames = visibleFrames(in: document, scheme: scheme, profile: options.appearanceProfile)
+        let appearance = options.appearanceProfile.applying(
+            to: MapThemeCatalog.appearance(
+                themeID: document.themeID,
+                scheme: scheme,
+                fallback: .standard
+            ),
+            scheme: scheme
         )
         let paper = exportPaper(options.background, canvas: appearance.canvasBackground)
         let view = MapExportView(
@@ -212,7 +223,8 @@ enum MapExporter {
             regions: document.regions,
             renderBounds: plan.renderBounds,
             paper: paper.color,
-            images: images
+            images: images,
+            appearanceProfile: options.appearanceProfile
         )
         let renderer = ImageRenderer(content: view)
         renderer.scale = plan.pixelScale
@@ -274,6 +286,7 @@ private struct MapExportView: View {
     var renderBounds: CGRect
     var paper: Color
     var images: [String: CGImage]
+    var appearanceProfile: AppearanceProfile = AppearanceCatalog.defaultProfile(for: .classic)
 
     var body: some View {
         Canvas { context, _ in
@@ -359,7 +372,10 @@ private struct MapExportView: View {
                     context.draw(
                         NodeTextTypography.canvasText(
                             node.text,
-                            font: FlorettaTitleFont.font(design: node.fontDesign, size: node.fontSize)
+                            lineHeight: appearanceProfile.lineHeight,
+                            familyID: appearanceProfile.fontFamilyID,
+                            nodeDesign: node.fontDesign,
+                            size: node.fontSize
                         )
                         .foregroundStyle(color(node.textColor)),
                         in: textRect
@@ -638,60 +654,39 @@ enum ThemeCurvePath {
 
 extension NodeTextTypography {
     /// Same paragraph style as `CoreTextFontMetrics`, so export and the canvas wrap alike.
-    static func canvasText(_ string: String, font: Font) -> Text {
+    static func canvasText(
+        _ string: String,
+        lineHeight: Double = 1.25,
+        familyID: String,
+        nodeDesign: String = "default",
+        size: CGFloat
+    ) -> Text {
+        // Apply the resolved family (EB Garamond, Inter, system-serif, …)
+        // plus the zh/ja/ko cascade onto the attributed string so choosing a
+        // bundled face actually changes Latin glyphs. The canvas prepares
+        // unique sizes once at the start of the frame; this just reads the
+        // cached immutable CTFont. Do not fall back to Font.system(design:)
+        // here — that would paint New York / SF even when the user picked
+        // Garamond.
+        let resolved = ThemeFontCascade.platformFont(
+            familyID: familyID,
+            nodeDesign: nodeDesign,
+            size: size
+        )
         let ns = NSAttributedString(string: string, attributes: [
-            .paragraphStyle: paragraphStyle(),
+            .font: resolved,
+            .paragraphStyle: paragraphStyle(lineHeight: lineHeight),
         ])
-        return Text(AttributedString(ns)).font(font)
+        return Text(AttributedString(ns))
     }
 }
 
-/// Root serif is New York through the system serif design. Georgia is the named face
-/// when that design cannot be built. Every other design stays on the system font.
+/// Resolves a node face through `ThemeFontCascade`. Rounded and monospaced stay on the
+/// system designs; `serif` uses the current serif family (or system-serif); the default
+/// design uses the profile family.
 enum FlorettaTitleFont {
-    static func font(design: String, size: CGFloat) -> Font {
-        switch design {
-        case "serif":
-            return serif(size: size)
-        case "rounded":
-            return .system(size: size, design: .rounded)
-        case "monospaced":
-            return .system(size: size, design: .monospaced)
-        default:
-            return .system(size: size, design: .default)
-        }
+    static func font(design: String, size: CGFloat, familyID: String = "system-serif") -> Font {
+        ThemeFontCascade.swiftFont(familyID: familyID, nodeDesign: design, size: size)
     }
-
-    private static func serif(size: CGFloat) -> Font {
-        let point = max(size, 1)
-        #if os(macOS)
-        if let font = newYork(size: point, base: NSFont.systemFont(ofSize: point)) {
-            return Font(font)
-        }
-        if let georgia = NSFont(name: "Georgia", size: point) {
-            return Font(georgia)
-        }
-        #else
-        if let font = newYork(size: point, base: UIFont.systemFont(ofSize: point)) {
-            return Font(font)
-        }
-        if let georgia = UIFont(name: "Georgia", size: point) {
-            return Font(georgia)
-        }
-        #endif
-        return .system(size: point, design: .serif)
-    }
-
-    #if os(macOS)
-    private static func newYork(size: CGFloat, base: NSFont) -> NSFont? {
-        guard let descriptor = base.fontDescriptor.withDesign(.serif) else { return nil }
-        return NSFont(descriptor: descriptor, size: size)
-    }
-    #else
-    private static func newYork(size: CGFloat, base: UIFont) -> UIFont? {
-        guard let descriptor = base.fontDescriptor.withDesign(.serif) else { return nil }
-        return UIFont(descriptor: descriptor, size: size)
-    }
-    #endif
 }
 

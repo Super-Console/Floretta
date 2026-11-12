@@ -1,0 +1,12 @@
+FONT_RESOLVE family=system-serif lang=en text=Hello ps=.NewYork-Regular
+FONT_RESOLVE family=system-serif lang=zh text=汉字 ps=.PingFangUIDisplaySC-Regular
+FONT_RESOLVE family=system-serif lang=ja text=あいうえお ps=HiraMinProN-W3
+FONT_RESOLVE family=system-serif lang=ko text=한국어 ps=.AppleSDGothicNeoI-Regular
+FONT_RESOLVE family=system-sans lang=en text=Hello ps=.SFUI-Regular
+FONT_RESOLVE family=system-sans lang=zh text=汉字 ps=.PingFangUIDisplaySC-Regular
+FONT_RESOLVE family=system-sans lang=ja text=あいうえお ps=.CJKSymbolsFallbackSC-Regular
+FONT_RESOLVE family=system-sans lang=ko text=한국어 ps=.AppleSDGothicNeoI-Regular
+FONT_RESOLVE family=inter lang=en text=Hello ps=Inter-Regular
+FONT_RESOLVE family=inter lang=zh text=汉字 ps=PingFangSC-Regular
+FONT_RESOLVE family=inter lang=ja text=あいうえお ps=HiraginoSans-W3
+FONT_RESOLVE family=inter lang=ko text=한국어 ps=AppleSDGothicNeo-Regular

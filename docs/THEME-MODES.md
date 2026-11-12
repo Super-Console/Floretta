@@ -47,12 +47,29 @@
 - 加字体前（同一分支、无字体 tip）：iOS 11.4 MB（11,993,182 bytes，2026-11-12 20:33:33 CST）；macOS 17.6 MB（18,419,929 bytes）。
 - 加字体后：iOS 12.3 MB（12,901,611 bytes，2026-11-12 20:48:15 CST 前）；macOS 18.4 MB（19,336,424 bytes，`platform=macOS` arm64，2026-11-12 20:51:09 CST）。
 
+## 性能影响
+
+- 内存：本轮按与 `docs/reviews/CANVAS-PERF-BASELINE.md` 相同的协议测量（macOS Release、命令行覆盖 `CODE_SIGN_IDENTITY="Apple Development"` `DEVELOPMENT_TEAM=JY5U4D6JD3`、启动参数 `-FlorettaUITest -FlorettaPerfNodes <N>`、`task_vm_info.phys_footprint`、夹具 50/200/500）。**没有写出可用的峰值内存数字，未编造。** Release 构建本身成功：`/tmp/theme-modes-perf-build.log`，START 2026-11-12 21:57:49 CST，END 21:59:01 CST，EXIT 0；产物 `/tmp/theme-modes-perf-dd/Build/Products/Release/Floretta-macOS.app`。启动后进程存在且 System Events 记为 frontmost/visible，但 **windows=0**，没有 `FLORETTA_PERF_RESULT`，容器内 `~/Library/Containers/net.timhuang.floretta/Data/tmp/canvas-perf-50.json` 仍是 2026-11-12 18:28:18 CST 的旧文件。直接执行二进制出现 `sandbox_extension_issue_file_to_process failed for <app>: 1 (Operation not permitted)`（`/tmp/theme-modes-perf/trial-50.out`，22:03:48–22:04:28 CST，timeout 退出 124）。随后用 entitlements 完整的拷贝 + `open -n -W`（Terminal.app `do script`，`/tmp/theme-modes-perf/open-50.out`，22:15:50 CST）以及今早测通过的 `/tmp/canvasperf/mac-D2.app` 复跑，同样是 0 窗口、无新 JSON。详见 `docs/reviews/theme-modes/PERF-ATTEMPT.md`。不得用包体数字代替本行。
+- 帧率：同一协议、同一批启动，**没有写出可用的平均/最低 FPS 数字，未编造。** 失败原因与内存一行相同（无窗口则 `CADisplayLink` 协议无法跑完）。不得用包体数字代替本行。
+- 包体：加字体后 iOS 12.3 MB（12,901,611 bytes，2026-11-12 20:48:15 CST）/ macOS 18.4 MB（19,336,424 bytes，`platform=macOS` arm64，2026-11-12 20:51:09 CST），Release+strip，与 `scripts/check-size.sh` 同一口径，1024 进制 MiB，门禁 iOS < 15 / macOS < 25。一次出现过的 macOS 33.0 MB 是 universal `generic/platform=macOS` 二进制，不是门禁数字。
+
 ## 截图
 
-本轮未能在本机拍到设置页 / 检查器 / 三模式 / 浅深色的验收截图（无法拍摄）。不编造图片。解析与双入口同步以单测为准，见 `FlorettaTests/AppearanceSettingsTests.swift` 与 `FlorettaTests/ThemeFontCascadeTests.swift`。
+在 iPad 模拟器 `ASC-iPadPro13-M5`（UDID `330B63B2-5EE7-477E-B564-EE7C02161EE5`，iOS 27.2）上拍摄。先 `xcrun simctl boot`（BOOT_READY 2026-11-12 22:00:57 CST），再 `xcrun simctl ui … appearance light`，最后用 `xcrun simctl io booted screenshot` 直接抓帧。原图在 `docs/reviews/theme-modes/`。未编造、未从别处复用。
+
+| 文件 | 内容 | 拍摄时间（CST） | 字节 |
+| --- | --- | --- | ---: |
+| `settings-appearance.png` | 设置页「外观模式」段：经典模式、系统衬线、色值与预览 | 2026-11-12 22:13:31 | 332,993 |
+| `inspector-appearance.png` | 编辑器右侧检查器「外观模式」段，画布为经典奶油纸 | 2026-11-12 22:13:46 | 426,389 |
+| `classic.png` | 经典模式 + 系统衬线。与上一张在同一界面状态下紧接着拍摄，文件内容相同 | 2026-11-12 22:13:48 | 426,389 |
+| `modern.png` | 现代模式：白纸、字体族「跟随系统」、行高 1.20、圆角 8 | 2026-11-12 22:13:55 | 414,650 |
+| `custom.png` | 自定义（默认从经典复制）：奶油纸、系统衬线、行高 1.25、圆角 12 | 2026-11-12 22:14:02 | 424,626 |
+| `classic-sans.png` | 经典模式把字体族改成 Inter（非衬线） | 2026-11-12 22:14:18 | 420,484 |
+
+日志：`/tmp/theme-modes-shot-poller.log`、`/tmp/theme-modes-shot-test3.log`（`** TEST SUCCEEDED **`，TEST3_EXIT 0）。
 
 ## 测试（Asia/Shanghai）
 
 - `swift test --package-path FlorettaCore --filter AppearanceModeTests`：4/0，2026-11-12 21:35:54 CST。
 - `xcodebuild test`（Floretta-macOS）：`AppearanceSettingsTests` 4/0（含共享状态与立即同步、三模式切换、经典+非衬线跨重启持久化、标识前缀）、`ThemeFontCascadeTests` 6/0、`ShellTests` 相关 2/0，合计 12/0，2026-11-12 21:37:44 CST，`** TEST SUCCEEDED **`。
-- iOS `generic/platform=iOS` Release/Debug 构建：`xcodebuild` 退出码 0，2026-11-12 21:39:32 CST。
+- iOS `generic/platform=iOS` 构建（在 tip `88e664048f63c30521e459e6a7194dd9822f26e9` 上重跑，`CODE_SIGNING_ALLOWED=NO`，scheme `Floretta-iOS`，configuration Debug，derivedData `/tmp/theme-modes-ios-88e6640-dd`）：日志 `/tmp/theme-modes-ios-88e6640.log`，START 2026-11-12 21:56:21 CST，END 21:56:48 CST，**EXIT 0**，`** BUILD SUCCEEDED **`。不得把此前声称的 21:39:32 退出码 0 当作已核（那份 `/tmp/theme-modes-step3-ios.log` 是 destination 找不到设备）。

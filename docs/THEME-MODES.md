@@ -79,9 +79,9 @@ macOS 上 `ThemeFontCascadeTests` 在本轮补了一项 `testSystemSansAndSystem
 
 本 tip 提名数字必须来自已提交、干净树的测量。`/tmp/theme-modes-perf500-cache.log` 那一轮写的是 `HEAD=fe82126 plus uncommitted font cache`，峰值 105.5 MB，平移 59.3 / 56，缩放 53.7 / 40，拖动 59.7 / 58，**不得当作本 tip 的证据**，也不得把缩放写成「57–60」。
 
-| 项 | 对照 `8e50c12`（2026-11-12 23:16） | 对照 `8e50c12` 同参数重测（2026-11-13 00:25） | 上轮产品 `e379209` 干净树（00:21） | 上轮产品 `9a92549` 干净树（00:43） | 本 tip 产品 `ebe0874` 干净树（01:33） |
+| 项 | 对照 `8e50c12`（2026-11-12 23:16） | 对照 `8e50c12` 同参数重测（2026-11-13 00:25） | 上轮产品 `e379209` 干净树（00:21） | 上轮产品 `9a92549` 干净树（00:43） | 产品 `ebe0874` 干净树（01:33）；typography 修复 `44723d0` 未重测帧率，仍沿用这组数 |
 | --- | --- | --- | --- | --- | --- |
-| HEAD | `8e50c1212d9f784ec6b38ba434f8c77cb9206cf6` | 同左，`git archive` 到 `/tmp/theme-modes-8e50c12-remeasure` | `e379209963e8ee5ccfa6314ede7d52c303b3e42c` | `9a92549e0d68f26ab9e8fcca079df64de9b1aa6e` | `ebe08747bab4174f66b305734ee14206f1c1d58a`（本 tip 的产品代码提交；其后若只有文档与入树 JSON，不改产品代码） |
+| HEAD | `8e50c1212d9f784ec6b38ba434f8c77cb9206cf6` | 同左，`git archive` 到 `/tmp/theme-modes-8e50c12-remeasure` | `e379209963e8ee5ccfa6314ede7d52c303b3e42c` | `9a92549e0d68f26ab9e8fcca079df64de9b1aa6e` | `ebe08747bab4174f66b305734ee14206f1c1d58a`（帧率与峰值内存的产品提交。本 tip 产品代码是其后的 typography 修复 `44723d0246b31722acf988adb7ee0b8dfd145372`，未在该 SHA 上重测 FPS，不得把这组数写成 `44723d0` 的新测） |
 | 工作树 | 当时的对照 tip | 隔离归档，未改其它 worktree | 日志打印 `HEAD=e379209…`，`GIT_STATUS_PORCELAIN` 为空 | 日志打印 `HEAD=9a92549…`，`GIT_STATUS_PORCELAIN` 为空（测量前与测量后都干净） | 日志打印 `HEAD=ebe08747bab4174f66b305734ee14206f1c1d58a`，`GIT_STATUS_PORCELAIN` 在测量前与测量后均为空（`GIT_STATUS_PORCELAIN_BEGIN` / `_END` 之间无内容） |
 | 日志 | `/tmp/theme-modes-baseline-perf500.log` START 2026-11-12 23:15:21，END 23:16:58，EXIT 0，`** TEST SUCCEEDED **` | `/tmp/theme-modes-baseline-perf500-remeasure.log` START 2026-11-13 00:23:54，END 00:25:33，EXIT 0，`** TEST SUCCEEDED **`，`FLORETTA_PERF_UITEST_DONE elapsed=25.2` | `/tmp/theme-modes-perf500-e379209.log` START 00:20:11，END 00:21:51，EXIT 0，`** TEST SUCCEEDED **`，elapsed=24.6 | `/tmp/theme-modes-perf500-9a92549.log` START 00:41:52，END 00:43:53，EXIT 0，`** TEST SUCCEEDED **`，`FLORETTA_PERF_UITEST_DONE elapsed=25.5` | `/tmp/theme-modes-perf500-ebe0874.log` START 2026-11-13 01:32:18，END 01:33:53 CST，EXIT 0，`** TEST SUCCEEDED **`，`FLORETTA_PERF_UITEST_DONE elapsed=24.1` |
 | JSON | `docs/reviews/theme-modes/canvas-perf-500-ipad-baseline-8e50c12.json`，`finishedAt` 2026-11-12T15:16:56Z（23:16:56 CST） | `docs/reviews/theme-modes/canvas-perf-500-ipad-baseline-8e50c12-remeasure.json`，`finishedAt` 2026-11-12T16:25:32Z（00:25:32 CST），sha256 `5c320750…` | `docs/reviews/theme-modes/canvas-perf-500-ipad-e379209.json`，`finishedAt` 2026-11-12T16:21:50Z（00:21:50 CST），sha256 `c19dbd0f…` | `docs/reviews/theme-modes/canvas-perf-500-ipad-9a92549.json`，`finishedAt` 2026-11-12T16:43:51Z（00:43:51 CST），sha256 `1de8960e…` | `docs/reviews/theme-modes/canvas-perf-500-ipad-ebe0874.json`，`finishedAt` 2026-11-12T17:33:51Z（01:33:51 CST），sha256 `5b5c0b221d1b41cbdbfdc68015f611949fd82afca6e12b234a7b4220850bb60a` |
@@ -96,13 +96,14 @@ macOS 上 `ThemeFontCascadeTests` 在本轮补了一项 `testSystemSansAndSystem
 
 固定 0.5 pt 桶在缩小端跳变偏大：20 pt 时 0.5 pt 是 2.5%，4 pt 时是 12.5%。本 tip 产品代码 `ebe0874` 改为按 `log` 等距、比值 1.02 的相对步长量化后再入键：`sizeTicks = round(log(size) / log(1.02))`，返回并用于 `CTFontCreateCopyWithAttributes` 的字号是该桶值 `1.02^ticks`，相邻桶在任意字号下相差至多 2%。256 条 LRU 与每帧快照、命中不加锁、把真实家族写进 attributed string 的路径都保留。
 
-干净树 `ebe0874` 缩放平均 / 最低是 **57.2 / 50**（344 次绘制），不是「57–60」。与 11-12 晚间对照原测 57.3 / 50 差 0.1，与 00:25 重测对照 55.5 / 40 差 1.7，与 `9a92549` 的 55.3 / 44 差 1.9。这几轮对照自身也曾从 57.3 落到 55.5，探针噪声大约 ±2，无跨量级差异。平移和拖动仍是 59.7 / 58。峰值内存测到 65.2 MB。通过与否留给审查者判断，这里不自行宣布通过。
+干净树 `ebe0874` 缩放平均 / 最低是 **57.2 / 50**（344 次绘制），不是「57–60」。与 11-12 晚间对照原测 57.3 / 50 差 0.1，与 00:25 重测对照 55.5 / 40 差 1.7，与 `9a92549` 的 55.3 / 44 差 1.9。这几轮对照自身也曾从 57.3 落到 55.5，探针噪声大约 ±2，无跨量级差异。平移和拖动仍是 59.7 / 58。峰值内存测到 65.2 MB。这里只记录测到的数，不把这次下降写成已证实的缓存收益。本 tip typography 修复 `44723d0` 没有重测 500 节点探针，帧率与 65.2 MB 仍归在 `ebe0874`，不得写成 `44723d0` 的新测。通过与否留给审查者判断，这里不自行宣布通过。
 
 `fae6453` 回归仍以 `/tmp/theme-modes-perf500-tip-confirm.log`（23:18:43–23:19:29 CST，EXIT 0）和 `docs/reviews/theme-modes/canvas-perf-500-ipad-fae6453-before-fix.json`（`finishedAt` 2026-11-12T15:19:27Z）为准：峰值 89.2 MB，平移 1.0 / 0，缩放 0.8 / 0，拖动 0.9 / 0。原因是每一帧为每个可见节点现场构建带级联的 CTFont。macOS 直接启动路径仍然 windows=0，本对照只走 XCUITest，见 `docs/reviews/theme-modes/PERF-ATTEMPT.md`。
 
 - 上轮产品 `e379209963e8ee5ccfa6314ede7d52c303b3e42c` 干净树实测：iOS 12.3 MB（12,935,015 bytes，产物 mtime 2026-11-13 00:26:43 CST）；macOS 18.5 MB（19,404,712 bytes，可执行文件 mtime 00:27:13 CST，`platform=macOS` arm64）。日志 `/tmp/theme-modes-size-e379209.log`，START 00:26:15，END 00:27:13 CST，`SIZE_E379209_SCRIPT_EXIT 0`。
 - 上轮产品 `9a92549e0d68f26ab9e8fcca079df64de9b1aa6e` 干净树实测：iOS 12.4 MB（12,951,415 bytes，产物 mtime 2026-11-13 00:45:20 CST）；macOS 18.5 MB（19,404,744 bytes，可执行文件 mtime 00:45:53 CST，`platform=macOS` arm64）。日志 `/tmp/theme-modes-size-9a92549.log`，START 00:44:47，END 00:45:53 CST，`SIZE_9A92549_SCRIPT_EXIT 0`，HEAD 即 `9a92549`，测量前后 `git status` 干净。
-- 本 tip 产品代码 `ebe08747bab4174f66b305734ee14206f1c1d58a` 干净树实测：iOS 12.4 MB（12,953,439 bytes，产物 mtime 2026-11-13 01:35:11 CST）；macOS 18.5 MB（19,423,352 bytes，可执行文件 mtime 01:36:00 CST，`platform=macOS` arm64）。日志 `/tmp/theme-modes-size-ebe0874.log`，START 01:34:21，END 01:36:00 CST，`SIZE_EBE0874_SCRIPT_EXIT 0`，HEAD 即 `ebe08747bab4174f66b305734ee14206f1c1d58a`，测量前后 `git status` 干净。字节是对这次 `check-size.sh` 已 strip 产物按脚本同一口径 `find … stat -f %z` 求和得到的，不得用对话里的 12,935,015 / 19,404,712，也不得用 `9a92549` 的 12,951,415 / 19,404,744 代替本 SHA。均低于 iOS < 15 / macOS < 25。随后若只有文档入树，包体数字仍以这次产物为准。
+- 上轮产品代码 `ebe08747bab4174f66b305734ee14206f1c1d58a` 干净树实测：iOS 12.4 MB（12,953,439 bytes，产物 mtime 2026-11-13 01:35:11 CST）；macOS 18.5 MB（19,423,352 bytes，可执行文件 mtime 01:36:00 CST，`platform=macOS` arm64）。日志 `/tmp/theme-modes-size-ebe0874.log`，START 01:34:21，END 01:36:00 CST，`SIZE_EBE0874_SCRIPT_EXIT 0`，HEAD 即 `ebe08747bab4174f66b305734ee14206f1c1d58a`，测量前后 `git status` 干净。不得用这组字节代替下面本 SHA 的产物。
+- 本 tip 产品代码 `44723d0246b31722acf988adb7ee0b8dfd145372` 干净树实测：iOS 12.4 MB（12,970,647 bytes，产物 mtime 2026-11-13 02:41:42 CST）；macOS 18.5 MB（19,441,560 bytes，可执行文件 mtime 02:42:32 CST，`platform=macOS` arm64）。日志 `/tmp/theme-modes-size-44723d0.log`，START 02:40:53 CST；脚本打印 `iOS: 12.4 MB (limit < 15 MB)` 与 `macOS: 18.5 MB (limit < 25 MB)`，无 FAIL。包装层随后在只读变量 `status` 赋值处退出，END 行是同一轮已 strip 产物上补记的（02:42:32 CST），不是重编。HEAD 即 `44723d0246b31722acf988adb7ee0b8dfd145372`，测量前与补记时 `git status` 干净。字节是对这次产物按脚本同一口径 `find … stat -f %z` 求和得到的，不得用 `ebe0874` 的 12,953,439 / 19,423,352 代替本 SHA。均低于 iOS < 15 / macOS < 25。随后若只有文档入树，包体数字仍以这次产物为准。
 
 ## 截图
 
@@ -121,12 +122,12 @@ macOS 上 `ThemeFontCascadeTests` 在本轮补了一项 `testSystemSansAndSystem
 | `latin-system-serif.png` | 同一份字形样本、同一句中英文，经典 + 系统衬线。与已通过的 `classic.png` 字节完全相同（472,011），作为本轮「选 EB Garamond 之前」的对照 | 2026-11-12 23:33:08 | 472,011 |
 | `latin-eb-garamond.png` | 同一份文档、同一句中英文，经典模式把字体族改成 EB Garamond。英文 “Serif English: The quick brown fox jumps.” 的拉丁字母明显换成旧式 Garamond（与系统 New York 不同）；中文仍是本模拟器上的 PingFang 回退，没有被拉丁面吃掉。检查器已关掉 | 2026-11-12 23:33:32 | 478,594 |
 
-| `pinch-100.png` | 同一份字形样本，经典 + EB Garamond，把画布连续缩放到 100% 后抓帧。左上角调试标 `pinch scale 100%`，右下角状态条缩放档也是 100% | 2026-11-13 01:31:00 | 496,353 |
-| `pinch-85.png` | 同一进程、同一文档，连续缩放到 85%。调试标 `pinch scale 85%`，状态条缩放档显示 75%（见下方说明） | 2026-11-13 01:31:04 | 494,164 |
-| `pinch-70.png` | 同一进程、同一文档，连续缩放到 70%。调试标 `pinch scale 70%`，状态条缩放档显示 75% | 2026-11-13 01:31:09 | 475,326 |
-| `pinch-55.png` | 同一进程、同一文档，连续缩放到 55%。调试标 `pinch scale 55%`，状态条缩放档显示 50% | 2026-11-13 01:31:14 | 466,811 |
+| `pinch-100.png` | 同一份字形样本，经典 + EB Garamond，把画布连续缩放到 100% 后抓帧。中心节点标题完整显示「字形样本」。左上角调试标 `pinch scale 100%`，右下角状态条缩放档也是 100% | 2026-11-13 02:34:35 | 501,800 |
+| `pinch-85.png` | 同一进程、同一文档，连续缩放到 85%。中心节点标题完整。调试标 `pinch scale 85%`，状态条缩放档显示 75%（见下方说明） | 2026-11-13 02:34:40 | 495,939 |
+| `pinch-70.png` | 同一进程、同一文档，连续缩放到 70%。中心节点标题完整显示「字形样本」（`30e2e91` 同位置曾被裁成「字形…」）。调试标 `pinch scale 70%`，状态条缩放档显示 75% | 2026-11-13 02:34:45 | 475,202 |
+| `pinch-55.png` | 同一进程、同一文档，连续缩放到 55%。中心节点标题完整显示「字形样本」。调试标 `pinch scale 55%`，状态条缩放档显示 50% | 2026-11-13 02:34:50 | 468,492 |
 
-已通过的 classic / modern / classic-sans 三张未重拍。EB Garamond 对照日志：`/tmp/theme-modes-eb-shot-poller.log`、`/tmp/theme-modes-eb-shot.log`（`EB_SHOT_START` 2026-11-12 23:31:29 CST，`EB_SHOT_END` 23:33:34 CST，EXIT 0，`** TEST SUCCEEDED **`）。经典/现代重拍日志仍是 `/tmp/theme-modes-shot-poller.log`、`/tmp/theme-modes-glyph-songti.log`（`SONGTI_SHOT_START` 2026-11-12 22:55:10 CST，`SONGTI_SHOT_END` 22:57:02 CST，EXIT 0）。捏合四张日志：`/tmp/theme-modes-pinch-shot-poller.log`、`/tmp/theme-modes-pinch-shot.log`（约 01:31 CST，四张 mtime 01:31:00–01:31:14 CST）。较早一轮空画布截图（22:13–22:14）已作废，不作为节点正文证据。
+已通过的 classic / modern / classic-sans 三张未重拍。EB Garamond 对照日志：`/tmp/theme-modes-eb-shot-poller.log`、`/tmp/theme-modes-eb-shot.log`（`EB_SHOT_START` 2026-11-12 23:31:29 CST，`EB_SHOT_END` 23:33:34 CST，EXIT 0，`** TEST SUCCEEDED **`）。经典/现代重拍日志仍是 `/tmp/theme-modes-shot-poller.log`、`/tmp/theme-modes-glyph-songti.log`（`SONGTI_SHOT_START` 2026-11-12 22:55:10 CST，`SONGTI_SHOT_END` 22:57:02 CST，EXIT 0）。本 tip 捏合四张是在已提交、干净的 `44723d0` 上重拍的：日志 `/tmp/theme-modes-pinch-shot-44723d0.log`（`PINCH_SHOT_START` 2026-11-13 02:33:07 CST，`PINCH_SHOT_END` 02:34:52 CST，`PINCH_SHOT_EXIT 0`，`** TEST SUCCEEDED **`，`HEAD=44723d0246b31722acf988adb7ee0b8dfd145372`，拍摄前与拍摄后 `GIT_STATUS_PORCELAIN` 均为空）；poller `/tmp/theme-modes-pinch-shot-44723d0-poller.log`，四张先写到 `/tmp/theme-modes-pinch-44723d0/` 再拷入本目录，mtime 02:34:35–02:34:50 CST。01:31 那一轮（`/tmp/theme-modes-pinch-shot.log`，当时入树的是 `30e2e91` 附近的图）里 70% 中心标题被裁成「字形…」，已替换，不得再当本 tip 证据。较早一轮空画布截图（22:13–22:14）已作废，不作为节点正文证据。
 
 ### 捏合图左上角 55% 与右下角 50% 为什么不同
 
@@ -135,10 +136,34 @@ macOS 上 `ThemeFontCascadeTests` 在本轮补了一项 `testSystemSansAndSystem
 - 左上角 `uitest.heldCanvasScale` 只在 `-FlorettaPinchShot` 启动时出现，文案是 `pinch scale \(Int((camera.viewport.scale * 100).rounded()))%`，也就是**当前视口的连续缩放**，四舍五入到整数百分比。测试用 `CanvasScaleHook` 把画布停在 `MagnifyGesture.onChanged` 那种中间值（100 / 85 / 70 / 55），并且在 `pinchGesture.onEnded` 里关掉对合法 `ZoomStop` 的回吸，所以 55% 这一张的视口就是 0.55，标签写 55%。
 - 右下角状态条芯片显示的是 `camera.chrome.zoomPercent`。`CanvasChrome.syncZoomPercent(toScale:)` 的注释写明「chrome percent is always a legal stop, never a raw value such as 137」，实现是 `ZoomStop.displayPercent(forScale:)` → `ZoomStop.nearest(to:)`。合法档只有 50、75、100、125、150、200、300、400。0.55 离 0.50 的距离是 0.05，离 0.75 是 0.20，所以芯片显示 50%。同一组图也符合这条规则：85% 的芯片是 75%（离 75 差 10，离 100 差 15），70% 的芯片是 75%（离 75 差 5，离 50 差 20），100% 的芯片是 100%。
 
-也就是说，55% 那张里画布和字形按连续 55% 来画，芯片只是把这个连续值显示成最近的合法缩放档。Hubert 已看过这四张：100% 与 55% 下中英日韩内容一致、都是衬线、没有字形跳变、长句仍正确换行。
+也就是说，55% 那张里画布和字形按连续 55% 来画，芯片只是把这个连续值显示成最近的合法缩放档。Hubert 此前看过 01:31 那一轮四张，确认 100% 与 55% 下中英日韩内容连续、都是衬线、没有字形跳变、长句仍正确换行；那些图不能当作本 tip 中心标题未裁切的证据。
+
+### 中心节点标题「字形样本」在 70% / 55% 被裁切
+
+对照实验用同一份 `glyph-sample.floretta`、同一块中心节点裁切、同一 70% 视口。基线 `8e50c12`（日志 `/tmp/theme-modes-baseline-pinch-shot.log`，2026-11-13 02:20:59–02:23:05 CST，EXIT 0）中心节点四个字「字形样本」都在；分支 `30e2e91` 同一位置只剩「字形…」。这是本变化引入的回归，不是预先就有的。
+
+最初的混判是：100% / 85% 两侧都完整；70% 基线完整、tip 被裁（新问题）；55% 两侧都被裁，当时当成既有问题。Hubert 后来独立确认 70% 必须修，并把验收收紧为：同一文档在 100% / 85% / 70% / 55% 四个停点，中心节点都必须完整显示「字形样本」，与基线一致；55% 不得再当成既有问题留下。
+
+排查结论：
+
+1. **不是 log 桶字号和测量字号对不上。** 70% 时桶量化只有约 +0.10%，解释不了裁切。真正的错位是：排版仍走 `TextMeasurementCache` 的 Helvetica → 系统 UI（`.AppleSystemUIFont`）测宽，绘制却走 `ThemeFontCascade`（本轮捏合是经典 + EB Garamond，汉字级联宋体 / 本模拟器回退 PingFang）。「字形样本」36 pt 时，系统 UI 画布宽 136.42、加 24 pt 边距后排成 161；宋体/苹方画布宽 144、排成 168。交叉（测量用系统 UI、绘制用宋体）时可用宽度按 `laidOut * scale − 12`（绘制 `textRect = rect.insetBy(dx: 6, dy: 4)`，这 12 px 是视图像素，不随缩放变）：100% 余量 +4.89 能放下；85% +1.85 能放下；70% −0.20 溢出，与 `30e2e91` 截图一致；55% −3.01 溢出。同一张脸（宋体测、宋体画）时 70% +4.70 能放下，55% 只剩 +0.84。
+2. **不是缩放后复用了旧档位缓存的排版宽度。** 节点宽度在画布坐标里计算，不随视口缩放缓存一版旧宽度。
+3. **选中态描边 / 手柄和固定的视图像素内边距会吃掉可用宽度**，缩放越低，那 12 px 内边距占的比例越大。这与测宽/绘制字体不一致叠在一起，才在 70% 裁字。
+
+产品修复在 `44723d0246b31722acf988adb7ee0b8dfd145372`（Measure canvas titles with the painted font cascade）：有 appearance profile 时，用绘制那一套 cascade（`fontFamilyID` + `nodeDesign`）测标题宽。`FontMetricsPort` 不能直接依赖 `ThemeFontCascade`（会编进分享扩展），所以测宽走 `ThemeAwareFontMetrics`。修复后同一份文档、干净树上的官方四张里，100% / 85% / 70% / 55% 的中心节点都完整显示「字形样本」，没有再改视图像素内边距或选中态手柄。注意：70% / 55% 图左上导航栏标题仍可能显示「字…」，那是返回按钮挤掉了导航栏文案，不是中心节点，也不在这项验收里。
+
+对照 typography 的说明：基线 `8e50c12` 捏合图是该提交的默认外观；本 tip 四张是经典 + EB Garamond。比较的是同一文档、同一中心节点、同一 70% 裁切，不是同一默认字体。
+
+### 字体缓存 LRU 未命中 / 淘汰计数
+
+测试可见计数器：`resolvedFontCacheMissCountForTests` / `resolvedFontCacheEvictCountForTests`。新的尺寸化 CTFont 发布时记一次 miss，从键表里去掉时记一次 evict。官方干净树日志 `/tmp/theme-modes-font-mac-44723d0.log`（`FONT_MAC_OFFICIAL_START` 2026-11-13 02:38:31 CST，`FONT_MAC_OFFICIAL_END` 02:39:04 CST，`FONT_MAC_OFFICIAL_EXIT 0`，`** TEST SUCCEEDED **`，`HEAD=44723d0246b31722acf988adb7ee0b8dfd145372`，`GIT_STATUS_PORCELAIN` 为空）打印的实际计数是：
+
+- 50%↔400% 极端往返（先到百分之五十再到百分之四百再回来）：`FLORETTA_FONT_CACHE_50_400 outbound miss=106 evict=0 count=106; round-trip miss=106 evict=0 count=106`
+- 多 design 场景：`FLORETTA_FONT_CACHE_MULTI_DESIGN miss=1053 evict=797 count=256 cap=256`（1053 − 256 = 797）
+
 
 ## 测试（Asia/Shanghai）
 
 - `swift test --package-path FlorettaCore --filter AppearanceModeTests`：4/0，2026-11-12 21:35:54 CST。
-- `xcodebuild test`（Floretta-macOS）：`AppearanceSettingsTests` 4/0（含共享状态与立即同步、三模式切换、经典+非衬线跨重启持久化、标识前缀）。`ThemeFontCascadeTests` 在干净产品 tip `ebe08747bab4174f66b305734ee14206f1c1d58a` 上是 11/0（2026-11-13 01:37:12–01:37:46 CST，日志 `/tmp/theme-modes-font-mac-ebe0874.log`，`FONT_MAC_EXIT 0`，`** TEST SUCCEEDED **`，11 passed / 0 failed，含相对步长量化与 LRU 用例 `testSizeQuantizationUsesRelativeLogBuckets`、`testContinuousZoomSizesShareACachedRelativeBucket`、`testFontCacheEvictsLeastRecentlyUsedWhenOverCapacity`）。其后只加文档和入树 JSON 的树上又跑过一次，同样 11/0（01:46:29–01:47:12 CST，`/tmp/theme-modes-font-mac-25f212c.log`，当时 HEAD `25f212c49a31c61a3969ad12fb65ab1fd0cd3d33`，产品 diff 相对 `ebe0874` 为空）。`eb-garamond` 的 “Hello” 仍是 `EBGaramond-Regular`，汉字仍是 `STSongti-SC-Regular`；`system-serif` 汉字同样仍是宋体。日志里 `FONT_RESOLVE system-serif zh=STSongti-SC-Regular`。
-- iOS `generic/platform=iOS` 跑在干净产品 tip `ebe08747bab4174f66b305734ee14206f1c1d58a`：命令 `xcodebuild -project Floretta.xcodeproj -scheme Floretta-iOS -destination 'generic/platform=iOS' -configuration Debug CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/theme-modes-ios-ebe0874-dd build`，日志 `/tmp/theme-modes-ios-ebe0874.log`，START 2026-11-13 01:38:02 CST，END 01:38:27 CST，`IOS_GENERIC_EXIT 0`，`** BUILD SUCCEEDED **`，`git status` 干净。同一命令在只加文档和入树 JSON 的 `25f212c49a31c61a3969ad12fb65ab1fd0cd3d33` 上同样 EXIT 0（01:46:31–01:47:07 CST，`/tmp/theme-modes-ios-25f212c.log`）。不得用 `88e6640`、`fe82126`、`bd1507f`、`9e01ded` 或 `20443e7` 的 EXIT 0 代替。
+- `xcodebuild test`（Floretta-macOS）：`AppearanceSettingsTests` 4/0（含共享状态与立即同步、三模式切换、经典+非衬线跨重启持久化、标识前缀）。`ThemeFontCascadeTests` 在干净产品 tip `44723d0246b31722acf988adb7ee0b8dfd145372` 上是 14/0（2026-11-13 02:38:31–02:39:04 CST，日志 `/tmp/theme-modes-font-mac-44723d0.log`，`FONT_MAC_OFFICIAL_EXIT 0`，`** TEST SUCCEEDED **`，14 passed / 0 failed，`HEAD=44723d0246b31722acf988adb7ee0b8dfd145372`，`GIT_STATUS_PORCELAIN` 为空）。本轮新增 `testFontCacheCountsForFiftyToFourHundredPercentRoundTrip`、`testFontCacheCountsForMultiDesignScenario`、`testGlyphSampleTitleWidthAtSeventyPercentFitsPaintedCascade`，并保留相对步长量化与 LRU 用例。`eb-garamond` 的 “Hello” 仍是 `EBGaramond-Regular`，汉字仍是 `STSongti-SC-Regular`；`system-serif` 汉字同样仍是宋体。不得用 `ebe0874` / `30e2e91` 的 11/0 代替本 SHA 的 14/0。
+- iOS `generic/platform=iOS` 跑在干净产品 tip `44723d0246b31722acf988adb7ee0b8dfd145372`：命令 `xcodebuild -project Floretta.xcodeproj -scheme Floretta-iOS -destination 'generic/platform=iOS' -configuration Debug CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/theme-modes-ios-44723d0-dd build`，日志 `/tmp/theme-modes-ios-44723d0.log`，START 2026-11-13 02:39:59 CST，END 02:40:24 CST，`IOS_GENERIC_EXIT 0`，`** BUILD SUCCEEDED **`，HEAD 即 `44723d0…`，`git status` 干净。不得用 `ebe0874`、`30e2e91` 或更早 tip 的 EXIT 0 代替。

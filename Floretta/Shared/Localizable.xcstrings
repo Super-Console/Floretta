@@ -5605,6 +5605,55 @@
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "系统非衬线" } }
       }
     },
+    "EB Garamond": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "EB Garamond" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "EB Garamond" } }
+      }
+    },
+    "Crimson Pro": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Crimson Pro" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Crimson Pro" } }
+      }
+    },
+    "Libre Baskerville": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Libre Baskerville" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Libre Baskerville" } }
+      }
+    },
+    "Noto Serif": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Noto Serif" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Noto Serif" } }
+      }
+    },
+    "Inter": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Inter" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Inter" } }
+      }
+    },
+    "IBM Plex Sans": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "IBM Plex Sans" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "IBM Plex Sans" } }
+      }
+    },
+    "Noto Sans": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Noto Sans" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "Noto Sans" } }
+      }
+    },
     "底色": {
       "extractionState": "manual",
       "localizations": {

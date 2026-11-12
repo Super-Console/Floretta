@@ -2,7 +2,8 @@ Floretta
 Copyright (c) 2026 Super-Console
 
 This product includes third-party software. The dependency below is what the
-Xcode project actually links. Reviewed projects that were not linked are
+Xcode project actually links. Bundled OFL fonts and their licenses are listed in
+docs/THIRD-PARTY-FONTS.md; license texts are in Floretta/Resources/Fonts/licenses/. Reviewed projects that were not linked are
 described in docs/REUSE-AUDIT.md.
 
 ## SwiftFlow 0.3.1

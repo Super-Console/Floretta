@@ -8,6 +8,7 @@ struct TemplateThumbnail: View {
 
     var kind: TemplateKind
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.appearanceProfile) private var appearanceProfile
 
     private var theme: LayoutAppearance {
         MapThemeCatalog.appearance(
@@ -272,8 +273,8 @@ struct TemplateThumbnail: View {
     private func chip(_ text: String, emphasized: Bool = false) -> some View {
         Text(text)
             .font(emphasized
-                ? FlorettaTitleFont.font(design: theme.rootFontDesign, size: 11)
-                : FlorettaTitleFont.font(design: theme.bodyFontDesign, size: 9))
+                ? FlorettaTitleFont.font(design: theme.rootFontDesign, size: 11, familyID: appearanceProfile.fontFamilyID)
+                : FlorettaTitleFont.font(design: theme.bodyFontDesign, size: 9, familyID: appearanceProfile.fontFamilyID))
             .foregroundStyle(title)
             .lineLimit(1)
             .padding(.horizontal, 6)

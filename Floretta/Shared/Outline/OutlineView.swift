@@ -170,6 +170,7 @@ private struct OutlineRow: View {
     var tagFilter: TopicTagFilter
     var id: UUID
     @State private var minimumWidth: CGFloat = 0
+    @Environment(\.appearanceProfile) private var appearanceProfile
 
     var body: some View {
         if keyboard.mode == .edit, keyboard.selectedNodeID == id {
@@ -189,6 +190,7 @@ private struct OutlineRow: View {
         } else {
             VStack(alignment: .leading, spacing: 2) {
                 Text(document.node(id)?.text ?? "")
+                    .font(FlorettaTitleFont.font(design: "default", size: 17, familyID: appearanceProfile.fontFamilyID))
                     .lineLimit(3)
                 if let labels = document.node(id)?.labels, !labels.isEmpty {
                     Text(verbatim: labels.joined(separator: " · "))

@@ -20,6 +20,7 @@ struct FlorettaApp: App {
     @State private var library: LibraryModel
 
     init() {
+        ThemeFontCascade.registerBundledFonts()
         let session = AppLaunch.make()
         _recovery = State(initialValue: session.recovery)
         _settings = State(initialValue: session.settings)

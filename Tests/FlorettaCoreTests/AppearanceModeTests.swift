@@ -29,4 +29,23 @@ final class AppearanceModeTests: XCTestCase {
         XCTAssertEqual(decoded[.modern]?.fontFamilyID, "system-sans")
         XCTAssertEqual(decoded[.custom]?.fontFamilyID, "system-serif")
     }
+
+    func testCatalogIncludesBundledLatinFamiliesAndFollowsSystemName() {
+        let ids = AppearanceCatalog.families.map(\.id)
+        XCTAssertEqual(ids, [
+            "system-serif",
+            "system-sans",
+            "eb-garamond",
+            "crimson-pro",
+            "libre-baskerville",
+            "noto-serif",
+            "inter",
+            "ibm-plex-sans",
+            "noto-sans",
+        ])
+        XCTAssertEqual(AppearanceCatalog.family(id: "system-sans")?.nameKey, "跟随系统")
+        XCTAssertNil(AppearanceCatalog.family(id: "source-han-serif"))
+        XCTAssertEqual(AppearanceCatalog.family(id: "ibm-plex-sans")?.postScriptName, "IBMPlexSans")
+        XCTAssertEqual(AppearanceCatalog.families.filter { $0.resourceFileName != nil }.count, 7)
+    }
 }

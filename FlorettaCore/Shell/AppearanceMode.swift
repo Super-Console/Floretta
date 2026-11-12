@@ -72,18 +72,31 @@ public enum AppearanceFontKind: String, Codable, Sendable {
     case sans
 }
 
-/// A user-selectable family. Bundled faces will be added later; the id is what persists.
+/// A user-selectable family. The id is what persists.
 public struct AppearanceFontFamily: Equatable, Sendable, Identifiable {
     public var id: String
     public var nameKey: String
     public var kind: AppearanceFontKind
     public var isSystem: Bool
+    /// File name under `Floretta/Resources/Fonts/`, if this family is bundled.
+    public var resourceFileName: String?
+    /// Declared PostScript name of the bundled Regular face, if any.
+    public var postScriptName: String?
 
-    public init(id: String, nameKey: String, kind: AppearanceFontKind, isSystem: Bool) {
+    public init(
+        id: String,
+        nameKey: String,
+        kind: AppearanceFontKind,
+        isSystem: Bool,
+        resourceFileName: String? = nil,
+        postScriptName: String? = nil
+    ) {
         self.id = id
         self.nameKey = nameKey
         self.kind = kind
         self.isSystem = isSystem
+        self.resourceFileName = resourceFileName
+        self.postScriptName = postScriptName
     }
 }
 
@@ -92,7 +105,14 @@ public enum AppearanceCatalog {
 
     public static let families: [AppearanceFontFamily] = [
         AppearanceFontFamily(id: "system-serif", nameKey: "系统衬线", kind: .serif, isSystem: true),
-        AppearanceFontFamily(id: "system-sans", nameKey: "系统非衬线", kind: .sans, isSystem: true),
+        AppearanceFontFamily(id: "system-sans", nameKey: "跟随系统", kind: .sans, isSystem: true),
+        AppearanceFontFamily(id: "eb-garamond", nameKey: "EB Garamond", kind: .serif, isSystem: false, resourceFileName: "EBGaramond-Regular.otf", postScriptName: "EBGaramond-Regular"),
+        AppearanceFontFamily(id: "crimson-pro", nameKey: "Crimson Pro", kind: .serif, isSystem: false, resourceFileName: "CrimsonPro-Regular.otf", postScriptName: "CrimsonPro-Regular"),
+        AppearanceFontFamily(id: "libre-baskerville", nameKey: "Libre Baskerville", kind: .serif, isSystem: false, resourceFileName: "LibreBaskerville-Regular.otf", postScriptName: "LibreBaskerville-Regular"),
+        AppearanceFontFamily(id: "noto-serif", nameKey: "Noto Serif", kind: .serif, isSystem: false, resourceFileName: "NotoSerif-Regular.otf", postScriptName: "NotoSerif-Regular"),
+        AppearanceFontFamily(id: "inter", nameKey: "Inter", kind: .sans, isSystem: false, resourceFileName: "Inter-Regular.otf", postScriptName: "Inter-Regular"),
+        AppearanceFontFamily(id: "ibm-plex-sans", nameKey: "IBM Plex Sans", kind: .sans, isSystem: false, resourceFileName: "IBMPlexSans-Regular.otf", postScriptName: "IBMPlexSans"),
+        AppearanceFontFamily(id: "noto-sans", nameKey: "Noto Sans", kind: .sans, isSystem: false, resourceFileName: "NotoSans-Regular.otf", postScriptName: "NotoSans-Regular"),
     ]
 
     public static func family(id: String) -> AppearanceFontFamily? {

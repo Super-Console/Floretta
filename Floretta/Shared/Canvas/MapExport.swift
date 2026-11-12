@@ -33,6 +33,7 @@ struct MapExportOptions: Equatable, Sendable {
     /// When set, the whole padded map is drawn and the longest pixel edge stays at most this value.
     /// Nil keeps the export clip at `maxPixelDimension`. Quick Look sets this so Finder sees the map, not a corner.
     var fitLongestPixelEdge: CGFloat? = nil
+    var fontFamilyID: String = "system-serif"
 }
 
 struct MapExportResult: Equatable, Sendable {
@@ -212,7 +213,8 @@ enum MapExporter {
             regions: document.regions,
             renderBounds: plan.renderBounds,
             paper: paper.color,
-            images: images
+            images: images,
+            fontFamilyID: options.fontFamilyID
         )
         let renderer = ImageRenderer(content: view)
         renderer.scale = plan.pixelScale
@@ -274,6 +276,7 @@ private struct MapExportView: View {
     var renderBounds: CGRect
     var paper: Color
     var images: [String: CGImage]
+    var fontFamilyID: String = "system-serif"
 
     var body: some View {
         Canvas { context, _ in
@@ -359,7 +362,7 @@ private struct MapExportView: View {
                     context.draw(
                         NodeTextTypography.canvasText(
                             node.text,
-                            font: FlorettaTitleFont.font(design: node.fontDesign, size: node.fontSize)
+                            font: FlorettaTitleFont.font(design: node.fontDesign, size: node.fontSize, familyID: fontFamilyID)
                         )
                         .foregroundStyle(color(node.textColor)),
                         in: textRect
@@ -646,52 +649,12 @@ extension NodeTextTypography {
     }
 }
 
-/// Root serif is New York through the system serif design. Georgia is the named face
-/// when that design cannot be built. Every other design stays on the system font.
+/// Resolves a node face through `ThemeFontCascade`. Rounded and monospaced stay on the
+/// system designs; `serif` uses the current serif family (or system-serif); the default
+/// design uses the profile family.
 enum FlorettaTitleFont {
-    static func font(design: String, size: CGFloat) -> Font {
-        switch design {
-        case "serif":
-            return serif(size: size)
-        case "rounded":
-            return .system(size: size, design: .rounded)
-        case "monospaced":
-            return .system(size: size, design: .monospaced)
-        default:
-            return .system(size: size, design: .default)
-        }
+    static func font(design: String, size: CGFloat, familyID: String = "system-serif") -> Font {
+        ThemeFontCascade.swiftFont(familyID: familyID, nodeDesign: design, size: size)
     }
-
-    private static func serif(size: CGFloat) -> Font {
-        let point = max(size, 1)
-        #if os(macOS)
-        if let font = newYork(size: point, base: NSFont.systemFont(ofSize: point)) {
-            return Font(font)
-        }
-        if let georgia = NSFont(name: "Georgia", size: point) {
-            return Font(georgia)
-        }
-        #else
-        if let font = newYork(size: point, base: UIFont.systemFont(ofSize: point)) {
-            return Font(font)
-        }
-        if let georgia = UIFont(name: "Georgia", size: point) {
-            return Font(georgia)
-        }
-        #endif
-        return .system(size: point, design: .serif)
-    }
-
-    #if os(macOS)
-    private static func newYork(size: CGFloat, base: NSFont) -> NSFont? {
-        guard let descriptor = base.fontDescriptor.withDesign(.serif) else { return nil }
-        return NSFont(descriptor: descriptor, size: size)
-    }
-    #else
-    private static func newYork(size: CGFloat, base: UIFont) -> UIFont? {
-        guard let descriptor = base.fontDescriptor.withDesign(.serif) else { return nil }
-        return UIFont(descriptor: descriptor, size: size)
-    }
-    #endif
 }
 

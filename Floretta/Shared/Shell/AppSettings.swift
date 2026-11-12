@@ -288,7 +288,8 @@ extension MapExportOptions {
         self.init(
             scale: settings.pngScale.exportScale,
             background: settings.pngBackground.exportBackground,
-            includeStickies: settings.exportIncludesStickies
+            includeStickies: settings.exportIncludesStickies,
+            fontFamilyID: settings.currentProfile.fontFamilyID
         )
     }
 }

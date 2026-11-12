@@ -57,6 +57,7 @@ struct InfiniteCanvas: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.locale) private var locale
+    @Environment(\.appearanceProfile) private var appearanceProfile
     @FocusState private var canvasFocused: Bool
 
     var body: some View {
@@ -1900,7 +1901,7 @@ struct InfiniteCanvas: View {
         )
         var text = NodeTextTypography.canvasText(
             shown,
-            font: FlorettaTitleFont.font(design: node.fontDesign, size: pointSize)
+            font: FlorettaTitleFont.font(design: node.fontDesign, size: pointSize, familyID: appearanceProfile.fontFamilyID)
         )
             .foregroundStyle(color(node.textColor))
         if node.bold { text = text.bold() }

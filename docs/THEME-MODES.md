@@ -70,32 +70,36 @@ macOS 上 `ThemeFontCascadeTests` 在本轮补了一项 `testSystemSansAndSystem
 - 加字体前（同一分支、无字体 tip）：iOS 11.4 MB（11,993,182 bytes，2026-11-12 20:33:33 CST）；macOS 17.6 MB（18,419,929 bytes）。
 - 加字体后、 typography 提交之前：iOS 12.3 MB（12,901,611 bytes，2026-11-12 20:48:15 CST）；macOS 18.4 MB（19,336,424 bytes，`platform=macOS` arm64，2026-11-12 20:51:09 CST）。这两项不是 `bd1507f` 或本 tip 的产物。
 - `bd1507f95af868f1b03dafc96d2fa08284e3894c` 干净树重测：iOS 12.3 MB（12,936,195 bytes，产物 mtime 2026-11-13 00:13:17 CST）；macOS 18.5 MB（19,405,080 bytes，`platform=macOS` arm64，00:14:28 CST）。日志 `/tmp/theme-modes-size-bd1507f.log`，START 00:12:06，END 00:14:29 CST，`SIZE_BD1507F_SCRIPT_EXIT 0`，HEAD 即 `bd1507f`，`git status` 干净。
+- `0a903545ab09ad438ebee52a6e30d7a4cd48e318` 干净树实测（`git archive` 到 `/tmp/theme-modes-0a90354-size`，归档时工作树干净，产品源与 tip 一致；与 `e379209` 只差文档，产品 diff 为空）：iOS 12.3 MB（12,936,227 bytes，产物 mtime 2026-11-13 00:37:43 CST）；macOS 18.5 MB（19,404,712 bytes，可执行文件 mtime 00:39:01 CST，`platform=macOS` arm64）。日志 `/tmp/theme-modes-size-0a90354.log`，START 00:36:20，END 00:39:02 CST，`SIZE_0A90354_SCRIPT_EXIT 0`。这是本 SHA 实测，不得用 `e379209` 的 12,935,015 / 19,404,712 代替（iOS 字节不同）。
 - 本 tip 的包体数字见下方「本 tip 包体」；不得把加字体后、本 tip 之前的 12,901,611 / 19,336,424 当作本 SHA 的产物。
 
 ## 性能影响
 
 对照实验用**同一套** XCUITest 启动器（`testCanvasPerf500ViaUITest`）、**未改写的** PR #117 `CanvasPerfProbe`、同一份 500 节点夹具（启动参数 `-FlorettaUITest -FlorettaPerfNodes 500`），Release，iPad 模拟器 `ASC-iPadPro13-M5`（`330B63B2-5EE7-477E-B564-EE7C02161EE5`），命令行覆盖 `CODE_SIGN_IDENTITY="Apple Development"` `DEVELOPMENT_TEAM=JY5U4D6JD3`。峰值内存为 `task_vm_info.phys_footprint`（JSON `peakFootprintMB`）。时间均为 Asia/Shanghai（CST）。没有编造数字。临时 UITest / pbx 驱动只放在 gitignored 的 `.scratch/perf-driver`（或对照的 `/tmp` 归档树）里，不进 tip。
 
-本 tip 提名数字必须来自已提交、干净树的测量。`/tmp/theme-modes-perf500-cache.log` 那一轮写的是 `HEAD=fe82126 plus uncommitted font cache`，峰值 105.5 MB，平移 59.3 / 56，缩放 53.7 / 40，拖动 59.7 / 58，**不得当作本 tip 的证据**，也不得把缩放 53.7 或本 tip 的 54.2 写成「57–60」。
+本 tip 提名数字必须来自已提交、干净树的测量。`/tmp/theme-modes-perf500-cache.log` 那一轮写的是 `HEAD=fe82126 plus uncommitted font cache`，峰值 105.5 MB，平移 59.3 / 56，缩放 53.7 / 40，拖动 59.7 / 58，**不得当作本 tip 的证据**，也不得把缩放写成「57–60」。
 
-| 项 | 对照 `8e50c12`（2026-11-12 23:16） | 对照 `8e50c12` 同参数重测（2026-11-13 00:25） | 本 tip 干净树 `e379209`（2026-11-13 00:21） |
-| --- | --- | --- | --- |
-| HEAD | `8e50c1212d9f784ec6b38ba434f8c77cb9206cf6` | 同左，`git archive` 到 `/tmp/theme-modes-8e50c12-remeasure` | `e379209963e8ee5ccfa6314ede7d52c303b3e42c`（本 tip 的产品代码提交） |
-| 工作树 | 当时的对照 tip | 隔离归档，未改其它 worktree | 日志打印 `HEAD=e379209…`，`GIT_STATUS_PORCELAIN` 为空（测量前与测量后都干净） |
-| 日志 | `/tmp/theme-modes-baseline-perf500.log` START 2026-11-12 23:15:21，END 23:16:58，EXIT 0，`** TEST SUCCEEDED **` | `/tmp/theme-modes-baseline-perf500-remeasure.log` START 2026-11-13 00:23:54，END 00:25:33，EXIT 0，`** TEST SUCCEEDED **`，`FLORETTA_PERF_UITEST_DONE elapsed=25.2` | `/tmp/theme-modes-perf500-e379209.log` START 2026-11-13 00:20:11，END 00:21:51，EXIT 0，`** TEST SUCCEEDED **`，`FLORETTA_PERF_UITEST_DONE elapsed=24.6` |
-| JSON | `docs/reviews/theme-modes/canvas-perf-500-ipad-baseline-8e50c12.json`，`finishedAt` 2026-11-12T15:16:56Z（23:16:56 CST） | `docs/reviews/theme-modes/canvas-perf-500-ipad-baseline-8e50c12-remeasure.json`，`finishedAt` 2026-11-12T16:25:32Z（00:25:32 CST），sha256 `5c320750…` | `docs/reviews/theme-modes/canvas-perf-500-ipad-e379209.json`，`finishedAt` 2026-11-12T16:21:50Z（00:21:50 CST），sha256 `c19dbd0f…` |
-| 峰值内存 | 97.4 MB | 105.2 MB | 94.3 MB |
-| 平移 平均 / 最低 FPS | 59.7 / 58（179 次绘制） | 59.3 / 56（179 次绘制） | 59.0 / 56（178 次绘制） |
-| 缩放 平均 / 最低 FPS | 57.3 / 50（344 次绘制） | 55.5 / 40（334 次绘制） | **54.2 / 42（326 次绘制），低于门禁 ≥55** |
-| 拖动 平均 / 最低 FPS | 59.7 / 58（180 次绘制） | 59.7 / 58（180 次绘制） | 59.7 / 58（179 次绘制） |
+| 项 | 对照 `8e50c12`（2026-11-12 23:16） | 对照 `8e50c12` 同参数重测（2026-11-13 00:25） | 上轮产品 `e379209` 干净树（00:21） | 本 tip 产品 `9a92549` 干净树（00:43） |
+| --- | --- | --- | --- | --- |
+| HEAD | `8e50c1212d9f784ec6b38ba434f8c77cb9206cf6` | 同左，`git archive` 到 `/tmp/theme-modes-8e50c12-remeasure` | `e379209963e8ee5ccfa6314ede7d52c303b3e42c` | `9a92549e0d68f26ab9e8fcca079df64de9b1aa6e`（本 tip 的产品代码提交） |
+| 工作树 | 当时的对照 tip | 隔离归档，未改其它 worktree | 日志打印 `HEAD=e379209…`，`GIT_STATUS_PORCELAIN` 为空 | 日志打印 `HEAD=9a92549…`，`GIT_STATUS_PORCELAIN` 为空（测量前与测量后都干净） |
+| 日志 | `/tmp/theme-modes-baseline-perf500.log` START 2026-11-12 23:15:21，END 23:16:58，EXIT 0，`** TEST SUCCEEDED **` | `/tmp/theme-modes-baseline-perf500-remeasure.log` START 2026-11-13 00:23:54，END 00:25:33，EXIT 0，`** TEST SUCCEEDED **`，`FLORETTA_PERF_UITEST_DONE elapsed=25.2` | `/tmp/theme-modes-perf500-e379209.log` START 00:20:11，END 00:21:51，EXIT 0，`** TEST SUCCEEDED **`，elapsed=24.6 | `/tmp/theme-modes-perf500-9a92549.log` START 00:41:52，END 00:43:53，EXIT 0，`** TEST SUCCEEDED **`，`FLORETTA_PERF_UITEST_DONE elapsed=25.5` |
+| JSON | `docs/reviews/theme-modes/canvas-perf-500-ipad-baseline-8e50c12.json`，`finishedAt` 2026-11-12T15:16:56Z（23:16:56 CST） | `docs/reviews/theme-modes/canvas-perf-500-ipad-baseline-8e50c12-remeasure.json`，`finishedAt` 2026-11-12T16:25:32Z（00:25:32 CST），sha256 `5c320750…` | `docs/reviews/theme-modes/canvas-perf-500-ipad-e379209.json`，`finishedAt` 2026-11-12T16:21:50Z（00:21:50 CST），sha256 `c19dbd0f…` | `docs/reviews/theme-modes/canvas-perf-500-ipad-9a92549.json`，`finishedAt` 2026-11-12T16:43:51Z（00:43:51 CST），sha256 `1de8960e…` |
+| 峰值内存 | 97.4 MB | 105.2 MB | 94.3 MB | 92.8 MB（相对 `e379209` −1.5 MB，相对重测对照 −12.4 MB，增量低于 20 MB） |
+| 平移 平均 / 最低 FPS | 59.7 / 58（179 次绘制） | 59.3 / 56（179 次绘制） | 59.0 / 56（178 次绘制） | 59.7 / 58（179 次绘制） |
+| 缩放 平均 / 最低 FPS | 57.3 / 50（344 次绘制） | 55.5 / 40（334 次绘制） | 54.2 / 42（326 次绘制） | **55.3 / 44（333 次绘制）** |
+| 拖动 平均 / 最低 FPS | 59.7 / 58（180 次绘制） | 59.7 / 58（180 次绘制） | 59.7 / 58（179 次绘制） | 59.7 / 58（179 次绘制） |
 
-本 tip 去掉了缓存读路径上每帧、每节点的 `NSLock`：`draw` 开头 `ThemeFontCascade.beginFrame()` 拍一份不可变表，再按本帧可见节点的 (design, size) 一次性解析，绘制只读 CTFont 引用；捏合新字号仍走 `CTFontCreateCopyWithAttributes`，但拷贝不在锁内进行。画布仍然把缓存里的真实 `UIFont`/`CTFont` 写进 `NSAttributedString`，不能退回 `Font.system(design:)`。
+上轮 `e379209` 已去掉缓存读路径上每帧、每节点的 `NSLock`：`draw` 开头 `ThemeFontCascade.beginFrame()` 拍一份不可变表，再按本帧可见节点的 (design, size) 一次性解析，绘制只读 CTFont 引用。那一轮干净树缩放是 54.2。根因是缓存键按 1/64 pt 量化字号，捏合时字号连续变化，几乎每帧都未命中，热路径仍在每帧调用 `CTFontCreateCopyWithAttributes`。
 
-缩放平均 54.2 仍低于门禁 ≥55，也低于同参数重测对照的 55.5，以及 11-12 晚间对照的 57.3。平移和拖动仍在 59 一带。这与 `fae6453` 的约 1 FPS 不是同一量级，但**不能**把本 tip 写成「57–60」，也**不能**按缩放达标来申请通过。同参数对照本身也有波动（缩放 57.3 / 50 对 55.5 / 40），两组数字都据实列出。
+本 tip 产品代码 `9a92549` 把字号按最近的 0.5 pt 再写入缓存键，并给已按尺寸拷贝的 CTFont 表加上 256 条容量上限与 LRU（每帧在 `prepareCanvasFonts` 里一次性更新近用顺序，命中路径不加锁）。画布仍然把缓存里的真实 `UIFont`/`CTFont` 写进 `NSAttributedString`，不能退回 `Font.system(design:)`。
+
+干净树 `9a92549` 缩放平均 55.3（最低 44），达到数字门禁 ≥55；与同批重测对照 55.5 差 0.2，与 11-12 晚间对照 57.3 差 2.0，探针噪声约 ±2，无跨量级差异。上轮 `e379209` 的 54.2 相对同批对照 55.5 差 1.3，同样落在噪声带内，不应写成回归。平移和拖动仍在 59 一带。峰值内存 92.8 MB，相对 `e379209` 的 94.3 MB 减少 1.5 MB，相对重测对照 105.2 MB 减少 12.4 MB，内存增量低于 20 MB。这与 `fae6453` 的约 1 FPS 不是同一量级，但**不能**把本 tip 写成「57–60」，通过与否留给审查者判断，这里不自行宣布通过。
 
 `fae6453` 回归仍以 `/tmp/theme-modes-perf500-tip-confirm.log`（23:18:43–23:19:29 CST，EXIT 0）和 `docs/reviews/theme-modes/canvas-perf-500-ipad-fae6453-before-fix.json`（`finishedAt` 2026-11-12T15:19:27Z）为准：峰值 89.2 MB，平移 1.0 / 0，缩放 0.8 / 0，拖动 0.9 / 0。原因是每一帧为每个可见节点现场构建带级联的 CTFont。macOS 直接启动路径仍然 windows=0，本对照只走 XCUITest，见 `docs/reviews/theme-modes/PERF-ATTEMPT.md`。
 
-- 本 tip `e379209963e8ee5ccfa6314ede7d52c303b3e42c` 干净树实测：iOS 12.3 MB（12,935,015 bytes，产物 mtime 2026-11-13 00:26:43 CST）；macOS 18.5 MB（19,404,712 bytes，可执行文件 mtime 00:27:13 CST，`platform=macOS` arm64）。日志 `/tmp/theme-modes-size-e379209.log`，START 00:26:15，END 00:27:13 CST，`SIZE_E379209_SCRIPT_EXIT 0`。随后若只有文档入树，包体数字仍以这次产物为准。
+- 上轮产品 `e379209963e8ee5ccfa6314ede7d52c303b3e42c` 干净树实测：iOS 12.3 MB（12,935,015 bytes，产物 mtime 2026-11-13 00:26:43 CST）；macOS 18.5 MB（19,404,712 bytes，可执行文件 mtime 00:27:13 CST，`platform=macOS` arm64）。日志 `/tmp/theme-modes-size-e379209.log`，START 00:26:15，END 00:27:13 CST，`SIZE_E379209_SCRIPT_EXIT 0`。
+- 本 tip 产品代码 `9a92549e0d68f26ab9e8fcca079df64de9b1aa6e` 干净树实测：iOS 12.4 MB（12,951,415 bytes，产物 mtime 2026-11-13 00:45:20 CST）；macOS 18.5 MB（19,404,744 bytes，可执行文件 mtime 00:45:53 CST，`platform=macOS` arm64）。日志 `/tmp/theme-modes-size-9a92549.log`，START 00:44:47，END 00:45:53 CST，`SIZE_9A92549_SCRIPT_EXIT 0`，HEAD 即 `9a92549`，测量前后 `git status` 干净。均低于 iOS < 15 / macOS < 25。随后若只有文档入树，包体数字仍以这次产物为准。
 
 ## 截图
 
@@ -119,5 +123,5 @@ macOS 上 `ThemeFontCascadeTests` 在本轮补了一项 `testSystemSansAndSystem
 ## 测试（Asia/Shanghai）
 
 - `swift test --package-path FlorettaCore --filter AppearanceModeTests`：4/0，2026-11-12 21:35:54 CST。
-- `xcodebuild test`（Floretta-macOS）：`AppearanceSettingsTests` 4/0（含共享状态与立即同步、三模式切换、经典+非衬线跨重启持久化、标识前缀）。`ThemeFontCascadeTests` 在干净树上仍是 8/0（2026-11-13 00:28:30–00:28:36 CST，日志 `/tmp/theme-modes-font-mac-test5.log`，当时 HEAD `9e01ded1bf5b8a179193f859c5f7b3bc1d32e56a`，与产品代码提交 `e379209` 只差文档，`FONT_MAC_EXIT 0`，`** TEST SUCCEEDED **`，8 passed / 0 failed）。`eb-garamond` 的 “Hello” 仍是 `EBGaramond-Regular`，汉字仍是 `STSongti-SC-Regular`；`system-serif` 汉字同样仍是宋体。
-- iOS `generic/platform=iOS` 跑在干净树 `9e01ded1bf5b8a179193f859c5f7b3bc1d32e56a`（产品代码同 `e379209`，只差文档）：命令 `xcodebuild -project Floretta.xcodeproj -scheme Floretta-iOS -destination 'generic/platform=iOS' -configuration Debug CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/theme-modes-ios-9e01ded-dd build`，日志 `/tmp/theme-modes-ios-9e01ded.log`，START 2026-11-13 00:28:29 CST，END 00:29:04 CST，`IOS_GENERIC_EXIT 0`，`** BUILD SUCCEEDED **`，`git status` 干净。不得用 `88e6640`、`fe82126` 或 `bd1507f` 的 EXIT 0 代替。
+- `xcodebuild test`（Floretta-macOS）：`AppearanceSettingsTests` 4/0（含共享状态与立即同步、三模式切换、经典+非衬线跨重启持久化、标识前缀）。`ThemeFontCascadeTests` 在干净本 tip 上是 11/0（2026-11-13 00:48:05–00:48:56 CST，日志 `/tmp/theme-modes-font-mac-4617aec.log`，当时 HEAD `4617aec8528c2735f54aa38e5b7cfca5a44a92c5`，与产品代码提交 `9a92549` 只差文档，`FONT_MAC_EXIT 0`，`** TEST SUCCEEDED **`，11 passed / 0 failed，含量化与 LRU 三项新用例）。`eb-garamond` 的 “Hello” 仍是 `EBGaramond-Regular`，汉字仍是 `STSongti-SC-Regular`；`system-serif` 汉字同样仍是宋体。日志里 `FONT_RESOLVE system-serif zh=STSongti-SC-Regular`。
+- iOS `generic/platform=iOS` 跑在干净本 tip `4617aec8528c2735f54aa38e5b7cfca5a44a92c5`（产品代码同 `9a92549`，只差文档）：命令 `xcodebuild -project Floretta.xcodeproj -scheme Floretta-iOS -destination 'generic/platform=iOS' -configuration Debug CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/theme-modes-ios-4617aec-dd build`，日志 `/tmp/theme-modes-ios-4617aec.log`，START 2026-11-13 00:48:07 CST，END 00:48:52 CST，`IOS_GENERIC_EXIT 0`，`** BUILD SUCCEEDED **`，`git status` 干净。不得用 `88e6640`、`fe82126`、`bd1507f` 或 `9e01ded` 的 EXIT 0 代替。

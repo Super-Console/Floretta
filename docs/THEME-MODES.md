@@ -75,31 +75,34 @@ macOS 上 `ThemeFontCascadeTests` 在本轮补了一项 `testSystemSansAndSystem
 
 ## 性能影响
 
-对照实验用**同一套** XCUITest 启动器（`testCanvasPerf500ViaUITest`）、**未改写的** PR #117 `CanvasPerfProbe`、同一份 500 节点夹具（启动参数 `-FlorettaUITest -FlorettaPerfNodes 500`），Release，iPad 模拟器 `ASC-iPadPro13-M5`（`330B63B2-5EE7-477E-B564-EE7C02161EE5`），命令行覆盖 `CODE_SIGN_IDENTITY="Apple Development"` `DEVELOPMENT_TEAM=JY5U4D6JD3`。峰值内存为 `task_vm_info.phys_footprint`（JSON `peakFootprintMB`）。时间均为 Asia/Shanghai（CST）。没有编造数字。临时 UITest / pbx 驱动只放在 gitignored 的 `.scratch/perf-driver`（或对照的 `/tmp` 归档树）里，不进 tip。
+对照实验用**同一套** XCUITest 启动器（`testCanvasPerf500ViaUITest`）、**未改写的** PR #117 `CanvasPerfProbe`、同一份 500 节点夹具（启动参数 `-FlorettaUITest -FlorettaPerfNodes 500`），Release，iPad 模拟器 `ASC-iPadPro13-M5`（`330B63B2-5EE7-477E-B564-EE7C02161EE5`），命令行覆盖 `CODE_SIGN_IDENTITY="Apple Development"` `DEVELOPMENT_TEAM=JY5U4D6JD3`。峰值内存为 `task_vm_info.phys_footprint`（JSON `peakFootprintMB`）。时间均为 Asia/Shanghai（CST）。没有编造数字。自 `ebe0874` 起，canvas-perf 与捏合过程截图的 UITest 已入树为 `FlorettaUITests/ThemeModesScreenshotUITests.swift`，默认跑 UITest scheme 时由 `FLORETTA_RUN_PERF_PROBE` / `FLORETTA_RUN_THEME_SHOTS`（或 `/tmp/floretta-run-perf-probe`、`/tmp/floretta-run-theme-shots` 旗标文件）跳过，不会在常规测试里启动 500 节点探针或等待外部截图 poller。更早的对照仍可能来自当时 gitignored 的 `.scratch/perf-driver` 或 `/tmp` 归档树。
 
 本 tip 提名数字必须来自已提交、干净树的测量。`/tmp/theme-modes-perf500-cache.log` 那一轮写的是 `HEAD=fe82126 plus uncommitted font cache`，峰值 105.5 MB，平移 59.3 / 56，缩放 53.7 / 40，拖动 59.7 / 58，**不得当作本 tip 的证据**，也不得把缩放写成「57–60」。
 
-| 项 | 对照 `8e50c12`（2026-11-12 23:16） | 对照 `8e50c12` 同参数重测（2026-11-13 00:25） | 上轮产品 `e379209` 干净树（00:21） | 本 tip 产品 `9a92549` 干净树（00:43） |
-| --- | --- | --- | --- | --- |
-| HEAD | `8e50c1212d9f784ec6b38ba434f8c77cb9206cf6` | 同左，`git archive` 到 `/tmp/theme-modes-8e50c12-remeasure` | `e379209963e8ee5ccfa6314ede7d52c303b3e42c` | `9a92549e0d68f26ab9e8fcca079df64de9b1aa6e`（本 tip 的产品代码提交） |
-| 工作树 | 当时的对照 tip | 隔离归档，未改其它 worktree | 日志打印 `HEAD=e379209…`，`GIT_STATUS_PORCELAIN` 为空 | 日志打印 `HEAD=9a92549…`，`GIT_STATUS_PORCELAIN` 为空（测量前与测量后都干净） |
-| 日志 | `/tmp/theme-modes-baseline-perf500.log` START 2026-11-12 23:15:21，END 23:16:58，EXIT 0，`** TEST SUCCEEDED **` | `/tmp/theme-modes-baseline-perf500-remeasure.log` START 2026-11-13 00:23:54，END 00:25:33，EXIT 0，`** TEST SUCCEEDED **`，`FLORETTA_PERF_UITEST_DONE elapsed=25.2` | `/tmp/theme-modes-perf500-e379209.log` START 00:20:11，END 00:21:51，EXIT 0，`** TEST SUCCEEDED **`，elapsed=24.6 | `/tmp/theme-modes-perf500-9a92549.log` START 00:41:52，END 00:43:53，EXIT 0，`** TEST SUCCEEDED **`，`FLORETTA_PERF_UITEST_DONE elapsed=25.5` |
-| JSON | `docs/reviews/theme-modes/canvas-perf-500-ipad-baseline-8e50c12.json`，`finishedAt` 2026-11-12T15:16:56Z（23:16:56 CST） | `docs/reviews/theme-modes/canvas-perf-500-ipad-baseline-8e50c12-remeasure.json`，`finishedAt` 2026-11-12T16:25:32Z（00:25:32 CST），sha256 `5c320750…` | `docs/reviews/theme-modes/canvas-perf-500-ipad-e379209.json`，`finishedAt` 2026-11-12T16:21:50Z（00:21:50 CST），sha256 `c19dbd0f…` | `docs/reviews/theme-modes/canvas-perf-500-ipad-9a92549.json`，`finishedAt` 2026-11-12T16:43:51Z（00:43:51 CST），sha256 `1de8960e…` |
-| 峰值内存 | 97.4 MB | 105.2 MB | 94.3 MB | 92.8 MB（相对 `e379209` −1.5 MB，相对重测对照 −12.4 MB，增量低于 20 MB） |
-| 平移 平均 / 最低 FPS | 59.7 / 58（179 次绘制） | 59.3 / 56（179 次绘制） | 59.0 / 56（178 次绘制） | 59.7 / 58（179 次绘制） |
-| 缩放 平均 / 最低 FPS | 57.3 / 50（344 次绘制） | 55.5 / 40（334 次绘制） | 54.2 / 42（326 次绘制） | **55.3 / 44（333 次绘制）** |
-| 拖动 平均 / 最低 FPS | 59.7 / 58（180 次绘制） | 59.7 / 58（180 次绘制） | 59.7 / 58（179 次绘制） | 59.7 / 58（179 次绘制） |
+| 项 | 对照 `8e50c12`（2026-11-12 23:16） | 对照 `8e50c12` 同参数重测（2026-11-13 00:25） | 上轮产品 `e379209` 干净树（00:21） | 上轮产品 `9a92549` 干净树（00:43） | 本 tip 产品 `ebe0874` 干净树（01:33） |
+| --- | --- | --- | --- | --- | --- |
+| HEAD | `8e50c1212d9f784ec6b38ba434f8c77cb9206cf6` | 同左，`git archive` 到 `/tmp/theme-modes-8e50c12-remeasure` | `e379209963e8ee5ccfa6314ede7d52c303b3e42c` | `9a92549e0d68f26ab9e8fcca079df64de9b1aa6e` | `ebe08747bab4174f66b305734ee14206f1c1d58a`（本 tip 的产品代码提交；其后若只有文档与入树 JSON，不改产品代码） |
+| 工作树 | 当时的对照 tip | 隔离归档，未改其它 worktree | 日志打印 `HEAD=e379209…`，`GIT_STATUS_PORCELAIN` 为空 | 日志打印 `HEAD=9a92549…`，`GIT_STATUS_PORCELAIN` 为空（测量前与测量后都干净） | 日志打印 `HEAD=ebe08747bab4174f66b305734ee14206f1c1d58a`，`GIT_STATUS_PORCELAIN` 在测量前与测量后均为空（`GIT_STATUS_PORCELAIN_BEGIN` / `_END` 之间无内容） |
+| 日志 | `/tmp/theme-modes-baseline-perf500.log` START 2026-11-12 23:15:21，END 23:16:58，EXIT 0，`** TEST SUCCEEDED **` | `/tmp/theme-modes-baseline-perf500-remeasure.log` START 2026-11-13 00:23:54，END 00:25:33，EXIT 0，`** TEST SUCCEEDED **`，`FLORETTA_PERF_UITEST_DONE elapsed=25.2` | `/tmp/theme-modes-perf500-e379209.log` START 00:20:11，END 00:21:51，EXIT 0，`** TEST SUCCEEDED **`，elapsed=24.6 | `/tmp/theme-modes-perf500-9a92549.log` START 00:41:52，END 00:43:53，EXIT 0，`** TEST SUCCEEDED **`，`FLORETTA_PERF_UITEST_DONE elapsed=25.5` | `/tmp/theme-modes-perf500-ebe0874.log` START 2026-11-13 01:32:18，END 01:33:53 CST，EXIT 0，`** TEST SUCCEEDED **`，`FLORETTA_PERF_UITEST_DONE elapsed=24.1` |
+| JSON | `docs/reviews/theme-modes/canvas-perf-500-ipad-baseline-8e50c12.json`，`finishedAt` 2026-11-12T15:16:56Z（23:16:56 CST） | `docs/reviews/theme-modes/canvas-perf-500-ipad-baseline-8e50c12-remeasure.json`，`finishedAt` 2026-11-12T16:25:32Z（00:25:32 CST），sha256 `5c320750…` | `docs/reviews/theme-modes/canvas-perf-500-ipad-e379209.json`，`finishedAt` 2026-11-12T16:21:50Z（00:21:50 CST），sha256 `c19dbd0f…` | `docs/reviews/theme-modes/canvas-perf-500-ipad-9a92549.json`，`finishedAt` 2026-11-12T16:43:51Z（00:43:51 CST），sha256 `1de8960e…` | `docs/reviews/theme-modes/canvas-perf-500-ipad-ebe0874.json`，`finishedAt` 2026-11-12T17:33:51Z（01:33:51 CST），sha256 `5b5c0b221d1b41cbdbfdc68015f611949fd82afca6e12b234a7b4220850bb60a` |
+| 峰值内存 | 97.4 MB | 105.2 MB | 94.3 MB | 92.8 MB | 65.2 MB（JSON `peakFootprintMB`；同探针、`nodes: 500`，缩放 `maxVisibleNodes` 仍是 67。相对 `9a92549` 的 92.8 MB 低 27.6 MB，相对重测对照 105.2 MB 低 40.0 MB。这里只记录测到的数，不把这次下降写成已证实的缓存收益） |
+| 平移 平均 / 最低 FPS | 59.7 / 58（179 次绘制） | 59.3 / 56（179 次绘制） | 59.0 / 56（178 次绘制） | 59.7 / 58（179 次绘制） | 59.7 / 58（179 次绘制） |
+| 缩放 平均 / 最低 FPS | 57.3 / 50（344 次绘制） | 55.5 / 40（334 次绘制） | 54.2 / 42（326 次绘制） | 55.3 / 44（333 次绘制） | **57.2 / 50（344 次绘制）** |
+| 拖动 平均 / 最低 FPS | 59.7 / 58（180 次绘制） | 59.7 / 58（180 次绘制） | 59.7 / 58（179 次绘制） | 59.7 / 58（179 次绘制） | 59.7 / 58（180 次绘制） |
 
 上轮 `e379209` 已去掉缓存读路径上每帧、每节点的 `NSLock`：`draw` 开头 `ThemeFontCascade.beginFrame()` 拍一份不可变表，再按本帧可见节点的 (design, size) 一次性解析，绘制只读 CTFont 引用。那一轮干净树缩放是 54.2。根因是缓存键按 1/64 pt 量化字号，捏合时字号连续变化，几乎每帧都未命中，热路径仍在每帧调用 `CTFontCreateCopyWithAttributes`。
 
-本 tip 产品代码 `9a92549` 把字号按最近的 0.5 pt 再写入缓存键，并给已按尺寸拷贝的 CTFont 表加上 256 条容量上限与 LRU（每帧在 `prepareCanvasFonts` 里一次性更新近用顺序，命中路径不加锁）。画布仍然把缓存里的真实 `UIFont`/`CTFont` 写进 `NSAttributedString`，不能退回 `Font.system(design:)`。
+上轮产品 `9a92549` 把字号按最近的 0.5 pt 再写入缓存键，并给已按尺寸拷贝的 CTFont 表加上 256 条容量上限与 LRU（每帧在 `prepareCanvasFonts` 里一次性更新近用顺序，命中路径不加锁）。画布仍然把缓存里的真实 `UIFont`/`CTFont` 写进 `NSAttributedString`，不能退回 `Font.system(design:)`。那一轮干净树缩放是 55.3 / 44，与同批重测对照 55.5 差 0.2。
 
-干净树 `9a92549` 缩放平均 55.3（最低 44），达到数字门禁 ≥55；与同批重测对照 55.5 差 0.2，与 11-12 晚间对照 57.3 差 2.0，探针噪声约 ±2，无跨量级差异。上轮 `e379209` 的 54.2 相对同批对照 55.5 差 1.3，同样落在噪声带内，不应写成回归。平移和拖动仍在 59 一带。峰值内存 92.8 MB，相对 `e379209` 的 94.3 MB 减少 1.5 MB，相对重测对照 105.2 MB 减少 12.4 MB，内存增量低于 20 MB。这与 `fae6453` 的约 1 FPS 不是同一量级，但**不能**把本 tip 写成「57–60」，通过与否留给审查者判断，这里不自行宣布通过。
+固定 0.5 pt 桶在缩小端跳变偏大：20 pt 时 0.5 pt 是 2.5%，4 pt 时是 12.5%。本 tip 产品代码 `ebe0874` 改为按 `log` 等距、比值 1.02 的相对步长量化后再入键：`sizeTicks = round(log(size) / log(1.02))`，返回并用于 `CTFontCreateCopyWithAttributes` 的字号是该桶值 `1.02^ticks`，相邻桶在任意字号下相差至多 2%。256 条 LRU 与每帧快照、命中不加锁、把真实家族写进 attributed string 的路径都保留。
+
+干净树 `ebe0874` 缩放平均 / 最低是 **57.2 / 50**（344 次绘制），不是「57–60」。与 11-12 晚间对照原测 57.3 / 50 差 0.1，与 00:25 重测对照 55.5 / 40 差 1.7，与 `9a92549` 的 55.3 / 44 差 1.9。这几轮对照自身也曾从 57.3 落到 55.5，探针噪声大约 ±2，无跨量级差异。平移和拖动仍是 59.7 / 58。峰值内存测到 65.2 MB。通过与否留给审查者判断，这里不自行宣布通过。
 
 `fae6453` 回归仍以 `/tmp/theme-modes-perf500-tip-confirm.log`（23:18:43–23:19:29 CST，EXIT 0）和 `docs/reviews/theme-modes/canvas-perf-500-ipad-fae6453-before-fix.json`（`finishedAt` 2026-11-12T15:19:27Z）为准：峰值 89.2 MB，平移 1.0 / 0，缩放 0.8 / 0，拖动 0.9 / 0。原因是每一帧为每个可见节点现场构建带级联的 CTFont。macOS 直接启动路径仍然 windows=0，本对照只走 XCUITest，见 `docs/reviews/theme-modes/PERF-ATTEMPT.md`。
 
 - 上轮产品 `e379209963e8ee5ccfa6314ede7d52c303b3e42c` 干净树实测：iOS 12.3 MB（12,935,015 bytes，产物 mtime 2026-11-13 00:26:43 CST）；macOS 18.5 MB（19,404,712 bytes，可执行文件 mtime 00:27:13 CST，`platform=macOS` arm64）。日志 `/tmp/theme-modes-size-e379209.log`，START 00:26:15，END 00:27:13 CST，`SIZE_E379209_SCRIPT_EXIT 0`。
-- 本 tip 产品代码 `9a92549e0d68f26ab9e8fcca079df64de9b1aa6e` 干净树实测：iOS 12.4 MB（12,951,415 bytes，产物 mtime 2026-11-13 00:45:20 CST）；macOS 18.5 MB（19,404,744 bytes，可执行文件 mtime 00:45:53 CST，`platform=macOS` arm64）。日志 `/tmp/theme-modes-size-9a92549.log`，START 00:44:47，END 00:45:53 CST，`SIZE_9A92549_SCRIPT_EXIT 0`，HEAD 即 `9a92549`，测量前后 `git status` 干净。均低于 iOS < 15 / macOS < 25。随后若只有文档入树，包体数字仍以这次产物为准。
+- 上轮产品 `9a92549e0d68f26ab9e8fcca079df64de9b1aa6e` 干净树实测：iOS 12.4 MB（12,951,415 bytes，产物 mtime 2026-11-13 00:45:20 CST）；macOS 18.5 MB（19,404,744 bytes，可执行文件 mtime 00:45:53 CST，`platform=macOS` arm64）。日志 `/tmp/theme-modes-size-9a92549.log`，START 00:44:47，END 00:45:53 CST，`SIZE_9A92549_SCRIPT_EXIT 0`，HEAD 即 `9a92549`，测量前后 `git status` 干净。
+- 本 tip 产品代码 `ebe08747bab4174f66b305734ee14206f1c1d58a` 干净树实测：iOS 12.4 MB（12,953,439 bytes，产物 mtime 2026-11-13 01:35:11 CST）；macOS 18.5 MB（19,423,352 bytes，可执行文件 mtime 01:36:00 CST，`platform=macOS` arm64）。日志 `/tmp/theme-modes-size-ebe0874.log`，START 01:34:21，END 01:36:00 CST，`SIZE_EBE0874_SCRIPT_EXIT 0`，HEAD 即 `ebe08747bab4174f66b305734ee14206f1c1d58a`，测量前后 `git status` 干净。字节是对这次 `check-size.sh` 已 strip 产物按脚本同一口径 `find … stat -f %z` 求和得到的，不得用对话里的 12,935,015 / 19,404,712，也不得用 `9a92549` 的 12,951,415 / 19,404,744 代替本 SHA。均低于 iOS < 15 / macOS < 25。随后若只有文档入树，包体数字仍以这次产物为准。
 
 ## 截图
 
@@ -118,10 +121,24 @@ macOS 上 `ThemeFontCascadeTests` 在本轮补了一项 `testSystemSansAndSystem
 | `latin-system-serif.png` | 同一份字形样本、同一句中英文，经典 + 系统衬线。与已通过的 `classic.png` 字节完全相同（472,011），作为本轮「选 EB Garamond 之前」的对照 | 2026-11-12 23:33:08 | 472,011 |
 | `latin-eb-garamond.png` | 同一份文档、同一句中英文，经典模式把字体族改成 EB Garamond。英文 “Serif English: The quick brown fox jumps.” 的拉丁字母明显换成旧式 Garamond（与系统 New York 不同）；中文仍是本模拟器上的 PingFang 回退，没有被拉丁面吃掉。检查器已关掉 | 2026-11-12 23:33:32 | 478,594 |
 
-已通过的 classic / modern / classic-sans 三张未重拍。EB Garamond 对照日志：`/tmp/theme-modes-eb-shot-poller.log`、`/tmp/theme-modes-eb-shot.log`（`EB_SHOT_START` 2026-11-12 23:31:29 CST，`EB_SHOT_END` 23:33:34 CST，EXIT 0，`** TEST SUCCEEDED **`）。经典/现代重拍日志仍是 `/tmp/theme-modes-shot-poller.log`、`/tmp/theme-modes-glyph-songti.log`（`SONGTI_SHOT_START` 2026-11-12 22:55:10 CST，`SONGTI_SHOT_END` 22:57:02 CST，EXIT 0）。较早一轮空画布截图（22:13–22:14）已作废，不作为节点正文证据。
+| `pinch-100.png` | 同一份字形样本，经典 + EB Garamond，把画布连续缩放到 100% 后抓帧。左上角调试标 `pinch scale 100%`，右下角状态条缩放档也是 100% | 2026-11-13 01:31:00 | 496,353 |
+| `pinch-85.png` | 同一进程、同一文档，连续缩放到 85%。调试标 `pinch scale 85%`，状态条缩放档显示 75%（见下方说明） | 2026-11-13 01:31:04 | 494,164 |
+| `pinch-70.png` | 同一进程、同一文档，连续缩放到 70%。调试标 `pinch scale 70%`，状态条缩放档显示 75% | 2026-11-13 01:31:09 | 475,326 |
+| `pinch-55.png` | 同一进程、同一文档，连续缩放到 55%。调试标 `pinch scale 55%`，状态条缩放档显示 50% | 2026-11-13 01:31:14 | 466,811 |
+
+已通过的 classic / modern / classic-sans 三张未重拍。EB Garamond 对照日志：`/tmp/theme-modes-eb-shot-poller.log`、`/tmp/theme-modes-eb-shot.log`（`EB_SHOT_START` 2026-11-12 23:31:29 CST，`EB_SHOT_END` 23:33:34 CST，EXIT 0，`** TEST SUCCEEDED **`）。经典/现代重拍日志仍是 `/tmp/theme-modes-shot-poller.log`、`/tmp/theme-modes-glyph-songti.log`（`SONGTI_SHOT_START` 2026-11-12 22:55:10 CST，`SONGTI_SHOT_END` 22:57:02 CST，EXIT 0）。捏合四张日志：`/tmp/theme-modes-pinch-shot-poller.log`、`/tmp/theme-modes-pinch-shot.log`（约 01:31 CST，四张 mtime 01:31:00–01:31:14 CST）。较早一轮空画布截图（22:13–22:14）已作废，不作为节点正文证据。
+
+### 捏合图左上角 55% 与右下角 50% 为什么不同
+
+这不是调试标签和画布不同步，也不是标签写错了档位。两处读的不是同一个数。
+
+- 左上角 `uitest.heldCanvasScale` 只在 `-FlorettaPinchShot` 启动时出现，文案是 `pinch scale \(Int((camera.viewport.scale * 100).rounded()))%`，也就是**当前视口的连续缩放**，四舍五入到整数百分比。测试用 `CanvasScaleHook` 把画布停在 `MagnifyGesture.onChanged` 那种中间值（100 / 85 / 70 / 55），并且在 `pinchGesture.onEnded` 里关掉对合法 `ZoomStop` 的回吸，所以 55% 这一张的视口就是 0.55，标签写 55%。
+- 右下角状态条芯片显示的是 `camera.chrome.zoomPercent`。`CanvasChrome.syncZoomPercent(toScale:)` 的注释写明「chrome percent is always a legal stop, never a raw value such as 137」，实现是 `ZoomStop.displayPercent(forScale:)` → `ZoomStop.nearest(to:)`。合法档只有 50、75、100、125、150、200、300、400。0.55 离 0.50 的距离是 0.05，离 0.75 是 0.20，所以芯片显示 50%。同一组图也符合这条规则：85% 的芯片是 75%（离 75 差 10，离 100 差 15），70% 的芯片是 75%（离 75 差 5，离 50 差 20），100% 的芯片是 100%。
+
+也就是说，55% 那张里画布和字形按连续 55% 来画，芯片只是把这个连续值显示成最近的合法缩放档。Hubert 已看过这四张：100% 与 55% 下中英日韩内容一致、都是衬线、没有字形跳变、长句仍正确换行。
 
 ## 测试（Asia/Shanghai）
 
 - `swift test --package-path FlorettaCore --filter AppearanceModeTests`：4/0，2026-11-12 21:35:54 CST。
-- `xcodebuild test`（Floretta-macOS）：`AppearanceSettingsTests` 4/0（含共享状态与立即同步、三模式切换、经典+非衬线跨重启持久化、标识前缀）。`ThemeFontCascadeTests` 在干净本 tip 上是 11/0（2026-11-13 00:48:05–00:48:56 CST，日志 `/tmp/theme-modes-font-mac-4617aec.log`，当时 HEAD `4617aec8528c2735f54aa38e5b7cfca5a44a92c5`，与产品代码提交 `9a92549` 只差文档，`FONT_MAC_EXIT 0`，`** TEST SUCCEEDED **`，11 passed / 0 failed，含量化与 LRU 三项新用例）。`eb-garamond` 的 “Hello” 仍是 `EBGaramond-Regular`，汉字仍是 `STSongti-SC-Regular`；`system-serif` 汉字同样仍是宋体。日志里 `FONT_RESOLVE system-serif zh=STSongti-SC-Regular`。
-- iOS `generic/platform=iOS` 跑在干净本 tip `4617aec8528c2735f54aa38e5b7cfca5a44a92c5`（产品代码同 `9a92549`，只差文档）：命令 `xcodebuild -project Floretta.xcodeproj -scheme Floretta-iOS -destination 'generic/platform=iOS' -configuration Debug CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/theme-modes-ios-4617aec-dd build`，日志 `/tmp/theme-modes-ios-4617aec.log`，START 2026-11-13 00:48:07 CST，END 00:48:52 CST，`IOS_GENERIC_EXIT 0`，`** BUILD SUCCEEDED **`，`git status` 干净。不得用 `88e6640`、`fe82126`、`bd1507f` 或 `9e01ded` 的 EXIT 0 代替。
+- `xcodebuild test`（Floretta-macOS）：`AppearanceSettingsTests` 4/0（含共享状态与立即同步、三模式切换、经典+非衬线跨重启持久化、标识前缀）。`ThemeFontCascadeTests` 在干净产品 tip `ebe08747bab4174f66b305734ee14206f1c1d58a` 上是 11/0（2026-11-13 01:37:12–01:37:46 CST，日志 `/tmp/theme-modes-font-mac-ebe0874.log`，`FONT_MAC_EXIT 0`，`** TEST SUCCEEDED **`，11 passed / 0 failed，含相对步长量化与 LRU 用例 `testSizeQuantizationUsesRelativeLogBuckets`、`testContinuousZoomSizesShareACachedRelativeBucket`、`testFontCacheEvictsLeastRecentlyUsedWhenOverCapacity`）。其后只加文档和入树 JSON 的树上又跑过一次，同样 11/0（01:46:29–01:47:12 CST，`/tmp/theme-modes-font-mac-25f212c.log`，当时 HEAD `25f212c49a31c61a3969ad12fb65ab1fd0cd3d33`，产品 diff 相对 `ebe0874` 为空）。`eb-garamond` 的 “Hello” 仍是 `EBGaramond-Regular`，汉字仍是 `STSongti-SC-Regular`；`system-serif` 汉字同样仍是宋体。日志里 `FONT_RESOLVE system-serif zh=STSongti-SC-Regular`。
+- iOS `generic/platform=iOS` 跑在干净产品 tip `ebe08747bab4174f66b305734ee14206f1c1d58a`：命令 `xcodebuild -project Floretta.xcodeproj -scheme Floretta-iOS -destination 'generic/platform=iOS' -configuration Debug CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/theme-modes-ios-ebe0874-dd build`，日志 `/tmp/theme-modes-ios-ebe0874.log`，START 2026-11-13 01:38:02 CST，END 01:38:27 CST，`IOS_GENERIC_EXIT 0`，`** BUILD SUCCEEDED **`，`git status` 干净。同一命令在只加文档和入树 JSON 的 `25f212c49a31c61a3969ad12fb65ab1fd0cd3d33` 上同样 EXIT 0（01:46:31–01:47:07 CST，`/tmp/theme-modes-ios-25f212c.log`）。不得用 `88e6640`、`fe82126`、`bd1507f`、`9e01ded` 或 `20443e7` 的 EXIT 0 代替。

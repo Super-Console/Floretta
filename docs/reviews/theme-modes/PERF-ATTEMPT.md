@@ -69,3 +69,9 @@ Hubert 否决了把画布退回 `Font.system(design:)` 的修法：那样选 EB 
 Hubert 指出缩放时字号连续变化，1/64 pt 的缓存键几乎每帧未命中。本轮把字号按最近的 0.5 pt 写入键，并给已按尺寸拷贝的表加上 256 条容量上限与 LRU。每帧快照、绘制只读引用、以及把真实家族写进 `NSAttributedString` 的路径保持不变，不退回 `Font.system(design:)`。
 
 同一套 `testCanvasPerf500ViaUITest`、同一 PR #117 探针、同一 500 节点夹具、同一模拟器、Release，干净树产品提交 `9a92549e0d68f26ab9e8fcca079df64de9b1aa6e`：`/tmp/theme-modes-perf500-9a92549.log`，START 00:41:52，END 00:43:53 CST，EXIT 0，`FLORETTA_PERF_UITEST_DONE elapsed=25.5`。日志打印 `HEAD=9a92549e0d68f26ab9e8fcca079df64de9b1aa6e`，测量前后 `git status --porcelain` 均为空。JSON `docs/reviews/theme-modes/canvas-perf-500-ipad-9a92549.json`，`finishedAt` 2026-11-12T16:43:51Z（00:43:51 CST），sha256 `1de8960e82a6ec35373d41c034a05546e65ab93e9b17d95a9fa4b008095d50b0`。峰值 92.8 MB（相对 `e379209` 的 94.3 MB 为 −1.5 MB，相对重测对照 105.2 MB 为 −12.4 MB，增量低于 20 MB）；平移 59.7 / 58（179）；缩放 55.3 / 44（333）；拖动 59.7 / 58（179）。缩放平均 55.3 达到数字门禁 ≥55；与同批对照 55.5 差 0.2，探针噪声约 ±2，无跨量级差异。不得写成 57–60，也不在这里宣布通过。
+
+## 相对步长量化后再测（2026-11-13 01:32–01:33 CST）
+
+固定 0.5 pt 桶在 4 pt 时跳变 12.5%。本轮产品 `ebe08747bab4174f66b305734ee14206f1c1d58a` 改为比值 1.02 的 log 等距桶（相邻至多 2%），仍保留 256 条 LRU 与每帧快照。UITest 已入树，由 `FLORETTA_RUN_PERF_PROBE` / `/tmp/floretta-run-perf-probe` 选择加入。
+
+同一套 `testCanvasPerf500ViaUITest`、同一 PR #117 探针、同一 500 节点夹具、同一模拟器、Release，干净树：`/tmp/theme-modes-perf500-ebe0874.log`，START 01:32:18，END 01:33:53 CST，EXIT 0，`FLORETTA_PERF_UITEST_DONE elapsed=24.1`。日志打印 `HEAD=ebe08747bab4174f66b305734ee14206f1c1d58a`，测量前后 `GIT_STATUS_PORCELAIN` 均为空。JSON `docs/reviews/theme-modes/canvas-perf-500-ipad-ebe0874.json`，`finishedAt` 2026-11-12T17:33:51Z（01:33:51 CST），sha256 `5b5c0b221d1b41cbdbfdc68015f611949fd82afca6e12b234a7b4220850bb60a`。峰值 65.2 MB；平移 59.7 / 58（179）；缩放 57.2 / 50（344）；拖动 59.7 / 58（180）。缩放须写成 57.2 / 50，不得写成 57–60。与晚间对照原测 57.3 / 50 差 0.1，与重测对照 55.5 / 40 差 1.7，与 `9a92549` 的 55.3 / 44 差 1.9；探针噪声大约 ±2，无跨量级差异。峰值 65.2 MB 是本次测到的数（同探针、`nodes: 500`，缩放 `maxVisibleNodes` 仍是 67），不在这里把相对 `9a92549` 的 92.8 MB 写成已证实的缓存收益，也不宣布通过。

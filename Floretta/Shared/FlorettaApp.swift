@@ -423,11 +423,14 @@ enum AppLaunch {
         } catch {
             preconditionFailure("UI test fixtures failed: \(error)")
         }
+        // Do not open a document during App.init(). On macOS, a primary editor
+        // already set at that moment prevents SwiftUI from instantiating the
+        // WindowGroup content closure, so NSApp.windows stays empty and the
+        // AX tree has no window. ContentView opens these after the first frame.
         if arguments.contains(editChromeArgument) {
-            library.openEditChromeSample()
-        }
-        if let nodeCount = CanvasPerfRun.requestedNodeCount {
-            library.openPerfFixture(nodeCount: nodeCount)
+            LaunchDocumentQueue.pending = .editChromeSample
+        } else if let nodeCount = CanvasPerfRun.requestedNodeCount {
+            LaunchDocumentQueue.pending = .perfFixture(nodeCount: nodeCount)
         }
         let recovery = RecoveryPresenter(
             store: AutosaveStore(directory: autosave, fileAccess: FoundationFileAccess())

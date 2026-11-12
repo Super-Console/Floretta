@@ -34,14 +34,17 @@
 		C40000000000000000000001 /* CanvasViewport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000001 /* CanvasViewport.swift */; };
 		C40000000000000000000002 /* CanvasPlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000002 /* CanvasPlacement.swift */; };
 		C40000000000000000000003 /* InfiniteCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000003 /* InfiniteCanvas.swift */; };
+		C4D0000000000000000000A1 /* CanvasPerfProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D0000000000000000000A1 /* CanvasPerfProbe.swift */; };
 		C40000000000000000000004 /* CanvasScrollInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000004 /* CanvasScrollInput.swift */; };
 		C40000000000000000000005 /* CanvasViewport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000001 /* CanvasViewport.swift */; };
 		C40000000000000000000006 /* CanvasPlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000002 /* CanvasPlacement.swift */; };
 		C40000000000000000000007 /* InfiniteCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000003 /* InfiniteCanvas.swift */; };
+		C4D0000000000000000000A2 /* CanvasPerfProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D0000000000000000000A1 /* CanvasPerfProbe.swift */; };
 		C40000000000000000000008 /* CanvasScrollInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000004 /* CanvasScrollInput.swift */; };
 		C40000000000000000000009 /* CanvasViewport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000001 /* CanvasViewport.swift */; };
 		C4000000000000000000000A /* CanvasPlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000002 /* CanvasPlacement.swift */; };
 		C4000000000000000000000B /* InfiniteCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000003 /* InfiniteCanvas.swift */; };
+		C4D0000000000000000000A3 /* CanvasPerfProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D0000000000000000000A1 /* CanvasPerfProbe.swift */; };
 		C93000000000000000000001 /* MapExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F93000000000000000000001 /* MapExport.swift */; };
 		C93000000000000000000002 /* MapExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F93000000000000000000001 /* MapExport.swift */; };
 		C93000000000000000000003 /* MapExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F93000000000000000000001 /* MapExport.swift */; };
@@ -78,6 +81,7 @@
 		C68000000000000000000001 /* TagFilterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F68000000000000000000001 /* TagFilterTests.swift */; };
 		C62000000000000000000001 /* StickyNoteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F62000000000000000000001 /* StickyNoteTests.swift */; };
 		C6B000000000000000000001 /* TopicTitleCensusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6B000000000000000000001 /* TopicTitleCensusTests.swift */; };
+		C6D0000000000000000000B1 /* CanvasPerfFixtureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6D0000000000000000000B1 /* CanvasPerfFixtureTests.swift */; };
 		C6C100000000000000000001 /* CanvasRegionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6C100000000000000000001 /* CanvasRegionTests.swift */; };
 		C63000000000000000000001 /* SnapshotRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F63000000000000000000001 /* SnapshotRecoveryTests.swift */; };
 		C70000000000000000000004 /* NodeTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70000000000000000000004 /* NodeTextEditor.swift */; };
@@ -223,6 +227,7 @@
 		F30000000000000000000001 /* CanvasViewport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasViewport.swift; sourceTree = "<group>"; };
 		F30000000000000000000002 /* CanvasPlacement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasPlacement.swift; sourceTree = "<group>"; };
 		F30000000000000000000003 /* InfiniteCanvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfiniteCanvas.swift; sourceTree = "<group>"; };
+		F3D0000000000000000000A1 /* CanvasPerfProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasPerfProbe.swift; sourceTree = "<group>"; };
 		F8B500000000000000000001 /* CanvasAudioPlaybackBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasAudioPlaybackBar.swift; sourceTree = "<group>"; };
 		F8B600000000000000000001 /* MediaVideoPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaVideoPlayer.swift; sourceTree = "<group>"; };
 		F93000000000000000000001 /* MapExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapExport.swift; sourceTree = "<group>"; };
@@ -251,6 +256,7 @@
 		F68000000000000000000001 /* TagFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TagFilterTests.swift; path = Tests/FlorettaCoreTests/TagFilterTests.swift; sourceTree = SOURCE_ROOT; };
 		F62000000000000000000001 /* StickyNoteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = StickyNoteTests.swift; path = Tests/FlorettaCoreTests/StickyNoteTests.swift; sourceTree = SOURCE_ROOT; };
 		F6B000000000000000000001 /* TopicTitleCensusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TopicTitleCensusTests.swift; path = Tests/FlorettaCoreTests/TopicTitleCensusTests.swift; sourceTree = SOURCE_ROOT; };
+		F6D0000000000000000000B1 /* CanvasPerfFixtureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CanvasPerfFixtureTests.swift; path = Tests/FlorettaCoreTests/CanvasPerfFixtureTests.swift; sourceTree = SOURCE_ROOT; };
 		F6C100000000000000000001 /* CanvasRegionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CanvasRegionTests.swift; path = Tests/FlorettaCoreTests/CanvasRegionTests.swift; sourceTree = SOURCE_ROOT; };
 		F63000000000000000000001 /* SnapshotRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SnapshotRecoveryTests.swift; path = Tests/FlorettaCoreTests/SnapshotRecoveryTests.swift; sourceTree = SOURCE_ROOT; };
 		F70000000000000000000004 /* NodeTextEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeTextEditor.swift; sourceTree = "<group>"; };
@@ -426,6 +432,7 @@
 			F68000000000000000000001 /* TagFilterTests.swift */,
 			F62000000000000000000001 /* StickyNoteTests.swift */,
 			F6B000000000000000000001 /* TopicTitleCensusTests.swift */,
+			F6D0000000000000000000B1 /* CanvasPerfFixtureTests.swift */,
 			F6C100000000000000000001 /* CanvasRegionTests.swift */,
 			F63000000000000000000001 /* SnapshotRecoveryTests.swift */,
 			F70000000000000000000005 /* KeyboardTests.swift */,
@@ -512,6 +519,7 @@
 				F30000000000000000000004 /* CanvasScrollInput.swift */,
 				F30000000000000000000001 /* CanvasViewport.swift */,
 				F30000000000000000000003 /* InfiniteCanvas.swift */,
+				F3D0000000000000000000A1 /* CanvasPerfProbe.swift */,
 				F93000000000000000000001 /* MapExport.swift */,
 				F42000000000000000000001 /* MapPictureMarks.swift */,
 			);
@@ -1062,6 +1070,7 @@
 				C40000000000000000000001 /* CanvasViewport.swift in Sources */,
 				C40000000000000000000002 /* CanvasPlacement.swift in Sources */,
 				C40000000000000000000003 /* InfiniteCanvas.swift in Sources */,
+				C4D0000000000000000000A1 /* CanvasPerfProbe.swift in Sources */,
 				C8B500000000000000000001 /* CanvasAudioPlaybackBar.swift in Sources */,
 				C8B600000000000000000001 /* MediaVideoPlayer.swift in Sources */,
 				C93000000000000000000001 /* MapExport.swift in Sources */,
@@ -1101,6 +1110,7 @@
 				C40000000000000000000005 /* CanvasViewport.swift in Sources */,
 				C40000000000000000000006 /* CanvasPlacement.swift in Sources */,
 				C40000000000000000000007 /* InfiniteCanvas.swift in Sources */,
+				C4D0000000000000000000A2 /* CanvasPerfProbe.swift in Sources */,
 				C8B500000000000000000002 /* CanvasAudioPlaybackBar.swift in Sources */,
 				C8B600000000000000000002 /* MediaVideoPlayer.swift in Sources */,
 				C93000000000000000000002 /* MapExport.swift in Sources */,
@@ -1149,6 +1159,7 @@
 				C40000000000000000000009 /* CanvasViewport.swift in Sources */,
 				C4000000000000000000000A /* CanvasPlacement.swift in Sources */,
 				C4000000000000000000000B /* InfiniteCanvas.swift in Sources */,
+				C4D0000000000000000000A3 /* CanvasPerfProbe.swift in Sources */,
 				C8B500000000000000000003 /* CanvasAudioPlaybackBar.swift in Sources */,
 				C93000000000000000000003 /* MapExport.swift in Sources */,
 				C42000000000000000000003 /* MapPictureMarks.swift in Sources */,
@@ -1179,6 +1190,7 @@
 				C68000000000000000000001 /* TagFilterTests.swift in Sources */,
 				C62000000000000000000001 /* StickyNoteTests.swift in Sources */,
 				C6B000000000000000000001 /* TopicTitleCensusTests.swift in Sources */,
+				C6D0000000000000000000B1 /* CanvasPerfFixtureTests.swift in Sources */,
 				C6C100000000000000000001 /* CanvasRegionTests.swift in Sources */,
 				C63000000000000000000001 /* SnapshotRecoveryTests.swift in Sources */,
 				C7000000000000000000000C /* NodeTextEditor.swift in Sources */,

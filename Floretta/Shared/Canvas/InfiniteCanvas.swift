@@ -60,6 +60,7 @@ struct InfiniteCanvas: View {
     @FocusState private var canvasFocused: Bool
 
     var body: some View {
+        let _ = CanvasPerfRun.noteBody()
         GeometryReader { geo in
             observeCanvas(canvasSurface(size: geo.size), size: geo.size)
         }
@@ -138,7 +139,9 @@ struct InfiniteCanvas: View {
     private var canvasTimeline: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !petal.isPlaying)) { timeline in
             Canvas { context, size in
+                let perf = CanvasPerfRun.beginDraw()
                 draw(in: context, size: size, at: timeline.date.timeIntervalSinceReferenceDate)
+                CanvasPerfRun.endDraw(perf)
             }
             .allowsHitTesting(false)
             .onChange(of: timeline.date) { _, date in
@@ -190,6 +193,7 @@ struct InfiniteCanvas: View {
                 refreshThumbnails()
                 openPetalMap()
                 canvasFocused = true
+                startPerfRunIfRequested()
             }
             .onChange(of: size) { _, newSize in
                 camera.viewSize = newSize
@@ -1301,6 +1305,34 @@ struct InfiniteCanvas: View {
         CGPoint(x: size.width / 2, y: size.height / 2)
     }
 
+    /// `-FlorettaPerfNodes` only. Uses the same camera and document writes as the pan, pinch, and root-drag gestures.
+    private func startPerfRunIfRequested() {
+        guard let nodeCount = CanvasPerfRun.requestedNodeCount else { return }
+        let camera = camera
+        let binding = $document
+        let canvas = self
+        CanvasPerfDriver.start(nodeCount: nodeCount, hooks: CanvasPerfDriver.Hooks(
+            viewSize: { camera.viewSize },
+            offset: { camera.viewport.offset },
+            setOffset: { camera.viewport.offset = $0 },
+            scale: { camera.viewport.scale },
+            zoom: { scale, anchor in
+                camera.viewport.zoom(to: scale, around: anchor)
+                camera.chrome.syncZoomPercent(toScale: camera.viewport.scale)
+            },
+            dragTarget: {
+                // A free topic when the map has one. Dragging a root stores its point, and the layout then places that root alone.
+                let document = binding.wrappedValue
+                guard let id = document.freeNodes.first?.id ?? document.roots.first?.id,
+                      let frame = canvas.placedFrames().first(where: { $0.id == id }) else { return nil }
+                return (id, frame.frame.origin)
+            },
+            move: { id, origin in
+                binding.wrappedValue = CanvasPlacement.movingNode(id, to: origin, in: binding.wrappedValue)
+            }
+        ))
+    }
+
     private func draw(in context: GraphicsContext, size: CGSize, at time: TimeInterval) {
         drawGrid(in: context, size: size)
         // The open petal starts from a bud. Don't paint the settled tree for one frame first.
@@ -1394,6 +1426,7 @@ struct InfiniteCanvas: View {
             }
         }
         let highlightedIDs = tagFilter.isActive ? tagFilter.highlightedIDs(in: document) : []
+        CanvasPerfRun.noteVisible(visible.count)
         for node in visible {
             let pose: PetalPose?
             if blooming {

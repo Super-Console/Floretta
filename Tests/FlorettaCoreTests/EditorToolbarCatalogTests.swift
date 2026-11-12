@@ -124,6 +124,10 @@ final class EditorToolbarCatalogTests: XCTestCase {
         }
         XCTAssertEqual(EditorToolbarCatalog.command(.undo).placement, .principal)
         XCTAssertEqual(EditorToolbarCatalog.command(.insert).placement, .primary)
+        XCTAssertFalse(EditorToolbarCatalog.menu(.more).contains(.about))
+        XCTAssertEqual(EditorToolbarCatalog.command(.about).customization, .menuOnly)
+        XCTAssertEqual(EditorToolbarCatalog.command(.more).symbol, "ellipsis")
+        XCTAssertFalse(EditorToolbarCatalog.command(.more).help.contains("关于"))
     }
 
     func testEditorUsesTheCatalogForBothSurfacesAndTheSystemToolbar() throws {

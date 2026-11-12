@@ -180,11 +180,6 @@ private struct FlorettaCommands: Commands {
                     Label("快捷键一览", systemImage: "keyboard")
                 }
                 .keyboardShortcut("l", modifiers: [.command, .shift])
-                Button {
-                    editorCommands.perform[.about]?()
-                } label: {
-                    Label("关于 Floretta", systemImage: "info.circle")
-                }
             }
         }
         CommandGroup(before: .windowList) {

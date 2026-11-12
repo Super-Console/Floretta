@@ -82,9 +82,23 @@ final class AppleGlassChromeContractTests: XCTestCase {
 
         XCTAssertTrue(editor.contains(".appleGlassChrome(.bottomBarCapsule)"))
         XCTAssertTrue(editor.contains("editor.bottomBar"))
-        XCTAssertTrue(editor.contains("TopicStatusBar("))
-        XCTAssertTrue(editor.contains(".safeAreaInset(edge: .bottom, spacing: 0)"))
-        XCTAssertTrue(editor.contains("\"字数: %lld\""))
+        XCTAssertTrue(editor.contains("EditorStatusStrip("))
+        XCTAssertFalse(editor.contains("TopicStatusBar("))
+        XCTAssertTrue(editor.contains(".overlay(alignment: .bottom)"))
+        let canvasTabs = try slice(
+            editor,
+            from: "private var canvasTabBar",
+            until: "private var tagFilterBanner"
+        )
+        XCTAssertTrue(canvasTabs.contains("accessibilityIdentifier(\"canvas.tabs\")"))
+        XCTAssertTrue(canvasTabs.contains("EditorStatusBarChrome.controlMinHeight"))
+        XCTAssertFalse(canvasTabs.contains("appleGlassChrome"))
+        XCTAssertFalse(canvasTabs.contains("floatingPanel"))
+        XCTAssertFalse(canvasTabs.contains(".shadow("))
+        let status = try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift")
+        XCTAssertTrue(status.contains("\"字数 %lld\""))
+        XCTAssertTrue(status.contains("editorStatusBarFeather"))
+        XCTAssertFalse(status.contains("appleGlassChrome"))
         XCTAssertTrue(canvas.contains(".appleGlassChrome(.bottomBarCapsule)"))
         XCTAssertFalse(canvas.contains("ultraThinMaterial"))
         XCTAssertFalse(canvas.contains("regularMaterial"))

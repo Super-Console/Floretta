@@ -296,8 +296,10 @@ struct DocumentEditor: View {
             .onChange(of: session.canvasCameraToken) { _, _ in
                 camera.restore(session.document.viewport(forCanvas: session.document.clampedCanvasIndex))
             }
-            .onChange(of: camera.viewport) { _, viewport in
-                session.noteViewport(viewport.persisted)
+            .background {
+                CanvasViewportRelay(camera: camera) { viewport in
+                    session.noteViewport(viewport.persisted)
+                }
             }
             .onChange(of: session.zen.isActive) { _, active in
                 syncFullScreen(active)
@@ -1081,8 +1083,7 @@ struct DocumentEditor: View {
             #else
             switch EditorToolbarCatalog.command(.zoom).toolbarFace {
             case .zoomPercent:
-                Text("\(camera.chrome.zoomPercent)%")
-                    .monospacedDigit()
+                ZoomPercentText(camera: camera)
             case .symbol:
                 commandLabel(.zoom, surface: .toolbar)
             }
@@ -3237,5 +3238,31 @@ private extension View {
         self
             .toolbar(chrome.showsToolbar ? .visible : .hidden, for: .windowToolbar)
         #endif
+    }
+}
+
+/// Watches the live camera in its own body. Pan and zoom write `camera.viewport` every frame;
+/// reading it in `DocumentEditor.body` re-ran the whole editor body and, on macOS, rebuilt the window toolbar each frame.
+private struct CanvasViewportRelay: View {
+    let camera: CanvasCamera
+    let onChange: (CanvasViewport) -> Void
+
+    var body: some View {
+        Color.clear
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+            .onChange(of: camera.viewport) { _, viewport in
+                onChange(viewport)
+            }
+    }
+}
+
+/// Toolbar zoom face. Reads the zoom percent in its own body so a zoom frame redraws only this label.
+private struct ZoomPercentText: View {
+    let camera: CanvasCamera
+
+    var body: some View {
+        Text("\(camera.chrome.zoomPercent)%")
+            .monospacedDigit()
     }
 }

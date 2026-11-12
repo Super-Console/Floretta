@@ -87,14 +87,16 @@ enum ThemeFontCascade {
 
     /// Resolved CTFont cache. Building a cascade list is too expensive to do
     /// for every visible node on every CADisplayLink frame. Keyed by
-    /// (family, design, size); a miss for a new size is a cheap copy of a
-    /// template already built for that family and design. The expensive
-    /// cascade walk runs only when the family or node design is new.
+    /// (family, design, size quantized to 0.5pt); a miss for a new bucket is
+    /// a cheap copy of a template already built for that family and design.
+    /// The expensive cascade walk runs only when the family or node design
+    /// is new. A capacity cap and LRU keep back-and-forth pinch-zoom from
+    /// growing the sized-font table without bound.
     ///
     /// The hot path must not take a lock per lookup. `beginFrame()` captures
     /// an immutable snapshot; draw then only reads that snapshot. A miss
-    /// (pinch to a new size tick) copies the template without holding the
-    /// lock, then publishes a new snapshot.
+    /// (pinch to a new 0.5pt bucket) copies the template without holding
+    /// the lock, then publishes a new snapshot.
     private struct FontCacheKey: Hashable {
         var familyID: String
         var nodeDesign: String
@@ -108,6 +110,8 @@ enum ThemeFontCascade {
     }
 
     private final class ResolvedFontCache: @unchecked Sendable {
+        static let defaultCapacity = 256
+
         private let lock = NSLock()
         /// Published tables. Dictionaries are treated as immutable after publish.
         private var published = FontTables()
@@ -115,6 +119,11 @@ enum ThemeFontCascade {
         /// and again after a miss so later nodes in the same frame see the
         /// newly sized font without taking the lock.
         private var frame = FontTables()
+        /// Oldest sized-font key at the front. Recency is updated on publish
+        /// and once per frame in `prepareCanvasFonts`, never on the lock-free
+        /// per-node hit path.
+        private var lru: [FontCacheKey] = []
+        private var capacity = defaultCapacity
 
         func beginFrame() {
             lock.lock()
@@ -161,6 +170,10 @@ enum ThemeFontCascade {
             if let template, let templateKey, published.templates[templateKey] == nil {
                 published.templates[templateKey] = template
             }
+            moveToRecent(key)
+            // Never evict the key just published. In-flight draws already
+            // hold CTFont refs, so older buckets can leave the table.
+            evictIfNeeded(protecting: [key])
             let snap = published
             lock.unlock()
             frame = snap
@@ -174,6 +187,70 @@ enum ThemeFontCascade {
             let snap = published
             lock.unlock()
             frame = snap
+        }
+
+        /// Promote keys used in this frame. One locked pass, not per node.
+        func touchKeys(_ keys: Set<FontCacheKey>) {
+            guard !keys.isEmpty else { return }
+            lock.lock()
+            for key in keys where published.fonts[key] != nil {
+                moveToRecent(key)
+            }
+            lock.unlock()
+        }
+
+        func resetForTests() {
+            lock.lock()
+            published = FontTables()
+            lru = []
+            capacity = Self.defaultCapacity
+            lock.unlock()
+            frame = FontTables()
+        }
+
+        func setCapacityForTests(_ newCapacity: Int) {
+            lock.lock()
+            capacity = max(newCapacity, 1)
+            evictIfNeeded()
+            let snap = published
+            lock.unlock()
+            frame = snap
+        }
+
+        var fontCountForTests: Int {
+            lock.lock()
+            let count = published.fonts.count
+            lock.unlock()
+            return count
+        }
+
+        var capacityForTests: Int {
+            lock.lock()
+            let value = capacity
+            lock.unlock()
+            return value
+        }
+
+        /// Must be called while `lock` is held.
+        private func moveToRecent(_ key: FontCacheKey) {
+            if let idx = lru.firstIndex(of: key) {
+                lru.remove(at: idx)
+            }
+            lru.append(key)
+        }
+
+        /// Must be called while `lock` is held.
+        private func evictIfNeeded(protecting protected: Set<FontCacheKey> = []) {
+            var index = 0
+            while published.fonts.count > capacity, index < lru.count {
+                let oldest = lru[index]
+                if protected.contains(oldest) {
+                    index += 1
+                    continue
+                }
+                lru.remove(at: index)
+                published.fonts.removeValue(forKey: oldest)
+            }
         }
     }
 
@@ -194,14 +271,21 @@ enum ThemeFontCascade {
                 _ = cachedCTFont(familyID: familyID, nodeDesign: design, size: size)
             }
         }
+        resolvedFonts.touchKeys(seen)
     }
 
+    /// Quantize to the nearest 0.5pt before the size enters the cache key.
+    /// A 1/64-pt key misses on every pinch-zoom frame, so the hot path still
+    /// called CTFontCreateCopyWithAttributes continuously. Half-point buckets
+    /// keep consecutive zoom frames on the same entry.
+    private static let sizeTickDivisor: CGFloat = 2
+
     private static func sizeTicks(_ size: CGFloat) -> Int {
-        Int((max(size, 1) * 64).rounded())
+        Int((max(size, 1) * sizeTickDivisor).rounded())
     }
 
     private static func pointSize(fromTicks ticks: Int) -> CGFloat {
-        CGFloat(ticks) / 64
+        CGFloat(ticks) / sizeTickDivisor
     }
 
     static func cascadePostScriptNames(kind: AppearanceFontKind) -> [String] {
@@ -234,8 +318,8 @@ enum ThemeFontCascade {
 
     /// Returns a cached CTFont for the family, node design, and size.
     /// Rebuilds the cascade only when the family or design has not been seen.
-    /// Hits read the frame snapshot with no lock. A new size tick copies the
-    /// template outside the lock, then publishes.
+    /// Hits read the frame snapshot with no lock. A new 0.5pt size bucket
+    /// copies the template outside the lock, then publishes.
     static func cachedCTFont(familyID: String, nodeDesign: String, size: CGFloat) -> CTFont {
         let ticks = sizeTicks(size)
         let key = FontCacheKey(familyID: familyID, nodeDesign: nodeDesign, sizeTicks: ticks)
@@ -409,6 +493,34 @@ enum ThemeFontCascade {
         #endif
     }
 
+
+    /// Nearest 0.5pt bucket stored in the cache key.
+    static func quantizedPointSize(_ size: CGFloat) -> CGFloat {
+        pointSize(fromTicks: sizeTicks(size))
+    }
+
+    static func resetResolvedFontCacheForTests() {
+        resolvedFonts.resetForTests()
+    }
+
+    static func resolvedFontCacheCountForTests() -> Int {
+        resolvedFonts.fontCountForTests
+    }
+
+    static func resolvedFontCacheCapacityForTests() -> Int {
+        resolvedFonts.capacityForTests
+    }
+
+    static func setResolvedFontCacheCapacityForTests(_ capacity: Int) {
+        resolvedFonts.setCapacityForTests(capacity)
+    }
+
+    static func touchResolvedFontCacheForTests(familyID: String, nodeDesign: String, sizes: [CGFloat]) {
+        let keys = Set(sizes.map {
+            FontCacheKey(familyID: familyID, nodeDesign: nodeDesign, sizeTicks: sizeTicks($0))
+        })
+        resolvedFonts.touchKeys(keys)
+    }
 
     #if os(macOS)
     static func platformFont(familyID: String, nodeDesign: String, size: CGFloat) -> NSFont {

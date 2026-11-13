@@ -1,5 +1,21 @@
 # macOS AX 树：复现、根因与修复
 
+## 2026-11-13 在 main `24aa462` 上的判定
+
+C1 写的「当前构建 macOS 版 AX 树为空」在**正常启动**的当前源码构建上不成立。同一份已签名 Debug 构建（`Apple Development: timmysh34@icloud.com (L6544N692J)`，`TeamIdentifier=JY5U4D6JD3`，沙盒开启）和一份未签名 ad-hoc 构建（`TeamIdentifier=not set`），用 `-FlorettaUITest -FlorettaOpenInspector`（**不**带 `-FlorettaEditChrome`）启动后，首页和编辑器的 AX 树都可读。
+
+| 产物 | 启动 | 时间（CST） | 窗口 | 结果 | 日志 |
+| --- | --- | --- | --- | --- | --- |
+| 签名 Debug | 正常（home.newMap） | 03:41:14–03:41:27 | 有 | 首页 33 个节点，`home.newMap` 可读；编辑器 124 个节点，`inspector.tabs` / `editor.canvas` 可读；选中态 Style `MINY=94.0` | `/tmp/floretta-inspector-ax/signed-normal.log` |
+| 未签名 ad-hoc | 同一组参数 | 03:43:29–03:43:41 | 有 | 同样可读；选中态 Style `MINY=94.0`（横坐标因窗口位置不同为 1525） | `/tmp/floretta-inspector-ax/unsigned-normal.log` |
+| 签名 Debug | 加 `-FlorettaEditChrome` | 03:41:54–03:42:06 | 无 | `kAXWindowsAttribute` 成功但 count=0，`CGWindowList` count=0，AX 只有菜单栏。`MINY=无法读取`，`REASON=no-home-or-editor` | `/tmp/floretta-inspector-ax/signed-editchrome.log` |
+
+启动瞬间 t+0s 仍可能出现 `cannotComplete(-25204)`、CG 窗口数为 0，那是启动未完成，不是空树。签名与否不是空树的原因。空树只复现于 `-FlorettaEditChrome` 这条启动参数（#118 已记录的残留），不是无障碍标识被丢掉。本 PR 的 A27 验收不走该参数。
+
+在 `24aa462` 原样树上，正常启动把检查器打开后，Escape 或点击画布会让窗口在约 0.2 秒内变成 `WINDOW_COUNT=0`，进程随后崩掉。崩溃是 `EXC_BREAKPOINT`，栈在 `NSWindow._postWindowNeedsUpdateConstraints` / `NSHostingView.updateConstraints`。报告副本在 `/tmp/floretta-inspector-ax/crashes/`（03:41:29、03:43:43、03:44:17、03:47:04 CST）。根因是 `inspectorBody` 的 `containerRelativeFrame(.vertical) { length, _ in length }` 在列高变化时回写约束。去掉该修饰后，Escape 不再崩窗（`/tmp/floretta-inspector-ax/escape-repro-after-fix.log`，03:48:17–03:48:26 CST，全程 `windows=1`），空态可以读，见 `A27-inspector-pin-mac.md`。
+
+以下是 #118 当时的复现摘录，时间均为 Asia/Shanghai（CST）。
+
 完整原始日志留在本机 `/tmp/floretta-ax-tree/`（`before-both-channels.log`、`before-editor-editchrome.log`、`editor-after-makenew.log`、`after-editchrome.log`、`final-probe.log`）。下面是两条通道的原始摘录。时间均为 Asia/Shanghai（CST）。
 
 ## 根因

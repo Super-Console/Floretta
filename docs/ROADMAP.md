@@ -4,9 +4,9 @@
 
 ## 本轮
 
-- 本轮进度：C1 检查器 AX 树。PR #119 已合入 main `24aa462`，不再复盘。在当前源码的签名 Debug 与未签名 ad-hoc 构建上，正常启动（`home.newMap`，不带 `-FlorettaEditChrome`）的 AX 树都不空，选中态 Style `MINY=94.0` 可读（签名 03:41:14–03:41:27 CST，未签名 03:43:29–03:43:41 CST）。空树只复现于 `-FlorettaEditChrome`（03:41:54–03:42:06 CST，AX 只有菜单栏）。`24aa462` 原树上 Escape / 点击画布会让窗口消失并崩溃（`EXC_BREAKPOINT`，`NSWindow._postWindowNeedsUpdateConstraints`，报告 03:41:29 / 03:43:43 / 03:44:17 / 03:47:04 CST）；根因是检查器 `containerRelativeFrame(.vertical) { length, _ in length }`。去掉该修饰后 Escape 不再崩窗（03:48:17–03:48:26 CST），空态可读：选中态与空态 Style `MINY=94.0`、`FRAME=945.0,94.0,50.0,24.0`（03:48:30–03:48:36 CST），顶栏同样 `94.0`。自动化断言：`scripts/assert-macos-a27-inspector-pin.sh`。详见 `docs/reviews/A27-inspector-pin-mac.md`、`docs/reviews/AX-TREE-MACOS.md`。未改检查单，未改签名配置。
-- 下一步：本变更开独立 PR 后等 Censor 审，不合并。并行待办仍是 Quick Look 扩展包 ID 发布阻塞、`-FlorettaEditChrome` 开窗、补 macOS / iPhone 玻璃截图、音视频 / iPad 蓝牙键盘 / 组字保护的真机验收，以及 FlorettaWeb 自 2026-11-11 04:29:43 CST 之后的同步。
-- 阻塞：1.0(9) 上传因 Quick Look 扩展包 ID 两段后缀 `quicklook.preview` / `quicklook.thumbnail` 被拒。当时构建是 `CURRENT_PROJECT_VERSION = 9`（`811b2f5`，2026-11-10 21:33:57 CST），ID 为 `net.timhuang.floretta.quicklook.preview` 与 `net.timhuang.floretta.quicklook.thumbnail`。其后 PR #90 → main `9885b13`（2026-11-11 01:47:58 CST）改为 `net.timhuang.floretta.qlpreview` / `net.timhuang.floretta.qlthumbnail`，本分支 `project.pbxproj` 仍是这一对；没有成功重传 App Store Connect 的证据，故不能算已交付。另：`-FlorettaEditChrome` 启动后 AX 只有菜单栏（2026-11-13 03:41:54–03:42:06 CST 在 `24aa462` 上复现，与 2026-11-12 19:32:59 CST 相同）。A27 空态在去掉 `containerRelativeFrame` 后已可读，不再列为阻塞。
+- 本轮进度：ui-polish-14（分支 `feat/ui-polish-14`）双端构建通过，GUI 会话 448 tests / 1 skipped / 0 failures，Core 导入边界守卫通过。macOS 副屏实测中，单根节点前台双击复现布局卡死（主线程 `stepTransactionFlush → layoutSubtreeIfNeeded → DocumentEditor.body → editorPresentations → editorToolbar`，约 100% CPU）；空白处前台双击 3 次未卡。macOS 截图显示单根仍在左上角。详见 `DONE-ui-polish-14.md` 与 `logs/2026-11/ui-polish-14.md`。
+- 下一步：修复并重新验证节点双击 hang 与单根居中；补有效 iOS/macOS 验收截图，再由 Censor 审查。当前变更不得合并。
+- 阻塞：节点双击已实测卡死，准确反馈环根因未证实；单根节点当前截图未居中；iOS 模拟器输出是空白启动画面，不能作为功能截图。此次仅是部分功能实现和代码测试通过，不代表运行时验收完成。
 
 状态词只用：✅ 已交付 / 🚧 进行中(PR#) / ❌ 缺失 / ⛔ 不做(原因)。证据列只写已存在的 PR、提交、路径或已核验的时间。不得用 ✅ 掩盖未收口项。
 

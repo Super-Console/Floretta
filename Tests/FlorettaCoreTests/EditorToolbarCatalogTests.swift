@@ -115,6 +115,9 @@ final class EditorToolbarCatalogTests: XCTestCase {
         XCTAssertTrue(EditorToolbarCatalog.addableToolbarItems.contains(.region))
         XCTAssertFalse(EditorToolbarCatalog.menu(.more).contains(.viewMode))
         XCTAssertFalse(EditorToolbarCatalog.menu(.more).contains(.newCanvas))
+        for id in [EditorToolbarCommandID.viewMode, .mapMode, .focusMode, .newCanvas] {
+            XCTAssertEqual(EditorToolbarCatalog.command(id).customization, .menuOnly, id.rawValue)
+        }
         XCTAssertFalse(EditorToolbarCatalog.defaultToolbarItems.contains(.summary))
         for id in EditorToolbarCatalog.addableToolbarItems {
             XCTAssertEqual(EditorToolbarCatalog.command(id).customization, .addable)
@@ -151,9 +154,15 @@ final class EditorToolbarCatalogTests: XCTestCase {
         XCTAssertTrue(editor.contains("camera.chrome.zoomPercent"))
         XCTAssertEqual(editor.components(separatedBy: "canEnclose(").count - 1, 1)
         XCTAssertTrue(editor.contains("private func linkCommandMenu"))
-        XCTAssertTrue(editor.contains("private func viewModeCommandMenu"))
+        XCTAssertFalse(editor.contains("private func viewModeCommandMenu"))
+        XCTAssertTrue(editor.contains("overflowAlwaysCommandButton(.mapMode)"))
+        XCTAssertTrue(editor.contains("overflowAlwaysCommandButton(.focusMode)"))
+        XCTAssertTrue(editor.contains("overflowAlwaysCommandButton(.newCanvas)"))
         for id in EditorToolbarCatalog.defaultToolbarItems + EditorToolbarCatalog.addableToolbarItems {
             XCTAssertTrue(editor.contains("macItem(.\(id.rawValue))"), id.rawValue)
+        }
+        for id in [EditorToolbarCommandID.viewMode, .mapMode, .focusMode, .newCanvas] {
+            XCTAssertFalse(editor.contains("macItem(.\(id.rawValue))"), id.rawValue)
         }
         for id in EditorToolbarCatalog.menu(.share) {
             XCTAssertFalse(editor.contains("macItem(.\(id.rawValue))"), id.rawValue)

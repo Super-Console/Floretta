@@ -118,8 +118,6 @@ struct DocumentEditor: View {
         macItem(.outline)
         macItem(.style)
         macItem(.theme)
-        macItem(.viewMode)
-        macItem(.newCanvas)
         macItem(.find)
         macItem(.tagFilter)
         macItem(.history)
@@ -128,8 +126,6 @@ struct DocumentEditor: View {
 
     @ToolbarContentBuilder
     private var macToolbarItemsView: some CustomizableToolbarContent {
-        macItem(.mapMode)
-        macItem(.focusMode)
         macItem(.fit)
     }
     #endif
@@ -560,7 +556,7 @@ struct DocumentEditor: View {
             }
         }
         .overlay(alignment: .bottom) {
-            VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
                 if showsCanvasTabs { canvasTabBar }
                 if session.zen.chrome.showsStatusBar {
                     EditorStatusStrip(
@@ -570,7 +566,6 @@ struct DocumentEditor: View {
                     )
                 }
             }
-            .editorStatusBarFeather(EditorStatusBarChrome.featherInset)
             .safeAreaPadding(.bottom)
             .accessibilityIdentifier("editor.bottomBar")
         }
@@ -579,37 +574,23 @@ struct DocumentEditor: View {
     /// One row of sheet titles. Only the visible canvas is mounted, so switching
     /// sheets lays that sheet out once and leaves the others off the frame path.
     private var showsCanvasTabs: Bool {
-        !session.isMarkdownDocument && !session.zen.isActive
+        !session.isMarkdownDocument && !session.zen.isActive && session.document.canvasCount > 1
     }
 
     private var canvasTabBar: some View {
-        HStack(spacing: 6) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(0..<session.document.canvasCount, id: \.self) { index in
-                        canvasTab(index)
-                    }
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(0..<session.document.canvasCount, id: \.self) { index in
+                    canvasTab(index)
                 }
             }
-            Button {
-                session.addCanvas(viewport: camera.viewport.persisted)
-            } label: {
-                Image(systemName: "plus")
-                    .frame(
-                        minWidth: EditorStatusBarChrome.controlMinHeight,
-                        minHeight: EditorStatusBarChrome.controlMinHeight
-                    )
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(text("新建画布"))
-            .accessibilityIdentifier("canvas.tab.add")
-            .help(Text(verbatim: text("在这份文档里再加一张画布")))
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(minHeight: EditorStatusBarChrome.controlMinHeight)
+        .frame(maxWidth: 320, alignment: .leading)
+        .frame(minHeight: EditorStatusBarChrome.controlMinHeight, alignment: .leading)
+        .appleGlassChrome(.bottomBarCapsule)
+        .padding(.leading, 12)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("canvas.tabs")
         .alert(Text(verbatim: text("重新命名")), isPresented: $showCanvasRename) {
@@ -960,6 +941,9 @@ struct DocumentEditor: View {
         case .opml: return "smoke.export.opml"
         case .dictation: return "insert.dictation"
         case .region: return "insert.region"
+        case .mapMode: return "view.mode.map"
+        case .focusMode: return "view.mode.focus"
+        case .newCanvas: return "canvas.tab.add"
         case .style: return "inspector.open"
         case .theme: return "theme.menu"
         case .tagFilter: return "tagFilter.open"
@@ -1012,7 +996,7 @@ struct DocumentEditor: View {
         case .submenu:
             switch id {
             case .link: linkCommandMenu(surface: .toolbar)
-            case .viewMode: viewModeCommandMenu(surface: .toolbar)
+            case .viewMode: EmptyView()
             default: EmptyView()
             }
         case .button:
@@ -1180,6 +1164,9 @@ struct DocumentEditor: View {
             commandMenuButton(.redo) { perform(.redo) }
             commandMenuButton(.delete) { perform(.delete) }
             commandMenuButton(.immersive) { perform(.immersive) }
+            overflowAlwaysCommandButton(.mapMode)
+            overflowAlwaysCommandButton(.focusMode)
+            overflowAlwaysCommandButton(.newCanvas)
             ForEach(EditorToolbarCatalog.menu(.more), id: \.self) { id in
                 moreRow(id)
             }
@@ -1220,23 +1207,17 @@ struct DocumentEditor: View {
 
     @ViewBuilder
     private func moreRow(_ id: EditorToolbarCommandID) -> some View {
-        if id == .viewMode {
-            viewModeCommandMenu(surface: .expandedMenu)
-        } else {
-            commandMenuButton(id) { perform(id) }
-        }
+        commandMenuButton(id) { perform(id) }
     }
 
-    private func viewModeCommandMenu(surface: EditorCommandSurface) -> some View {
-        Menu {
-            ForEach(EditorToolbarCatalog.menu(.viewMode), id: \.self) { id in
-                commandMenuButton(id) { perform(id) }
-            }
-        } label: {
-            commandLabel(.viewMode, surface: surface)
+    private func overflowAlwaysCommandButton(_ id: EditorToolbarCommandID) -> some View {
+        Button { perform(id) } label: {
+            commandLabel(id, surface: .expandedMenu, accessibilityIdentifier: accessibilityIdentifier(for: id))
         }
-        .disabled(!EditorToolbarCatalog.isEnabled(.viewMode, in: toolbarContext))
-        .help(Text(verbatim: text(commandHelp(.viewMode))))
+        .help(Text(verbatim: text(commandHelp(id))))
+        .accessibilityHint(text(commandHelp(id)))
+        .disabled(!EditorToolbarCatalog.isEnabled(id, in: toolbarContext))
+        .modifier(CommandAccessibilityIdentifier(identifier: accessibilityIdentifier(for: id)))
     }
 
 
@@ -1252,12 +1233,11 @@ struct DocumentEditor: View {
         for id in [EditorToolbarCommandID.undo, .redo, .delete, .immersive] {
             children.append(commandUIAction(id))
         }
+        children.append(overflowAlwaysCommandUIAction(.mapMode))
+        children.append(overflowAlwaysCommandUIAction(.focusMode))
+        children.append(overflowAlwaysCommandUIAction(.newCanvas))
         for id in EditorToolbarCatalog.menu(.more) {
-            if id == .viewMode {
-                children.append(makeViewModeUIMenu())
-            } else {
-                children.append(commandUIAction(id))
-            }
+            children.append(commandUIAction(id))
         }
         return UIMenu(children: children)
     }
@@ -1351,15 +1331,6 @@ struct DocumentEditor: View {
         )
     }
 
-    private func makeViewModeUIMenu() -> UIMenu {
-        let command = EditorToolbarCatalog.command(.viewMode)
-        return UIMenu(
-            title: text(command.title),
-            image: UIImage(systemName: command.symbol),
-            children: EditorToolbarCatalog.menu(.viewMode).map { commandUIAction($0) }
-        )
-    }
-
     private func commandUIAction(_ id: EditorToolbarCommandID) -> UIAction {
         let command = EditorToolbarCatalog.command(id)
         let identifier = accessibilityIdentifier(for: id)
@@ -1374,6 +1345,23 @@ struct DocumentEditor: View {
         if let identifier {
             action.accessibilityIdentifier = identifier
         }
+        return action
+    }
+
+    private func overflowAlwaysCommandUIAction(_ id: EditorToolbarCommandID) -> UIAction {
+        let command = EditorToolbarCatalog.command(id)
+        let identifier = accessibilityIdentifier(for: id)
+        let action = UIAction(
+            title: text(command.title),
+            image: UIImage(systemName: command.symbol),
+            identifier: identifier.map { UIAction.Identifier($0) },
+            discoverabilityTitle: text(commandHelp(id)),
+            handler: { _ in self.perform(id) }
+        )
+        if !EditorToolbarCatalog.isEnabled(id, in: toolbarContext) {
+            action.attributes.insert(.disabled)
+        }
+        if let identifier { action.accessibilityIdentifier = identifier }
         return action
     }
     #endif

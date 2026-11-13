@@ -134,9 +134,20 @@ if ((${#baseline_simulator_ids[@]} == 0)) || ! contains_simulator "$ios_simulato
 fi
 xcrun simctl bootstatus "$ios_simulator_id" -b
 
+# Leftover /tmp/floretta-run-theme-shots (or perf-probe) flags opt the
+# ThemeModesScreenshotUITests in, but this gate does not start the
+# external screenshot poller. Force-disable those opt-ins and skip the
+# class so a stale flag cannot fail pre-release. Do not delete the flag
+# files; an intentional poller run still works when FLORETTA_RUN_THEME_SHOTS=1
+# (or a flag without =0) is used outside this script.
+export FLORETTA_RUN_THEME_SHOTS=0
+export FLORETTA_RUN_PERF_PROBE=0
 run_logged 'UI smoke tests' \
+  env FLORETTA_RUN_THEME_SHOTS=0 FLORETTA_RUN_PERF_PROBE=0 \
   xcodebuild test -project Floretta.xcodeproj -scheme Floretta-iOS \
-  -destination "platform=iOS Simulator,id=$ios_simulator_id" CODE_SIGNING_ALLOWED=NO
+  -destination "platform=iOS Simulator,id=$ios_simulator_id" \
+  -skip-testing:FlorettaUITests/ThemeModesScreenshotUITests \
+  CODE_SIGNING_ALLOWED=NO
 
 run_logged 'macOS compile' \
   xcodebuild build -project Floretta.xcodeproj -scheme Floretta-macOS \

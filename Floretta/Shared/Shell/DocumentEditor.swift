@@ -901,12 +901,17 @@ struct DocumentEditor: View {
         return "\(text(EditorToolbarCatalog.command(.more).title))\n\(stats.accessibilityLabel)"
     }
 
-    private func commandLabel(_ id: EditorToolbarCommandID, surface: EditorCommandSurface) -> EditorCommandLabel {
+    private func commandLabel(
+        _ id: EditorToolbarCommandID,
+        surface: EditorCommandSurface,
+        accessibilityIdentifier: String? = nil
+    ) -> EditorCommandLabel {
         let command = EditorToolbarCatalog.command(id)
         return EditorCommandLabel(
             title: text(command.title),
             symbol: command.symbol,
-            display: EditorToolbarCatalog.display(on: surface)
+            display: EditorToolbarCatalog.display(on: surface),
+            accessibilityIdentifier: accessibilityIdentifier
         )
     }
 
@@ -972,13 +977,14 @@ struct DocumentEditor: View {
 
     private func commandMenuButton(_ id: EditorToolbarCommandID, action: @escaping () -> Void) -> some View {
         let helpText = commandHelp(id)
+        let identifier = accessibilityIdentifier(for: id)
         return Button(action: action) {
-            commandLabel(id, surface: .expandedMenu)
+            commandLabel(id, surface: .expandedMenu, accessibilityIdentifier: identifier)
         }
         .disabled(!EditorToolbarCatalog.isEnabled(id, in: toolbarContext))
         .help(Text(verbatim: text(helpText)))
         .accessibilityHint(text(helpText))
-        .modifier(CommandAccessibilityIdentifier(identifier: accessibilityIdentifier(for: id)))
+        .modifier(CommandAccessibilityIdentifier(identifier: identifier))
     }
 
     private func commandToolbarButton(_ id: EditorToolbarCommandID, action: @escaping () -> Void) -> some View {
@@ -1097,7 +1103,19 @@ struct DocumentEditor: View {
         .appleGlassChrome(.toolbarFloatingButton)
     }
 
+    @ViewBuilder
     private var shareMenu: some View {
+        #if os(iOS)
+        IdentifiedSystemMenuButton(
+            symbol: EditorToolbarCatalog.command(.share).symbol,
+            accessibilityIdentifier: "share.menu",
+            accessibilityLabel: text(EditorToolbarCatalog.command(.share).title),
+            help: text(EditorToolbarCatalog.command(.share).help),
+            makeMenu: { makeShareUIMenu() }
+        )
+        .help(Text(verbatim: text(EditorToolbarCatalog.command(.share).help)))
+        .appleGlassChrome(.toolbarFloatingButton)
+        #else
         Menu {
             ForEach(EditorToolbarCatalog.menu(.share), id: \.self) { id in
                 shareRow(id)
@@ -1109,6 +1127,7 @@ struct DocumentEditor: View {
         .accessibilityIdentifier("share.menu")
         .help(Text(verbatim: text(EditorToolbarCatalog.command(.share).help)))
         .appleGlassChrome(.toolbarFloatingButton)
+        #endif
     }
 
     @ViewBuilder
@@ -1133,9 +1152,21 @@ struct DocumentEditor: View {
         }
     }
 
+    @ViewBuilder
     private var moreMenu: some View {
         let census = overflowCensus
-        return Menu {
+        #if os(iOS)
+        IdentifiedSystemMenuButton(
+            symbol: EditorToolbarCatalog.command(.more).symbol,
+            accessibilityIdentifier: "editor.more",
+            accessibilityLabel: overflowAccessibilityLabel(census: census),
+            help: text(EditorToolbarCatalog.command(.more).help),
+            makeMenu: { makeOverflowUIMenu(census: census) }
+        )
+        .help(Text(verbatim: text(EditorToolbarCatalog.command(.more).help)))
+        .appleGlassChrome(.toolbarFloatingButton)
+        #else
+        Menu {
             EditorOverflowCensus(census: census, locale: settings.resolvedLocale)
                 .accessibilityIdentifier("status.topicCensus")
             Divider()
@@ -1160,6 +1191,7 @@ struct DocumentEditor: View {
         .accessibilityIdentifier("editor.more")
         .help(Text(verbatim: text(EditorToolbarCatalog.command(.more).help)))
         .appleGlassChrome(.toolbarFloatingButton)
+        #endif
     }
 
     private var insertOverflowSubmenu: some View {
@@ -1180,7 +1212,7 @@ struct DocumentEditor: View {
                 shareRow(id)
             }
         } label: {
-            commandLabel(.share, surface: .expandedMenu)
+            commandLabel(.share, surface: .expandedMenu, accessibilityIdentifier: "share.menu")
         }
         .accessibilityIdentifier("share.menu")
         .help(Text(verbatim: text(EditorToolbarCatalog.command(.share).help)))
@@ -1206,6 +1238,145 @@ struct DocumentEditor: View {
         .disabled(!EditorToolbarCatalog.isEnabled(.viewMode, in: toolbarContext))
         .help(Text(verbatim: text(commandHelp(.viewMode))))
     }
+
+
+    #if os(iOS)
+    private func makeOverflowUIMenu(census: TopicTitleCensus) -> UIMenu {
+        var children: [UIMenuElement] = [makeCensusUIMenu(census: census)]
+        if !toolbarVisibleItems.contains(.insert) {
+            children.append(makeInsertUIMenu())
+        }
+        if !toolbarVisibleItems.contains(.share) {
+            children.append(makeShareUIMenu())
+        }
+        for id in [EditorToolbarCommandID.undo, .redo, .delete, .immersive] {
+            children.append(commandUIAction(id))
+        }
+        for id in EditorToolbarCatalog.menu(.more) {
+            if id == .viewMode {
+                children.append(makeViewModeUIMenu())
+            } else {
+                children.append(commandUIAction(id))
+            }
+        }
+        return UIMenu(children: children)
+    }
+
+    private func makeCensusUIMenu(census: TopicTitleCensus) -> UIMenu {
+        func item(_ key: String, _ value: Int, identifier: String) -> UIAction {
+            let title = FlorettaL10n.format(key, locale: settings.resolvedLocale, arguments: [Int64(value)])
+            let action = UIAction(title: title, handler: { _ in })
+            action.attributes.insert(.disabled)
+            action.accessibilityIdentifier = identifier
+            return action
+        }
+        let menu = UIMenu(
+            options: .displayInline,
+            children: [
+                item("主题 %lld", census.topics, identifier: "status.topics"),
+                item("字数 %lld", census.words, identifier: "status.words"),
+                item("字符数 %lld", census.characters, identifier: "status.characters"),
+            ]
+        )
+        menu.accessibilityIdentifier = "status.topicCensus"
+        return menu
+    }
+
+    private func makeShareUIMenu() -> UIMenu {
+        let command = EditorToolbarCatalog.command(.share)
+        let children = EditorToolbarCatalog.menu(.share).compactMap { id -> UIAction? in
+            switch id {
+            case .upgrade:
+                guard session.isMarkdownDocument else { return nil }
+            case .saveFloretta:
+                guard !session.isMarkdownDocument else { return nil }
+            case .printMap:
+                return nil
+            default:
+                break
+            }
+            return commandUIAction(id)
+        }
+        let menu = UIMenu(
+            title: text(command.title),
+            image: UIImage(systemName: command.symbol),
+            identifier: UIMenu.Identifier("share.menu"),
+            children: children
+        )
+        menu.accessibilityIdentifier = "share.menu"
+        return menu
+    }
+
+    private func makeInsertUIMenu() -> UIMenu {
+        let command = EditorToolbarCatalog.command(.insert)
+        let children: [UIMenuElement] = EditorToolbarCatalog.menu(.insert).map { id in
+            id == .link ? makeLinkUIMenu() : commandUIAction(id)
+        }
+        let menu = UIMenu(
+            title: text(command.title),
+            image: UIImage(systemName: command.symbol),
+            identifier: UIMenu.Identifier("editor.insert"),
+            children: children
+        )
+        menu.accessibilityIdentifier = "editor.insert"
+        return menu
+    }
+
+    private func makeLinkUIMenu() -> UIMenu {
+        let command = EditorToolbarCatalog.command(.link)
+        let source = session.keyboard.selectedNodeID
+        let targets = session.editingDocument.linkTargets(excluding: source)
+        let disabled = !EditorToolbarCatalog.isEnabled(.link, in: toolbarContext)
+        let children: [UIMenuElement]
+        if targets.isEmpty {
+            let empty = UIAction(
+                title: text("没有其他节点"),
+                attributes: [.disabled],
+                handler: { _ in }
+            )
+            children = [empty]
+        } else {
+            children = targets.map { target in
+                UIAction(
+                    title: target.text.isEmpty ? "未命名" : target.text,
+                    attributes: disabled ? [.disabled] : [],
+                    handler: { _ in session.linkSelectedTopic(to: target.id) }
+                )
+            }
+        }
+        return UIMenu(
+            title: text(command.title),
+            image: UIImage(systemName: command.symbol),
+            children: children
+        )
+    }
+
+    private func makeViewModeUIMenu() -> UIMenu {
+        let command = EditorToolbarCatalog.command(.viewMode)
+        return UIMenu(
+            title: text(command.title),
+            image: UIImage(systemName: command.symbol),
+            children: EditorToolbarCatalog.menu(.viewMode).map { commandUIAction($0) }
+        )
+    }
+
+    private func commandUIAction(_ id: EditorToolbarCommandID) -> UIAction {
+        let command = EditorToolbarCatalog.command(id)
+        let identifier = accessibilityIdentifier(for: id)
+        let action = UIAction(
+            title: text(command.title),
+            image: UIImage(systemName: command.symbol),
+            identifier: identifier.map { UIAction.Identifier($0) },
+            discoverabilityTitle: text(commandHelp(id)),
+            attributes: EditorToolbarCatalog.isEnabled(id, in: toolbarContext) ? [] : [.disabled],
+            handler: { _ in self.perform(id) }
+        )
+        if let identifier {
+            action.accessibilityIdentifier = identifier
+        }
+        return action
+    }
+    #endif
 
     private func perform(_ id: EditorToolbarCommandID) {
         switch id {

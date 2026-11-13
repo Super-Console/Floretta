@@ -139,7 +139,11 @@ struct InfiniteCanvas: View {
     }
 
     private var canvasTimeline: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !petal.isPlaying)) { timeline in
+        let isPetalPlaying = petal.isPlaying
+        #if DEBUG && os(macOS)
+        UIPolishRuntimeTrace.petalSchedule(isPlaying: isPetalPlaying, kind: String(describing: petal.kind))
+        #endif
+        return TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !isPetalPlaying)) { timeline in
             Canvas { context, size in
                 let perf = CanvasPerfRun.beginDraw()
                 draw(in: context, size: size, at: timeline.date.timeIntervalSinceReferenceDate)
@@ -149,11 +153,34 @@ struct InfiniteCanvas: View {
             .onChange(of: timeline.date) { _, date in
                 let time = date.timeIntervalSinceReferenceDate
                 let extra = petal.layoutExtra(comparedTo: laidOut.layoutPassCount)
-                if extra != petal.layoutPassesDuringPlayback {
+                let writesExtra = extra != petal.layoutPassesDuringPlayback
+                let willSettle = petal.playbackDidFinish(at: time)
+                #if DEBUG && os(macOS)
+                UIPolishRuntimeTrace.petalFrame(
+                    time: time,
+                    extra: extra,
+                    recordedExtra: petal.layoutPassesDuringPlayback,
+                    layoutPassCount: laidOut.layoutPassCount,
+                    isPlaying: petal.isPlaying,
+                    kind: String(describing: petal.kind),
+                    writesExtra: writesExtra,
+                    willSettle: willSettle
+                )
+                #endif
+                if writesExtra {
+                    #if DEBUG && os(macOS)
+                    UIPolishRuntimeTrace.markPetalStateWrite("petal.noteLayoutExtra extra=\(extra)")
+                    #endif
                     petal.noteLayoutExtra(extra)
                 }
-                if petal.playbackDidFinish(at: time) {
+                if willSettle {
+                    #if DEBUG && os(macOS)
+                    UIPolishRuntimeTrace.markPetalStateWrite("petal.settle")
+                    #endif
                     petal.settle()
+                    #if DEBUG && os(macOS)
+                    UIPolishRuntimeTrace.markPetalStateWrite("petal.settle.return isPlaying=\(petal.isPlaying) kind=\(String(describing: petal.kind)) frameTime=\(time)")
+                    #endif
                 }
             }
         }
@@ -185,16 +212,49 @@ struct InfiniteCanvas: View {
                 return handleKey(event) ? .handled : .ignored
             }
             .onAppear {
+                #if DEBUG && os(macOS)
+                UIPolishRuntimeTrace.mark("canvas.onAppear size=\(size) camera.viewSize.before=\(camera.viewSize) viewport.before=\(camera.viewport.persisted) roots=\(document.roots.count)")
+                #endif
                 if keyboard.selectedNodeID == nil {
                     keyboard.selectedNodeID = document.roots.first?.id
                     interaction.selectedNodeID = keyboard.selectedNodeID
                 }
                 camera.viewSize = size
+                #if DEBUG && os(macOS)
+                let rootFramesForTrace = placedFrames()
+                UIPolishRuntimeTrace.mark("canvas.measured viewSize=\(camera.viewSize) rootFrames=\(rootFramesForTrace.map { ($0.id.uuidString, $0.frame) }) contentBounds.beforePublish=\(String(describing: camera.contentBounds)) viewport=\(camera.viewport.persisted)")
+                #endif
                 if document.roots.count == 1,
-                   camera.viewport.persisted == .standard,
                    let rootID = document.roots.first?.id,
                    let rootFrame = placedFrames().first(where: { $0.id == rootID }) {
-                    camera.centerOn(rootFrame.frame)
+                    // A single-root document always opens centered, even when it has a
+                    // persisted pan. Defer until DocumentEditor's camera restoration has
+                    // completed, then center without adding another state write.
+                    Task { @MainActor in
+                        await Task.yield()
+                        let target = CGPoint(x: rootFrame.frame.midX, y: rootFrame.frame.midY)
+                        let center = CGPoint(x: camera.viewSize.width / 2, y: camera.viewSize.height / 2)
+                        let beforePoint = camera.viewport.viewPoint(fromCanvas: target)
+                        #if DEBUG && os(macOS)
+                        UIPolishRuntimeTrace.mark("canvas.centerAttempt roots=\(document.roots.count) viewport=\(camera.viewport.persisted) viewSize=\(camera.viewSize) contentBounds=\(String(describing: camera.contentBounds)) rootFrame=\(rootFrame.frame) target=\(target) beforeViewPoint=\(beforePoint) desiredCenter=\(center)")
+                        #endif
+                        guard document.roots.count == 1 else {
+                            #if DEBUG && os(macOS)
+                            UIPolishRuntimeTrace.mark("canvas.centerSkipped reason=roots-count-changed roots=\(document.roots.count) viewport=\(camera.viewport.persisted)")
+                            #endif
+                            return
+                        }
+                        camera.centerOn(rootFrame.frame)
+                        let afterPoint = camera.viewport.viewPoint(fromCanvas: target)
+                        #if DEBUG && os(macOS)
+                        UIPolishRuntimeTrace.mark("canvas.centerComplete viewport=\(camera.viewport.persisted) afterViewPoint=\(afterPoint) centerDelta=\(CGPoint(x: afterPoint.x - center.x, y: afterPoint.y - center.y))")
+                        #endif
+                    }
+                } else {
+                    #if DEBUG && os(macOS)
+                    let reason = document.roots.count == 1 ? "single-root-frame-unavailable" : "roots-count-not-one"
+                    UIPolishRuntimeTrace.mark("canvas.centerNotScheduled reason=\(reason) roots=\(document.roots.count) viewport=\(camera.viewport.persisted) rootFrames=\(placedFrames().map { ($0.id.uuidString, $0.frame) })")
+                    #endif
                 }
                 publishBounds()
                 camera.chrome.syncZoomPercent(toScale: camera.viewport.scale)
@@ -213,11 +273,17 @@ struct InfiniteCanvas: View {
             }
             .onChange(of: size) { _, newSize in
                 camera.viewSize = newSize
+                #if DEBUG && os(macOS)
+                UIPolishRuntimeTrace.mark("canvas.sizeChanged size=\(newSize) contentBounds=\(String(describing: camera.contentBounds)) viewport=\(camera.viewport.persisted)")
+                #endif
                 refreshThumbnails()
             }
             .onChange(of: document) { _, newDocument in
                 let nextPrint = CollapseFingerprint.capture(newDocument)
                 let frames = placedFrames()
+                #if DEBUG && os(macOS)
+                UIPolishRuntimeTrace.mark("petal.documentChange.before old=\(petalPrint) next=\(nextPrint) isPlaying=\(petal.isPlaying) kind=\(String(describing: petal.kind))")
+                #endif
                 petal.noteDocumentChange(
                     from: petalPrint,
                     to: nextPrint,
@@ -226,6 +292,9 @@ struct InfiniteCanvas: View {
                     now: clock.now().timeIntervalSinceReferenceDate,
                     layoutPassCount: laidOut.layoutPassCount
                 )
+                #if DEBUG && os(macOS)
+                UIPolishRuntimeTrace.mark("petal.documentChange.after isPlaying=\(petal.isPlaying) kind=\(String(describing: petal.kind))")
+                #endif
                 petalPrint = nextPrint
                 petalFrames = frames
                 publishBounds()
@@ -300,6 +369,9 @@ struct InfiniteCanvas: View {
     private var canvasDoubleTapGesture: some Gesture {
         SpatialTapGesture(count: 2).onEnded { value in
             let location = value.location
+            #if DEBUG && os(macOS)
+            UIPolishRuntimeTrace.mark("canvas.doubleTapGestureEnded location=\(location) viewSize=\(camera.viewSize)")
+            #endif
             DispatchQueue.main.async {
                 handleCanvasDoubleTap(at: location)
             }
@@ -309,18 +381,27 @@ struct InfiniteCanvas: View {
     /// Let AppKit finish the double-click gesture/layout transaction before the
     /// editor or document state changes invalidate the toolbar's preferences.
     private func handleCanvasDoubleTap(at location: CGPoint) {
+        #if DEBUG && os(macOS)
+        UIPolishRuntimeTrace.mark("canvas.doubleTapReceived location=\(location) viewSize=\(camera.viewSize) viewport=\(camera.viewport.persisted)")
+        #endif
         if EditFieldGuard.ignoresCanvasTap(
             at: location,
             editFrame: editFieldFrame(),
             isComposing: keyboard.isComposing
         ) { return }
         let point = camera.viewport.canvasPoint(fromView: location)
+        #if DEBUG && os(macOS)
+        UIPolishRuntimeTrace.mark("canvas.doubleTapMapped location=\(location) canvasPoint=\(point) rootFrames=\(placedFrames().map { ($0.id.uuidString, $0.frame) })")
+        #endif
         if let id = stickyHit(at: point) {
             beginStickyEdit(id)
             return
         }
         if previewFile(at: point) { return }
         if let hit = CanvasPlacement.nodeID(at: point, in: layoutSource()) {
+            #if DEBUG && os(macOS)
+            UIPolishRuntimeTrace.markNodeDoubleTap(nodeID: hit)
+            #endif
             beginEditing(hit)
             return
         }
@@ -550,11 +631,20 @@ struct InfiniteCanvas: View {
     }
 
     private func beginEditing(_ id: UUID) {
+        #if DEBUG && os(macOS)
+        UIPolishRuntimeTrace.markStack("beginEditing.enter id=\(id.uuidString) mode=\(keyboard.mode) petal.isPlaying=\(petal.isPlaying) kind=\(String(describing: petal.kind))")
+        #endif
         keyboard.selectedNodeID = id
         interaction.selectedNodeID = id
         canvasFocused = false
         guard keyboard.mode != .edit else { return }
+        #if DEBUG && os(macOS)
+        UIPolishRuntimeTrace.markStack("keyboard.apply.beginEdit id=\(id.uuidString)")
+        #endif
         keyboard.apply(.beginEdit, document: &document, frames: placedFrames())
+        #if DEBUG && os(macOS)
+        UIPolishRuntimeTrace.mark("beginEditing.return mode=\(keyboard.mode) petal.isPlaying=\(petal.isPlaying) kind=\(String(describing: petal.kind))")
+        #endif
     }
 
     private func layoutSource() -> MindMapDocument {
@@ -575,6 +665,9 @@ struct InfiniteCanvas: View {
             layoutPassCount: laidOut.layoutPassCount
         )
         petalMapOpened = true
+        #if DEBUG && os(macOS)
+        UIPolishRuntimeTrace.mark("petal.openMap isPlaying=\(petal.isPlaying) kind=\(String(describing: petal.kind)) duration=\(petal.duration) frames=\(frames.count)")
+        #endif
     }
 
     private func publishBounds() {

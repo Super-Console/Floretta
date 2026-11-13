@@ -16,6 +16,128 @@ private enum RegionMetric: Hashable {
     case stroke
 }
 
+#if DEBUG && os(macOS)
+/// Temporary, file-only evidence for ui-polish-14 runtime diagnosis.
+@MainActor
+enum UIPolishRuntimeTrace {
+    private static let url = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("ui-polish-14-macos-render-center-trace.log")
+    private static var bodyCount = 0
+    private static var fontCheckCount = 0
+    private static var fontWriteCount = 0
+    private static var nodeDoubleTapUptime: TimeInterval?
+    private static var petalFrameCount = 0
+    private static var petalStateWriteCount = 0
+    private static var lastPetalScheduleState: Bool?
+    private struct StateDelta {
+        var firstOld: String
+        var lastNew: String
+        var count: Int
+        var firstBody: Int
+        var lastBody: Int
+    }
+    private static var previousSnapshot: [String: String]?
+    private static var pendingStateDeltas: [String: StateDelta] = [:]
+    private static var lastBodyCheckpoint = 0
+
+    static func bodyEntered(snapshot: [String: String]) {
+        bodyCount += 1
+        if let previousSnapshot {
+            for key in Set(previousSnapshot.keys).union(snapshot.keys) {
+                let oldValue = previousSnapshot[key] ?? "<missing>"
+                let newValue = snapshot[key] ?? "<missing>"
+                guard oldValue != newValue else { continue }
+                if var delta = pendingStateDeltas[key] {
+                    delta.lastNew = newValue
+                    delta.count += 1
+                    delta.lastBody = bodyCount
+                    pendingStateDeltas[key] = delta
+                } else {
+                    pendingStateDeltas[key] = StateDelta(
+                        firstOld: oldValue,
+                        lastNew: newValue,
+                        count: 1,
+                        firstBody: bodyCount - 1,
+                        lastBody: bodyCount
+                    )
+                }
+            }
+        }
+        previousSnapshot = snapshot
+        guard bodyCount == 1 || bodyCount.isMultiple(of: 25) || (nodeDoubleTapUptime != nil && bodyCount.isMultiple(of: 5)) else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        let doubleTapUptime = nodeDoubleTapUptime.map { String(format: "%.6f", $0) } ?? "not-recorded"
+        let elapsed = nodeDoubleTapUptime.map { String(format: "%.3f", now - $0) + "s" } ?? "not-recorded"
+        let changes = pendingStateDeltas.keys.sorted().map { key in
+            let delta = pendingStateDeltas[key]!
+            return "\(key){\(delta.firstOld)->\(delta.lastNew),n=\(delta.count),body=\(delta.firstBody)...\(delta.lastBody)}"
+        }.joined(separator: ";")
+        let initial = bodyCount == 1
+            ? " initialState=\(snapshot.keys.sorted().map { "\($0):\(snapshot[$0]!)" }.joined(separator: ";"))"
+            : ""
+        let changesDescription = changes.isEmpty ? "none" : changes
+        append("uptime=\(now) bodyCount=\(bodyCount) interval=\(lastBodyCheckpoint + 1)...\(bodyCount) stateChanges=\(changesDescription)\(initial) nodeDoubleTapUptime=\(doubleTapUptime) sinceNodeDoubleTap=\(elapsed)\n")
+        lastBodyCheckpoint = bodyCount
+        pendingStateDeltas.removeAll(keepingCapacity: true)
+    }
+
+    static func mark(_ detail: String) {
+        append("uptime=\(ProcessInfo.processInfo.systemUptime) bodyCount=\(bodyCount) EVENT \(detail)\n")
+    }
+
+    static func markStack(_ detail: String) {
+        let frames = Thread.callStackSymbols.prefix(12).joined(separator: " | ")
+        append("uptime=\(ProcessInfo.processInfo.systemUptime) bodyCount=\(bodyCount) STACK \(detail) frames=\(frames)\n")
+    }
+
+    static func markNodeDoubleTap(nodeID: UUID) {
+        nodeDoubleTapUptime = ProcessInfo.processInfo.systemUptime
+        mark("nodeDoubleTap id=\(nodeID.uuidString)")
+    }
+
+    static func petalFrame(time: TimeInterval, extra: Int, recordedExtra: Int, layoutPassCount: Int, isPlaying: Bool, kind: String, writesExtra: Bool, willSettle: Bool) {
+        guard isPlaying, petalFrameCount < 240 else { return }
+        petalFrameCount += 1
+        append("uptime=\(ProcessInfo.processInfo.systemUptime) petalFrame=\(petalFrameCount) time=\(time) extra=\(extra) recordedExtra=\(recordedExtra) layoutPassCount=\(layoutPassCount) isPlaying=\(isPlaying) kind=\(kind) writesExtra=\(writesExtra) willSettle=\(willSettle)\n")
+    }
+
+    static func petalSchedule(isPlaying: Bool, kind: String) {
+        guard lastPetalScheduleState != isPlaying else { return }
+        lastPetalScheduleState = isPlaying
+        mark("petalTimeline.schedule isPlaying=\(isPlaying) kind=\(kind)")
+    }
+
+    static func markPetalStateWrite(_ detail: String) {
+        guard petalStateWriteCount < 32 else { return }
+        petalStateWriteCount += 1
+        markStack("petalStateWrite#\(petalStateWriteCount) \(detail)")
+    }
+
+    static func fontCheck(current: NSFont?, target: NSFont, equal: Bool) {
+        fontCheckCount += 1
+        if !equal { fontWriteCount += 1 }
+        guard nodeDoubleTapUptime != nil, fontCheckCount <= 20 || fontCheckCount.isMultiple(of: 50) else { return }
+        append("uptime=\(ProcessInfo.processInfo.systemUptime) fontCheck=\(fontCheckCount) fontWrites=\(fontWriteCount) equal=\(equal) sameObject=\(current.map { $0 === target } ?? false) current=\(String(describing: current?.fontDescriptor)) target=\(target.fontDescriptor)\n")
+    }
+
+    private static func append(_ line: String) {
+        do {
+            let data = Data(line.utf8)
+            if FileManager.default.fileExists(atPath: url.path) {
+                let handle = try FileHandle(forWritingTo: url)
+                try handle.seekToEnd()
+                try handle.write(contentsOf: data)
+                try handle.close()
+            } else {
+                try data.write(to: url, options: .atomic)
+            }
+        } catch {
+            // Diagnostics must never interfere with the UI being measured.
+        }
+    }
+}
+#endif
+
 struct DocumentEditor: View {
     @Bindable var session: EditorSession
     @Bindable var settings: AppSettings
@@ -90,7 +212,6 @@ struct DocumentEditor: View {
         macItem(.undo)
         macItem(.redo)
         macItem(.delete)
-        macItem(.insert)
         macItem(.share)
         macItem(.zoom)
         macItem(.immersive)
@@ -131,8 +252,84 @@ struct DocumentEditor: View {
     #endif
 
     var body: some View {
-        editorPresentations
+        #if DEBUG && os(macOS)
+        UIPolishRuntimeTrace.bodyEntered(snapshot: diagnosticStateSnapshot)
+        #endif
+        return editorPresentations
     }
+
+    #if DEBUG && os(macOS)
+    /// Broad read-only fingerprint for a bounded diagnostic run. Reading these wrappers can
+    /// widen SwiftUI's observation set, so any result is a probe, not unperturbed proof.
+    private var diagnosticStateSnapshot: [String: String] {
+        let keyboard = session.keyboard
+        return [
+            "state.showExport": String(showExport),
+            "state.exportKind.length": String(exportKind.count),
+            "state.exportFile.bytes": String(exportFile.data.count),
+            "state.exportType": exportType.identifier,
+            "state.exportName.length": String(exportName.count),
+            "state.exportError.present": String(exportError != nil),
+            "state.showOutline": String(showOutline),
+            "state.outlineWide": String(outlineWide),
+            "state.showInspector": String(showInspector),
+            "state.didAutoOpenInspector": String(didAutoOpenInspector),
+            "state.showRename": String(showRename),
+            "state.renameText.length": String(renameText.count),
+            "state.showCanvasRename": String(showCanvasRename),
+            "state.canvasRenameText.length": String(canvasRenameText.count),
+            "state.canvasRenameIndex": String(canvasRenameIndex),
+            "state.showFind": String(showFind),
+            "state.findQuery.length": String(findQuery.count),
+            "state.showTagFilter": String(showTagFilter),
+            "state.inspectorTab": String(describing: inspectorTab),
+            "environment.colorScheme": String(describing: colorScheme),
+            "state.showAbout": String(showAbout),
+            "state.showShortcutHelp": String(showShortcutHelp),
+            "state.showThemes": String(showThemes),
+            "state.showHistory": String(showHistory),
+            "state.camera.viewport": String(describing: camera.viewport.persisted),
+            "state.camera.viewSize": "\(camera.viewSize.width)x\(camera.viewSize.height)",
+            "state.showAttachmentImporter": String(showAttachmentImporter),
+            "state.showImageImporter": String(showImageImporter),
+            "state.insertProposal.present": String(insertProposal != nil),
+            "state.insertSource.extension": insertSource?.pathExtension ?? "nil",
+            "state.insertSourceIsCopy": String(insertSourceIsCopy),
+            "state.insertAccepted": String(insertAccepted),
+            "state.insertStoredName.length": String(insertStoredName?.count ?? -1),
+            "state.previewPhase": String(describing: previewPhase),
+            "state.mediaPlayer.present": String(mediaPlayer != nil),
+            "state.mediaPlayerURL.extension": mediaPlayerURL?.pathExtension ?? "nil",
+            "state.mediaPlayerKind": String(describing: mediaPlayerKind),
+            "state.mediaPlaybackLease.present": String(mediaPlaybackLease != nil),
+            "state.audioNodeID.present": String(audioNodeID != nil),
+            "state.previewToken": String(previewToken),
+            "state.thumbnails.identity": String(describing: ObjectIdentifier(thumbnails)),
+            "state.showUpgrade": String(showUpgrade),
+            "state.upgradeFile.bytes": String(upgradeFile.data.count),
+            "state.upgradeName.length": String(upgradeName.count),
+            "state.askOpenUpgrade": String(askOpenUpgrade),
+            "state.upgradedURL.extension": upgradedURL?.pathExtension ?? "nil",
+            "state.regionWidthDraft.length": String(regionWidthDraft.count),
+            "state.regionHeightDraft.length": String(regionHeightDraft.count),
+            "state.regionStrokeDraft.length": String(regionStrokeDraft.count),
+            "state.regionMetric": String(describing: regionMetric),
+            "state.topicCensus.identity": String(describing: ObjectIdentifier(topicCensus)),
+            "bind.session.documentTitle.length": String(session.document.title.count),
+            "bind.session.rootCount": String(session.document.roots.count),
+            "bind.session.freeNodeCount": String(session.document.freeNodes.count),
+            "bind.session.additionalCanvasCount": String(session.document.additionalCanvases.count),
+            "bind.session.viewMode": session.viewMode.rawValue,
+            "bind.session.cameraToken": String(session.canvasCameraToken),
+            "bind.session.keyboard.mode": String(describing: keyboard.mode),
+            "bind.session.keyboard.selectedNodeID": keyboard.selectedNodeID?.uuidString ?? "nil",
+            "bind.session.keyboard.selectedNodeIDs": keyboard.selectedNodeIDs.map(\.uuidString).sorted().joined(separator: ","),
+            "bind.session.keyboard.isComposing": String(keyboard.isComposing),
+            "bind.session.keyboard.editingText.length": String(keyboard.editingText.count),
+            "bind.settings.defaultView": settings.defaultView.rawValue,
+        ]
+    }
+    #endif
 
     private var editorCore: some View {
         canvasStack
@@ -1154,9 +1351,13 @@ struct DocumentEditor: View {
             EditorOverflowCensus(census: census, locale: settings.resolvedLocale)
                 .accessibilityIdentifier("status.topicCensus")
             Divider()
+            #if os(macOS)
+            insertOverflowSubmenu
+            #else
             if !toolbarVisibleItems.contains(.insert) {
                 insertOverflowSubmenu
             }
+            #endif
             if !toolbarVisibleItems.contains(.share) {
                 shareOverflowSubmenu
             }

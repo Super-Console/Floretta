@@ -226,6 +226,9 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         if !nsView.hasMarkedText(), !context.coordinator.isComposing.wrappedValue {
             if let nodeChrome {
                 let font = Self.editingFont(nodeChrome, familyID: fontFamilyID)
+                #if DEBUG && os(macOS)
+                UIPolishRuntimeTrace.fontCheck(current: nsView.font, target: font, equal: nsView.font == font)
+                #endif
                 if nsView.font != font {
                     nsView.font = font
                 }

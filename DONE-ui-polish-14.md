@@ -39,6 +39,12 @@ STATUS: BLOCKED
 - Memory, frame-rate, and package-size impact were not separately remeasured.
 - The node-double-click hang and centering failure are known blockers. Any PR must state them; no merge is authorized by this task.
 
+## Delivery
+
+- Commit `b5eccb1` on `feat/ui-polish-14`; pushed to `origin/feat/ui-polish-14` only.
+- Opened draft PR #1: https://github.com/Super-Console/Floretta/pull/1 (`main` base, exact requested title). It is explicitly marked BLOCKED / do not merge and includes the three performance impact lines.
+- No merge and no push to `main`.
+
 ## Resource closeout
 
 - Ran `xcrun simctl shutdown all`; `xcrun simctl list devices booted | grep -c Booted` returned `0`.

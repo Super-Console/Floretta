@@ -111,7 +111,7 @@
 - [x] I5 版本号纪律（`docs/RELEASE.md` 规定上传 build +1 并记录设置页版本显示路径；PR #98）
 - [x] I6 TestFlight 统一安装 + 旧版本清理（`docs/CLEANUP.md` I6 清单及非破坏性操作边界；PR #98。实时 TestFlight 列表未核实，未执行清理）
 - [x] I7 工作区旧构件清理（`docs/CLEANUP.md` I7 清单及逐项保留/候选说明；PR #98。未执行清理）
-- [ ] I8 仓库转 public（已暂缓；前置：LICENSE、私人对话文件 `docs/design/brand-and-naming-chat.md` 需移出历史）
+- [ ] I8 仓库转 public（**2026-11-13 定：等当前活干完再重写历史 + 转公开**。触发条件：#121、#122 与 build 14 都落地后。步骤：① `git filter-repo` 删 `docs/design/brand-and-naming-chat.md`（94KB 私人命名对话）→ ② 加 LICENSE → ③ 转 public。理由：该文件在第 5 个 commit 就进来了、共 400 个 commit，删它必须重写全部 SHA，影响 101 个远端分支与 Pro 上十几个 worktree，会打断进行中的活，所以排在活干完之后。动机：GitHub 对**私有仓库**的 Actions 要求账号绑定支付方式（free 额度内也拦），而**公开仓库的标准 runner 完全免费、不限量**——转公开即可永久免去这笔顾虑。背景核实：账号 free plan、10/11 月用量 netAmount 均为 0、未超 2000 分钟与 500MB 存储，不是欠费是缺支付方式；全历史无任何密钥痕迹）
 
 ## J. 入口 / Phase 3
 

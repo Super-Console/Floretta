@@ -2,6 +2,19 @@ STATUS: BLOCKED
 
 # ui-polish-14
 
+## Layout-loop code fix (cloud VM, no GUI)
+
+- **Cause addressed in code.** A node double-click enters editing and refreshes toolbar enablement while AppKit is inside `layoutSubtreeIfNeeded`. That pass rebuilds `DocumentEditor` → `editorPresentations` → `editorToolbar` (preferences and named images). Tracked editor state can stay unchanged (`stateChanges=none`) while the pass still does not converge, because two writes do not stick:
+  - `MacWindowTitleView.layout()` assigned `titleVisibility` and `toolbar.displayMode` on every layout. SwiftUI restores those values while it materializes toolbar items, so the write scheduled another layout.
+  - `NodeTextEditor` assigned the editing font whenever font-object inequality failed, and reapplied paragraph attributes and vertical text inset on every update. A cascade face used for CJK text does not round-trip through AppKit font substitution, so the same request dirtied layout again. The inset was also derived from a used rect that depends on the inset.
+- **Fix.** Window chrome is latched once from `viewDidMoveToWindow` / `updateNSView` (`WindowChromePass`), and is not written from `layout()`. The field assigns a font only when `EditingFontSignature` changes, reapplies paragraph style only when it is not already centered word-wrap, and centers once per bounds and string (`TextCenteringPass`). Toolbar pulldowns keep the single glass plate already on the menu; `macItem` no longer wraps them in a second `GlassEffectContainer`. Buttons still get one plate. The bottom zoom capsule is unchanged.
+- **Diagnostics.** `UIPolishRuntimeTrace` is removed from `DocumentEditor.swift`, `InfiniteCanvas.swift`, and `NodeTextEditor.swift`.
+- **Tests on this VM.** `./scripts/check-floretta-core-imports.sh` passed. `swift test` (Swift 6.2, Linux) ran the package suite: 364 tests, 1 skipped, 0 failures. That suite is `FlorettaCoreTests`, not the Xcode `FlorettaTests` target (the earlier GUI-session run of 448). `FlorettaTests` was not run: this VM cannot build the app. The package run also corrected a contract that still required `macItem(.insert)` after insert had moved into the overflow menu; that expectation failed on the previous tip and now matches the overflow placement.
+- **Not verified here.** This VM has no macOS GUI session. The hang was not reproduced or cleared at runtime. No new screenshot, CPU sample, or AX read was taken. Do not treat the code fix as acceptance. Keep BLOCKED. Do not merge PR #1.
+- **Centering and the five accepted UI behaviors** were not retuned. Single-root open still centers after one main-actor turn; multi-root viewports are still left alone. There is no new screenshot in this pass.
+
+
+
 ## Changes made on `feat/ui-polish-14`
 
 - `InfiniteCanvas.swift`: center a one-root canvas on open regardless of persisted viewport; leave multi-root cameras unchanged; defer double-tap state changes to the next main-queue turn.

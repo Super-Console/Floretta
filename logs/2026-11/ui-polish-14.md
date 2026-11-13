@@ -133,3 +133,9 @@
 - Captured `petal.settle` stack frames lead through `InfiniteCanvas.canvasTimeline`'s `onChange(of: timeline.date)` callback into `petal.settle()` (current source line 176). Xcode console showed the Date-action and state-during-view-update warnings; no warning stack mapped to a specific edit-path setter. The exact CPU-loop writer remains unknown; no production change/fix is claimed.
 - Xcode Stop ended only this task's PID 83822 and `ps` verified it absent. No simulator was used or shut down; LocalAsk remained untouched. GUI work stayed on the secondary display; primary display was not interacted with. Diagnostic trace and sample files remain preserved.
 - Status remains **BLOCKED**; temporary source instrumentation remains. Do not merge PR #1 or push `main`.
+
+## Layout-loop code fix without a GUI rerun
+
+- Removed `UIPolishRuntimeTrace` from the editor, canvas, and text field.
+- Window title and toolbar display mode are latched once outside `layout()`. The editing field assigns a font only for a new `EditingFontSignature`, and centers once per bounds and string. Toolbar pulldowns are not wrapped in a second glass container.
+- No macOS process was launched here. Hang clearance, AX, CPU, and the five previously accepted screenshots were not rechecked. Status stays **BLOCKED**.

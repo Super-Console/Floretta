@@ -158,9 +158,15 @@ final class EditorToolbarCatalogTests: XCTestCase {
         XCTAssertTrue(editor.contains("overflowAlwaysCommandButton(.mapMode)"))
         XCTAssertTrue(editor.contains("overflowAlwaysCommandButton(.focusMode)"))
         XCTAssertTrue(editor.contains("overflowAlwaysCommandButton(.newCanvas)"))
-        for id in EditorToolbarCatalog.defaultToolbarItems + EditorToolbarCatalog.addableToolbarItems {
+        // Insert stays in the overflow menu. A toolbar `macItem(.insert)` is the
+        // separate plus button this polish removed.
+        let macToolbarIDs = (EditorToolbarCatalog.defaultToolbarItems + EditorToolbarCatalog.addableToolbarItems)
+            .filter { $0 != .insert }
+        for id in macToolbarIDs {
             XCTAssertTrue(editor.contains("macItem(.\(id.rawValue))"), id.rawValue)
         }
+        XCTAssertFalse(editor.contains("macItem(.insert)"))
+        XCTAssertTrue(editor.contains("insertOverflowSubmenu"))
         for id in [EditorToolbarCommandID.viewMode, .mapMode, .focusMode, .newCanvas] {
             XCTAssertFalse(editor.contains("macItem(.\(id.rawValue))"), id.rawValue)
         }

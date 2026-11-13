@@ -57,6 +57,24 @@ final class EditorChromeContractTests: XCTestCase {
         XCTAssertTrue(source.contains("window.titleVisibility = .hidden"))
     }
 
+    /// Window chrome is corrected once, from attachment and representable
+    /// update. Writing it from `layout()` re-enters toolbar layout.
+    func testWindowChromeIsNotAppliedFromLayout() throws {
+        let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let view = try slice(source, from: "final class MacWindowTitleView", until: "struct DroppedImage")
+        XCTAssertFalse(view.contains("override func layout("))
+        XCTAssertTrue(view.contains("chromePass.applying("))
+        XCTAssertTrue(view.contains("toolbar.displayMode = .iconOnly"))
+        XCTAssertFalse(source.contains("UIPolishRuntimeTrace"))
+        let canvas = try repoFile("Floretta/Shared/Canvas/InfiniteCanvas.swift")
+        XCTAssertFalse(canvas.contains("UIPolishRuntimeTrace"))
+        let editor = try repoFile("Floretta/Shared/Keyboard/NodeTextEditor.swift")
+        XCTAssertFalse(editor.contains("UIPolishRuntimeTrace"))
+        XCTAssertTrue(editor.contains("shouldAssignFont("))
+        XCTAssertTrue(editor.contains("TextCenteringPass"))
+        XCTAssertTrue(editor.contains("shouldApply(to:"))
+    }
+
     func testWordCountSitsInTheOverflowMenu() throws {
         let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         let bar = try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift")

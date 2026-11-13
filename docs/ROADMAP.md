@@ -4,9 +4,9 @@
 
 ## 本轮
 
-- 本轮进度：ui-polish-14（分支 `feat/ui-polish-14`）双端构建通过，GUI 会话 448 tests / 1 skipped / 0 failures，Core 导入边界守卫通过。用户已验收 `.dispatch/shots/center-single-node-only-nonstandard-overflow-debug-current.png` 中的单根居中与 UI 项；本轮不再调整该 UI。macOS 副屏新构建复现编辑后持续 bodyCount 增长（6→25→50→75）及约 98–99% CPU；六帧花瓣数据 `extra=recordedExtra=0`、`layoutPassCount=1`，排除本次观察中的 `noteLayoutExtra` 连续写入，但未找到编辑 loop 的具体状态写入点。进程主线程采样集中于 AppKit/SwiftUI layout、`ViewGraph.updateOutputs`、PreferenceTransform 与 named-image resolution；尚不能判定起因。详见 `DONE-ui-polish-14.md` 与 `logs/2026-11/ui-polish-14.md`。
-- 下一步：在 `NodeTextEditor.updateNSView` / 编辑态写入路径增加窄范围调用栈与状态写入关联探针，再做可重复编辑/输入/回车与 CPU、AX 验证；证据明确后才做最小修复。当前变更不得合并。
-- 阻塞：编辑路径仍出现持续 body 更新、接近满载 CPU 及 SwiftUI 状态更新警告；花瓣差值写入未解释该 loop，但警告对应的具体编辑态写入与根因未定位。修后回落、连续双击 AX、输入/回车回归及有效 iOS 视觉验收仍缺；保持 BLOCKED，不合并 PR #1。
+- 本轮进度：ui-polish-14（分支 `feat/ui-polish-14`，草稿 PR #1）已落地节点双击布局环的代码修复，并去掉临时 `UIPolishRuntimeTrace`。先前采样是 `layoutSubtreeIfNeeded` 里反复进入 `DocumentEditor.body` → `editorToolbar`，`bodyCount` 上涨而指纹 `stateChanges=none`。修复把窗口标题 / 工具栏 `displayMode` 的写从 `NSView.layout` 改成只做一次，文本框按字体签名和同一尺寸只写一次，工具栏下拉不再套第二层玻璃。云端 VM 不能跑 macOS GUI，双击是否还占满 CPU、AX 是否恢复、以及已验收的五项界面都还没有这次构建的运行时证据。详见 `DONE-ui-polish-14.md`。
+- 下一步：在能签名构建的 Mac 上编当前 tip，对单根节点做双击并确认主线程回到事件循环（CPU 回落、AX 可读）；空白处双击仍应保持可响应。不要再加诊断探针。
+- 阻塞：运行时验收仍缺，保持 BLOCKED，不合并 PR #1。已验收的单根居中、去掉左下角裸标题、底部缩放玻璃胶囊、地图/聚焦/新建画布进溢出菜单、多画布才显示切换条，本轮没有改交互，但没有新截图。
 
 状态词只用：✅ 已交付 / 🚧 进行中(PR#) / ❌ 缺失 / ⛔ 不做(原因)。证据列只写已存在的 PR、提交、路径或已核验的时间。不得用 ✅ 掩盖未收口项。
 

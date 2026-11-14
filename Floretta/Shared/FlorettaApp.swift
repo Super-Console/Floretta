@@ -65,14 +65,18 @@ private struct FlorettaCommands: Commands {
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
-            Button(FlorettaL10n.string("新建", language: settings.language)) {
+            Button {
                 library.makeNew()
+            } label: {
+                Label(FlorettaL10n.string("新建", language: settings.language), systemImage: "plus")
             }
             .keyboardShortcut("n", modifiers: .command)
         }
         CommandGroup(replacing: .saveItem) {
-            Button(FlorettaL10n.string("保存", language: settings.language)) {
+            Button {
                 library.saveActiveFile()
+            } label: {
+                Label(FlorettaL10n.string("保存", language: settings.language), systemImage: "square.and.arrow.down")
             }
             .keyboardShortcut("s", modifiers: .command)
             .disabled(!library.canSaveActiveFile)
@@ -97,7 +101,10 @@ private struct FlorettaCommands: Commands {
                         }
                     }
                     if editorCommands.linkTargets.isEmpty {
-                        Button("没有其他节点") {}.disabled(true)
+                        Button {} label: {
+                            Label("没有其他节点", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                        }
+                        .disabled(true)
                     }
                 } label: {
                     Label("关系线", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
@@ -109,13 +116,18 @@ private struct FlorettaCommands: Commands {
                     editorCommand(id, actions: editorCommands)
                 }
                 if editorCommands.isZenActive {
-                    Button("退出全屏沉浸") { editorCommands.exitZen?() }
+                    Button { editorCommands.exitZen?() } label: {
+                        Label("退出全屏沉浸", systemImage: "rectangle.compress.diagonal")
+                    }
                         .keyboardShortcut(".", modifiers: .command)
                 }
                 Divider()
-                Button("放大") { editorCommands.zoomIn?() }.keyboardShortcut("+", modifiers: .command).disabled(editorCommands.zoomIn == nil)
-                Button("缩小") { editorCommands.zoomOut?() }.keyboardShortcut("-", modifiers: .command).disabled(editorCommands.zoomOut == nil)
-                Button("实际大小") { editorCommands.zoomActual?() }.keyboardShortcut("=", modifiers: .command).disabled(editorCommands.zoomActual == nil)
+                Button { editorCommands.zoomIn?() } label: { Label("放大", systemImage: "plus.magnifyingglass") }
+                    .keyboardShortcut("+", modifiers: .command).disabled(editorCommands.zoomIn == nil)
+                Button { editorCommands.zoomOut?() } label: { Label("缩小", systemImage: "minus.magnifyingglass") }
+                    .keyboardShortcut("-", modifiers: .command).disabled(editorCommands.zoomOut == nil)
+                Button { editorCommands.zoomActual?() } label: { Label("实际大小", systemImage: "viewfinder") }
+                    .keyboardShortcut("=", modifiers: .command).disabled(editorCommands.zoomActual == nil)
             }
             CommandMenu("格式") {
                 editorCommand(.theme, actions: editorCommands)
@@ -133,7 +145,9 @@ private struct FlorettaCommands: Commands {
                 }
                 Menu {
                     ForEach([14.0, 18.0, 24.0, 32.0, 48.0], id: \.self) { size in
-                        Button("\(Int(size)) pt") { editorCommands.setFontSize?(size) }
+                        Button { editorCommands.setFontSize?(size) } label: {
+                            Label("\(Int(size)) pt", systemImage: "textformat.size")
+                        }
                             .disabled(!editorCommands.hasEditableSelection)
                     }
                 } label: {
@@ -160,10 +174,10 @@ private struct FlorettaCommands: Commands {
                 }
             }
             CommandMenu("主题") {
-                topicButton("编辑主题", command: .beginEdit, chord: "Space")
-                topicButton("新建同级（后）", command: .createSibling, chord: "↩")
-                topicButton("新建子级", command: .createChild, chord: "⇥")
-                topicButton("新建同级（前）", command: .createSiblingBefore, chord: "⇧↩")
+                topicButton("编辑主题", command: .beginEdit)
+                topicButton("新建同级（后）", command: .createSibling)
+                topicButton("新建子级", command: .createChild)
+                topicButton("新建同级（前）", command: .createSiblingBefore)
                 topicShortcut(.createParent)
                 Divider()
                 topicShortcut(.selectAllSiblings)
@@ -172,10 +186,10 @@ private struct FlorettaCommands: Commands {
                 topicShortcut(.moveTopic(.up))
                 topicShortcut(.moveTopic(.down))
                 Divider()
-                topicButton("展开分支", command: .expandBranch, chord: "+")
-                topicButton("收起分支", command: .collapseBranch, chord: "-")
-                topicButton("展开全部", command: .expandAll, chord: "*")
-                topicButton("收起全部", command: .collapseAll, chord: "/")
+                topicButton("展开分支", command: .expandBranch)
+                topicButton("收起分支", command: .collapseBranch)
+                topicButton("展开全部", command: .expandAll)
+                topicButton("收起全部", command: .collapseAll)
                 topicShortcut(.openProperties)
             }
             CommandMenu("帮助") {
@@ -191,8 +205,10 @@ private struct FlorettaCommands: Commands {
             OpenSameDocumentWindowButton(settings: settings, library: library)
         }
         CommandGroup(replacing: .appSettings) {
-            Button(FlorettaL10n.string(ShellTab.settings.title, language: settings.language)) {
+            Button {
                 library.tab = .settings
+            } label: {
+                Label(FlorettaL10n.string(ShellTab.settings.title, language: settings.language), systemImage: "gearshape")
             }
             .keyboardShortcut(",", modifiers: .command)
             .disabled(library.editor != nil)
@@ -206,21 +222,24 @@ private struct FlorettaCommands: Commands {
         }) else {
             return AnyView(EmptyView())
         }
-        return AnyView(topicButton(entry.title, command: command, chord: nil, entry: entry))
+        return AnyView(topicButton(entry.title, command: command, entry: entry))
     }
 
     private func topicButton(
         _ title: String,
         command: MindMapCommand,
-        chord: String? = nil,
         entry: XMindShortcutCatalog.Entry? = nil
     ) -> some View {
-        let label = chord == nil ? title : "\(title)    \(chord!)"
-        let item = Button(label) {
+        let item = Button {
             editorCommands?.performShortcut?(command)
+        } label: {
+            Label(title, systemImage: "command")
         }
         .disabled(editorCommands?.performShortcut == nil)
-        if let entry, entry.registersMenuEquivalent, let shortcut = KeyboardShortcut(entry: entry) {
+        let resolvedEntry = entry ?? XMindShortcutCatalog.entries.first {
+            $0.command == command
+        }
+        if let resolvedEntry, let shortcut = KeyboardShortcut(entry: resolvedEntry) {
             return AnyView(item.keyboardShortcut(shortcut))
         }
         return AnyView(item)
@@ -285,8 +304,10 @@ private struct OpenSameDocumentWindowButton: View {
     @Bindable var library: LibraryModel
 
     var body: some View {
-        Button(FlorettaL10n.string("新建窗口", language: settings.language)) {
+        Button {
             library.openAnotherWindow()
+        } label: {
+            Label(FlorettaL10n.string("新建窗口", language: settings.language), systemImage: "macwindow.badge.plus")
         }
         .keyboardShortcut("n", modifiers: [.command, .shift])
         .disabled(library.editor == nil)

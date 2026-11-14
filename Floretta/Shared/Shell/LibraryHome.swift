@@ -64,8 +64,12 @@ struct RecentPage: View {
                 }
                 .accessibilityIdentifier("home.templates")
                 Menu {
-                    Button(text("从 iCloud 云盘打开"), action: openICloud)
-                    Button(text(LocalDeviceLabel.current.title), action: browseLocal)
+                    Button(action: openICloud) {
+                        Label(text("从 iCloud 云盘打开"), systemImage: "icloud")
+                    }
+                    Button(action: browseLocal) {
+                        Label(text(LocalDeviceLabel.current.title), systemImage: "internaldrive")
+                    }
                 } label: {
                     Label(text("打开"), systemImage: "folder")
                 }
@@ -100,8 +104,12 @@ struct RecentPage: View {
             .accessibilityLabel(text("模板库"))
             .accessibilityIdentifier("home.templates")
             Menu {
-                Button(text("从 iCloud 云盘打开"), action: openICloud)
-                Button(text(LocalDeviceLabel.current.title), action: browseLocal)
+                Button(action: openICloud) {
+                    Label(text("从 iCloud 云盘打开"), systemImage: "icloud")
+                }
+                Button(action: browseLocal) {
+                    Label(text(LocalDeviceLabel.current.title), systemImage: "internaldrive")
+                }
             } label: {
                 Image(systemName: "folder")
             }

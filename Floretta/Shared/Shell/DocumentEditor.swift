@@ -336,11 +336,34 @@ struct DocumentEditor: View {
             }
             .contextMenu {
                 ForEach(CanvasMenus.text, id: \.self) { item in
-                    Button(text(item)) { runTextCommand(item) }
-                        .explained(textHelp(item))
-                        .disabled(CanvasMenus.textDisabled.contains(item) || (session.isMarkdownDocument && item == "拷贝样式"))
+                    textContextMenuItem(item)
                 }
             }
+    }
+
+    @ViewBuilder
+    private func textContextMenuItem(_ item: String) -> some View {
+        let symbol: String
+        switch item {
+        case "剪切": symbol = "scissors"
+        case "拷贝": symbol = "doc.on.doc"
+        case "粘贴": symbol = "doc.on.clipboard"
+        case "全选": symbol = "text.alignleft"
+        case "拷贝样式": symbol = "paintbrush.pointed"
+        default: symbol = "ellipsis"
+        }
+        let button = Button { runTextCommand(item) } label: {
+            Label(text(item), systemImage: symbol)
+        }
+        .explained(textHelp(item))
+        .disabled(CanvasMenus.textDisabled.contains(item) || (session.isMarkdownDocument && item == "拷贝样式"))
+        switch item {
+        case "剪切": button.keyboardShortcut("x", modifiers: .command)
+        case "拷贝": button.keyboardShortcut("c", modifiers: .command)
+        case "粘贴": button.keyboardShortcut("v", modifiers: .command)
+        case "全选": button.keyboardShortcut("a", modifiers: .command)
+        default: button
+        }
     }
 
     private var editorExportActions: some View {
@@ -1091,8 +1114,10 @@ struct DocumentEditor: View {
                     .disabled(true)
             }
             ForEach(targets) { target in
-                Button(target.text.isEmpty ? "未命名" : target.text) {
+                Button {
                     session.linkSelectedTopic(to: target.id)
+                } label: {
+                    Label(target.text.isEmpty ? "未命名" : target.text, systemImage: "point.topleft.down.to.point.bottomright.curvepath")
                 }
             }
         } label: {
@@ -1106,7 +1131,9 @@ struct DocumentEditor: View {
     private var zoomMenu: some View {
         Menu {
             ForEach(ZoomStop.allCases, id: \.self) { stop in
-                Button("\(stop.percent)%") { camera.zoom(to: stop) }
+                Button { camera.zoom(to: stop) } label: {
+                    Label("\(stop.percent)%", systemImage: "magnifyingglass")
+                }
                     .explained(FlorettaL10n.format("把画布缩放到 %lld%%", locale: settings.resolvedLocale, arguments: [Int64(stop.percent)]))
             }
             commandMenuButton(.fit) { perform(.fit) }

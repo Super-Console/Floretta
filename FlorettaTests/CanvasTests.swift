@@ -446,6 +446,17 @@ final class LineBreakTests: XCTestCase {
         XCTAssertEqual(lines.joined().replacingOccurrences(of: "\n", with: ""), longWord)
     }
 
+    func testMixedChineseAndUnbrokenEnglishWrapsWithoutDroppingCharacters() {
+        let text = "中文说明 supercalifragilisticexpialidocious 继续无空格的中文内容"
+        let measured = metrics.measure(text: text, fontName: "Helvetica", fontSize: 20, maxWidth: 240)
+        let lines = NodeTextTypography.lineStrings(text, fontSize: 20, width: 240)
+        XCTAssertLessThanOrEqual(measured.width, 241)
+        XCTAssertGreaterThan(measured.height, 40)
+        XCTAssertGreaterThan(lines.count, 1)
+        XCTAssertEqual(lines.joined(), text)
+        XCTAssertFalse(lines.contains(where: \.isEmpty))
+    }
+
     func testManualNewlinesAreKeptAsSeparateLines() {
         let text = "第一行手动换行\n第二行还在"
         let measured = metrics.measure(text: text, fontName: "Helvetica", fontSize: 20, maxWidth: 240)

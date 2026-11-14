@@ -221,7 +221,9 @@ enum CanvasTextScale {
     }
 }
 
-/// Text level from the on-screen point size. Below 9pt the node is a color block.
+/// Text level from the on-screen point size. Canvas text is drawn as vector text
+/// at this exact point size, so keep titles visible at the 50% zoom stop rather
+/// than dropping to a color block merely because they are below 9pt.
 enum CanvasTextLOD: Equatable, Sendable {
     case blocks
     case title
@@ -231,7 +233,7 @@ enum CanvasTextLOD: Equatable, Sendable {
 
     static func level(onScreenPointSize: CGFloat) -> CanvasTextLOD {
         guard onScreenPointSize.isFinite else { return .blocks }
-        if onScreenPointSize < 9 { return .blocks }
+        if onScreenPointSize < 5 { return .blocks }
         if onScreenPointSize < 14 { return .title }
         return .full
     }

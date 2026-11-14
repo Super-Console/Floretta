@@ -200,6 +200,7 @@
 		C72000000000000000000002 /* NodeEditChromeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72000000000000000000003 /* NodeEditChromeUITests.swift */; };
 		C72000000000000000000003 /* InspectorTabPinUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72000000000000000000004 /* InspectorTabPinUITests.swift */; };
 		C72000000000000000000004 /* ThemeModesScreenshotUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72000000000000000000005 /* ThemeModesScreenshotUITests.swift */; };
+		C72000000000000000000005 /* NodeTextInputRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72000000000000000000006 /* NodeTextInputRegressionTests.swift */; };
 		C31000000000000000000011 /* ShareIngressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F31000000000000000000001 /* ShareIngressTests.swift */; };
 		C31000000000000000000012 /* ShareCatalogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F31000000000000000000002 /* ShareCatalogStore.swift */; };
 		C31000000000000000000013 /* ShareCatalogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F31000000000000000000002 /* ShareCatalogStore.swift */; };
@@ -362,6 +363,7 @@
 		F72000000000000000000003 /* NodeEditChromeUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeEditChromeUITests.swift; sourceTree = "<group>"; };
 		F72000000000000000000004 /* InspectorTabPinUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorTabPinUITests.swift; sourceTree = "<group>"; };
 		F72000000000000000000005 /* ThemeModesScreenshotUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeModesScreenshotUITests.swift; sourceTree = "<group>"; };
+		F72000000000000000000006 /* NodeTextInputRegressionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeTextInputRegressionTests.swift; sourceTree = "<group>"; };
 		F72000000000000000000002 /* FlorettaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FlorettaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F31000000000000000000001 /* ShareIngressTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ShareIngressTests.swift; path = Tests/FlorettaCoreTests/ShareIngressTests.swift; sourceTree = SOURCE_ROOT; };
 		F31000000000000000000002 /* ShareCatalogStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCatalogStore.swift; sourceTree = "<group>"; };
@@ -709,6 +711,7 @@
 				F72000000000000000000005 /* ThemeModesScreenshotUITests.swift */,
 				F72000000000000000000001 /* HomeSmokeTests.swift */,
 				F72000000000000000000003 /* NodeEditChromeUITests.swift */,
+				F72000000000000000000006 /* NodeTextInputRegressionTests.swift */,
 			);
 			path = FlorettaUITests;
 			sourceTree = "<group>";
@@ -1414,6 +1417,7 @@
 				C72000000000000000000002 /* NodeEditChromeUITests.swift in Sources */,
 				C72000000000000000000003 /* InspectorTabPinUITests.swift in Sources */,
 				C72000000000000000000004 /* ThemeModesScreenshotUITests.swift in Sources */,
+				C72000000000000000000005 /* NodeTextInputRegressionTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

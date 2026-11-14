@@ -1,6 +1,31 @@
 STATUS: DONE
 
+# PR #6 修复追加（2026-11-14）
+
+## 契约失败原因与解法
+
+- 原失败原因：`testIOSBackButtonIsAStandardToolbarItem` 用 `ToolbarItemGroup(placement: .principal)` 作源码切片终点；macOS toolbar 重构为独立 `.navigation` 项后，这个旧标记已不在对应代码块，导致测试 `XCTUnwrap` 失败。不是返回键被移出 iOS 标准 toolbar item。
+- 原意图：iOS 返回键必须保持系统标准工具栏项，获得原生玻璃和完整点击面积，禁止自绘/自定义容器使点击区缩至箭头。
+- 新写法仍保证它：测试从 `editorToolbar` 的 `.toolbar {}` 提取到 `#if !os(macOS)`，继续断言 `ToolbarItem(placement: .cancellationAction)`、返回图标与标识、44×44 frame、圆形 hit shape、无 HStack/material/blur，并核对 macOS 标题使用独立 `.navigation` 槽位。**未删除或弱化 `testIOSBackButtonIsAStandardToolbarItem` 的原有点击面积与非自绘断言。**源码结构反向核对：iOS 按钮仍位于该平台分支的标准 `ToolbarItem` 中；macOS `.navigation` 槽位不改写 iOS 返回按钮实现。
+- 标题按用户要求从 toolbar 移到窗口原生标题位：`MacEditorWindowTitle` 将当前 `documentTitle` 传入 AppKit updater，更新 `window.title` 并确保 `titleVisibility = .visible`；macOS 返回键保留独立 `.navigation` toolbar item，不与标题同处自定义胶囊。
+- 旧的 `testToolbarFilenameIsNotRepeatedInTheWindowTitle` 反而断言标题必须隐藏，与当前用户要求冲突，现改为 `testDocumentFilenameUsesTheNativeWindowTitle`，断言动态窗口标题和可见性。
+
+## 验证
+
+`swift test --package-path FlorettaCore` 实际输出：
+
+```text
+Test Suite 'FlorettaCoreTests.xctest' passed.
+Executed 371 tests, with 1 test skipped and 0 failures (0 unexpected)
+Test Suite 'All tests' passed.
+Executed 371 tests, with 1 test skipped and 0 failures (0 unexpected)
+```
+
+视觉未验证，待 CUA。复现路径：在 Floretta macOS app 中从资料库打开任意文档，观察红绿灯右侧标题区；期望文档名紧邻红绿灯右侧，返回键仍在系统 toolbar item 位置且与标题分开，不出现标题重复/重影。返回资料库后核查顶部玻璃带；期望无模糊卡片重影且系统玻璃保留。
+
 # macOS 标题栏双问题修复
+
+> 本节是本次修复前的历史记录；其中“窗口标题隐藏”“返回与标题合并/独立按钮选择”等结论已由文首「PR #6 修复追加」取代。现行实现与验收以文首追加为准。
 
 ## 根因与改动
 

@@ -24,17 +24,11 @@ final class EditorToolbarCatalogTests: XCTestCase {
             XCTAssertEqual(menu.symbol, command.symbol)
             XCTAssertEqual(menu.title, command.title)
             XCTAssertTrue(menu.isListed)
-            if command.toolbarFace == .zoomPercent {
-                XCTAssertTrue(bar.showsZoomPercent, command.id.rawValue)
-                XCTAssertFalse(bar.showsSymbol, command.id.rawValue)
-                XCTAssertFalse(bar.showsTitle, command.id.rawValue)
-            } else {
-                XCTAssertTrue(bar.showsSymbol, command.id.rawValue)
-                XCTAssertFalse(bar.showsTitle, command.id.rawValue)
-                XCTAssertFalse(bar.showsZoomPercent, command.id.rawValue)
-            }
+            XCTAssertTrue(bar.showsSymbol, command.id.rawValue)
+            XCTAssertFalse(bar.showsTitle, command.id.rawValue)
+            XCTAssertFalse(bar.showsZoomPercent, command.id.rawValue)
         }
-        XCTAssertEqual(EditorToolbarCatalog.command(.zoom).toolbarFace, .zoomPercent)
+        XCTAssertEqual(EditorToolbarCatalog.command(.zoom).toolbarFace, .symbol)
     }
 
     func testSummaryAndBoundaryStayDisabledWithoutASelection() throws {
@@ -148,10 +142,9 @@ final class EditorToolbarCatalogTests: XCTestCase {
         XCTAssertTrue(editor.contains("toolbar.displayMode = .iconOnly"))
         XCTAssertTrue(editor.contains(".defaultCustomization("))
         XCTAssertTrue(editor.contains("ToolbarItem(id:"))
+        XCTAssertTrue(editor.contains(".accessibilityLabel(text(command.title))"))
         XCTAssertTrue(editor.contains("ToolbarItemGroup(placement: .principal)"))
         XCTAssertTrue(editor.contains("ToolbarItemGroup(placement: .primaryAction)"))
-        XCTAssertTrue(editor.contains(".zoomPercent"))
-        XCTAssertTrue(editor.contains("camera.chrome.zoomPercent"))
         XCTAssertEqual(editor.components(separatedBy: "canEnclose(").count - 1, 1)
         XCTAssertTrue(editor.contains("private func linkCommandMenu"))
         XCTAssertFalse(editor.contains("private func viewModeCommandMenu"))
@@ -173,6 +166,20 @@ final class EditorToolbarCatalogTests: XCTestCase {
         for id in EditorToolbarCatalog.menu(.share) {
             XCTAssertFalse(editor.contains("macItem(.\(id.rawValue))"), id.rawValue)
         }
+    }
+
+    func testIconOnlyMacToolbarItemsKeepAnAccessibilityLabel() throws {
+        let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let chrome = try repoFile("Floretta/Shared/Shell/EditorToolbarChrome.swift")
+        let toolbarItem = try XCTUnwrap(editor.range(of: "private func macItem"))
+        let toolbarTail = editor[toolbarItem.lowerBound...]
+        let toolbarBody = try XCTUnwrap(toolbarTail.range(of: "private var insertMenu"))
+        let itemImplementation = toolbarTail[..<toolbarBody.lowerBound]
+
+        XCTAssertTrue(chrome.contains(".labelStyle(.iconOnly)"))
+        XCTAssertTrue(chrome.contains(".accessibilityLabel(title)"))
+        XCTAssertTrue(itemImplementation.contains(".accessibilityLabel(text(command.title))"))
+        XCTAssertTrue(itemImplementation.contains("ToolbarItem(id: id.rawValue"))
     }
 
     private func assertSummaryAndBoundary(enabled: Bool, in context: EditorToolbarContext) {

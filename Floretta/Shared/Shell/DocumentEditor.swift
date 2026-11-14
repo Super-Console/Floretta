@@ -1077,6 +1077,7 @@ struct DocumentEditor: View {
             case .pulldown, .submenu:
                 toolbarControl(id)
             }
+            .accessibilityLabel(text(command.title))
         }
         .defaultCustomization(visibility)
     }
@@ -1143,12 +1144,7 @@ struct DocumentEditor: View {
             // Keep the compact toolbar face on iOS; macOS shows the live percentage.
             commandLabel(.zoom, surface: .toolbar)
             #else
-            switch EditorToolbarCatalog.command(.zoom).toolbarFace {
-            case .zoomPercent:
-                ZoomPercentText(camera: camera)
-            case .symbol:
-                commandLabel(.zoom, surface: .toolbar)
-            }
+            commandLabel(.zoom, surface: .toolbar)
             #endif
         }
         .explained(EditorToolbarCatalog.command(.zoom).help)

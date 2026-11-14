@@ -91,6 +91,32 @@ final class ThemeFontCascadeTests: XCTestCase {
         XCTAssertEqual(writes, 1, "Different resolved NSFont objects for one request must not cause repeated assignments.")
     }
 
+    @MainActor
+    func testCenteringLineHeightIsIndependentOfTextContainerInsetAndProductionUsesIt() throws {
+        let font = NSFont.systemFont(ofSize: 18)
+        let manager = NSLayoutManager()
+        let container = NSTextContainer(size: NSSize(width: 200, height: 200))
+        manager.addTextContainer(container)
+        let view = NSTextView(frame: NSRect(x: 0, y: 0, width: 200, height: 200), textContainer: container)
+        view.font = font
+        view.string = "Hello 汉字"
+
+        let before = manager.defaultLineHeight(for: font)
+        view.textContainerInset = NSSize(width: 8, height: 20)
+        manager.ensureLayout(for: container)
+        let after = manager.defaultLineHeight(for: font)
+        XCTAssertEqual(after, before, accuracy: 0.001)
+
+        let sourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Floretta/Shared/Keyboard/NodeTextEditor.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        XCTAssertTrue(source.contains("layoutManager.defaultLineHeight(for: font)"))
+        XCTAssertTrue(source.contains("let glyphHeight = font.lineHeight"))
+        XCTAssertFalse(source.contains("usedRect(for: textContainer).height"), "Centering must not regress to an inset-dependent used rect.")
+    }
+
     func testSystemSerifChineseAlsoUsesSongti() {
         let used = ThemeFontCascade.postScriptName(familyID: "system-serif", for: "汉字")
         XCTAssertTrue(

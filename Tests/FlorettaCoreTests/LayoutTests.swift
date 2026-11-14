@@ -659,23 +659,21 @@ final class LayoutTests: XCTestCase {
         XCTAssertTrue(EditorLayoutConvergence.shouldWriteVerticalInset(current: 11, proposed: 12))
     }
 
-    func testCenteredInsetDependsOnlyOnFixedGlyphMeasurementNotPreviousInset() {
-        let fixedUsedRectHeight: CGFloat = 18
-        let measuredWithPriorInsetZero = EditorLayoutConvergence.centeredVerticalInset(
-            boundsHeight: 40,
-            glyphHeight: fixedUsedRectHeight
-        )
-        let measuredWithPriorInsetTwenty = EditorLayoutConvergence.centeredVerticalInset(
-            boundsHeight: 40,
-            glyphHeight: fixedUsedRectHeight
-        )
+    func testCenteringPassDoesNotRewriteInsetForDifferentPriorInsetsWithSameInput() {
+        let bounds = CGSize(width: 72, height: 40)
+        var pass = TextCenteringPass.idle
+        var writes: [CGFloat] = []
 
-        XCTAssertEqual(measuredWithPriorInsetZero, 11)
-        XCTAssertEqual(
-            measuredWithPriorInsetTwenty,
-            measuredWithPriorInsetZero,
-            "A fixed glyph measurement must produce the same inset regardless of the previously applied inset."
-        )
+        for priorInset: CGFloat in [0, 11, 20] {
+            guard pass.shouldApply(to: bounds, text: "中心") else { continue }
+            let proposed = EditorLayoutConvergence.centeredVerticalInset(boundsHeight: bounds.height, glyphHeight: 18)
+            if EditorLayoutConvergence.shouldWriteVerticalInset(current: priorInset, proposed: proposed) {
+                writes.append(proposed)
+            }
+            pass = TextCenteringPass(bounds: bounds, text: "中心")
+        }
+
+        XCTAssertEqual(writes, [11], "The same field input must latch after one inset write, regardless of later prior inset values.")
     }
 
     /// The old recurrence measured a used rect that grew with the inset, so the

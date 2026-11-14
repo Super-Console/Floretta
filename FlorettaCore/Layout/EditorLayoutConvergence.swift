@@ -107,8 +107,8 @@ public enum EditorLayoutConvergence {
         lastAssigned != requested
     }
 
-    /// Whole points. Glyph height is the line's height measured without the
-    /// vertical inset that this function returns.
+    /// Whole points. The caller supplies the font's default line height, which
+    /// is independent of the text container inset returned here.
     public static func centeredVerticalInset(boundsHeight: CGFloat, glyphHeight: CGFloat) -> CGFloat {
         guard boundsHeight.isFinite, glyphHeight.isFinite, boundsHeight > 0 else { return 0 }
         let glyphs = min(max(glyphHeight, 0), boundsHeight)

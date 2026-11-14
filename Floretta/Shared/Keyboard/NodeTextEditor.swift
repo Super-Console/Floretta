@@ -539,7 +539,8 @@ private final class EditingTextView: NSTextView {
         // second pass for the same bounds and string must not write again.
         centeringPass = TextCenteringPass(bounds: bounds.size, text: string)
         layoutManager.ensureLayout(for: textContainer)
-        let glyphHeight = layoutManager.usedRect(for: textContainer).height
+        let font = self.font ?? NSFont.systemFont(ofSize: 12)
+        let glyphHeight = layoutManager.defaultLineHeight(for: font)
         let vertical = EditorLayoutConvergence.centeredVerticalInset(
             boundsHeight: bounds.height,
             glyphHeight: glyphHeight
@@ -1012,7 +1013,8 @@ private final class FlorettaTextView: UITextView {
         }
         centeringPass = TextCenteringPass(bounds: bounds.size, text: text)
         layoutManager.ensureLayout(for: textContainer)
-        let glyphHeight = layoutManager.usedRect(for: textContainer).height
+        let font = self.font ?? UIFont.systemFont(ofSize: 12)
+        let glyphHeight = font.lineHeight
         let vertical = EditorLayoutConvergence.centeredVerticalInset(
             boundsHeight: bounds.height,
             glyphHeight: glyphHeight

@@ -14,6 +14,7 @@ struct RecentPage: View {
 
     var body: some View {
         recentBody
+            .themeTypography(language: .system)
             .navigationTitle(text(HomeLibrary.navigationTitle))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.large)
@@ -186,6 +187,7 @@ struct HomeSidebar: View {
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)
         .accessibilityIdentifier("home.sidebar")
+        .themeTypography(language: .system)
     }
 
     private func sidebarButton(_ row: HomeSidebarRow, device: LocalDeviceLabel) -> some View {
@@ -423,6 +425,7 @@ struct SettingsView: View {
             .formStyle(.grouped)
             .navigationTitle(text("设置"))
         }
+        .themeTypography(language: settings.language)
     }
 
     private func text(_ key: String) -> String {

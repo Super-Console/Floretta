@@ -77,6 +77,7 @@ struct AppearanceSettingsPanel: View {
         }
         // Controls stay on the system UI font even when the map uses a serif family.
         .font(.body)
+        .themeTypography(language: settings.language)
     }
 
     private var preview: some View {

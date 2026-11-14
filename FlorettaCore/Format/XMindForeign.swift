@@ -24,7 +24,9 @@ public struct CanvasViewportState: Equatable, Sendable, Codable {
 
     public static func clampScale(_ scale: Double) -> Double {
         guard scale.isFinite else { return 1 }
-        return min(max(scale, minimumScale), maximumScale)
+        let clamped = min(max(scale, minimumScale), maximumScale)
+        let percent = (clamped * 100).rounded()
+        return percent == 100 ? 1 : percent / 100
     }
 
     public static func clamped(_ state: CanvasViewportState) -> CanvasViewportState {

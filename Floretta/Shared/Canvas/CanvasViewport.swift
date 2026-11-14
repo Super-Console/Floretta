@@ -22,7 +22,9 @@ struct CanvasViewport: Equatable, Sendable {
 
     static func clampScale(_ scale: CGFloat) -> CGFloat {
         guard scale.isFinite else { return ZoomStop.oneHundred.scale }
-        return min(max(scale, minimumScale), maximumScale)
+        let clamped = min(max(scale, minimumScale), maximumScale)
+        let percent = (clamped * 100).rounded()
+        return percent == 100 ? 1 : percent / 100
     }
 
     var offset: CGPoint {
@@ -114,9 +116,9 @@ struct CanvasViewport: Equatable, Sendable {
     /// Gesture end. The scale becomes exactly one `ZoomStop`.
     @MainActor
     mutating func snapToStop(around anchor: CGPoint) {
-        let stop = ZoomStop.nearest(to: scale)
-        guard abs(stop.scale - scale) > 0.000_000_1 else { return }
-        zoom(to: stop.scale, around: anchor)
+        let integerPercent = CGFloat((scale * 100).rounded()) / 100
+        guard integerPercent != scale else { return }
+        zoom(to: integerPercent, around: anchor)
     }
 
     mutating func fit(content: CGRect, in viewSize: CGSize, padding: CGFloat = 48) {
@@ -132,6 +134,13 @@ struct CanvasViewport: Equatable, Sendable {
             maxZoom: Self.maximumFitScale,
             padding: padding
         )
+        let oldScale = flow.zoom
+        let roundedScale = Self.clampScale(oldScale)
+        let center = CGPoint(x: viewSize.width / 2, y: viewSize.height / 2)
+        let canvasCenter = CGPoint(x: (center.x - flow.x) / oldScale, y: (center.y - flow.y) / oldScale)
+        flow.zoom = roundedScale
+        flow.x = center.x - canvasCenter.x * roundedScale
+        flow.y = center.y - canvasCenter.y * roundedScale
     }
 
     @MainActor

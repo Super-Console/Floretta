@@ -335,7 +335,6 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         if !ownsKeys, view.alignment != .center {
             view.alignment = .center
         }
-        view.publishChromeProbe()
     }
 
     /// One font assignment per signature. Comparing `NSFont` stays false after
@@ -552,18 +551,9 @@ private final class EditingTextView: NSTextView {
 
     override func layout() {
         super.layout()
-        guard centersInNode, !applyingChrome else {
-            publishChromeProbe()
-            return
-        }
-        guard centeringPass.shouldApply(to: bounds.size, text: string) else {
-            publishChromeProbe()
-            return
-        }
-        guard let layoutManager, let textContainer else {
-            publishChromeProbe()
-            return
-        }
+        guard centersInNode, !applyingChrome,
+              centeringPass.shouldApply(to: bounds.size, text: string),
+              let layoutManager, let textContainer else { return }
         // Latch before the inset write. The write re-enters layout, and a
         // second pass for the same bounds and string must not write again.
         centeringPass = TextCenteringPass(bounds: bounds.size, text: string)
@@ -584,23 +574,6 @@ private final class EditingTextView: NSTextView {
             applyingChrome = true
             textContainerInset = next
             applyingChrome = false
-        }
-        publishChromeProbe()
-    }
-
-    func publishChromeProbe() {
-        guard locksChrome, bounds.width > 1, bounds.height > 1 else { return }
-        let rgb = backgroundColor.usingColorSpace(.sRGB) ?? lockedBackground
-        let fill = BranchColor(
-            red: Double(rgb.redComponent),
-            green: Double(rgb.greenComponent),
-            blue: Double(rgb.blueComponent)
-        )
-        let value = NodeEditChrome.accessibilityValue(editing: true, fill: fill, size: bounds.size)
-        setAccessibilityIdentifier(NodeEditChrome.accessibilityIdentifier)
-        setAccessibilityLabel("node")
-        if accessibilityValue() as? String != value {
-            setAccessibilityValue(value)
         }
     }
 
@@ -826,7 +799,6 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
         if !ownsKeys, view.textAlignment != .center {
             view.textAlignment = .center
         }
-        view.publishChromeProbe()
     }
 
     private func assignEditingFont(_ chrome: NodeEditSurface, familyID: String, to view: FlorettaTextView) {
@@ -1036,14 +1008,8 @@ private final class FlorettaTextView: UITextView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        guard centersInNode, !applyingChrome else {
-            publishChromeProbe()
-            return
-        }
-        guard centeringPass.shouldApply(to: bounds.size, text: text) else {
-            publishChromeProbe()
-            return
-        }
+        guard centersInNode, !applyingChrome,
+              centeringPass.shouldApply(to: bounds.size, text: text) else { return }
         centeringPass = TextCenteringPass(bounds: bounds.size, text: text)
         let font = self.font ?? UIFont.systemFont(ofSize: 12)
         let glyphHeight = EditorTextCenteringMeasurement.glyphHeight(
@@ -1068,28 +1034,6 @@ private final class FlorettaTextView: UITextView {
             applyingChrome = true
             textContainerInset = next
             applyingChrome = false
-        }
-        publishChromeProbe()
-    }
-
-    func publishChromeProbe() {
-        guard locksChrome, bounds.width > 1, bounds.height > 1 else { return }
-        let source = backgroundColor ?? lockedBackground
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 0
-        let fill: BranchColor
-        if source.getRed(&red, green: &green, blue: &blue, alpha: &alpha) {
-            fill = BranchColor(red: Double(red), green: Double(green), blue: Double(blue))
-        } else {
-            fill = BranchColor(red: 1, green: 1, blue: 1)
-        }
-        let value = NodeEditChrome.accessibilityValue(editing: true, fill: fill, size: bounds.size)
-        accessibilityIdentifier = NodeEditChrome.accessibilityIdentifier
-        accessibilityLabel = "node"
-        if (accessibilityValue as? String) != value {
-            accessibilityValue = value
         }
     }
 

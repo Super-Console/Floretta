@@ -1,6 +1,9 @@
 import FlorettaCore
 import SwiftFlow
 import XCTest
+#if os(macOS)
+import AppKit
+#endif
 
 @MainActor
 final class CanvasTests: XCTestCase {
@@ -346,13 +349,24 @@ final class CanvasTests: XCTestCase {
         XCTAssertLessThan(fitted.size.width, 88)
         XCTAssertEqual(NodeEditChrome.hex(fitted.fill), "#800020")
         XCTAssertEqual(NodeEditChrome.editorFrame(node: fitted.frame, compositionWidth: 0), fitted.frame)
-        let idle = NodeEditChrome.accessibilityValue(editing: false, fill: fitted.fill, size: fitted.size)
-        let editing = NodeEditChrome.accessibilityValue(editing: true, fill: fitted.fill, size: fitted.size)
-        XCTAssertEqual(NodeEditChrome.mode(in: idle), "idle")
-        XCTAssertEqual(NodeEditChrome.mode(in: editing), "edit")
-        XCTAssertEqual(NodeEditChrome.fillHex(in: idle), NodeEditChrome.fillHex(in: editing))
-        XCTAssertEqual(NodeEditChrome.size(in: idle), NodeEditChrome.size(in: editing))
+        XCTAssertEqual(NodeEditChrome.probeIdentifier(editing: false, fill: fitted.fill), "canvas.node.chrome.idle.fill-800020")
+        XCTAssertEqual(NodeEditChrome.probeIdentifier(editing: true, fill: fitted.fill), "canvas.node.chrome.edit.fill-800020")
     }
+
+    #if os(macOS)
+    func testEditingProbeIdentifierLeavesTextViewContentUntouched() {
+        let view = NSTextView(frame: CGRect(x: 0, y: 0, width: 263, height: 125))
+        view.string = "user text"
+        let identifier = NodeEditChrome.probeIdentifier(
+            editing: true,
+            fill: BranchColor(red: 128 / 255, green: 0, blue: 32 / 255)
+        )
+
+        view.setAccessibilityIdentifier(identifier)
+
+        XCTAssertEqual(view.string, "user text")
+    }
+    #endif
 
     func testLiveOriginMovesOnlyThatFrameAndLeavesTheDocumentAlone() {
         let freeID = UUID()

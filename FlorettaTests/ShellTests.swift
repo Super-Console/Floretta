@@ -881,7 +881,7 @@ final class ShellTests: XCTestCase {
     }
 
     func testCompactHomeShowsTheRecentStackAndSidebarRowsAreNotNoOps() throws {
-        XCTAssertEqual(HomeLibrary.navigationTitle, "最近")
+        XCTAssertEqual(HomeLibrary.navigationTitle, "项目")
         XCTAssertEqual(HomeLibrary.chrome(width: .compact, phoneWhenUnspecified: false), .stack)
         XCTAssertEqual(HomeLibrary.chrome(width: .regular, phoneWhenUnspecified: true), .split)
         XCTAssertEqual(HomeLibrary.chrome(width: .unspecified, phoneWhenUnspecified: true), .stack)
@@ -956,7 +956,7 @@ final class ShellTests: XCTestCase {
 
         settings.language = .english
         let chrome = [
-            HomeLibrary.navigationTitle: "Recent",
+            HomeLibrary.navigationTitle: "Projects",
             "新建导图": "New Map",
             "本地导图": "On This Device",
             "从文件应用打开": "Open from the Files App",
@@ -1042,15 +1042,15 @@ final class ShellTests: XCTestCase {
                 forPreferences: preferences
             ).first
             XCTAssertEqual(identifier, expected, preferences.joined(separator: ","))
-            let title = FlorettaL10n.string("最近", language: .system, preferences: preferences)
+            let title = FlorettaL10n.string("项目", language: .system, preferences: preferences)
             if identifier == "en" {
-                XCTAssertEqual(title, "Recent", preferences.joined(separator: ","))
+                XCTAssertEqual(title, "Projects", preferences.joined(separator: ","))
             } else {
-                XCTAssertEqual(title, "最近", preferences.joined(separator: ","))
+                XCTAssertEqual(title, "项目", preferences.joined(separator: ","))
             }
         }
-        XCTAssertEqual(FlorettaL10n.string("最近", language: .english, preferences: ["zh-Hans"]), "Recent")
-        XCTAssertEqual(FlorettaL10n.string("最近", language: .simplifiedChinese, preferences: ["en"]), "最近")
+        XCTAssertEqual(FlorettaL10n.string("项目", language: .english, preferences: ["zh-Hans"]), "Projects")
+        XCTAssertEqual(FlorettaL10n.string("项目", language: .simplifiedChinese, preferences: ["en"]), "项目")
         XCTAssertEqual(AppLanguage.fromLaunchArguments(["-FlorettaLanguage", "en"]), .english)
         XCTAssertEqual(AppLanguage.fromLaunchArguments(["-FlorettaUITest", "-FlorettaLanguage", "zh-Hans"]), .simplifiedChinese)
         XCTAssertEqual(AppLanguage.fromLaunchArguments(["-FlorettaLanguage", "system"]), .system)

@@ -103,7 +103,7 @@ enum HomeLibraryChrome: Equatable, Sendable {
 }
 
 enum HomeLibrary {
-    static let navigationTitle = "最近"
+    static let navigationTitle = "项目"
 
     /// Documents the UI-test launch writes into a temporary library, so the
     /// home list does not depend on anyone's personal files.

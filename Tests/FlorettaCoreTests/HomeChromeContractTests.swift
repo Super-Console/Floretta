@@ -14,6 +14,8 @@ final class HomeChromeContractTests: XCTestCase {
         XCTAssertTrue(ios.contains("Menu {"))
         XCTAssertTrue(ios.contains("\"home.toolbarMenu\""))
         XCTAssertTrue(ios.contains("\"home.newMap\""))
+        XCTAssertTrue(ios.contains("\"home.openFiles\""))
+        XCTAssertTrue(ios.contains(".buttonStyle(.borderedProminent)"))
         XCTAssertTrue(ios.contains("\"home.templates\""))
         XCTAssertTrue(ios.contains("\"home.open\""))
         XCTAssertFalse(ios.contains("ToolbarItemGroup"), "iOS home actions are still one grouped capsule")
@@ -22,7 +24,8 @@ final class HomeChromeContractTests: XCTestCase {
         assertNoCustomChrome(ios)
 
         XCTAssertTrue(mac.contains("ToolbarItemGroup(placement: .primaryAction)"))
-        XCTAssertTrue(mac.contains("Image(systemName: \"plus\")"))
+        XCTAssertTrue(mac.contains("Label(text(\"新建导图\"), systemImage: \"plus\")"))
+        XCTAssertTrue(mac.contains("\"home.openFiles\""))
         XCTAssertTrue(mac.contains("Image(systemName: \"square.grid.2x2\")"))
         XCTAssertTrue(mac.contains("Image(systemName: \"folder\")"))
 

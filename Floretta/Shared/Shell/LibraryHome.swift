@@ -2,7 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import FlorettaCore
 
-/// Home from the iPad reference: centered title「最近」, not a large title.
+/// Project-manager home with the standard large navigation title and system toolbar.
 struct RecentPage: View {
     @Bindable var library: LibraryModel
     @Binding var page: HomePage
@@ -16,7 +16,7 @@ struct RecentPage: View {
         recentBody
             .navigationTitle(text(HomeLibrary.navigationTitle))
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             .searchable(
                 text: $searchText,
                 placement: .navigationBarDrawer(displayMode: .always),
@@ -43,10 +43,16 @@ struct RecentPage: View {
             Button {
                 library.makeNew()
             } label: {
-                Image(systemName: "plus")
+                Label(text("新建导图"), systemImage: "plus")
             }
-            .accessibilityLabel(text("新建导图"))
+            .buttonStyle(.borderedProminent)
             .accessibilityIdentifier("home.newMap")
+        }
+        ToolbarItem(placement: .primaryAction) {
+            Button(action: openFiles) {
+                Label(text("从文件应用打开"), systemImage: "folder")
+            }
+            .accessibilityIdentifier("home.openFiles")
         }
         ToolbarItem(placement: .primaryAction) {
             Menu {
@@ -57,7 +63,6 @@ struct RecentPage: View {
                 }
                 .accessibilityIdentifier("home.templates")
                 Menu {
-                    Button(text("从文件应用打开"), action: openFiles)
                     Button(text("从 iCloud 云盘打开"), action: openICloud)
                     Button(text(LocalDeviceLabel.current.title), action: browseLocal)
                 } label: {
@@ -78,10 +83,14 @@ struct RecentPage: View {
             Button {
                 library.makeNew()
             } label: {
-                Image(systemName: "plus")
+                Label(text("新建导图"), systemImage: "plus")
             }
-            .accessibilityLabel(text("新建导图"))
+            .buttonStyle(.borderedProminent)
             .accessibilityIdentifier("home.newMap")
+            Button(action: openFiles) {
+                Label(text("从文件应用打开"), systemImage: "folder")
+            }
+            .accessibilityIdentifier("home.openFiles")
             Button {
                 page = .newMap
             } label: {
@@ -90,7 +99,6 @@ struct RecentPage: View {
             .accessibilityLabel(text("模板库"))
             .accessibilityIdentifier("home.templates")
             Menu {
-                Button(text("从文件应用打开"), action: openFiles)
                 Button(text("从 iCloud 云盘打开"), action: openICloud)
                 Button(text(LocalDeviceLabel.current.title), action: browseLocal)
             } label: {

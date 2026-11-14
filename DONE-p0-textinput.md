@@ -96,7 +96,7 @@ The ten files are six `.floretta` documents, three snapshot JSON files, and the 
 
 ## Review notes
 
-- Commit: `8b65595bc8039cd701052ae0d415e8364df62a87`.
+- The open pull request's current head is the authoritative delivery commit.
 - Pull request: [#8](https://github.com/Super-Console/Floretta/pull/8), open and not merged.
 - No version, LocalAsk, keychain, shared checklist, or user document changes.
 - No simulator was started by this task. No custom temporary DerivedData folder was created. Build/test processes exited.

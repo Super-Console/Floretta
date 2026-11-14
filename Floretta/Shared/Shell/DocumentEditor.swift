@@ -336,11 +336,33 @@ struct DocumentEditor: View {
             }
             .contextMenu {
                 ForEach(CanvasMenus.text, id: \.self) { item in
-                    Button(text(item)) { runTextCommand(item) }
-                        .explained(textHelp(item))
-                        .disabled(CanvasMenus.textDisabled.contains(item) || (session.isMarkdownDocument && item == "拷贝样式"))
+                    textContextMenuItem(item)
                 }
             }
+    }
+
+    @ViewBuilder
+    private func textContextMenuItem(_ item: String) -> some View {
+        let symbol = switch item {
+        case "剪切": "scissors"
+        case "拷贝": "doc.on.doc"
+        case "粘贴": "doc.on.clipboard"
+        case "全选": "text.alignleft"
+        case "拷贝样式": "paintbrush.pointed"
+        default: "ellipsis"
+        }
+        let button = Button { runTextCommand(item) } label: {
+            Label(text(item), systemImage: symbol)
+        }
+        .explained(textHelp(item))
+        .disabled(CanvasMenus.textDisabled.contains(item) || (session.isMarkdownDocument && item == "拷贝样式"))
+        switch item {
+        case "剪切": button.keyboardShortcut("x", modifiers: .command)
+        case "拷贝": button.keyboardShortcut("c", modifiers: .command)
+        case "粘贴": button.keyboardShortcut("v", modifiers: .command)
+        case "全选": button.keyboardShortcut("a", modifiers: .command)
+        default: button
+        }
     }
 
     private var editorExportActions: some View {
@@ -675,6 +697,22 @@ struct DocumentEditor: View {
             canvasRenameText = session.document.canvasTitle(at: index)
             showCanvasRename = true
         })
+        .contextMenu {
+            Button {
+                canvasRenameIndex = index
+                canvasRenameText = session.document.canvasTitle(at: index)
+                showCanvasRename = true
+            } label: {
+                Label(text("重新命名画布"), systemImage: "pencil")
+            }
+            if session.document.canvasCount > 1 {
+                Button(role: .destructive) {
+                    session.removeCanvas(at: index, viewport: camera.viewport.persisted)
+                } label: {
+                    Label(text("删除画布"), systemImage: "trash")
+                }
+            }
+        }
     }
 
     private var tagFilterBanner: some View {
@@ -1031,13 +1069,16 @@ struct DocumentEditor: View {
             // Pulldowns already wear one plate. A second GlassEffectContainer
             // inside the item publishes another toolbar preference during
             // layout, and that measurement does not converge.
-            switch command.kind {
-            case .button:
-                toolbarControl(id)
-                    .appleGlassChrome(.toolbarFloatingButton)
-            case .pulldown, .submenu:
-                toolbarControl(id)
+            Group {
+                switch command.kind {
+                case .button:
+                    toolbarControl(id)
+                        .appleGlassChrome(.toolbarFloatingButton)
+                case .pulldown, .submenu:
+                    toolbarControl(id)
+                }
             }
+            .accessibilityLabel(text(command.title))
         }
         .defaultCustomization(visibility)
     }
@@ -1075,8 +1116,10 @@ struct DocumentEditor: View {
                     .disabled(true)
             }
             ForEach(targets) { target in
-                Button(target.text.isEmpty ? "未命名" : target.text) {
+                Button {
                     session.linkSelectedTopic(to: target.id)
+                } label: {
+                    Label(target.text.isEmpty ? "未命名" : target.text, systemImage: "point.topleft.down.to.point.bottomright.curvepath")
                 }
             }
         } label: {
@@ -1090,7 +1133,9 @@ struct DocumentEditor: View {
     private var zoomMenu: some View {
         Menu {
             ForEach(ZoomStop.allCases, id: \.self) { stop in
-                Button("\(stop.percent)%") { camera.zoom(to: stop) }
+                Button { camera.zoom(to: stop) } label: {
+                    Label("\(stop.percent)%", systemImage: "magnifyingglass")
+                }
                     .explained(FlorettaL10n.format("把画布缩放到 %lld%%", locale: settings.resolvedLocale, arguments: [Int64(stop.percent)]))
             }
             commandMenuButton(.fit) { perform(.fit) }
@@ -1100,12 +1145,7 @@ struct DocumentEditor: View {
             // Keep the compact toolbar face on iOS; macOS shows the live percentage.
             commandLabel(.zoom, surface: .toolbar)
             #else
-            switch EditorToolbarCatalog.command(.zoom).toolbarFace {
-            case .zoomPercent:
-                ZoomPercentText(camera: camera)
-            case .symbol:
-                commandLabel(.zoom, surface: .toolbar)
-            }
+            commandLabel(.zoom, surface: .toolbar)
             #endif
         }
         .explained(EditorToolbarCatalog.command(.zoom).help)

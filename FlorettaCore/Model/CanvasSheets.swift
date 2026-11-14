@@ -64,6 +64,34 @@ extension MindMapDocument {
         }
     }
 
+    /// Removes one canvas while keeping at least one canvas in the document.
+    /// The active index follows the nearest surviving canvas.
+    @discardableResult
+    public mutating func removeCanvas(at index: Int) -> Bool {
+        guard canvasCount > 1, index >= 0, index < canvasCount else { return false }
+        let active = clampedCanvasIndex
+        if index == 0 {
+            let next = additionalCanvases.removeFirst()
+            roots = next.roots
+            freeNodes = next.freeNodes
+            relationships = next.relationships
+            stickies = next.stickies
+            regions = next.regions
+            primaryCanvasTitle = next.title == title ? nil : next.title
+            primaryCanvasViewport = next.viewport
+        } else {
+            additionalCanvases.remove(at: index - 1)
+        }
+        if active == index {
+            activeCanvasIndex = min(index, canvasCount - 1)
+        } else if active > index {
+            activeCanvasIndex = active - 1
+        } else {
+            activeCanvasIndex = active
+        }
+        return true
+    }
+
     /// The one canvas a frame should lay out or edit.
     /// Other sheets are not copied into this value, so measuring it cannot walk them.
     public func isolatedCanvas(at index: Int) -> MindMapDocument {

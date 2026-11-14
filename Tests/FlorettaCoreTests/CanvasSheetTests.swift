@@ -30,6 +30,27 @@ final class CanvasSheetTests: XCTestCase {
         XCTAssertEqual(document.canvasTitle(at: 1), "乙页")
     }
 
+    func testRemovingCanvasesPreservesTheDocumentAndClampsTheActiveCanvas() {
+        var document = MindMapDocument(title: "工程名", roots: [MindMapNode(text: "甲")])
+        document.addCanvas()
+        document.renameCanvas(at: 1, to: "乙")
+        document.addCanvas()
+        document.renameCanvas(at: 2, to: "丙")
+        XCTAssertEqual(document.clampedCanvasIndex, 2)
+
+        XCTAssertTrue(document.removeCanvas(at: 1))
+        XCTAssertEqual(document.title, "工程名")
+        XCTAssertEqual(document.canvasCount, 2)
+        XCTAssertEqual(document.clampedCanvasIndex, 1)
+        XCTAssertEqual(document.canvasTitle(at: 1), "丙")
+        XCTAssertTrue(document.removeCanvas(at: 0))
+        XCTAssertEqual(document.title, "工程名")
+        XCTAssertEqual(document.canvasCount, 1)
+        XCTAssertEqual(document.clampedCanvasIndex, 0)
+        XCTAssertEqual(document.canvasTitle(at: 0), "丙")
+        XCTAssertFalse(document.removeCanvas(at: 0))
+    }
+
     func testNodesAndZoomStayOnTheirOwnCanvas() {
         var document = MindMapDocument(title: "甲", roots: [MindMapNode(text: "第一")])
         let firstID = document.roots[0].id

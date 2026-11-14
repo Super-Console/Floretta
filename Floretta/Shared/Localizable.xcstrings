@@ -4115,6 +4115,20 @@
         }
       }
     },
+    "重新命名画布" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Rename Canvas" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重新命名画布" } }
+      }
+    },
+    "删除画布" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete Canvas" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "删除画布" } }
+      }
+    },
     "新建窗口" : {
       "extractionState" : "manual",
       "localizations" : {

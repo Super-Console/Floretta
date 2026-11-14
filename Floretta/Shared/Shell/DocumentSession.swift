@@ -606,6 +606,17 @@ final class EditorSession {
         document.renameCanvas(at: index, to: title)
     }
 
+    func removeCanvas(at index: Int, viewport: CanvasViewportState) {
+        guard !isMarkdownDocument, document.canvasCount > 1 else { return }
+        closeEditingForCanvasChange()
+        var next = document
+        next.setViewport(CanvasViewportState.clamped(viewport), forCanvas: next.clampedCanvasIndex)
+        guard next.removeCanvas(at: index) else { return }
+        liveViewport = nil
+        document = next
+        focusSelectionOnActiveCanvas()
+    }
+
     @discardableResult
     func updateSelectedTopicTags(_ body: (inout MindMapNode) -> Void) -> Bool {
         guard !isMarkdownDocument else { return false }

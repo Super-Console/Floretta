@@ -28,5 +28,16 @@ final class MacMenuShortcutCatalogTests: XCTestCase {
         }
         XCTAssertTrue(MacMenuShortcutCatalog.isEnabled(.freeNode, in: context))
     }
+
+    func testMenuRowsUseSystemLabelsAndBoundShortcuts() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let app = try String(contentsOf: root.appendingPathComponent("Floretta/Shared/FlorettaApp.swift"), encoding: .utf8)
+        XCTAssertTrue(app.contains("Label(title, systemImage: \"command\")"))
+        XCTAssertTrue(app.contains("item.keyboardShortcut(shortcut)"))
+        XCTAssertFalse(app.contains("\\(title)    \\(chord)"))
+    }
 }
 #endif

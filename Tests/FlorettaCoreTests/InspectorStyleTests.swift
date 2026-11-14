@@ -314,6 +314,14 @@ final class InspectorStyleTests: XCTestCase {
         }
     }
 
+    func testInspectorTabPagesKeepTheToolbarHostAtStableTopLeadingGeometry() throws {
+        let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let inspector = try slice(source, from: "private var inspectorBody", until: "struct ExportFile")
+        XCTAssertTrue(inspector.contains(".safeAreaInset(edge: .top, spacing: 12)"))
+        XCTAssertTrue(inspector.contains(".frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)"))
+        XCTAssertFalse(inspector.contains(".containerRelativeFrame"))
+    }
+
     private func map() -> MindMapDocument {
         MindMapDocument(
             title: "图",

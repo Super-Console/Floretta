@@ -2,6 +2,11 @@ import FlorettaCore
 import XCTest
 
 final class OPMLMarkdownTests: XCTestCase {
+    func testMarkdownExportPlacesSubtitleUnderItsHeading() {
+        let node = MindMapNode(text: "Title", subtitle: "Secondary")
+        XCTAssertTrue(FlorettaMarkdown.export(MindMapDocument(title: "t", roots: [node])).contains("# Title\n  > Secondary"))
+    }
+
     func testOPMLExportImportPreservesTextNotesHierarchyAndOrder() throws {
         let root = MindMapNode(
             text: "中心",

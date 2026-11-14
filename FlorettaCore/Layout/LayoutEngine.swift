@@ -255,6 +255,10 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
     public var childBadgeInset: CGFloat = 0
     /// True when that slot sits on `minX`. False puts it on `maxX`.
     public var childBadgeOnMinX: Bool = false
+    public var textAlignment: MindMapTextAlignment = .center
+    public var subtitle: String = ""
+    public var subtitleFontSize: CGFloat = 0
+    public var subtitleHeight: CGFloat = 0
 
     public init(
         id: UUID,
@@ -286,7 +290,11 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
         markerIDs: [String] = [],
         tagBandHeight: CGFloat = 0,
         childBadgeInset: CGFloat = 0,
-        childBadgeOnMinX: Bool = false
+        childBadgeOnMinX: Bool = false,
+        textAlignment: MindMapTextAlignment = .center,
+        subtitle: String = "",
+        subtitleFontSize: CGFloat = 0,
+        subtitleHeight: CGFloat = 0
     ) {
         self.id = id
         self.text = text
@@ -318,6 +326,10 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
         self.tagBandHeight = tagBandHeight
         self.childBadgeInset = childBadgeInset
         self.childBadgeOnMinX = childBadgeOnMinX
+        self.textAlignment = textAlignment
+        self.subtitle = subtitle
+        self.subtitleFontSize = subtitleFontSize
+        self.subtitleHeight = subtitleHeight
     }
 
     public var rect: CGRect { CGRect(origin: origin, size: size) }
@@ -388,7 +400,7 @@ public struct CanvasChrome: Equatable, Sendable {
         activeSheetIndex = index
     }
 
-    /// The chrome percent is always a legal stop, never a raw value such as 137.
+    /// The chrome percent mirrors the nearest legal interactive zoom stop.
     public mutating func syncZoomPercent(toScale scale: CGFloat) {
         zoomPercent = ZoomStop.displayPercent(forScale: scale)
     }
@@ -582,7 +594,7 @@ public struct LayoutEngine: Sendable {
             fontFamilyID: face.familyID,
             nodeDesign: face.nodeDesign
         )
-        let size = nodeSize(node, depth: 1, heights: [1: raw.height], reservesChildBadge: false)
+        let size = nodeSize(node, depth: 1, heights: [1: raw.height + subtitleMetrics(node, fontSize: font, face: face).height], reservesChildBadge: false)
         let origin = CGPoint(x: node.position?.x ?? 0, y: node.position?.y ?? 0)
         frames.append(
             makeFrame(
@@ -612,7 +624,7 @@ public struct LayoutEngine: Sendable {
             fontFamilyID: face.familyID,
             nodeDesign: face.nodeDesign
         )
-        heights[depth] = max(heights[depth] ?? 0, raw.height)
+        heights[depth] = max(heights[depth] ?? 0, raw.height + subtitleMetrics(node, fontSize: resolvedFontSize(node, depth: depth), face: face).height)
         if node.position != nil || node.isCollapsed { return }
         for child in node.children {
             collectHeights(child, depth: depth + 1, into: &heights)
@@ -651,9 +663,25 @@ public struct LayoutEngine: Sendable {
             )
             fileWidth = measured.width + CGFloat(FileBadgeMetrics.iconSide + FileBadgeMetrics.gap + FileBadgeMetrics.horizontalInset * 2)
         }
-        let width = max(raw.width, CGFloat(node.style?.topicWidth ?? 0), imageWidth, fileWidth)
+        let subtitle = subtitleMetrics(node, fontSize: font, face: face)
+        let width = max(raw.width, subtitle.width, CGFloat(node.style?.topicWidth ?? 0), imageWidth, fileWidth)
         let badge: CGFloat = reservesChildBadge ? appearance.childCountBadgeInset : 0
-        return CGSize(width: width + badge, height: (heights[depth] ?? raw.height) + band + fileBand + tagBand)
+        return CGSize(width: width + badge, height: (heights[depth] ?? raw.height + subtitle.height) + band + fileBand + tagBand)
+    }
+
+    private func subtitleMetrics(
+        _ node: MindMapNode,
+        fontSize: CGFloat,
+        face: (familyID: String, nodeDesign: String)
+    ) -> CGSize {
+        guard !node.subtitle.isEmpty else { return .zero }
+        return cache.size(
+            text: node.subtitle,
+            fontSize: max(1, fontSize * 0.72),
+            maxWidth: metrics.maxTextWidth,
+            fontFamilyID: face.familyID,
+            nodeDesign: face.nodeDesign
+        )
     }
 
     private func thumbnailBand(_ node: MindMapNode) -> CGFloat {
@@ -883,7 +911,15 @@ public struct LayoutEngine: Sendable {
                 markerCount: node.markers.count
             )),
             childBadgeInset: childBadgeInset,
-            childBadgeOnMinX: childBadgeOnMinX
+            childBadgeOnMinX: childBadgeOnMinX,
+            textAlignment: node.textAlignment,
+            subtitle: node.subtitle,
+            subtitleFontSize: resolvedFontSize(node, depth: depth) * 0.72,
+            subtitleHeight: subtitleMetrics(
+                node,
+                fontSize: resolvedFontSize(node, depth: depth),
+                face: typography(for: node, depth: depth)
+            ).height
         )
     }
 

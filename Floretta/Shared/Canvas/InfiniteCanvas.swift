@@ -93,19 +93,19 @@ struct InfiniteCanvas: View {
         .overlay { if !zenActive { hoverAddButtons } }
         .overlay { editField }
         .overlay { nodeChromeProbe }
-        .overlay { stickyChrome }
+        .overlay { if !zenActive { stickyChrome } }
         .overlay(alignment: .topLeading) { heldCanvasScaleLabel }
     }
 
     private func canvasSecondaryOverlays<V: View>(_ view: V) -> some View {
         view
-        .overlay { stickyEditor }
-        .overlay { regionToolbar }
-        .overlay { regionEditor }
-        .overlay { relationshipEditor }
-        .overlay { summaryEditor }
-        .overlay { boundaryEditor }
-        .overlay { audioPlaybackOverlay }
+        .overlay { if !zenActive { stickyEditor } }
+        .overlay { if !zenActive { regionToolbar } }
+        .overlay { if !zenActive { regionEditor } }
+        .overlay { if !zenActive { relationshipEditor } }
+        .overlay { if !zenActive { summaryEditor } }
+        .overlay { if !zenActive { boundaryEditor } }
+        .overlay { if !zenActive { audioPlaybackOverlay } }
     }
 
     private func canvasHoverSurface<V: View>(_ view: V) -> some View {
@@ -638,7 +638,8 @@ struct InfiniteCanvas: View {
                     bold: frame.bold,
                     italic: frame.italic,
                     strikethrough: frame.strikethrough,
-                    underline: frame.underline
+                    underline: frame.underline,
+                    textAlignment: frame.textAlignment
                 )
             )
             .frame(width: editor.width, height: editor.height)
@@ -1871,11 +1872,33 @@ struct InfiniteCanvas: View {
         let showTitle = (pose?.showsText ?? true) && !editing
         if showTitle, CanvasTextLOD.level(onScreenPointSize: pointSize).drawsTitle, textRect.height > 1, textRect.width > 1 {
             let text = styledText(node, pointSize: pointSize)
+            let subtitleHeight = node.subtitle.isEmpty ? 0 : node.subtitleHeight * scale + 2 * scale
+            var titleRect = textRect
+            titleRect.size.height = max(0, textRect.height - subtitleHeight)
             var textLayer = layer
-            textLayer.clip(to: Path(textRect))
+            textLayer.clip(to: Path(titleRect))
             // Same wrap path as MapExport. `draw(at:)` paints the ideal (usually
             // single-line) size and clips mid-glyph; `draw(in:)` wraps to the node.
-            textLayer.draw(text, in: textRect)
+            textLayer.draw(text, in: titleRect)
+            if !node.subtitle.isEmpty, subtitleHeight > 1 {
+                let subtitleRect = CGRect(
+                    x: textRect.minX,
+                    y: titleRect.maxY,
+                    width: textRect.width,
+                    height: min(subtitleHeight, textRect.maxY - titleRect.maxY)
+                )
+                let subtitle = NodeTextTypography.canvasText(
+                    node.subtitle,
+                    lineHeight: appearanceProfile.lineHeight,
+                    familyID: appearanceProfile.fontFamilyID,
+                    nodeDesign: node.fontDesign,
+                    size: CanvasTextScale.onScreenPointSize(fontSize: node.subtitleFontSize, scale: scale)
+                )
+                .foregroundColor(color(node.textColor).opacity(0.72))
+                var subtitleLayer = layer
+                subtitleLayer.clip(to: Path(subtitleRect))
+                subtitleLayer.draw(subtitle, in: subtitleRect)
+            }
         }
         if pose == nil, detail.drawsText {
             drawFileBadges(node, scale: scale, pointSize: pointSize, in: layer)
@@ -1984,7 +2007,7 @@ struct InfiniteCanvas: View {
             nodeDesign: node.fontDesign,
             size: pointSize
         )
-            .foregroundStyle(color(node.textColor))
+            .foregroundColor(color(node.textColor))
         if node.bold { text = text.bold() }
         if node.italic { text = text.italic() }
         if node.strikethrough { text = text.strikethrough() }
@@ -2187,6 +2210,17 @@ struct NodeEditSurface: Equatable {
     var italic: Bool
     var strikethrough: Bool
     var underline: Bool
+    var textAlignment: MindMapTextAlignment = .center
+}
+
+private extension MindMapTextAlignment {
+    var swiftUITextAlignment: TextAlignment {
+        switch self {
+        case .leading: .leading
+        case .center: .center
+        case .trailing: .trailing
+        }
+    }
 }
 
 /// Taps that land on the system text field must not commit or close it.

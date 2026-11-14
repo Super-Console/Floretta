@@ -159,12 +159,6 @@ struct DocumentEditor: View {
 
     private var editorCore: some View {
         canvasStack
-            .overlay(alignment: .topTrailing) {
-                if session.zen.isActive {
-                    immersiveExit
-                        .padding(16)
-                }
-            }
         .scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
         .navigationTitle("")
         #if os(macOS)
@@ -321,9 +315,12 @@ struct DocumentEditor: View {
                     session.noteViewport(viewport.persisted)
                 }
             }
-            .onChange(of: session.zen.isActive) { _, active in
-                syncFullScreen(active)
-            }
+        .onChange(of: session.zen.isActive) { _, active in
+            syncFullScreen(active)
+        }
+        .onAppear {
+            if session.zen.isActive { syncFullScreen(true) }
+        }
             .onKeyPress(.escape) {
                 session.handleEscape() ? .handled : .ignored
             }
@@ -556,22 +553,24 @@ struct DocumentEditor: View {
             }
         }
         .overlay(alignment: .top) {
-            VStack(spacing: 8) {
-                if session.markdownBannerVisible {
-                    markdownBanner
-                }
-                if let warning = session.visibleMarkdownWarning {
-                    markdownNotice(warning, identifier: "markdown.warning") {
-                        session.dismissMarkdownWarning()
+            if !session.zen.isActive {
+                VStack(spacing: 8) {
+                    if session.markdownBannerVisible {
+                        markdownBanner
                     }
-                }
-                if let blocked = session.blockedNotice {
-                    markdownNotice(blocked, identifier: "markdown.blocked") {
-                        session.dismissBlockedNotice()
+                    if let warning = session.visibleMarkdownWarning {
+                        markdownNotice(warning, identifier: "markdown.warning") {
+                            session.dismissMarkdownWarning()
+                        }
                     }
-                }
-                if session.tagFilter.isActive {
-                    tagFilterBanner
+                    if let blocked = session.blockedNotice {
+                        markdownNotice(blocked, identifier: "markdown.blocked") {
+                            session.dismissBlockedNotice()
+                        }
+                    }
+                    if session.tagFilter.isActive {
+                        tagFilterBanner
+                    }
                 }
             }
         }
@@ -776,23 +775,6 @@ struct DocumentEditor: View {
         showRename = true
     }
 
-    private var immersiveExit: some View {
-        Button {
-            session.exitZen()
-        } label: {
-            Image(systemName: "xmark")
-        }
-        .buttonStyle(.plain)
-        // The xmark glyph is about 16pt. A blank canvas tap in zen is a
-        // no-op, so a missed hit leaves the toolbar hidden. Use the same
-        // 44pt circular target as the iOS back button.
-        .frame(width: 44, height: 44)
-        .contentShape(Circle())
-        .appleGlassChrome(.iconButton)
-        .explained("退出沉浸模式，恢复工具栏")
-        .accessibilityIdentifier("zen.exit")
-    }
-
     private var leadingDocumentChrome: some View {
         HStack(spacing: 8) {
             Button(action: onClose) {
@@ -877,6 +859,8 @@ struct DocumentEditor: View {
         actions.zoomIn = { camera.stepZoom(1) }
         actions.zoomOut = { camera.stepZoom(-1) }
         actions.zoomActual = { camera.resetZoom() }
+        actions.isZenActive = session.zen.isActive
+        actions.exitZen = { session.exitZen() }
         return actions
     }
     #endif
@@ -1524,10 +1508,11 @@ struct DocumentEditor: View {
 
     private var inspectorBody: some View {
         // The header is an inset, not a sibling of the page. A short page
-        // (演说, or 样式 with nothing selected) used to shrink the stack and
-        // the column centered it, so 「检查器」 and the segments left the top
-        // with the placeholder. The inset keeps a fixed-height header on the
-        // top edge. Only the page below is flexible, and it is what scrolls.
+        // Switching between 演说 / 样式 / 导图 changes page content height. Letting
+        // that height determine this inspector host's alignment made AppKit's shared
+        // toolbar host recenter the window controls over the canvas. The inset keeps
+        // a fixed-height header on the top edge. Only the page below is flexible,
+        // and it is what scrolls.
         inspectorTabPage
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .safeAreaInset(edge: .top, spacing: 12) {
@@ -2527,8 +2512,8 @@ struct DocumentEditor: View {
     private func syncFullScreen(_ active: Bool) {
         #if os(macOS)
         guard session.zenFullScreenApplied != active else { return }
-        session.zenFullScreenApplied = active
         guard let window = NSApp.keyWindow ?? NSApp.mainWindow else { return }
+        session.zenFullScreenApplied = active
         let full = window.styleMask.contains(.fullScreen)
         if active, !full {
             session.zenEnteredFullScreen = true
@@ -2631,6 +2616,15 @@ private struct StyleInspector: View {
                 .accessibilityIdentifier("inspector.style.borderColor")
             }
             Section(text(InspectorStyleSection.text.titleKey)) {
+                TextField(text("副文本"), text: subtitle)
+                    .accessibilityIdentifier("inspector.style.subtitle")
+                Picker(text("文字对齐"), selection: textAlignment) {
+                    Text(verbatim: text("靠左")).tag(MindMapTextAlignment.leading)
+                    Text(verbatim: text("居中")).tag(MindMapTextAlignment.center)
+                    Text(verbatim: text("靠右")).tag(MindMapTextAlignment.trailing)
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("inspector.style.textAlignment")
                 Picker(text("字体"), selection: fontDesign) {
                     ForEach(fontDesignTags, id: \.self) { tag in
                         Text(verbatim: fontDesignTitle(tag)).tag(tag)
@@ -2850,6 +2844,26 @@ private struct StyleInspector: View {
         Binding(
             get: { StyleColor.color(hex: style?.textHex ?? InspectorStyle.fallbackColorHex) },
             set: { apply(.textHex(StyleColor.hex($0))) }
+        )
+    }
+
+    private var textAlignment: Binding<MindMapTextAlignment> {
+        Binding(
+            get: { nodeID.flatMap { document.node($0)?.textAlignment } ?? .center },
+            set: { alignment in
+                guard let nodeID else { return }
+                _ = document.setTextAlignment(alignment, on: nodeID)
+            }
+        )
+    }
+
+    private var subtitle: Binding<String> {
+        Binding(
+            get: { nodeID.flatMap { document.node($0)?.subtitle } ?? "" },
+            set: { value in
+                guard let nodeID else { return }
+                _ = document.replaceSubtitle(value, on: nodeID)
+            }
         )
     }
 

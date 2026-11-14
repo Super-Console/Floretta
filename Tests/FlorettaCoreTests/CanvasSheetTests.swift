@@ -2,6 +2,12 @@ import XCTest
 @testable import FlorettaCore
 
 final class CanvasSheetTests: XCTestCase {
+    func testViewportScaleIsRoundedToAnExactIntegerPercent() {
+        XCTAssertEqual(CanvasViewportState(scale: 1.170_001, offsetX: 0, offsetY: 0).scale, 1.17, accuracy: 0.000_000_1)
+        XCTAssertEqual(CanvasViewportState(scale: 1.000_001, offsetX: 0, offsetY: 0).scale, 1, accuracy: 0)
+        XCTAssertEqual(CanvasViewportState(scale: 0.5, offsetX: 0, offsetY: 0).scale, 0.5, accuracy: 0)
+    }
+
     func testAddingASecondCanvasKeepsTheFirstAndSelectsTheNewOne() {
         var document = MindMapDocument(title: "甲", roots: [MindMapNode(text: "第一")])
         let firstID = document.roots[0].id

@@ -548,6 +548,16 @@ public extension MindMapDocument {
         }
     }
 
+    @discardableResult
+    public mutating func setTextAlignment(_ alignment: MindMapTextAlignment, on id: UUID) -> Bool {
+        mutateOwningNode(where: { $0.id == id }) { $0.textAlignment = alignment }
+    }
+
+    @discardableResult
+    public mutating func replaceSubtitle(_ subtitle: String, on id: UUID) -> Bool {
+        mutateOwningNode(where: { $0.id == id }) { $0.subtitle = subtitle }
+    }
+
     /// Sets or clears the priority, progress, or flag on one topic.
     /// Other marker ids, including ones this app does not draw, stay on the same array.
     @discardableResult

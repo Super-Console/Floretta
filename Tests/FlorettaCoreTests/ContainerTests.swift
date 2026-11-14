@@ -4,6 +4,20 @@ import XCTest
 final class ContainerTests: XCTestCase {
     private let stamped = Date(timeIntervalSince1970: 1_762_646_400)
 
+    func testOpensExistingFlorettaFixtureWithDefaultTextFields() throws {
+        let repository = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let fixture = repository.appendingPathComponent("docs/reviews/theme-modes/glyph-sample.floretta")
+        let opened = try FlorettaDocumentFile.read(from: fixture, fileAccess: FoundationFileAccess())
+        XCTAssertFalse(opened.package.document.roots.isEmpty)
+        opened.package.document.walkTopics { node in
+            XCTAssertEqual(node.textAlignment, .center)
+            XCTAssertEqual(node.subtitle, "")
+        }
+    }
+
     func testLegacyJSONIsReadableAndNotOverwritten() throws {
         let document = sampleDocument(title: "旧文件")
         let legacy = try FlorettaCodec.encode(document)

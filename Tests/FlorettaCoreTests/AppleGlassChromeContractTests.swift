@@ -149,13 +149,10 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertTrue(empty.contains(".appleGlassChrome(.iconButton)"))
         XCTAssertTrue(empty.contains("inspector.empty.brush"))
 
-        let zen = try slice(editor, from: "private var immersiveExit", until: "private var insertMenu")
-        XCTAssertTrue(zen.contains(".appleGlassChrome(.iconButton)"))
-        XCTAssertTrue(zen.contains("zen.exit"))
-        XCTAssertTrue(zen.contains(".frame(width: 44, height: 44)"))
-        XCTAssertTrue(zen.contains("contentShape(Circle())"))
-        XCTAssertFalse(zen.contains("ultraThinMaterial"))
-        XCTAssertFalse(zen.contains(".blur("))
+        // Zen exits through keyboard/menu/canvas gestures; it must not add
+        // a persistent chrome button over the immersive canvas.
+        XCTAssertFalse(editor.contains("private var immersiveExit"))
+        XCTAssertFalse(editor.contains("zen.exit"))
 
         XCTAssertTrue(editor.contains(".appleGlassChrome(.bottomBarCapsule)"))
         XCTAssertTrue(editor.contains("editor.bottomBar"))

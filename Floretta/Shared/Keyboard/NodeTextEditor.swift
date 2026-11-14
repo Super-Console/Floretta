@@ -7,6 +7,16 @@ import AppKit
 import UIKit
 #endif
 
+private extension MindMapTextAlignment {
+    var nsAlignment: NSTextAlignment {
+        switch self {
+        case .leading: .left
+        case .center: .center
+        case .trailing: .right
+        }
+    }
+}
+
 /// Supplies the font-based height used by node-text vertical centering.
 /// `previousVerticalInset` is explicit so the measurement contract can be
 /// exercised with real prior-inset values; it must never affect the result.
@@ -318,12 +328,12 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         view.layer?.masksToBounds = true
         view.layer?.borderWidth = 0
         view.textContainer?.lineFragmentPadding = 0
-        let style = NodeTextTypography.paragraphStyle()
-        if view.defaultParagraphStyle?.alignment != .center
+        let style = NodeTextTypography.paragraphStyle(alignment: chrome.textAlignment.nsAlignment)
+        if view.defaultParagraphStyle?.alignment != chrome.textAlignment.nsAlignment
             || view.defaultParagraphStyle?.lineBreakMode != .byWordWrapping {
             view.defaultParagraphStyle = style
         }
-        if (view.typingAttributes[.paragraphStyle] as? NSParagraphStyle)?.alignment != .center {
+        if (view.typingAttributes[.paragraphStyle] as? NSParagraphStyle)?.alignment != chrome.textAlignment.nsAlignment {
             var typing = view.typingAttributes
             typing[.paragraphStyle] = style
             view.typingAttributes = typing
@@ -332,8 +342,8 @@ private struct MacNodeTextEditor: NSViewRepresentable {
            storageNeedsCenteredParagraph(storage) {
             storage.addAttribute(.paragraphStyle, value: style, range: NSRange(location: 0, length: storage.length))
         }
-        if !ownsKeys, view.alignment != .center {
-            view.alignment = .center
+        if !ownsKeys, view.alignment != chrome.textAlignment.nsAlignment {
+            view.alignment = chrome.textAlignment.nsAlignment
         }
     }
 
@@ -787,8 +797,8 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
         view.layer.cornerRadius = chrome.cornerRadius
         view.layer.borderWidth = 0
         view.textContainer.lineFragmentPadding = 0
-        let style = NodeTextTypography.paragraphStyle()
-        if (view.typingAttributes[.paragraphStyle] as? NSParagraphStyle)?.alignment != .center {
+        let style = NodeTextTypography.paragraphStyle(alignment: chrome.textAlignment.nsAlignment)
+        if (view.typingAttributes[.paragraphStyle] as? NSParagraphStyle)?.alignment != chrome.textAlignment.nsAlignment {
             var typing = view.typingAttributes
             typing[.paragraphStyle] = style
             view.typingAttributes = typing
@@ -796,8 +806,8 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
         if view.markedTextRange == nil, view.textStorage.length > 0, storageNeedsCenteredParagraph(view.textStorage) {
             view.textStorage.addAttribute(.paragraphStyle, value: style, range: NSRange(location: 0, length: view.textStorage.length))
         }
-        if !ownsKeys, view.textAlignment != .center {
-            view.textAlignment = .center
+        if !ownsKeys, view.textAlignment != chrome.textAlignment.nsAlignment {
+            view.textAlignment = chrome.textAlignment.nsAlignment
         }
     }
 
@@ -1373,9 +1383,9 @@ private extension KeyEvent {
 }
 #endif
 
-/// Shift+Enter belongs to the focused text view so the break lands at the caret.
+/// Enter belongs to the focused system text view so the break lands at the caret.
 enum NodeEditLineBreak {
     static func textViewInsertsLine(for event: KeyEvent) -> Bool {
-        event.key == .enter && event.modifiers.contains(.shift)
+        event.key == .enter && !event.modifiers.contains(.command)
     }
 }

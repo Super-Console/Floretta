@@ -50,6 +50,11 @@ public enum FlorettaMarkdown {
             for node in nodes {
                 let marks = String(repeating: "#", count: max(depth, 1))
                 lines.append("\(marks) \(heading(node))")
+                if !node.subtitle.isEmpty {
+                    for line in node.subtitle.split(separator: "\n", omittingEmptySubsequences: false) {
+                        lines.append("  > \(line)")
+                    }
+                }
                 if !node.note.isEmpty {
                     for line in node.note.split(separator: "\n", omittingEmptySubsequences: false) {
                         lines.append("> \(line)")

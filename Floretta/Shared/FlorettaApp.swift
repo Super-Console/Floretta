@@ -108,6 +108,10 @@ private struct FlorettaCommands: Commands {
                 ForEach([EditorToolbarCommandID.fit, .outline, .mapMode, .focusMode, .immersive, .style], id: \.self) { id in
                     editorCommand(id, actions: editorCommands)
                 }
+                if editorCommands.isZenActive {
+                    Button("退出全屏沉浸") { editorCommands.exitZen?() }
+                        .keyboardShortcut(".", modifiers: .command)
+                }
                 Divider()
                 Button("放大") { editorCommands.zoomIn?() }.keyboardShortcut("+", modifiers: .command).disabled(editorCommands.zoomIn == nil)
                 Button("缩小") { editorCommands.zoomOut?() }.keyboardShortcut("-", modifiers: .command).disabled(editorCommands.zoomOut == nil)
@@ -259,6 +263,8 @@ struct FlorettaEditorMenuActions {
     var zoomIn: (() -> Void)?
     var zoomOut: (() -> Void)?
     var zoomActual: (() -> Void)?
+    var isZenActive = false
+    var exitZen: (() -> Void)?
 }
 
 private struct FlorettaEditorMenuActionsKey: FocusedValueKey {

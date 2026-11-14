@@ -169,6 +169,20 @@ struct DocumentEditor: View {
         #endif
         .modifier(MacEditorWindowTitle(title: documentTitle))
         .zenChrome(session.zen.chrome)
+        .overlay(alignment: .topTrailing) {
+            if session.zen.isActive {
+                Button {
+                    session.exitZen()
+                } label: {
+                    Label("退出全屏沉浸", systemImage: "xmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .accessibilityIdentifier("zen.exit")
+                .padding(.top, 8)
+                .padding(.trailing, 12)
+            }
+        }
         .onChange(of: regionDraftToken) { _, _ in
             syncRegionDrafts()
         }

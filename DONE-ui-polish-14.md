@@ -1,12 +1,14 @@
-STATUS: CODE_FIXED_RUNTIME_PENDING
+STATUS: BLOCKED
 
 # ui-polish-14
 
 ## Current acceptance status (2026-11-14)
 
-- **Edit-path hang — code fix in place, runtime verification pending.** The source-level layout feedback writes are addressed by `WindowChromePass`, `EditingFontSignature`, and `TextCenteringPass`. The user reports macOS UI automation is blocked by TCC authorization, so do not claim the runtime hang is cleared.
-- **Text centering — code fix in place, runtime verification pending.** `TextCenteringPass` applies once per bounds/string; the ≤2pt glyph-to-node center acceptance still needs a successful GUI measurement.
-- GUI-signed macOS and iOS builds passed in the user-provided final log. The follow-up local run passed all 454 `FlorettaTests` (1 skipped, 0 failures), including the localization contract. Status is not DONE until runtime checks are complete.
+- **Edit-path hang — code fix in place, runtime verification blocked.** The source-level layout feedback writes are addressed by `WindowChromePass`, `EditingFontSignature`, and `TextCenteringPass`. No runtime sampling was obtained: the requested `/tmp/dd-uipolish-final/Build/Products/Debug/Floretta-macOS.app` was not launchable through the available background app launcher, and Finder-launching it could be routed to a different, already-running same-bundle app. I did not interact with that process.
+- **CPU/RSS evidence: unavailable, not zero.** Before edit: not measured; edit +10s: not measured; edit +30s: not measured. No app process from the requested artifact reached edit state, so no `sample` or CPU/RSS trend is claimed.
+- **Text centering — code fix in place, runtime verification blocked.** `TextCenteringPass` applies once per bounds/string; no screenshot of the requested app was captured, and the ≤2pt glyph-to-node center criterion remains unmeasured.
+- **Build/test baseline.** User-provided signed macOS and iOS builds passed. Current local macOS `FlorettaTests` run passed 455 tests (1 skipped, 0 failures), including the localization contract and RecentMaps regression; a local generic iOS build also succeeded without launching a simulator.
+- **RecentMaps test-artifact filtering.** `RecentMapsStore` now excludes `FlorettaUITest-*` path components both when remembering a file and when loading older bookmarks. The regression test passed for a test artifact under a simulated `CoreSimulator/.../tmp/FlorettaUITest-.../Documents` path and a same-named real document under `Application Support/Floretta`.
 
 ## Layout-loop code fix (cloud VM, no GUI)
 

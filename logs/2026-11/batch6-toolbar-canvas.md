@@ -25,3 +25,10 @@
 ## 旧文件兼容性
 
 单画布旧 `.floretta` 继续用 formatVersion 1 解析，缺失多画布键时默认为一张画布；只有多画布相关字段非默认时才编码。测试确认旧 JSON 解码、单画布状态和再次编码都成立。
+
+## PR #19 编译修复补记（2026-11-15）
+
+- 新增提交 `0ef96c9`：`DocumentEditor.swift` 的 ViewBuilder 图标选择改为 switch expression，避免分支赋值生成 `Void`；macOS toolbar switch 结果以 `Group` 包裹后设置 accessibility label，修复 switch modifier 类型推断错误。B6 原生菜单图标、文字与快捷键布局保留。
+- macOS `xcodebuild build ... CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' -skipPackagePluginValidation`：`BUILD SUCCEEDED`，构建日志 `grep -c 'error:'` 为 0；未触碰钥匙串。
+- `swift test --package-path FlorettaCore`：393 tests，1 skipped，0 failures。
+- 已 push 到 `origin/feat/toolbar-canvas`；PR #19 已从 draft 改为 ready，未合并。回读时 macOS/iOS 编译、Core 与包体检查仍在运行。

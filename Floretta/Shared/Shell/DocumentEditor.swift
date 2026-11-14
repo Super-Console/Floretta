@@ -343,14 +343,13 @@ struct DocumentEditor: View {
 
     @ViewBuilder
     private func textContextMenuItem(_ item: String) -> some View {
-        let symbol: String
-        switch item {
-        case "剪切": symbol = "scissors"
-        case "拷贝": symbol = "doc.on.doc"
-        case "粘贴": symbol = "doc.on.clipboard"
-        case "全选": symbol = "text.alignleft"
-        case "拷贝样式": symbol = "paintbrush.pointed"
-        default: symbol = "ellipsis"
+        let symbol = switch item {
+        case "剪切": "scissors"
+        case "拷贝": "doc.on.doc"
+        case "粘贴": "doc.on.clipboard"
+        case "全选": "text.alignleft"
+        case "拷贝样式": "paintbrush.pointed"
+        default: "ellipsis"
         }
         let button = Button { runTextCommand(item) } label: {
             Label(text(item), systemImage: symbol)
@@ -1070,12 +1069,14 @@ struct DocumentEditor: View {
             // Pulldowns already wear one plate. A second GlassEffectContainer
             // inside the item publishes another toolbar preference during
             // layout, and that measurement does not converge.
-            switch command.kind {
-            case .button:
-                toolbarControl(id)
-                    .appleGlassChrome(.toolbarFloatingButton)
-            case .pulldown, .submenu:
-                toolbarControl(id)
+            Group {
+                switch command.kind {
+                case .button:
+                    toolbarControl(id)
+                        .appleGlassChrome(.toolbarFloatingButton)
+                case .pulldown, .submenu:
+                    toolbarControl(id)
+                }
             }
             .accessibilityLabel(text(command.title))
         }

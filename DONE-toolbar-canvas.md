@@ -1,4 +1,4 @@
-STATUS: BLOCKED
+STATUS: READY FOR CI
 
 # Batch 6 · toolbar, menus, multi-canvas
 
@@ -30,3 +30,23 @@ STATUS: BLOCKED
 ## 资源与后续
 
 未启动或使用模拟器；`xcrun simctl list devices booted | grep -c Booted` 当前输出 `1`，未关闭未知来源的已启动模拟器。构建使用单一临时目录 `/tmp/dd-batch6`，按清理规则待用户批准后再清理。分支已 push 至 `origin/feat/toolbar-canvas`，draft PR 已创建：[#19](https://github.com/Super-Console/Floretta/pull/19)。macOS GUI 签名构建、iOS build、指定 FlorettaTests 仍待签名阻塞处理后继续；该 PR 不应合并。
+
+## PR #19 CI 编译错误修复（2026-11-15）
+
+- `DocumentEditor.swift:348` 根因：`@ViewBuilder` 函数内的普通 `switch` 分支执行 `symbol = ...` 赋值，赋值表达式产出 `Void`，被 ViewBuilder 当作 View 表达式处理。改为 Swift switch expression 初始化 `symbol`，保留原有所有菜单图标与 B6「左图标 + 文字 + 右快捷键」实现。
+- `DocumentEditor.swift:1080` 根因：对 `switch command.kind` 的 builder 结果直接附加 `.accessibilityLabel(...)`，SwiftUI 将修饰符错误解析到 switch 构造器而非统一的 View。以 `Group` 包裹 switch 结果后再设置 accessibility label；未使用 `AnyView`。
+- macOS 编译验证：执行用户指定的 `xcodebuild build -project Floretta.xcodeproj -scheme Floretta-macOS -destination 'platform=macOS' -derivedDataPath /tmp/dd-batch6 CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' -skipPackagePluginValidation`。结果 `** BUILD SUCCEEDED **`；构建日志 `grep -c 'error:'` = **0**。
+- 构建尾部 10 行：
+  ```text
+  note: Removed stale file '/tmp/dd-batch6/Build/Intermediates.noindex/Floretta.build/Debug/FlorettaQuickLookPreview-macOS.build/FlorettaQuickLookPreview-macOS.appex.xcent.der'
+
+  note: Removed stale file '/tmp/dd-batch6/Build/Intermediates.noindex/Floretta.build/Debug/FlorettaQuickLookThumbnail-macOS.build/FlorettaQuickLookThumbnail-macOS.appex.xcent.der'
+
+  note: Removed stale file '/tmp/dd-batch6/Build/Intermediates.noindex/Floretta.build/Debug/FlorettaShare-macOS.build/FlorettaShare-macOS.appex.xcent'
+
+  note: Removed stale file '/tmp/dd-batch6/Build/Intermediates.noindex/Floretta.build/Debug/FlorettaShare-macOS.build/FlorettaShare-macOS.appex.xcent.der'
+
+  ** BUILD SUCCEEDED **
+  ```
+- `swift test --package-path FlorettaCore`：`Executed 393 tests, with 1 test skipped and 0 failures (0 unexpected)`。
+- 本次未执行 iOS 构建；CI 的 iOS 编译错误同样来自共享 `DocumentEditor.swift`，由上述源代码修复覆盖，但仍以 PR CI 实际结果为最终确认。未合并、未操作钥匙串，未改版本号或预算。

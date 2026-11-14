@@ -472,11 +472,8 @@ final class A24EditorActionSmokeTests: XCTestCase {
         let toolbar = app.descendants(matching: .any)["editor.more"]
         XCTAssertFalse(toolbar.waitForExistence(timeout: 2), "Zen 模式下工具栏仍然可见")
 
-        let canvas = app.descendants(matching: .any)["editor.canvas"]
-        XCTAssertTrue(canvas.waitForExistence(timeout: 5), "Zen 模式下画布不可见")
-        canvas.tap()
         let exit = app.buttons["zen.exit"]
-        XCTAssertTrue(exit.waitForExistence(timeout: 5), "点击画布后没有浮出退出入口")
+        XCTAssertTrue(exit.waitForExistence(timeout: 5), "进入沉浸模式后没有立即显示退出入口")
         exit.tap()
         let restoredToolbar = app.descendants(matching: .any)["editor.more"]
         XCTAssertTrue(restoredToolbar.waitForExistence(timeout: 8), "退出沉浸模式后工具栏没有恢复")

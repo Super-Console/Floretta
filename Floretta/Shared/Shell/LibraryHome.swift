@@ -187,6 +187,9 @@ struct HomeSidebar: View {
             Label(text(row.title(device: device)), systemImage: row.systemImage(device: device))
         }
         .accessibilityIdentifier(row.accessibilityIdentifier)
+        // Keep the row inside the glass column's content area, matching the
+        // Mac sidebar inset so the two platforms stay visually consistent.
+        .sidebarSelectionInset(isSelected: false)
     }
 
     private func perform(_ row: HomeSidebarRow) {

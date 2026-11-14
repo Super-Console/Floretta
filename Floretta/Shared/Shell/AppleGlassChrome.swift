@@ -2,6 +2,9 @@ import SwiftUI
 #if os(macOS)
 import AppKit
 #endif
+#if os(iOS)
+import UIKit
+#endif
 
 /// Official Apple glass for shell and editor chrome.
 ///
@@ -11,14 +14,27 @@ import AppKit
 /// use the path below. `sidebarColumn` is the shared token for the iPad
 /// home sidebar, the Mac home sidebar, and the editor outline.
 ///
-/// API, in order:
-/// 1. SwiftUI `GlassEffectContainer` + `glassEffect(.regular, in:)`. This is
-///    the path the app ships. Deployment is iOS 26 / macOS 26.
+/// Two official implementations are kept side by side and selected by
+/// `GlassChromeConfiguration.renderingStyle` (default `.light`):
+/// - `.light` is the shipped "frosted" Liquid Glass: `GlassEffectContainer`
+///   + `glassEffect(.regular.tint(_:), in:)`, with a system `Material`
+///   underlay that diffuses the background into color blocks and a soft
+///   bottom-edge fade instead of a hard cut.
+/// - `.native` is the system vibrancy material: `NSVisualEffectView`
+///   (macOS) / `UIVisualEffectView` (iOS) with a scene-specific material
+///   (`.sidebar` / `.headerView` / `.hudWindow`) and a matching
+///   `blendingMode`.
+///
+/// API, in order for the `.light` path:
+/// 1. SwiftUI `GlassEffectContainer` + `glassEffect(_:in:)`. Deployment is
+///    iOS 26 / macOS 26. The thin tint is applied through Apple's
+///    `Glass.tint(_:)`; no semi-transparent colour is painted by hand.
 /// 2. The runtime-discovered AppKit glass view when a host cannot apply the
 ///    SwiftUI modifier. `AppleGlassChromePlates` builds it when available.
-/// 3. `NSVisualEffectView`, `blendingMode: .behindWindow`. Bars and the
-///    inspector plate use material `.sidebar`. Segmented controls, icon
-///    buttons, and toolbar buttons use `.underWindowBackground`.
+/// 3. `NSVisualEffectView`, `blendingMode: .behindWindow` as the older-OS
+///    fallback. Bars and the inspector plate use material `.sidebar`.
+///    Segmented controls, icon buttons, and toolbar buttons use
+///    `.underWindowBackground`.
 /// 4. On iOS before Liquid Glass, the system control stays as it is. This
 ///    file does not invent a blur, a frosted fill, or a shadow.
 ///
@@ -79,9 +95,67 @@ enum AppleGlassChromeBackend: String, Equatable {
     }
 }
 
+/// A/B switch between the two official glass implementations.
+/// `.light` (default) is the refined frosted Liquid Glass; `.native` is the
+/// system vibrancy material path. Both implementations stay in this file.
+/// Change the constant below and rebuild to compare them on both platforms.
+enum GlassRenderingStyle: String, CaseIterable, Equatable {
+    case light
+    case native
+}
+
+enum GlassChromeConfiguration {
+    /// Switch location for A/B: set to `.native` for the system-material
+    /// implementation, `.light` for the default frosted implementation.
+    static let renderingStyle: GlassRenderingStyle = .light
+}
+
+/// The three system scenes the `.native` path maps to an Apple material.
+enum GlassNativeScene {
+    case sidebar
+    case header
+    case hud
+}
+
 enum AppleGlassChromeMetrics {
     static let panelCornerRadius: CGFloat = 16
     static let sidebarCornerRadius: CGFloat = 24
+    /// Thin tint for the `.light` glass, applied through `Glass.tint(_:)`.
+    /// It lowers the contrast of content behind the glass so dark text and
+    /// borders no longer read as a "reflection". This is an official glass
+    /// tint, not a hand-filled semi-transparent overlay.
+    static let lightTint = Color.primary.opacity(0.12)
+    /// Height of the soft bottom-edge fade on glass bands. A gradient alpha
+    /// mask only; it does not draw a blur or a colour fill.
+    static let glassBandBottomFadeHeight: CGFloat = 18
+    /// Horizontal inset that keeps the sidebar's selected-row capsule clear
+    /// of the column's rounded edge, so the two arcs never collide.
+    static let sidebarRowInset: CGFloat = 8
+}
+
+extension AppleGlassChromeRole {
+    /// Chrome that reads as a horizontal band over the canvas; its bottom
+    /// edge fades out instead of ending in a hard cut.
+    var fadesBottomEdge: Bool {
+        switch self {
+        case .floatingPanel, .segmentedContainer, .bottomBarCapsule:
+            return true
+        case .inspectorPanel, .sidebarColumn, .iconButton, .toolbarFloatingButton:
+            return false
+        }
+    }
+
+    /// Scene used to pick the `.native` system material on both platforms.
+    var nativeScene: GlassNativeScene {
+        switch self {
+        case .sidebarColumn, .inspectorPanel:
+            return .sidebar
+        case .segmentedContainer, .iconButton, .toolbarFloatingButton:
+            return .header
+        case .floatingPanel, .bottomBarCapsule:
+            return .hud
+        }
+    }
 }
 
 extension View {
@@ -100,6 +174,61 @@ extension View {
         #else
         self
         #endif
+    }
+
+    /// Soft bottom-edge fade for a glass band. Uses only an alpha gradient
+    /// mask (opaque -> clear): no custom blur, no semi-transparent colour
+    /// fill, and the glass itself stays an official Apple material.
+    @ViewBuilder
+    func glassBandBottomFade(_ height: CGFloat, enabled: Bool) -> some View {
+        if enabled {
+            self.modifier(GlassBandBottomFadeModifier(fadeHeight: height))
+        } else {
+            self
+        }
+    }
+
+    /// Native sidebar row inset. Keeps the selected-row capsule inside the
+    /// content area and off the column's rounded edge, removing the second
+    /// arc. Uses `listRowInsets` + `listRowBackground` with a padded,
+    /// continuous shape and a hierarchical system fill — never a
+    /// hand-drawn `.background` on the row content.
+    func sidebarSelectionInset(isSelected: Bool) -> some View {
+        let inset = AppleGlassChromeMetrics.sidebarRowInset
+        return self
+            .listRowInsets(EdgeInsets(top: 0, leading: inset, bottom: 0, trailing: inset))
+            .listRowBackground(
+                Group {
+                    if isSelected {
+                        RoundedRectangle(
+                            cornerRadius: AppleGlassChromeMetrics.sidebarCornerRadius,
+                            style: .continuous
+                        )
+                        .fill(.tertiary)
+                    } else {
+                        Color.clear
+                    }
+                }
+                .padding(.horizontal, inset)
+            )
+    }
+}
+
+private struct GlassBandBottomFadeModifier: ViewModifier {
+    var fadeHeight: CGFloat
+
+    func body(content: Content) -> some View {
+        content.mask {
+            VStack(spacing: 0) {
+                Rectangle().fill(Color.black)
+                LinearGradient(
+                    colors: [.black, .clear],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: fadeHeight)
+            }
+        }
     }
 }
 
@@ -162,12 +291,40 @@ private struct AppleGlassChromePlate<Content: View>: View {
 
     @ViewBuilder
     private func plated<V: View, S: Shape>(_ view: V, shape: S) -> some View {
+        switch GlassChromeConfiguration.renderingStyle {
+        case .light:
+            lightPlated(view, shape: shape)
+                .glassBandBottomFade(
+                    AppleGlassChromeMetrics.glassBandBottomFadeHeight,
+                    enabled: role.fadesBottomEdge
+                )
+        case .native:
+            nativePlated(view, shape: shape)
+                .glassBandBottomFade(
+                    AppleGlassChromeMetrics.glassBandBottomFadeHeight,
+                    enabled: role.fadesBottomEdge
+                )
+        }
+    }
+
+    /// `.light` (default): the refined frosted Liquid Glass.
+    /// - A system `Material` underlay raises the effective blur so the
+    ///   background turns into colour blocks and shapes are unrecognisable.
+    /// - `Glass.tint(_:)` is the thin tint layer that lowers background
+    ///   contrast, stopping dark text / borders reading as a reflection.
+    @ViewBuilder
+    private func lightPlated<V: View, S: Shape>(_ view: V, shape: S) -> some View {
         switch AppleGlassChromeBackend.resolved {
         case .swiftUIGlassEffect:
             #if compiler(>=6.2)
             if #available(iOS 26.0, macOS 26.0, *) {
                 GlassEffectContainer(spacing: CGFloat(0)) {
-                    view.glassEffect(.regular, in: shape)
+                    view
+                        .background(.thinMaterial, in: shape)
+                        .glassEffect(
+                            .regular.tint(AppleGlassChromeMetrics.lightTint),
+                            in: shape
+                        )
                 }
             } else {
                 degraded(view, shape: shape)
@@ -182,11 +339,17 @@ private struct AppleGlassChromePlate<Content: View>: View {
             #else
             degraded(view, shape: shape)
             #endif
-        case .nsVisualEffectView:
+        case .nsVisualEffectView, .unpainted:
             degraded(view, shape: shape)
-        case .unpainted:
-            view
         }
+    }
+
+    /// `.native`: system vibrancy material, selected by scene, with a
+    /// matching blending mode. Kept alongside `.light`, never deleted.
+    @ViewBuilder
+    private func nativePlated<V: View, S: Shape>(_ view: V, shape: S) -> some View {
+        view.background { AppleGlassChromeNativePlate(role: role) }
+            .clipShape(shape)
     }
 
     @ViewBuilder
@@ -211,6 +374,23 @@ extension AppleGlassChromeRole {
         }
     }
 
+    /// `.native` scene -> Apple system material.
+    var nativeMaterial: NSVisualEffectView.Material {
+        switch nativeScene {
+        case .sidebar: .sidebar
+        case .header: .headerView
+        case .hud: .hudWindow
+        }
+    }
+
+    /// `.native` scene -> Apple blending mode.
+    var nativeBlendingMode: NSVisualEffectView.BlendingMode {
+        switch nativeScene {
+        case .sidebar: .behindWindow
+        case .header, .hud: .withinWindow
+        }
+    }
+
     var plateCornerRadius: CGFloat {
         switch self {
         case .inspectorPanel, .floatingPanel:
@@ -224,7 +404,23 @@ extension AppleGlassChromeRole {
         }
     }
 }
+#endif
 
+#if os(iOS)
+extension AppleGlassChromeRole {
+    /// `.native` scene -> Apple `UIBlurEffect` system material (the iOS
+    /// counterpart of `NSVisualEffectView.Material`).
+    var nativeBlurStyle: UIBlurEffect.Style {
+        switch nativeScene {
+        case .sidebar: .systemMaterial
+        case .header: .systemChromeMaterial
+        case .hud: .systemThickMaterial
+        }
+    }
+}
+#endif
+
+#if os(macOS)
 @MainActor
 enum AppleGlassChromePlates {
     // Resolve by name because older macOS SDKs do not declare this AppKit type.
@@ -260,7 +456,9 @@ enum AppleGlassChromePlates {
         view.layer?.masksToBounds = true
     }
 }
+#endif
 
+#if os(macOS)
 @MainActor
 private struct AppleGlassChromeAppKitPlate: NSViewRepresentable {
     var role: AppleGlassChromeRole
@@ -292,6 +490,55 @@ private struct AppleGlassChromeVisualPlate: NSViewRepresentable {
         view.layer?.cornerRadius = role.plateCornerRadius
         view.layer?.cornerCurve = .continuous
         view.layer?.backgroundColor = nil
+    }
+}
+
+/// `.native` implementation on macOS: the system vibrancy view with the
+/// scene-specific material and blending mode.
+@MainActor
+private struct AppleGlassChromeNativePlate: NSViewRepresentable {
+    var role: AppleGlassChromeRole
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        configure(view)
+        return view
+    }
+
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {
+        configure(view)
+    }
+
+    private func configure(_ view: NSVisualEffectView) {
+        view.material = role.nativeMaterial
+        view.blendingMode = role.nativeBlendingMode
+        view.state = .followsWindowActiveState
+        view.wantsLayer = true
+        view.layer?.backgroundColor = nil
+        view.layer?.cornerRadius = role.plateCornerRadius
+        view.layer?.cornerCurve = .continuous
+        view.layer?.masksToBounds = true
+    }
+}
+#endif
+
+#if os(iOS)
+/// `.native` implementation on iOS: the system `UIVisualEffectView` with the
+/// scene-specific `UIBlurEffect` material (Apple's official iOS counterpart
+/// of the `NSVisualEffectView` path above).
+@MainActor
+private struct AppleGlassChromeNativePlate: UIViewRepresentable {
+    var role: AppleGlassChromeRole
+
+    func makeUIView(context: Context) -> UIVisualEffectView {
+        let view = UIVisualEffectView(effect: UIBlurEffect(style: role.nativeBlurStyle))
+        view.backgroundColor = .clear
+        view.clipsToBounds = true
+        return view
+    }
+
+    func updateUIView(_ view: UIVisualEffectView, context: Context) {
+        view.effect = UIBlurEffect(style: role.nativeBlurStyle)
     }
 }
 #endif

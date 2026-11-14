@@ -148,6 +148,9 @@ struct ContentView: View {
             .scrollContentBackground(.hidden)
             .appleGlassChrome(.sidebarColumn)
         } detail: {
+            // Keep the Mac window-toolbar backdrop independent from detail
+            // content. Extending the grid into that region makes its cards
+            // visible through the titlebar's system glass.
             Group {
                 switch library.tab {
                 case .home:
@@ -156,7 +159,6 @@ struct ContentView: View {
                     SettingsView(settings: settings)
                 }
             }
-            .backgroundExtensionEffect()
         }
         #endif
     }

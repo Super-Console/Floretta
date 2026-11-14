@@ -28,13 +28,12 @@ final class EditorChromeContractTests: XCTestCase {
         let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         let leading = try slice(
             source,
-            from: "if session.zen.chrome.showsToolbar",
-            until: "ToolbarItemGroup(placement: .principal)"
+            from: "private var editorToolbar",
+            until: "private var editorEvents"
         )
-        let iosStart = try XCTUnwrap(leading.range(of: "#if os(iOS)"))
-        let iosEnd = try XCTUnwrap(leading.range(of: "#else"))
-        let ios = String(leading[iosStart.lowerBound..<iosEnd.lowerBound])
-        let mac = String(leading[iosEnd.upperBound...])
+        let toolbar = try slice(leading, from: ".toolbar {", until: "#if !os(macOS)")
+        let iosStart = try XCTUnwrap(toolbar.range(of: "#if os(iOS)"))
+        let ios = String(toolbar[iosStart.lowerBound...])
         let spacer = try XCTUnwrap(ios.range(of: "ToolbarSpacer(.fixed, placement: .cancellationAction)"))
         let backItem = String(ios[..<spacer.lowerBound])
         XCTAssertTrue(backItem.contains("ToolbarItem(placement: .cancellationAction)"))
@@ -47,14 +46,15 @@ final class EditorChromeContractTests: XCTestCase {
         XCTAssertFalse(backItem.contains("ultraThinMaterial"))
         XCTAssertFalse(backItem.contains(".blur("))
         XCTAssertTrue(ios.contains(".sharedBackgroundVisibility(.hidden)"))
-        XCTAssertTrue(mac.contains("leadingDocumentChrome"))
+        XCTAssertTrue(source.contains("ToolbarItem(id: \"document.navigation\", placement: .navigation)"))
     }
 
-    func testToolbarFilenameIsNotRepeatedInTheWindowTitle() throws {
+    func testDocumentFilenameUsesTheNativeWindowTitle() throws {
         let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         XCTAssertTrue(source.contains(".navigationTitle(\"\")"))
-        XCTAssertTrue(source.contains(".modifier(MacEditorWindowTitle())"))
-        XCTAssertTrue(source.contains("window.titleVisibility = .hidden"))
+        XCTAssertTrue(source.contains(".modifier(MacEditorWindowTitle(title: documentTitle))"))
+        XCTAssertTrue(source.contains("window.title = title"))
+        XCTAssertTrue(source.contains("window.titleVisibility = .visible"))
     }
 
     /// Window chrome is corrected once, from attachment and representable

@@ -86,6 +86,30 @@ struct DocumentEditor: View {
 
     #if os(macOS)
     @ToolbarContentBuilder
+    private var macToolbarItemsLeading: some CustomizableToolbarContent {
+        ToolbarItem(id: "document.navigation", placement: .navigation) {
+            HStack(spacing: 8) {
+                Button(action: onClose) {
+                    Image(systemName: "chevron.backward")
+                }
+                .accessibilityLabel(text("返回"))
+                .accessibilityIdentifier("basicChain.back")
+                .help(Text(verbatim: text("返回导图列表")))
+
+                Button(action: beginRename) {
+                    Text(verbatim: documentTitle)
+                        .lineLimit(1)
+                }
+                .buttonStyle(.borderless)
+                .help(Text(verbatim: text("为这份导图重新命名")))
+                .accessibilityLabel(documentTitle)
+                .accessibilityHint(text("为这份导图重新命名"))
+                .accessibilityIdentifier("document.title")
+            }
+        }
+    }
+
+    @ToolbarContentBuilder
     private var macToolbarItemsPrimary: some CustomizableToolbarContent {
         macItem(.undo)
         macItem(.redo)
@@ -149,7 +173,7 @@ struct DocumentEditor: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
-        .modifier(MacEditorWindowTitle())
+        .modifier(MacEditorWindowTitle(title: documentTitle))
         .zenChrome(session.zen.chrome)
         .onChange(of: regionDraftToken) { _, _ in
             syncRegionDrafts()
@@ -197,10 +221,6 @@ struct DocumentEditor: View {
                         .accessibilityIdentifier("document.title")
                     }
                     .sharedBackgroundVisibility(.hidden)
-                    #else
-                    ToolbarItem(placement: .cancellationAction) {
-                        leadingDocumentChrome
-                    }
                     #endif
                     #if !os(macOS)
                     ToolbarItemGroup(placement: .principal) {
@@ -260,6 +280,7 @@ struct DocumentEditor: View {
             #if os(macOS)
             .toolbar(id: "floretta.editor") {
                 if session.zen.chrome.showsToolbar {
+                    macToolbarItemsLeading
                     macToolbarItemsPrimary
                     macToolbarItemsInsert
                     macToolbarItemsNavigation
@@ -3320,9 +3341,11 @@ private struct ShortcutsHelpSheet: View {
 }
 
 private struct MacEditorWindowTitle: ViewModifier {
+    let title: String
+
     func body(content: Content) -> some View {
         #if os(macOS)
-        content.background(MacWindowTitleHider())
+        content.background(MacWindowTitleUpdater(title: title))
         #else
         content
         #endif
@@ -3330,12 +3353,15 @@ private struct MacEditorWindowTitle: ViewModifier {
 }
 
 #if os(macOS)
-private struct MacWindowTitleHider: NSViewRepresentable {
+private struct MacWindowTitleUpdater: NSViewRepresentable {
+    let title: String
+
     func makeNSView(context: Context) -> MacWindowTitleView {
-        MacWindowTitleView()
+        MacWindowTitleView(title: title)
     }
 
     func updateNSView(_ nsView: MacWindowTitleView, context: Context) {
+        nsView.title = title
         nsView.applyEditorChrome()
     }
 
@@ -3347,6 +3373,17 @@ private struct MacWindowTitleHider: NSViewRepresentable {
 }
 
 private final class MacWindowTitleView: NSView {
+    var title: String
+
+    init(title: String) {
+        self.title = title
+        super.init(frame: .zero)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
     /// Latches the first correction. Applying it again from layout chases the
     /// title and toolbar mode SwiftUI restores while toolbar items are built.
     private var chromePass = WindowChromePass()
@@ -3358,7 +3395,7 @@ private final class MacWindowTitleView: NSView {
         applyEditorChrome()
     }
 
-    /// The window title stays hidden so the filename lives in the toolbar.
+    /// The document title belongs in the native window-title position.
     /// Icon-only is the editor toolbar's display mode. Each item's `Label`
     /// still carries its title for the overflow menu and the customization panel.
     /// This is not called from `layout()`: that call ran inside
@@ -3367,12 +3404,13 @@ private final class MacWindowTitleView: NSView {
     func applyEditorChrome() {
         guard let window else { return }
         let write = chromePass.applying(
-            titleIsHidden: window.titleVisibility == .hidden,
+            titleIsHidden: window.titleVisibility != .visible,
             hasToolbar: window.toolbar != nil,
             toolbarIsIconOnly: window.toolbar?.displayMode == .iconOnly
         )
+        window.title = title
         if write.hideTitle {
-            window.titleVisibility = .hidden
+            window.titleVisibility = .visible
         }
         if write.forceIconOnly, let toolbar = window.toolbar {
             toolbar.displayMode = .iconOnly

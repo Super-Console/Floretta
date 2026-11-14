@@ -19,6 +19,17 @@ final class MindMapDocumentTests: XCTestCase {
         XCTAssertEqual(reopened.roots[0].textAlignment, .leading)
     }
 
+    func testSubtitleDefaultsEmptyAndPersistsOnlyWhenSet() throws {
+        let document = MindMapDocument(title: "t", roots: [MindMapNode(text: "root")])
+        let oldJSON = try XCTUnwrap(String(data: FlorettaCodec.encode(document), encoding: .utf8))
+        XCTAssertFalse(oldJSON.contains("subtitle"))
+        let oldOpened = try FlorettaCodec.decode(Data(oldJSON.utf8))
+        XCTAssertEqual(oldOpened.roots[0].subtitle, "")
+        var edited = oldOpened
+        XCTAssertTrue(edited.replaceSubtitle("detail", on: edited.roots[0].id))
+        XCTAssertEqual(try FlorettaCodec.decode(FlorettaCodec.encode(edited)).roots[0].subtitle, "detail")
+    }
+
     func testThemeIDRoundTripsWithoutBumpingTheFormat() throws {
         var document = MindMapDocument(
             title: "色",

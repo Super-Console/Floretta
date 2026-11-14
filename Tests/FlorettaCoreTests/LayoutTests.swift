@@ -2,6 +2,19 @@ import FlorettaCore
 import XCTest
 
 final class LayoutTests: XCTestCase {
+    func testEmptySubtitleKeepsLegacyNodeHeightAndSubtitleAddsMeasuredHeight() {
+        let plain = MindMapNode(text: "中心")
+        let empty = MindMapNode(text: "中心", subtitle: "")
+        let subtitle = MindMapNode(text: "中心", subtitle: "说明")
+        func frame(_ node: MindMapNode) -> NodeFrame {
+            LayoutEngine().layout(MindMapDocument(title: "t", roots: [node]))[0]
+        }
+        XCTAssertEqual(frame(plain).size, frame(empty).size)
+        XCTAssertGreaterThan(frame(subtitle).size.height, frame(plain).size.height)
+        XCTAssertEqual(frame(subtitle).subtitle, "说明")
+        XCTAssertEqual(frame(subtitle).subtitleFontSize, frame(subtitle).fontSize * 0.72, accuracy: 0.001)
+    }
+
     func testSingleRootIsCenteredWithCenterStyle() {
         let engine = LayoutEngine()
         let root = MindMapNode(text: "中心")

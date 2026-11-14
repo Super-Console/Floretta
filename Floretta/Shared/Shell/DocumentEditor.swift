@@ -2631,6 +2631,8 @@ private struct StyleInspector: View {
                 .accessibilityIdentifier("inspector.style.borderColor")
             }
             Section(text(InspectorStyleSection.text.titleKey)) {
+                TextField(text("副文本"), text: subtitle)
+                    .accessibilityIdentifier("inspector.style.subtitle")
                 Picker(text("文字对齐"), selection: textAlignment) {
                     Text(verbatim: text("靠左")).tag(MindMapTextAlignment.leading)
                     Text(verbatim: text("居中")).tag(MindMapTextAlignment.center)
@@ -2866,6 +2868,16 @@ private struct StyleInspector: View {
             set: { alignment in
                 guard let nodeID else { return }
                 _ = document.setTextAlignment(alignment, on: nodeID)
+            }
+        )
+    }
+
+    private var subtitle: Binding<String> {
+        Binding(
+            get: { nodeID.flatMap { document.node($0)?.subtitle } ?? "" },
+            set: { value in
+                guard let nodeID else { return }
+                _ = document.replaceSubtitle(value, on: nodeID)
             }
         )
     }

@@ -1872,11 +1872,34 @@ struct InfiniteCanvas: View {
         let showTitle = (pose?.showsText ?? true) && !editing
         if showTitle, CanvasTextLOD.level(onScreenPointSize: pointSize).drawsTitle, textRect.height > 1, textRect.width > 1 {
             let text = styledText(node, pointSize: pointSize)
+            let subtitleHeight = node.subtitle.isEmpty ? 0 : node.subtitleHeight * scale + 2 * scale
+            var titleRect = textRect
+            titleRect.size.height = max(0, textRect.height - subtitleHeight)
             var textLayer = layer
-            textLayer.clip(to: Path(textRect))
+            textLayer.clip(to: Path(titleRect))
             // Same wrap path as MapExport. `draw(at:)` paints the ideal (usually
             // single-line) size and clips mid-glyph; `draw(in:)` wraps to the node.
-            textLayer.draw(text, in: textRect)
+            textLayer.draw(text, in: titleRect)
+            if !node.subtitle.isEmpty, subtitleHeight > 1 {
+                let subtitleRect = CGRect(
+                    x: textRect.minX,
+                    y: titleRect.maxY,
+                    width: textRect.width,
+                    height: min(subtitleHeight, textRect.maxY - titleRect.maxY)
+                )
+                let subtitle = NodeTextTypography.canvasText(
+                    node.subtitle,
+                    lineHeight: appearanceProfile.lineHeight,
+                    familyID: appearanceProfile.fontFamilyID,
+                    nodeDesign: node.fontDesign,
+                    size: CanvasTextScale.onScreenPointSize(fontSize: node.subtitleFontSize, scale: scale)
+                )
+                .foregroundStyle(color(node.textColor).opacity(0.72))
+                .multilineTextAlignment(node.textAlignment.swiftUITextAlignment)
+                var subtitleLayer = layer
+                subtitleLayer.clip(to: Path(subtitleRect))
+                subtitleLayer.draw(subtitle, in: subtitleRect)
+            }
         }
         if pose == nil, detail.drawsText {
             drawFileBadges(node, scale: scale, pointSize: pointSize, in: layer)

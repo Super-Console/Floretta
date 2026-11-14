@@ -150,6 +150,8 @@ public struct MindMapNode: Equatable, Sendable, Identifiable {
     public var markers: [TopicMarker]
     /// Per-topic paragraph alignment. Older files retain the historical centered layout.
     public var textAlignment: MindMapTextAlignment
+    /// Optional secondary line displayed below the primary topic text.
+    public var subtitle: String
 
     public init(
         id: UUID = UUID(),
@@ -167,7 +169,8 @@ public struct MindMapNode: Equatable, Sendable, Identifiable {
         boundaries: [TopicBoundary] = [],
         labels: [String] = [],
         markers: [TopicMarker] = [],
-        textAlignment: MindMapTextAlignment = .center
+        textAlignment: MindMapTextAlignment = .center,
+        subtitle: String = ""
     ) {
         self.id = id
         self.text = text
@@ -185,6 +188,7 @@ public struct MindMapNode: Equatable, Sendable, Identifiable {
         self.labels = labels
         self.markers = markers
         self.textAlignment = textAlignment
+        self.subtitle = subtitle
     }
 }
 
@@ -205,7 +209,7 @@ extension MindMapNode: Codable {
         case boundaries
         case labels
         case markers
-        case textAlignment
+        case textAlignment, subtitle
     }
 
     public init(from decoder: Decoder) throws {
@@ -230,6 +234,7 @@ extension MindMapNode: Codable {
         labels = try container.decodeIfPresent([String].self, forKey: .labels) ?? []
         markers = try container.decodeIfPresent([TopicMarker].self, forKey: .markers) ?? []
         textAlignment = try container.decodeIfPresent(MindMapTextAlignment.self, forKey: .textAlignment) ?? .center
+        subtitle = try container.decodeIfPresent(String.self, forKey: .subtitle) ?? ""
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -263,6 +268,9 @@ extension MindMapNode: Codable {
         }
         if textAlignment != .center {
             try container.encode(textAlignment, forKey: .textAlignment)
+        }
+        if !subtitle.isEmpty {
+            try container.encode(subtitle, forKey: .subtitle)
         }
     }
 }

@@ -657,19 +657,21 @@ struct InfiniteCanvas: View {
         }
     }
 
-    /// Idle read-out of the selected node's painted frame and fill.
-    /// Editing publishes the same identifier from the text view's real background.
+    /// Test-only geometry/color signal on a separate, non-text accessibility element.
     @ViewBuilder
     private var nodeChromeProbe: some View {
-        if keyboard.mode != .edit,
-           let id = keyboard.selectedNodeID,
+        if let id = keyboard.selectedNodeID,
            let frame = placedFrames().first(where: { $0.id == id }) {
+            let editing = keyboard.mode == .edit
             let rect = camera.viewport.viewRect(fromCanvas: frame.frame)
+            let bounds = editing
+                ? NodeEditChrome.editorFrame(node: rect, compositionWidth: compositionWidth)
+                : rect
             NodeChromeProbeBox(
-                value: NodeEditChrome.accessibilityValue(editing: false, fill: frame.fill, size: rect.size)
+                identifier: NodeEditChrome.probeIdentifier(editing: editing, fill: frame.fill)
             )
-            .frame(width: rect.width, height: rect.height)
-            .position(x: rect.midX, y: rect.midY)
+            .frame(width: bounds.width, height: bounds.height)
+            .position(x: bounds.midX, y: bounds.midY)
             .allowsHitTesting(false)
         }
     }
@@ -2024,29 +2026,29 @@ struct InfiniteCanvas: View {
 /// Full-size accessibility box for the idle topic. A text glyph collapses to one pixel,
 /// so XCUI would compare that sliver with the editing field.
 private struct NodeChromeProbeBox: View {
-    var value: String
+    var identifier: String
 
     var body: some View {
         #if os(macOS)
-        MacNodeChromeProbe(value: value)
+        MacNodeChromeProbe(identifier: identifier)
         #else
-        IOSNodeChromeProbe(value: value)
+        IOSNodeChromeProbe(identifier: identifier)
         #endif
     }
 }
 
 #if os(macOS)
 private struct MacNodeChromeProbe: NSViewRepresentable {
-    var value: String
+    var identifier: String
 
     func makeNSView(context: Context) -> NodeChromeProbeNSView {
         let view = NodeChromeProbeNSView()
-        view.probeValue = value
+        view.probeIdentifier = identifier
         return view
     }
 
     func updateNSView(_ nsView: NodeChromeProbeNSView, context: Context) {
-        nsView.probeValue = value
+        nsView.probeIdentifier = identifier
         nsView.publish()
     }
 
@@ -2056,7 +2058,7 @@ private struct MacNodeChromeProbe: NSViewRepresentable {
 }
 
 private final class NodeChromeProbeNSView: NSView {
-    var probeValue = "" {
+    var probeIdentifier = "" {
         didSet { publish() }
     }
 
@@ -2072,22 +2074,18 @@ private final class NodeChromeProbeNSView: NSView {
     func publish() {
         guard bounds.width > 1, bounds.height > 1 else { return }
         setAccessibilityElement(true)
-        setAccessibilityIdentifier(NodeEditChrome.accessibilityIdentifier)
-        setAccessibilityLabel("node")
-        if accessibilityValue() as? String != probeValue {
-            setAccessibilityValue(probeValue)
-        }
+        setAccessibilityIdentifier(probeIdentifier)
         guard let window else { return }
         setAccessibilityFrame(window.convertToScreen(convert(bounds, to: nil)))
     }
 }
 #else
 private struct IOSNodeChromeProbe: UIViewRepresentable {
-    var value: String
+    var identifier: String
 
     func makeUIView(context: Context) -> NodeChromeProbeUIView {
         let view = NodeChromeProbeUIView()
-        view.probeValue = value
+        view.probeIdentifier = identifier
         view.isUserInteractionEnabled = false
         view.backgroundColor = .clear
         view.setContentHuggingPriority(.defaultLow, for: .horizontal)
@@ -2098,7 +2096,7 @@ private struct IOSNodeChromeProbe: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: NodeChromeProbeUIView, context: Context) {
-        uiView.probeValue = value
+        uiView.probeIdentifier = identifier
         uiView.publish()
     }
 
@@ -2108,7 +2106,7 @@ private struct IOSNodeChromeProbe: UIViewRepresentable {
 }
 
 private final class NodeChromeProbeUIView: UIView {
-    var probeValue = "" {
+    var probeIdentifier = "" {
         didSet { publish() }
     }
 
@@ -2120,11 +2118,7 @@ private final class NodeChromeProbeUIView: UIView {
     func publish() {
         guard bounds.width > 1, bounds.height > 1 else { return }
         isAccessibilityElement = true
-        accessibilityIdentifier = NodeEditChrome.accessibilityIdentifier
-        accessibilityLabel = "node"
-        if (accessibilityValue as? String) != probeValue {
-            accessibilityValue = probeValue
-        }
+        accessibilityIdentifier = probeIdentifier
         accessibilityFrame = UIAccessibility.convertToScreenCoordinates(bounds, in: self)
     }
 }
@@ -2134,7 +2128,9 @@ private final class NodeChromeProbeUIView: UIView {
 /// The field keeps the node's fill, type, and frame. One accent stroke is added.
 /// Marked text may widen the field; a line that already fits does not.
 enum NodeEditChrome {
-    static let accessibilityIdentifier = "canvas.node.chrome"
+    static func probeIdentifier(editing: Bool, fill: BranchColor) -> String {
+        "canvas.node.chrome.\(editing ? "edit" : "idle").fill-\(hex(fill).dropFirst())"
+    }
     /// Solid selection stroke. System accent, same corner radius as the node.
     static let selectionStrokeWidth: CGFloat = 2
     /// Matches the canvas title clip (`insetBy(dx: 6, dy: 4)`) so glyphs do not jump.
@@ -2156,35 +2152,6 @@ enum NodeEditChrome {
             Int((min(max(channel, 0), 1) * 255).rounded())
         }
         return String(format: "#%02X%02X%02X", byte(color.red), byte(color.green), byte(color.blue))
-    }
-
-    static func accessibilityValue(editing: Bool, fill: BranchColor, size: CGSize) -> String {
-        let mode = editing ? "edit" : "idle"
-        let width = String(format: "%.2f", Double(size.width))
-        let height = String(format: "%.2f", Double(size.height))
-        return "mode=\(mode);fill=\(hex(fill));w=\(width);h=\(height)"
-    }
-
-    static func fillHex(in value: String) -> String? {
-        token("fill", in: value)
-    }
-
-    static func mode(in value: String) -> String? {
-        token("mode", in: value)
-    }
-
-    static func size(in value: String) -> CGSize? {
-        guard let width = token("w", in: value).flatMap(Double.init),
-              let height = token("h", in: value).flatMap(Double.init) else { return nil }
-        return CGSize(width: width, height: height)
-    }
-
-    private static func token(_ key: String, in value: String) -> String? {
-        for part in value.split(separator: ";") {
-            let pieces = part.split(separator: "=", maxSplits: 1).map(String.init)
-            if pieces.count == 2, pieces[0] == key { return pieces[1] }
-        }
-        return nil
     }
 
     /// One burgundy topic, short enough that the old 88×36 edit field would grow it.

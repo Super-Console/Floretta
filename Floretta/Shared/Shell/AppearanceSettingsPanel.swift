@@ -38,7 +38,7 @@ struct AppearanceSettingsPanel: View {
 
     var body: some View {
         Section(text("外观模式")) {
-            Picker(selection: $settings.appearanceMode) {
+            Picker(text("外观模式"), selection: $settings.appearanceMode) {
                 ForEach(AppearanceMode.allCases, id: \.self) { mode in
                     Text(verbatim: text(mode.titleKey))
                         .tag(mode)
@@ -46,6 +46,7 @@ struct AppearanceSettingsPanel: View {
                 }
             }
             .pickerStyle(.segmented)
+            .labelsHidden()
             .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "mode"))
 
             Picker(text("字体族"), selection: fontFamilyID) {

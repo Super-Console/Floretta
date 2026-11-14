@@ -8,8 +8,8 @@ final class InspectorStyleTests: XCTestCase {
     func testAppearanceModeSectionDoesNotRepeatItsHeadingAsPickerLabel() throws {
         let panel = try repoFile("Floretta/Shared/Shell/AppearanceSettingsPanel.swift")
         let section = try slice(panel, from: "Section(text(\"外观模式\"))", until: "Picker(text(\"字体族\")")
-        XCTAssertTrue(section.contains("Picker(selection: $settings.appearanceMode)"))
-        XCTAssertFalse(section.contains("Picker(text(\"外观模式\")"))
+        XCTAssertTrue(section.contains("Picker(text(\"外观模式\"), selection: $settings.appearanceMode)"))
+        XCTAssertTrue(section.contains(".labelsHidden()"), "the picker keeps its accessible label but hides its repeated visual label")
     }
 
     private let rootID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!

@@ -1,4 +1,5 @@
 import CoreText
+import AppKit
 import XCTest
 @testable import FlorettaCore
 
@@ -41,6 +42,53 @@ final class ThemeFontCascadeTests: XCTestCase {
             ["STSongti-SC-Regular", "STSong", "STSongti-TC-Regular"].contains(chinese),
             "CJK run used \(chinese)"
         )
+    }
+
+    func testDifferentLatinAndCJKFontObjectsShareOneRequestedEditingSignature() throws {
+        let latinName = try XCTUnwrap(ThemeFontCascade.postScriptName(familyID: "eb-garamond", for: "Hello"))
+        let cjkName = try XCTUnwrap(ThemeFontCascade.postScriptName(familyID: "eb-garamond", for: "汉字"))
+        let baseFont = ThemeFontCascade.ctFont(familyID: "eb-garamond", size: 18)
+        let mixedLine = CTLineCreateWithAttributedString(NSAttributedString(
+            string: "Hello 汉字",
+            attributes: [NSAttributedString.Key(kCTFontAttributeName as String): baseFont]
+        ))
+        let mixedFaceNames = (CTLineGetGlyphRuns(mixedLine) as? [CTRun] ?? []).compactMap { run -> String? in
+            let attributes = CTRunGetAttributes(run) as NSDictionary
+            guard let fontObject = attributes[kCTFontAttributeName] else { return nil }
+            let font = fontObject as! CTFont
+            return CTFontCopyPostScriptName(font) as String
+        }
+        XCTAssertTrue(mixedFaceNames.contains(latinName), "Mixed Latin/CJK text must retain a Latin glyph run.")
+        XCTAssertTrue(mixedFaceNames.contains(cjkName), "Mixed Latin/CJK text must resolve a CJK fallback glyph run.")
+
+        let latinFont = try XCTUnwrap(NSFont(name: latinName, size: 18))
+        let cjkFont = try XCTUnwrap(NSFont(name: cjkName, size: 18))
+        XCTAssertFalse(
+            latinFont.isEqual(cjkFont),
+            "The Latin face and CJK cascade face should be distinct font objects for this fallback scenario."
+        )
+
+        let requested = EditingFontSignature(
+            familyID: "eb-garamond",
+            design: "default",
+            size: 18,
+            bold: false,
+            italic: false
+        )
+        var lastAssigned: EditingFontSignature?
+        var writes = 0
+        for _ in 0..<1_000 {
+            // AppKit may resolve this same request to distinct actual faces as
+            // the field's contents switch between Latin and CJK. The latch is
+            // intentionally keyed to the requested rendering signature.
+            let resolvedFont = writes == 0 ? latinFont : cjkFont
+            XCTAssertNotNil(resolvedFont)
+            if EditorLayoutConvergence.shouldAssignFont(requested: requested, lastAssigned: lastAssigned) {
+                writes += 1
+                lastAssigned = requested
+            }
+        }
+        XCTAssertEqual(writes, 1, "Different resolved NSFont objects for one request must not cause repeated assignments.")
     }
 
     func testSystemSerifChineseAlsoUsesSongti() {

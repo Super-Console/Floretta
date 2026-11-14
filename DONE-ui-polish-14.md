@@ -2,12 +2,34 @@ STATUS: BLOCKED
 
 # ui-polish-14
 
+## Deterministic layout-convergence regression tests (2026-11-14)
+
+### Added / strengthened
+
+- `testWindowChromeDoesNotChaseATitleTheLayoutPassRestores`: drives 1,000 identical chrome layout inputs and counts the returned title/toolbar corrections; each must be exactly one. Retains the delayed-toolbar case, proving a toolbar appearing later is written once and then latched.
+- `testRepeatedFontRequestWritesOnceAcrossThousandLayoutsAndRevertsByLastValue`: counts exactly one font assignment for 1,000 identical signatures; a changed size writes once, and changing back writes once more because the implementation compares to the **last assigned signature**, not a set of all signatures.
+- `testDifferentLatinAndCJKFontObjectsShareOneRequestedEditingSignature` (`FlorettaTests` macOS): constructs separate Latin and CJK `NSFont` faces for the same requested family, checks the resolved font objects differ, then verifies repeated use of the unchanged request signature produces one assignment decision. Core logic remains independent of AppKit objects.
+- `testCenteringPassWritesOnceAcrossThousandLayoutsThenOncePerChangedInput`: counts exactly one centering application for 1,000 identical bounds/text inputs; retains checks that changing either text or bounds requests another application and invalid bounds are rejected.
+- `testCenteredInsetDependsOnlyOnFixedGlyphMeasurementNotPreviousInset`: supplies the same fixed glyph-height measurement under two hypothetical prior inset states and requires identical output. This is enabled by the production API taking bounds and measured glyph height only; it does not feed a used rect derived from the returned inset back into the calculation.
+- Font signature variations explicitly cover size, bold, italic, design, and family differences. CJK/Latin fallback faces are covered by the macOS NSFont case above.
+
+### Not covered
+
+- The complete GUI sequence “double-click → edit mode → repeated AppKit/SwiftUI layout passes” is not constructed in a deterministic unit test. It depends on native event routing and a live window/toolbar, and a synthetic test would not reliably reproduce the actual nested layout transaction. The pure gates now have write-count regressions; runtime CPU/RSS and GUI verification remain separately BLOCKED as documented above.
+- No public production interface was changed for testability. The pass structs already expose the input/output gates needed to count writes at their call sites.
+
+### Verification
+
+- `swift test` passed: 369 tests, 1 skipped, 0 failures; the expanded `FlorettaCoreTests.LayoutTests` suite passed all 25 tests. After the final bounds/text write-count strengthening, `swift test --filter LayoutTests` also passed all 25 tests.
+- Latest direct execution of the freshly compiled macOS test bundle passed **457 tests, 1 skipped, 0 failures**, including the distinct Latin/CJK `NSFont` and mixed-script glyph-run assertions. The full `swift test` run passed **369 tests, 1 skipped, 0 failures**; a post-strengthening `swift test --filter LayoutTests` passed all 25 `LayoutTests`.
+- The requested `xcodebuild test ... -derivedDataPath /tmp/dd-verify` compiled the current test target, then Xcode canceled test orchestration because extension signing failed with `errSecInternalComponent`. No assertion failures occurred. Running the already-built test bundle directly via `xcrun xctest /tmp/dd-verify/Build/Products/Debug/FlorettaTests.xctest` provided the 457-test pass above. No alternate signing flags were tried.
+
 ## Current acceptance status (2026-11-14)
 
 - **Edit-path hang — code fix in place, runtime verification blocked.** The source-level layout feedback writes are addressed by `WindowChromePass`, `EditingFontSignature`, and `TextCenteringPass`. No runtime sampling was obtained: the requested `/tmp/dd-uipolish-final/Build/Products/Debug/Floretta-macOS.app` was not launchable through the available background app launcher, and Finder-launching it could be routed to a different, already-running same-bundle app. I did not interact with that process.
 - **CPU/RSS evidence: unavailable, not zero.** Before edit: not measured; edit +10s: not measured; edit +30s: not measured. No app process from the requested artifact reached edit state, so no `sample` or CPU/RSS trend is claimed.
 - **Text centering — code fix in place, runtime verification blocked.** `TextCenteringPass` applies once per bounds/string; no screenshot of the requested app was captured, and the ≤2pt glyph-to-node center criterion remains unmeasured.
-- **Build/test baseline.** User-provided signed macOS and iOS builds passed. Current local macOS `FlorettaTests` run passed 455 tests (1 skipped, 0 failures), including the localization contract and RecentMaps regression; a local generic iOS build also succeeded without launching a simulator.
+- **Build/test baseline.** User-provided signed macOS and iOS builds passed. Before these regression-test edits, local macOS `FlorettaTests` passed 455 tests (1 skipped, 0 failures), including the localization contract and RecentMaps regression; a local generic iOS build also succeeded without launching a simulator. Current core suite passed 369 tests (1 skipped, 0 failures). Current macOS full-suite test execution is separately limited by the Xcode extension-signing failure described above.
 - **RecentMaps test-artifact filtering.** `RecentMapsStore` now excludes `FlorettaUITest-*` path components both when remembering a file and when loading older bookmarks. The regression test passed for a test artifact under a simulated `CoreSimulator/.../tmp/FlorettaUITest-.../Documents` path and a same-named real document under `Application Support/Floretta`.
 
 ## Layout-loop code fix (cloud VM, no GUI)

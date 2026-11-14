@@ -552,7 +552,7 @@ final class LayoutTests: XCTestCase {
         XCTAssertEqual(frames.count, 1000)
     }
 
-    func testRepeatedFontRequestDoesNotWriteAgain() {
+    func testRepeatedFontRequestWritesOnceAcrossThousandLayoutsAndRevertsByLastValue() {
         let requested = EditingFontSignature(
             familyID: "system-serif",
             design: "default",
@@ -562,13 +562,30 @@ final class LayoutTests: XCTestCase {
         )
         var last: EditingFontSignature?
         var writes = 0
-        for _ in 0..<20 {
+        for _ in 0..<1_000 {
             if EditorLayoutConvergence.shouldAssignFont(requested: requested, lastAssigned: last) {
                 writes += 1
                 last = requested
             }
         }
-        XCTAssertEqual(writes, 1)
+        XCTAssertEqual(writes, 1, "An unchanged font signature must cause exactly one field write across 1,000 layouts.")
+
+        let larger = EditingFontSignature(
+            familyID: requested.familyID,
+            design: requested.design,
+            size: requested.size + 1,
+            bold: requested.bold,
+            italic: requested.italic
+        )
+        XCTAssertTrue(EditorLayoutConvergence.shouldAssignFont(requested: larger, lastAssigned: last), "A size change must write the new font.")
+        writes += 1
+        last = larger
+        XCTAssertFalse(EditorLayoutConvergence.shouldAssignFont(requested: larger, lastAssigned: last), "The new signature must latch after its write.")
+
+        XCTAssertTrue(EditorLayoutConvergence.shouldAssignFont(requested: requested, lastAssigned: last), "Returning to the previous signature must write because it differs from the last assigned value.")
+        writes += 1
+        last = requested
+        XCTAssertEqual(writes, 3, "Only initial, changed, and reverted signatures may write.")
 
         let bold = EditingFontSignature(
             familyID: requested.familyID,
@@ -577,22 +594,59 @@ final class LayoutTests: XCTestCase {
             bold: true,
             italic: false
         )
-        XCTAssertTrue(EditorLayoutConvergence.shouldAssignFont(requested: bold, lastAssigned: last))
+        XCTAssertTrue(EditorLayoutConvergence.shouldAssignFont(requested: bold, lastAssigned: last), "A boldness change must produce a new rendering signature.")
+        let italic = EditingFontSignature(
+            familyID: requested.familyID,
+            design: requested.design,
+            size: requested.size,
+            bold: false,
+            italic: true
+        )
+        XCTAssertTrue(EditorLayoutConvergence.shouldAssignFont(requested: italic, lastAssigned: last), "An italic change must produce a new rendering signature.")
+        let otherDesign = EditingFontSignature(
+            familyID: requested.familyID,
+            design: "rounded",
+            size: requested.size,
+            bold: false,
+            italic: false
+        )
+        XCTAssertTrue(EditorLayoutConvergence.shouldAssignFont(requested: otherDesign, lastAssigned: last), "A design change must produce a new rendering signature.")
+        let otherFamily = EditingFontSignature(
+            familyID: "system-sans",
+            design: requested.design,
+            size: requested.size,
+            bold: false,
+            italic: false
+        )
+        XCTAssertTrue(EditorLayoutConvergence.shouldAssignFont(requested: otherFamily, lastAssigned: last), "A family change must produce a new rendering signature.")
     }
 
-    func testCenteringPassWritesOncePerBoundsAndString() {
+    func testCenteringPassWritesOnceAcrossThousandLayoutsThenOncePerChangedInput() {
         var pass = TextCenteringPass.idle
         let bounds = CGSize(width: 72, height: 40)
         var writes = 0
-        for _ in 0..<20 {
+        for _ in 0..<1_000 {
             if pass.shouldApply(to: bounds, text: "中心") {
                 writes += 1
                 pass = TextCenteringPass(bounds: bounds, text: "中心")
             }
         }
-        XCTAssertEqual(writes, 1)
-        XCTAssertTrue(pass.shouldApply(to: bounds, text: "中心主题"))
-        XCTAssertTrue(pass.shouldApply(to: CGSize(width: 80, height: 40), text: "中心"))
+        XCTAssertEqual(writes, 1, "Unchanged bounds and text must trigger one centering write across 1,000 layouts.")
+        var changedInputWrites = 0
+        for (changedBounds, changedText) in [
+            (bounds, "中心主题"),
+            (CGSize(width: 80, height: 40), "中心主题"),
+        ] {
+            if pass.shouldApply(to: changedBounds, text: changedText) {
+                changedInputWrites += 1
+                pass = TextCenteringPass(bounds: changedBounds, text: changedText)
+            }
+            XCTAssertFalse(
+                pass.shouldApply(to: changedBounds, text: changedText),
+                "Each changed bounds/text pair must latch after exactly one centering write."
+            )
+        }
+        XCTAssertEqual(changedInputWrites, 2, "One text change and one bounds change must cause exactly two additional writes.")
         XCTAssertFalse(pass.shouldApply(to: CGSize(width: 0, height: 40), text: "中心"))
     }
 
@@ -603,6 +657,25 @@ final class LayoutTests: XCTestCase {
         XCTAssertEqual(EditorLayoutConvergence.centeredVerticalInset(boundsHeight: .nan, glyphHeight: 18), 0)
         XCTAssertFalse(EditorLayoutConvergence.shouldWriteVerticalInset(current: 11, proposed: 11.4))
         XCTAssertTrue(EditorLayoutConvergence.shouldWriteVerticalInset(current: 11, proposed: 12))
+    }
+
+    func testCenteredInsetDependsOnlyOnFixedGlyphMeasurementNotPreviousInset() {
+        let fixedUsedRectHeight: CGFloat = 18
+        let measuredWithPriorInsetZero = EditorLayoutConvergence.centeredVerticalInset(
+            boundsHeight: 40,
+            glyphHeight: fixedUsedRectHeight
+        )
+        let measuredWithPriorInsetTwenty = EditorLayoutConvergence.centeredVerticalInset(
+            boundsHeight: 40,
+            glyphHeight: fixedUsedRectHeight
+        )
+
+        XCTAssertEqual(measuredWithPriorInsetZero, 11)
+        XCTAssertEqual(
+            measuredWithPriorInsetTwenty,
+            measuredWithPriorInsetZero,
+            "A fixed glyph measurement must produce the same inset regardless of the previously applied inset."
+        )
     }
 
     /// The old recurrence measured a used rect that grew with the inset, so the
@@ -643,13 +716,13 @@ final class LayoutTests: XCTestCase {
         var pass = WindowChromePass()
         var hides = 0
         var modes = 0
-        for _ in 0..<20 {
+        for _ in 0..<1_000 {
             let write = pass.applying(titleIsHidden: false, hasToolbar: true, toolbarIsIconOnly: false)
             if write.hideTitle { hides += 1 }
             if write.forceIconOnly { modes += 1 }
         }
-        XCTAssertEqual(hides, 1)
-        XCTAssertEqual(modes, 1)
+        XCTAssertEqual(hides, 1, "The title correction must be written once across 1,000 layout passes.")
+        XCTAssertEqual(modes, 1, "The toolbar mode correction must be written once across 1,000 layout passes.")
 
         var waiting = WindowChromePass()
         let beforeToolbar = waiting.applying(titleIsHidden: false, hasToolbar: false, toolbarIsIconOnly: false)

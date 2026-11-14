@@ -83,6 +83,8 @@ struct DocumentEditor: View {
     @State private var regionStrokeDraft = ""
     @FocusState private var regionMetric: RegionMetric?
     @State private var topicCensus = TopicCensusModel()
+    @State private var isExitAffordanceRevealed = false
+    @State private var exitAffordanceTask: Task<Void, Never>?
 
     #if os(macOS)
     @ToolbarContentBuilder
@@ -169,6 +171,25 @@ struct DocumentEditor: View {
         #endif
         .modifier(MacEditorWindowTitle(title: documentTitle))
         .zenChrome(session.zen.chrome)
+        .overlay(alignment: .topTrailing) {
+            if session.zen.isActive && isExitAffordanceRevealed {
+                Button {
+                    hideZenExitAffordance()
+                    session.exitZen()
+                } label: {
+                    Label("退出全屏沉浸", systemImage: "xmark")
+                }
+                .appleGlassChrome(.toolbarFloatingButton)
+                .accessibilityIdentifier("zen.exit")
+                .padding(.top, 8)
+                .padding(.trailing, 12)
+            }
+        }
+        .onChange(of: session.zen.isActive) { _, isActive in
+            if !isActive {
+                hideZenExitAffordance()
+            }
+        }
         .onChange(of: regionDraftToken) { _, _ in
             syncRegionDrafts()
         }
@@ -545,6 +566,12 @@ struct DocumentEditor: View {
                 onChromeCommand: handleChromeCommand
             )
             .ignoresSafeArea(edges: .all)
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    guard session.zen.isActive else { return }
+                    revealZenExitAffordance()
+                }
+            )
             if showOutline, session.zen.chrome.showsSidebar {
                 outlinePanel
                     .frame(width: outlineWide ? nil : 300)
@@ -588,6 +615,23 @@ struct DocumentEditor: View {
             .safeAreaPadding(.bottom)
             .accessibilityIdentifier("editor.bottomBar")
         }
+    }
+
+    private func revealZenExitAffordance() {
+        exitAffordanceTask?.cancel()
+        isExitAffordanceRevealed = true
+        exitAffordanceTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            isExitAffordanceRevealed = false
+            exitAffordanceTask = nil
+        }
+    }
+
+    private func hideZenExitAffordance() {
+        exitAffordanceTask?.cancel()
+        exitAffordanceTask = nil
+        isExitAffordanceRevealed = false
     }
 
     /// One row of sheet titles. Only the visible canvas is mounted, so switching

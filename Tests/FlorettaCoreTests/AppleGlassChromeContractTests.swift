@@ -149,10 +149,17 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertTrue(empty.contains(".appleGlassChrome(.iconButton)"))
         XCTAssertTrue(empty.contains("inspector.empty.brush"))
 
-        // Zen exits through keyboard/menu/canvas gestures; it must not add
-        // a persistent chrome button over the immersive canvas.
+        // Zen exit is hidden by default and floats out only after a canvas tap;
+        // the immersive canvas must not have a persistent chrome button.
         XCTAssertFalse(editor.contains("private var immersiveExit"))
-        XCTAssertFalse(editor.contains("zen.exit"))
+        let zenExit = try slice(
+            editor,
+            from: ".overlay(alignment: .topTrailing)",
+            until: ".onChange(of: regionDraftToken)"
+        )
+        XCTAssertTrue(zenExit.contains("if session.zen.isActive && isExitAffordanceRevealed"))
+        XCTAssertTrue(zenExit.contains("accessibilityIdentifier(\"zen.exit\")"))
+        XCTAssertTrue(zenExit.contains(".appleGlassChrome(.toolbarFloatingButton)"))
 
         XCTAssertTrue(editor.contains(".appleGlassChrome(.bottomBarCapsule)"))
         XCTAssertTrue(editor.contains("editor.bottomBar"))

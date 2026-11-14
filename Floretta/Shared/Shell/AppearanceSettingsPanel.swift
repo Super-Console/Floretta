@@ -38,7 +38,7 @@ struct AppearanceSettingsPanel: View {
 
     var body: some View {
         Section(text("外观模式")) {
-            Picker(text("外观模式"), selection: $settings.appearanceMode) {
+            Picker(selection: $settings.appearanceMode) {
                 ForEach(AppearanceMode.allCases, id: \.self) { mode in
                     Text(verbatim: text(mode.titleKey))
                         .tag(mode)

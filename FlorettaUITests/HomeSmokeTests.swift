@@ -71,14 +71,19 @@ final class HomeSmokeTests: XCTestCase {
         let title = app.buttons["document.title"]
         XCTAssertTrue(title.waitForExistence(timeout: 5), "编辑器标题不存在")
 
-        let viewPicker = app.descendants(matching: .any)["statusBar.views"]
-        XCTAssertTrue(viewPicker.waitForExistence(timeout: 5), "画布/聚焦视图切换器不存在")
-        XCTAssertTrue(viewPicker.isEnabled, "画布/聚焦视图切换器不可用")
-        let viewButtons = viewPicker.buttons
-        XCTAssertGreaterThanOrEqual(viewButtons.count, 2, "视图切换器缺少选项")
-        viewButtons.element(boundBy: 1).tap()
+        XCTAssertFalse(app.descendants(matching: .any)["canvas.tabs"].exists, "单画布文档不应显示画布切换器")
+        var more = app.descendants(matching: .any)["editor.more"]
+        XCTAssertTrue(more.waitForExistence(timeout: 5), "更多菜单入口不存在")
+        more.tap()
+        let focusMode = app.buttons["view.mode.focus"]
+        XCTAssertTrue(focusMode.waitForExistence(timeout: 5), "更多菜单没有聚焦模式入口")
+        focusMode.tap()
         XCTAssertTrue(title.waitForExistence(timeout: 5), "切换视图后编辑器标题消失")
-        viewButtons.element(boundBy: 0).tap()
+        more = app.descendants(matching: .any)["editor.more"]
+        more.tap()
+        let mapMode = app.buttons["view.mode.map"]
+        XCTAssertTrue(mapMode.waitForExistence(timeout: 5), "更多菜单没有地图模式入口")
+        mapMode.tap()
         XCTAssertTrue(title.waitForExistence(timeout: 5), "切回画布后编辑器标题消失")
 
         let insert = app.descendants(matching: .any)["editor.insert"]
@@ -96,7 +101,7 @@ final class HomeSmokeTests: XCTestCase {
         app.buttons["insert.region"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["editor.canvas"].exists, "插入专区后画布消失")
 
-        var more = app.descendants(matching: .any)["editor.more"]
+        more = app.descendants(matching: .any)["editor.more"]
         XCTAssertTrue(more.waitForExistence(timeout: 5), "更多菜单入口不存在")
         more.tap()
         let theme = app.buttons["theme.menu"]
@@ -119,6 +124,8 @@ final class HomeSmokeTests: XCTestCase {
         XCTAssertTrue(closeOutline.waitForExistence(timeout: 5), "更多菜单中没有关闭大纲的入口")
         closeOutline.tap()
         XCTAssertFalse(app.descendants(matching: .any)["editor.outline"].exists, "关闭大纲后面板仍然存在")
+        more = app.descendants(matching: .any)["editor.more"]
+        more.tap()
         let addCanvas = app.buttons["canvas.tab.add"]
         XCTAssertTrue(addCanvas.waitForExistence(timeout: 5), "编辑器中没有新建画布入口")
         XCTAssertTrue(addCanvas.isEnabled, "新建画布入口不可用")
@@ -146,10 +153,11 @@ final class HomeSmokeTests: XCTestCase {
         XCTAssertTrue(newMap.waitForExistence(timeout: 15), "首页没有「新建导图」")
         newMap.tap()
 
-        let firstCanvas = app.buttons["canvas.tab.0"]
-        XCTAssertTrue(firstCanvas.waitForExistence(timeout: 8), "新文档没有第一张画布标签")
-        XCTAssertTrue(firstCanvas.isSelected, "新文档应默认显示第一张画布")
+        XCTAssertFalse(app.descendants(matching: .any)["canvas.tabs"].exists, "单画布文档不应显示画布切换器")
 
+        let more = app.descendants(matching: .any)["editor.more"]
+        XCTAssertTrue(more.waitForExistence(timeout: 5), "更多菜单入口不存在")
+        more.tap()
         let addCanvas = app.buttons["canvas.tab.add"]
         XCTAssertTrue(addCanvas.waitForExistence(timeout: 5), "编辑器中没有新建画布入口")
         XCTAssertTrue(addCanvas.isEnabled, "新建画布入口不可用")
@@ -159,6 +167,9 @@ final class HomeSmokeTests: XCTestCase {
         XCTAssertTrue(secondCanvas.waitForExistence(timeout: 5), "新增画布没有出现在标签栏")
         XCTAssertTrue(secondCanvas.isSelected, "新增画布后没有切换到新画布")
 
+        let firstCanvas = app.buttons["canvas.tab.0"]
+        XCTAssertTrue(firstCanvas.waitForExistence(timeout: 5), "多画布后第一张画布标签没有出现")
+        XCTAssertFalse(firstCanvas.isSelected, "新建后第二张画布应保持选中")
         firstCanvas.tap()
         XCTAssertTrue(firstCanvas.isSelected, "点击第一张画布后选择状态没有切换")
         XCTAssertFalse(secondCanvas.isSelected, "切回第一张后第二张仍被标记为选中")

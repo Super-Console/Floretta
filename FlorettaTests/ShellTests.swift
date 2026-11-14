@@ -317,6 +317,58 @@ final class ShellTests: XCTestCase {
         XCTAssertFalse(library.recents.contains { $0.filename == "other.txt" })
     }
 
+    func testRecentMapsExcludeUITestTemporaryDocumentsAndKeepUserDocuments() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let testDocuments = root
+            .appendingPathComponent("CoreSimulator/Devices/device/data/tmp", isDirectory: true)
+            .appendingPathComponent("FlorettaUITest-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("Documents", isDirectory: true)
+        try FileManager.default.createDirectory(at: testDocuments, withIntermediateDirectories: true)
+        let testArtifact = testDocuments.appendingPathComponent("未命名 10.floretta")
+        try Data("test fixture".utf8).write(to: testArtifact)
+
+        let defaults = try freshDefaults()
+        var store = RecentMapsStore(defaults: defaults)
+        let testBookmark = try testArtifact.bookmarkData(
+            options: [],
+            includingResourceValuesForKeys: [.contentModificationDateKey],
+            relativeTo: nil
+        )
+        let legacyTestEntry = RecentMapEntry(
+            id: UUID().uuidString,
+            filename: testArtifact.lastPathComponent,
+            modifiedAt: Date(timeIntervalSince1970: 1_700_000_123),
+            bookmark: testBookmark
+        )
+        defaults.set(try JSONEncoder().encode([legacyTestEntry]), forKey: store.key)
+        XCTAssertTrue(store.load().isEmpty, "Previously persisted UI-test bookmarks must also be filtered.")
+        try store.remember(
+            testArtifact,
+            clock: ShellFixedClock(instant: Date(timeIntervalSince1970: 1_700_000_123))
+        )
+
+        let library = LibraryModel(
+            settings: AppSettings(defaults: defaults),
+            store: RecentMapsStore(defaults: defaults),
+            documentsDirectory: root
+        )
+        XCTAssertFalse(library.recents.contains { $0.filename == testArtifact.lastPathComponent })
+
+        let userDocuments = root.appendingPathComponent("Application Support/Floretta", isDirectory: true)
+        try FileManager.default.createDirectory(at: userDocuments, withIntermediateDirectories: true)
+        let userDocument = userDocuments.appendingPathComponent("未命名 10.floretta")
+        try Data("user document".utf8).write(to: userDocument)
+        try store.remember(
+            userDocument,
+            clock: ShellFixedClock(instant: Date(timeIntervalSince1970: 1_700_000_124))
+        )
+        library.reload()
+
+        XCTAssertEqual(library.recents.map(\.filename), [userDocument.lastPathComponent])
+    }
+
     func testFileTypesAreOnlyTheSupportedFormats() {
         XCTAssertEqual(
             FlorettaFileTypes.allowedIdentifiers,

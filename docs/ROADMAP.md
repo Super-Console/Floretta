@@ -4,9 +4,9 @@
 
 ## 本轮
 
-- 本轮进度：C1 检查器 AX 树。PR #119 已合入 main `24aa462`，不再复盘。在当前源码的签名 Debug 与未签名 ad-hoc 构建上，正常启动（`home.newMap`，不带 `-FlorettaEditChrome`）的 AX 树都不空，选中态 Style `MINY=94.0` 可读（签名 03:41:14–03:41:27 CST，未签名 03:43:29–03:43:41 CST）。空树只复现于 `-FlorettaEditChrome`（03:41:54–03:42:06 CST，AX 只有菜单栏）。`24aa462` 原树上 Escape / 点击画布会让窗口消失并崩溃（`EXC_BREAKPOINT`，`NSWindow._postWindowNeedsUpdateConstraints`，报告 03:41:29 / 03:43:43 / 03:44:17 / 03:47:04 CST）；根因是检查器 `containerRelativeFrame(.vertical) { length, _ in length }`。去掉该修饰后 Escape 不再崩窗（03:48:17–03:48:26 CST），空态可读：选中态与空态 Style `MINY=94.0`、`FRAME=945.0,94.0,50.0,24.0`（03:48:30–03:48:36 CST），顶栏同样 `94.0`。自动化断言：`scripts/assert-macos-a27-inspector-pin.sh`。详见 `docs/reviews/A27-inspector-pin-mac.md`、`docs/reviews/AX-TREE-MACOS.md`。未改检查单，未改签名配置。
-- 下一步：本变更开独立 PR 后等 Censor 审，不合并。并行待办仍是 Quick Look 扩展包 ID 发布阻塞、`-FlorettaEditChrome` 开窗、补 macOS / iPhone 玻璃截图、音视频 / iPad 蓝牙键盘 / 组字保护的真机验收，以及 FlorettaWeb 自 2026-11-11 04:29:43 CST 之后的同步。
-- 阻塞：1.0(9) 上传因 Quick Look 扩展包 ID 两段后缀 `quicklook.preview` / `quicklook.thumbnail` 被拒。当时构建是 `CURRENT_PROJECT_VERSION = 9`（`811b2f5`，2026-11-10 21:33:57 CST），ID 为 `net.timhuang.floretta.quicklook.preview` 与 `net.timhuang.floretta.quicklook.thumbnail`。其后 PR #90 → main `9885b13`（2026-11-11 01:47:58 CST）改为 `net.timhuang.floretta.qlpreview` / `net.timhuang.floretta.qlthumbnail`，本分支 `project.pbxproj` 仍是这一对；没有成功重传 App Store Connect 的证据，故不能算已交付。另：`-FlorettaEditChrome` 启动后 AX 只有菜单栏（2026-11-13 03:41:54–03:42:06 CST 在 `24aa462` 上复现，与 2026-11-12 19:32:59 CST 相同）。A27 空态在去掉 `containerRelativeFrame` 后已可读，不再列为阻塞。
+- 本轮进度：ui-polish-14（分支 `feat/ui-polish-14`，草稿 PR #1）已落地节点双击布局环的代码修复，并去掉临时 `UIPolishRuntimeTrace`。先前采样是 `layoutSubtreeIfNeeded` 里反复进入 `DocumentEditor.body` → `editorToolbar`，`bodyCount` 上涨而指纹 `stateChanges=none`。修复把窗口标题 / 工具栏 `displayMode` 的写从 `NSView.layout` 改成只做一次，文本框按字体签名和同一尺寸只写一次，工具栏下拉不再套第二层玻璃。另修首页 Recents：过滤 `FlorettaUITest-*` 路径组件，并增加旧书签与真实用户目录的回归测试。当前本地 `FlorettaTests` 为 455 tests、1 skipped、0 failures。详见 `DONE-ui-polish-14.md`。
+- 下一步：单根节点双击进入编辑后连续采样 30 秒 CPU/RSS，并截图测量字形中心误差；当前未启动目标构建，未取得这些数据。
+- 阻塞：运行时验收仍缺，保持 BLOCKED，不合并 PR #1。指定 `/tmp` 构建产物无法由 CuaDriver 的 app-name 路由启动；同 bundle ID 的已运行 `/Applications` 进程二进制不同，为避免触碰它没有用 Finder 启动或发送输入。CPU/RSS 与居中均未测。已验收的旧界面项目本轮没有新的截图。
 
 状态词只用：✅ 已交付 / 🚧 进行中(PR#) / ❌ 缺失 / ⛔ 不做(原因)。证据列只写已存在的 PR、提交、路径或已核验的时间。不得用 ✅ 掩盖未收口项。
 

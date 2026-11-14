@@ -34,9 +34,7 @@ public enum EditorStatusZoomChoice: Hashable, Sendable {
     }
 }
 
-/// Soft fade around the borderless status strip. 8–16pt, no plate or shadow.
 public enum EditorStatusBarChrome: Sendable {
-    public static let featherInset: CGFloat = 12
     public static let controlMinHeight: CGFloat = 44
 }
 
@@ -44,7 +42,6 @@ public enum EditorStatusBarChrome: Sendable {
 /// Topic counts live in the overflow menu via `TopicTitleCensus`. This list does not count text.
 public enum EditorStatusControl: String, Equatable, Sendable {
     case zoomMenu
-    case viewSwitcher
 }
 
 /// How many standalone toolbar buttons fit. Compact widths keep only
@@ -70,7 +67,6 @@ public enum EditorToolbarLayout {
 public enum EditorStatusBarModel {
     public static let controls: [EditorStatusControl] = [
         .zoomMenu,
-        .viewSwitcher,
     ]
 
     /// Writes a menu stop into the chrome percent the editor already displays.

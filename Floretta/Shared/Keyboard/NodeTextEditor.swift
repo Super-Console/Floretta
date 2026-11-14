@@ -7,6 +7,35 @@ import AppKit
 import UIKit
 #endif
 
+/// Supplies the font-based height used by node-text vertical centering.
+/// `previousVerticalInset` is explicit so the measurement contract can be
+/// exercised with real prior-inset values; it must never affect the result.
+enum EditorTextCenteringMeasurement {
+    #if os(macOS)
+    static func glyphHeight(
+        font: NSFont,
+        layoutManager: NSLayoutManager,
+        textContainer: NSTextContainer,
+        previousVerticalInset: CGFloat
+    ) -> CGFloat {
+        _ = previousVerticalInset
+        layoutManager.ensureLayout(for: textContainer)
+        return layoutManager.defaultLineHeight(for: font)
+    }
+    #else
+    static func glyphHeight(
+        font: UIFont,
+        layoutManager: NSLayoutManager,
+        textContainer: NSTextContainer,
+        previousVerticalInset: CGFloat
+    ) -> CGFloat {
+        _ = previousVerticalInset
+        layoutManager.ensureLayout(for: textContainer)
+        return font.lineHeight
+    }
+    #endif
+}
+
 extension KeyModifiers {
     init(_ modifiers: EventModifiers) {
         self = []
@@ -225,15 +254,19 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         }
         if !nsView.hasMarkedText(), !context.coordinator.isComposing.wrappedValue {
             if let nodeChrome {
-                let font = Self.editingFont(nodeChrome, familyID: fontFamilyID)
-                if nsView.font != font {
-                    nsView.font = font
-                }
+                assignEditingFont(nodeChrome, familyID: fontFamilyID, to: nsView)
             } else {
-                let font = ThemeFontCascade.platformFont(familyID: fontFamilyID, nodeDesign: "default", size: fontSize)
-                if nsView.font?.pointSize != font.pointSize {
-                    nsView.font = font
-                }
+                assignEditingFont(
+                    signature: EditingFontSignature(
+                        familyID: fontFamilyID,
+                        design: "default",
+                        size: max(fontSize, 1),
+                        bold: false,
+                        italic: false
+                    ),
+                    font: ThemeFontCascade.platformFont(familyID: fontFamilyID, nodeDesign: "default", size: fontSize),
+                    to: nsView
+                )
             }
             if nsView.string != text, !ownsKeys {
                 nsView.string = text
@@ -279,39 +312,75 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         view.textColor = ink
         view.insertionPointColor = ink
         view.focusRingType = .none
-        let font = Self.editingFont(chrome, familyID: fontFamilyID)
-        view.lockedFont = font
-        if view.font != font {
-            view.font = font
-        }
+        assignEditingFont(chrome, familyID: fontFamilyID, to: view)
         view.wantsLayer = true
         view.layer?.cornerRadius = chrome.cornerRadius
         view.layer?.masksToBounds = true
         view.layer?.borderWidth = 0
         view.textContainer?.lineFragmentPadding = 0
         let style = NodeTextTypography.paragraphStyle()
-        view.defaultParagraphStyle = style
-        var typing = view.typingAttributes
-        typing[.paragraphStyle] = style
-        view.typingAttributes = typing
-        if let storage = view.textStorage, storage.length > 0, !view.hasMarkedText() {
+        if view.defaultParagraphStyle?.alignment != .center
+            || view.defaultParagraphStyle?.lineBreakMode != .byWordWrapping {
+            view.defaultParagraphStyle = style
+        }
+        if (view.typingAttributes[.paragraphStyle] as? NSParagraphStyle)?.alignment != .center {
+            var typing = view.typingAttributes
+            typing[.paragraphStyle] = style
+            view.typingAttributes = typing
+        }
+        if let storage = view.textStorage, storage.length > 0, !view.hasMarkedText(),
+           storageNeedsCenteredParagraph(storage) {
             storage.addAttribute(.paragraphStyle, value: style, range: NSRange(location: 0, length: storage.length))
         }
-        if !ownsKeys {
-            view.alignCenter(nil)
+        if !ownsKeys, view.alignment != .center {
+            view.alignment = .center
         }
         view.publishChromeProbe()
+    }
+
+    /// One font assignment per signature. Comparing `NSFont` stays false after
+    /// AppKit substitutes a fallback for the cascade face, and assigning again
+    /// dirties layout while the editor body is already on the stack.
+    private func assignEditingFont(_ chrome: NodeEditSurface, familyID: String, to view: EditingTextView) {
+        assignEditingFont(
+            signature: EditingFontSignature(
+                familyID: familyID,
+                design: chrome.fontDesign,
+                size: max(chrome.fontSize, 1),
+                bold: chrome.bold,
+                italic: chrome.italic
+            ),
+            font: Self.editingFont(chrome, familyID: familyID),
+            to: view
+        )
+    }
+
+    private func assignEditingFont(signature: EditingFontSignature, font: NSFont, to view: EditingTextView) {
+        guard EditorLayoutConvergence.shouldAssignFont(requested: signature, lastAssigned: view.appliedFontSignature) else {
+            return
+        }
+        view.appliedFontSignature = signature
+        view.lockedFont = font
+        if view.font != font {
+            view.font = font
+        }
+    }
+
+    private func storageNeedsCenteredParagraph(_ storage: NSTextStorage) -> Bool {
+        guard let style = storage.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle else {
+            return true
+        }
+        return style.alignment != .center || style.lineBreakMode != .byWordWrapping
     }
 
     private static func editingFont(_ chrome: NodeEditSurface, familyID: String) -> NSFont {
         let size = max(chrome.fontSize, 1)
         var font = ThemeFontCascade.platformFont(familyID: familyID, nodeDesign: chrome.fontDesign, size: size)
-        if chrome.bold {
-            let descriptor = font.fontDescriptor.withSymbolicTraits(.bold)
-            font = NSFont(descriptor: descriptor, size: size) ?? font
-        }
-        if chrome.italic {
-            let descriptor = font.fontDescriptor.withSymbolicTraits(.italic)
+        if chrome.bold || chrome.italic {
+            var traits = font.fontDescriptor.symbolicTraits
+            if chrome.bold { traits.insert(.bold) }
+            if chrome.italic { traits.insert(.italic) }
+            let descriptor = font.fontDescriptor.withSymbolicTraits(traits)
             font = NSFont(descriptor: descriptor, size: size) ?? font
         }
         return font
@@ -428,6 +497,8 @@ private final class EditingTextView: NSTextView {
     var lockedBackground: NSColor = .clear
     var lockedTextColor: NSColor = .labelColor
     var lockedFont: NSFont?
+    var appliedFontSignature: EditingFontSignature?
+    var centeringPass = TextCenteringPass.idle
     private var applyingChrome = false
 
     override var backgroundColor: NSColor {
@@ -471,7 +542,7 @@ private final class EditingTextView: NSTextView {
         super.backgroundColor = lockedBackground
         super.drawsBackground = lockedBackground.alphaComponent > 0.01
         super.textColor = lockedTextColor
-        if let lockedFont {
+        if let lockedFont, font != lockedFont {
             font = lockedFont
         }
         insertionPointColor = lockedTextColor
@@ -485,15 +556,31 @@ private final class EditingTextView: NSTextView {
             publishChromeProbe()
             return
         }
+        guard centeringPass.shouldApply(to: bounds.size, text: string) else {
+            publishChromeProbe()
+            return
+        }
         guard let layoutManager, let textContainer else {
             publishChromeProbe()
             return
         }
-        layoutManager.ensureLayout(for: textContainer)
-        let used = layoutManager.usedRect(for: textContainer).height
-        let vertical = max(0, (bounds.height - used) / 2)
+        // Latch before the inset write. The write re-enters layout, and a
+        // second pass for the same bounds and string must not write again.
+        centeringPass = TextCenteringPass(bounds: bounds.size, text: string)
+        let font = self.font ?? NSFont.systemFont(ofSize: 12)
+        let glyphHeight = EditorTextCenteringMeasurement.glyphHeight(
+            font: font,
+            layoutManager: layoutManager,
+            textContainer: textContainer,
+            previousVerticalInset: textContainerInset.height
+        )
+        let vertical = EditorLayoutConvergence.centeredVerticalInset(
+            boundsHeight: bounds.height,
+            glyphHeight: glyphHeight
+        )
         let next = NSSize(width: NodeEditChrome.textInset.width, height: vertical)
-        if abs(textContainerInset.width - next.width) > 0.5 || abs(textContainerInset.height - next.height) > 0.5 {
+        if EditorLayoutConvergence.shouldWriteVerticalInset(current: textContainerInset.height, proposed: vertical)
+            || abs(textContainerInset.width - next.width) > 0.5 {
             applyingChrome = true
             textContainerInset = next
             applyingChrome = false
@@ -665,15 +752,19 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
         }
         if uiView.markedTextRange == nil, !context.coordinator.isComposing.wrappedValue {
             if let nodeChrome {
-                let font = Self.editingFont(nodeChrome, familyID: fontFamilyID)
-                if uiView.font != font {
-                    uiView.font = font
-                }
+                assignEditingFont(nodeChrome, familyID: fontFamilyID, to: uiView)
             } else {
-                let font = ThemeFontCascade.platformFont(familyID: fontFamilyID, nodeDesign: "default", size: fontSize)
-                if uiView.font?.pointSize != font.pointSize {
-                    uiView.font = font
-                }
+                assignEditingFont(
+                    signature: EditingFontSignature(
+                        familyID: fontFamilyID,
+                        design: "default",
+                        size: max(fontSize, 1),
+                        bold: false,
+                        italic: false
+                    ),
+                    font: ThemeFontCascade.platformFont(familyID: fontFamilyID, nodeDesign: "default", size: fontSize),
+                    to: uiView
+                )
             }
             if uiView.text != text, !ownsKeys {
                 uiView.text = text
@@ -718,26 +809,56 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
         view.textColor = ink
         view.tintColor = ink
         view.isOpaque = !chrome.hidesFill
-        let font = Self.editingFont(chrome, familyID: fontFamilyID)
-        view.lockedFont = font
-        if view.font != font {
-            view.font = font
-        }
+        assignEditingFont(chrome, familyID: fontFamilyID, to: view)
         view.clipsToBounds = true
         view.layer.cornerRadius = chrome.cornerRadius
         view.layer.borderWidth = 0
         view.textContainer.lineFragmentPadding = 0
         let style = NodeTextTypography.paragraphStyle()
-        var typing = view.typingAttributes
-        typing[.paragraphStyle] = style
-        view.typingAttributes = typing
-        if view.markedTextRange == nil, view.textStorage.length > 0 {
+        if (view.typingAttributes[.paragraphStyle] as? NSParagraphStyle)?.alignment != .center {
+            var typing = view.typingAttributes
+            typing[.paragraphStyle] = style
+            view.typingAttributes = typing
+        }
+        if view.markedTextRange == nil, view.textStorage.length > 0, storageNeedsCenteredParagraph(view.textStorage) {
             view.textStorage.addAttribute(.paragraphStyle, value: style, range: NSRange(location: 0, length: view.textStorage.length))
         }
-        if !ownsKeys {
+        if !ownsKeys, view.textAlignment != .center {
             view.textAlignment = .center
         }
         view.publishChromeProbe()
+    }
+
+    private func assignEditingFont(_ chrome: NodeEditSurface, familyID: String, to view: FlorettaTextView) {
+        assignEditingFont(
+            signature: EditingFontSignature(
+                familyID: familyID,
+                design: chrome.fontDesign,
+                size: max(chrome.fontSize, 1),
+                bold: chrome.bold,
+                italic: chrome.italic
+            ),
+            font: Self.editingFont(chrome, familyID: familyID),
+            to: view
+        )
+    }
+
+    private func assignEditingFont(signature: EditingFontSignature, font: UIFont, to view: FlorettaTextView) {
+        guard EditorLayoutConvergence.shouldAssignFont(requested: signature, lastAssigned: view.appliedFontSignature) else {
+            return
+        }
+        view.appliedFontSignature = signature
+        view.lockedFont = font
+        if view.font != font {
+            view.font = font
+        }
+    }
+
+    private func storageNeedsCenteredParagraph(_ storage: NSTextStorage) -> Bool {
+        guard let style = storage.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle else {
+            return true
+        }
+        return style.alignment != .center || style.lineBreakMode != .byWordWrapping
     }
 
     private static func editingFont(_ chrome: NodeEditSurface, familyID: String) -> UIFont {
@@ -887,6 +1008,8 @@ private final class FlorettaTextView: UITextView {
     var lockedBackground: UIColor = .clear
     var lockedTextColor: UIColor = .label
     var lockedFont: UIFont?
+    var appliedFontSignature: EditingFontSignature?
+    var centeringPass = TextCenteringPass.idle
     private var applyingChrome = false
 
     override var backgroundColor: UIColor? {
@@ -904,7 +1027,7 @@ private final class FlorettaTextView: UITextView {
         guard locksChrome else { return ok }
         super.backgroundColor = lockedBackground
         super.textColor = lockedTextColor
-        if let lockedFont {
+        if let lockedFont, font != lockedFont {
             font = lockedFont
         }
         tintColor = lockedTextColor
@@ -917,9 +1040,22 @@ private final class FlorettaTextView: UITextView {
             publishChromeProbe()
             return
         }
-        layoutManager.ensureLayout(for: textContainer)
-        let used = layoutManager.usedRect(for: textContainer).height
-        let vertical = max(0, (bounds.height - used) / 2)
+        guard centeringPass.shouldApply(to: bounds.size, text: text) else {
+            publishChromeProbe()
+            return
+        }
+        centeringPass = TextCenteringPass(bounds: bounds.size, text: text)
+        let font = self.font ?? UIFont.systemFont(ofSize: 12)
+        let glyphHeight = EditorTextCenteringMeasurement.glyphHeight(
+            font: font,
+            layoutManager: layoutManager,
+            textContainer: textContainer,
+            previousVerticalInset: textContainerInset.top
+        )
+        let vertical = EditorLayoutConvergence.centeredVerticalInset(
+            boundsHeight: bounds.height,
+            glyphHeight: glyphHeight
+        )
         let next = UIEdgeInsets(
             top: vertical,
             left: NodeEditChrome.textInset.width,
@@ -927,7 +1063,8 @@ private final class FlorettaTextView: UITextView {
             right: NodeEditChrome.textInset.width
         )
         let current = textContainerInset
-        if abs(current.top - next.top) > 0.5 || abs(current.left - next.left) > 0.5 {
+        if EditorLayoutConvergence.shouldWriteVerticalInset(current: current.top, proposed: vertical)
+            || abs(current.left - next.left) > 0.5 {
             applyingChrome = true
             textContainerInset = next
             applyingChrome = false

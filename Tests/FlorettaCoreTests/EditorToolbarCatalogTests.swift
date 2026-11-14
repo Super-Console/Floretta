@@ -115,6 +115,9 @@ final class EditorToolbarCatalogTests: XCTestCase {
         XCTAssertTrue(EditorToolbarCatalog.addableToolbarItems.contains(.region))
         XCTAssertFalse(EditorToolbarCatalog.menu(.more).contains(.viewMode))
         XCTAssertFalse(EditorToolbarCatalog.menu(.more).contains(.newCanvas))
+        for id in [EditorToolbarCommandID.viewMode, .mapMode, .focusMode, .newCanvas] {
+            XCTAssertEqual(EditorToolbarCatalog.command(id).customization, .menuOnly, id.rawValue)
+        }
         XCTAssertFalse(EditorToolbarCatalog.defaultToolbarItems.contains(.summary))
         for id in EditorToolbarCatalog.addableToolbarItems {
             XCTAssertEqual(EditorToolbarCatalog.command(id).customization, .addable)
@@ -151,9 +154,21 @@ final class EditorToolbarCatalogTests: XCTestCase {
         XCTAssertTrue(editor.contains("camera.chrome.zoomPercent"))
         XCTAssertEqual(editor.components(separatedBy: "canEnclose(").count - 1, 1)
         XCTAssertTrue(editor.contains("private func linkCommandMenu"))
-        XCTAssertTrue(editor.contains("private func viewModeCommandMenu"))
-        for id in EditorToolbarCatalog.defaultToolbarItems + EditorToolbarCatalog.addableToolbarItems {
+        XCTAssertFalse(editor.contains("private func viewModeCommandMenu"))
+        XCTAssertTrue(editor.contains("overflowAlwaysCommandButton(.mapMode)"))
+        XCTAssertTrue(editor.contains("overflowAlwaysCommandButton(.focusMode)"))
+        XCTAssertTrue(editor.contains("overflowAlwaysCommandButton(.newCanvas)"))
+        // Insert stays in the overflow menu. A toolbar `macItem(.insert)` is the
+        // separate plus button this polish removed.
+        let macToolbarIDs = (EditorToolbarCatalog.defaultToolbarItems + EditorToolbarCatalog.addableToolbarItems)
+            .filter { $0 != .insert }
+        for id in macToolbarIDs {
             XCTAssertTrue(editor.contains("macItem(.\(id.rawValue))"), id.rawValue)
+        }
+        XCTAssertFalse(editor.contains("macItem(.insert)"))
+        XCTAssertTrue(editor.contains("insertOverflowSubmenu"))
+        for id in [EditorToolbarCommandID.viewMode, .mapMode, .focusMode, .newCanvas] {
+            XCTAssertFalse(editor.contains("macItem(.\(id.rawValue))"), id.rawValue)
         }
         for id in EditorToolbarCatalog.menu(.share) {
             XCTAssertFalse(editor.contains("macItem(.\(id.rawValue))"), id.rawValue)

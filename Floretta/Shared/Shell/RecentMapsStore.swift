@@ -25,10 +25,15 @@ struct RecentMapsStore {
 
     func load() -> [RecentMapEntry] {
         guard let data = defaults.data(forKey: key) else { return [] }
-        return (try? JSONDecoder().decode([RecentMapEntry].self, from: data)) ?? []
+        let entries = (try? JSONDecoder().decode([RecentMapEntry].self, from: data)) ?? []
+        return entries.filter { entry in
+            guard let url = resolve(entry.bookmark) else { return true }
+            return !Self.isUITestArtifact(url)
+        }
     }
 
     mutating func remember(_ url: URL, clock: any ClockPort) throws {
+        guard !Self.isUITestArtifact(url) else { return }
         let accessed = url.startAccessingSecurityScopedResource()
         defer {
             if accessed { url.stopAccessingSecurityScopedResource() }
@@ -110,5 +115,15 @@ struct RecentMapsStore {
             includingResourceValuesForKeys: [.contentModificationDateKey],
             relativeTo: nil
         )
+    }
+
+    /// UI-test documents live under an isolated `FlorettaUITest-<UUID>` root.
+    /// Match a path component, not a filename, so real documents named “未命名”
+    /// and user-selected directories remain eligible for Recents.
+    private static func isUITestArtifact(_ url: URL) -> Bool {
+        url.standardizedFileURL
+            .resolvingSymlinksInPath()
+            .pathComponents
+            .contains { $0.hasPrefix("FlorettaUITest-") }
     }
 }

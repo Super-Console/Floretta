@@ -139,7 +139,8 @@ struct InfiniteCanvas: View {
     }
 
     private var canvasTimeline: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !petal.isPlaying)) { timeline in
+        let isPetalPlaying = petal.isPlaying
+        return TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !isPetalPlaying)) { timeline in
             Canvas { context, size in
                 let perf = CanvasPerfRun.beginDraw()
                 draw(in: context, size: size, at: timeline.date.timeIntervalSinceReferenceDate)
@@ -190,6 +191,18 @@ struct InfiniteCanvas: View {
                     interaction.selectedNodeID = keyboard.selectedNodeID
                 }
                 camera.viewSize = size
+                if document.roots.count == 1,
+                   let rootID = document.roots.first?.id,
+                   let rootFrame = placedFrames().first(where: { $0.id == rootID }) {
+                    // A single-root document always opens centered, even when it has a
+                    // persisted pan. Defer until DocumentEditor's camera restoration has
+                    // completed, then center without adding another state write.
+                    Task { @MainActor in
+                        await Task.yield()
+                        guard document.roots.count == 1 else { return }
+                        camera.centerOn(rootFrame.frame)
+                    }
+                }
                 publishBounds()
                 camera.chrome.syncZoomPercent(toScale: camera.viewport.scale)
                 refreshThumbnails()
@@ -293,61 +306,70 @@ struct InfiniteCanvas: View {
 
     private var canvasDoubleTapGesture: some Gesture {
         SpatialTapGesture(count: 2).onEnded { value in
-            if EditFieldGuard.ignoresCanvasTap(
-                at: value.location,
-                editFrame: editFieldFrame(),
-                isComposing: keyboard.isComposing
-            ) { return }
-            let point = camera.viewport.canvasPoint(fromView: value.location)
-            if let id = stickyHit(at: point) {
-                beginStickyEdit(id)
-                return
+            let location = value.location
+            DispatchQueue.main.async {
+                handleCanvasDoubleTap(at: location)
             }
-            if previewFile(at: point) { return }
-            if let hit = CanvasPlacement.nodeID(at: point, in: layoutSource()) {
-                beginEditing(hit)
-                return
-            }
-            if let summaryID = summaryHit(at: point) {
-                if keyboard.mode == .edit, keyboard.selectedSummaryID != summaryID {
-                    keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
-                }
-                beginSummaryEdit(summaryID)
-                return
-            }
-            if let relationshipID = relationshipHit(at: point) {
-                if keyboard.mode == .edit, keyboard.selectedRelationshipID != relationshipID {
-                    keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
-                }
-                beginRelationshipEdit(relationshipID)
-                return
-            }
-            if let boundaryID = boundaryHit(at: point) {
-                if keyboard.mode == .edit, keyboard.selectedBoundaryID != boundaryID {
-                    keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
-                }
-                beginBoundaryEdit(boundaryID)
-                return
-            }
-            if let regionID = regionHit(at: point),
-               CanvasPlacement.nodeID(at: point, in: layoutSource()) == nil {
-                if keyboard.mode == .edit, keyboard.selectedRegionID != regionID {
-                    keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
-                }
-                beginRegionEdit(regionID)
-                return
-            }
-            if onConsumeBlankDoubleTap() { return }
-            if focusNodeID != nil { return }
-            if keyboard.mode == .edit {
+        }
+    }
+
+    /// Let AppKit finish the double-click gesture/layout transaction before the
+    /// editor or document state changes invalidate the toolbar's preferences.
+    private func handleCanvasDoubleTap(at location: CGPoint) {
+        if EditFieldGuard.ignoresCanvasTap(
+            at: location,
+            editFrame: editFieldFrame(),
+            isComposing: keyboard.isComposing
+        ) { return }
+        let point = camera.viewport.canvasPoint(fromView: location)
+        if let id = stickyHit(at: point) {
+            beginStickyEdit(id)
+            return
+        }
+        if previewFile(at: point) { return }
+        if let hit = CanvasPlacement.nodeID(at: point, in: layoutSource()) {
+            beginEditing(hit)
+            return
+        }
+        if let summaryID = summaryHit(at: point) {
+            if keyboard.mode == .edit, keyboard.selectedSummaryID != summaryID {
                 keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
             }
-            guard persistsPlacement else { return }
-            let placed = MindMapPoint(x: Double(point.x), y: Double(point.y))
-            if let id = keyboard.addFreeNode(at: placed, document: &document) {
-                keyboard.selectedNodeID = id
-                interaction.selectedNodeID = id
+            beginSummaryEdit(summaryID)
+            return
+        }
+        if let relationshipID = relationshipHit(at: point) {
+            if keyboard.mode == .edit, keyboard.selectedRelationshipID != relationshipID {
+                keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
             }
+            beginRelationshipEdit(relationshipID)
+            return
+        }
+        if let boundaryID = boundaryHit(at: point) {
+            if keyboard.mode == .edit, keyboard.selectedBoundaryID != boundaryID {
+                keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+            }
+            beginBoundaryEdit(boundaryID)
+            return
+        }
+        if let regionID = regionHit(at: point),
+           CanvasPlacement.nodeID(at: point, in: layoutSource()) == nil {
+            if keyboard.mode == .edit, keyboard.selectedRegionID != regionID {
+                keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+            }
+            beginRegionEdit(regionID)
+            return
+        }
+        if onConsumeBlankDoubleTap() { return }
+        if focusNodeID != nil { return }
+        if keyboard.mode == .edit {
+            keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+        }
+        guard persistsPlacement else { return }
+        let placed = MindMapPoint(x: Double(point.x), y: Double(point.y))
+        if let id = keyboard.addFreeNode(at: placed, document: &document) {
+            keyboard.selectedNodeID = id
+            interaction.selectedNodeID = id
         }
     }
 

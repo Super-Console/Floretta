@@ -31,5 +31,5 @@ STATUS: DONE
 ## 交付状态
 
 - 分支：`fix/recents-uitest-visibility`
-- PR：待创建
+- PR：[#4](https://github.com/Super-Console/Floretta/pull/4)，未合并
 - 未合并；未改 LocalAsk、版本号或钥匙串。

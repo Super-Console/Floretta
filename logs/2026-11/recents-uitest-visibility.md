@@ -7,4 +7,5 @@
 - 回归测试：`testRecentMapsKeepUserDocumentNamedUntitledVisible`、`testRecentMapsKeepCurrentUITestRootVisible`、`testRecentMapsExcludeOtherUITestRoots`。
 - 验证：`swift test` 369 tests / 1 skipped / 0 failures；macOS unsigned build 成功；iOS Simulator generic unsigned build 成功（有现存 UIKit/SDK warnings）；macOS `FlorettaTests` 460 tests / 1 skipped / 0 failures。
 - iOS UI 门禁未在此运行，待 Timmy 在 GUI 会话执行 `./scripts/pre-release.sh` 复验。
+- 分支 `fix/recents-uitest-visibility`，提交 `274d801`；PR #4 已创建，未合并。
 - 未启动/关闭模拟器；未触碰 LocalAsk、版本号、钥匙串。

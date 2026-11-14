@@ -1508,10 +1508,11 @@ struct DocumentEditor: View {
 
     private var inspectorBody: some View {
         // The header is an inset, not a sibling of the page. A short page
-        // (演说, or 样式 with nothing selected) used to shrink the stack and
-        // the column centered it, so 「检查器」 and the segments left the top
-        // with the placeholder. The inset keeps a fixed-height header on the
-        // top edge. Only the page below is flexible, and it is what scrolls.
+        // Switching between 演说 / 样式 / 导图 changes page content height. Letting
+        // that height determine this inspector host's alignment made AppKit's shared
+        // toolbar host recenter the window controls over the canvas. The inset keeps
+        // a fixed-height header on the top edge. Only the page below is flexible,
+        // and it is what scrolls.
         inspectorTabPage
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .safeAreaInset(edge: .top, spacing: 12) {

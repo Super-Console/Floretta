@@ -166,7 +166,7 @@ struct ContentView: View {
     #if os(iOS)
     /// The phone shows the recent stack directly. `NavigationSplitView` inside
     /// the tab bar collapses to the sidebar, and that list is not inside the
-    /// `NavigationStack` that carries `.navigationTitle("最近")`.
+    /// `NavigationStack` that carries the project-manager title.
     @ViewBuilder
     private var iosHome: some View {
         switch homeChrome {

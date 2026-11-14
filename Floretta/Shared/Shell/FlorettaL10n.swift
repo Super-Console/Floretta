@@ -43,6 +43,7 @@ enum FlorettaL10n {
 
     static let english: [String: String] = [
         "最近": "Recent",
+        "项目": "Projects",
         "新建导图": "New Map",
         "本地导图": "On This Device",
         "从文件应用打开": "Open from the Files App",

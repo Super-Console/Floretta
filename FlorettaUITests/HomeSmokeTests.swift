@@ -12,7 +12,7 @@ final class HomeSmokeTests: XCTestCase {
         let app = launchHome()
 
         let titleBar = homeTitle(app)
-        XCTAssertTrue(titleBar.waitForExistence(timeout: 15), "首页导航标题「最近」不可见")
+        XCTAssertTrue(titleBar.waitForExistence(timeout: 15), "首页项目管理器标题不可见")
         assertNoDeadRecentRow(app, titleBar: titleBar)
         XCTAssertTrue(app.descendants(matching: .any)["home.recent"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.alerts.element.exists)
@@ -184,7 +184,7 @@ final class HomeSmokeTests: XCTestCase {
     func testHomeUsesSystemTabBarMenuAndSearchNotACapsule() throws {
         let app = launchHome()
         let titleBar = homeTitle(app)
-        XCTAssertTrue(titleBar.waitForExistence(timeout: 15), "首页导航标题「最近」不可见")
+        XCTAssertTrue(titleBar.waitForExistence(timeout: 15), "首页项目管理器标题不可见")
 
         XCTAssertTrue(app.tabBars.buttons["首页"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.tabBars.buttons["设置"].exists)
@@ -200,6 +200,7 @@ final class HomeSmokeTests: XCTestCase {
         XCTAssertTrue(search.isHittable)
 
         XCTAssertTrue(titleBar.buttons["home.newMap"].exists)
+        XCTAssertTrue(titleBar.buttons["home.openFiles"].exists)
         let menu = titleBar.buttons["home.toolbarMenu"]
         XCTAssertTrue(menu.waitForExistence(timeout: 5))
         menu.tap()
@@ -228,7 +229,7 @@ final class HomeSmokeTests: XCTestCase {
 
     @MainActor
     private func homeTitle(_ app: XCUIApplication) -> XCUIElement {
-        app.navigationBars["最近"]
+        app.navigationBars["项目"]
     }
 
     /// The old sidebar row was a button labeled 「最近」. The navigation title
@@ -551,10 +552,7 @@ final class A24EditorActionSmokeTests: XCTestCase {
         for needle in requiredFileText {
             XCTAssertTrue(dataContains(data, needle), "夹具 \(url.path) 缺少「\(needle)」")
         }
-        app.buttons["home.toolbarMenu"].tap()
-        XCTAssertTrue(app.buttons["home.open"].waitForExistence(timeout: 5))
-        app.buttons["home.open"].tap()
-        let openFiles = app.buttons["从文件应用打开"]
+        let openFiles = app.buttons["home.openFiles"]
         XCTAssertTrue(openFiles.waitForExistence(timeout: 5))
         openFiles.tap()
         assertOpenedMap(app, expectedTitle: expectedTitle)

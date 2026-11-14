@@ -162,6 +162,9 @@
 		C8F4070000000000000000 /* AppearanceSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F1220000000000000000 /* AppearanceSettingsTests.swift */; };
 		C8F4050000000000000000 /* ThemeFontCascade.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F1200000000000000000 /* ThemeFontCascade.swift */; };
 		C8F4060000000000000000 /* ThemeFontCascade.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F1200000000000000000 /* ThemeFontCascade.swift */; };
+		C8F4070000000000000000 /* ThemeSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F4070000000000000000 /* ThemeSettings.swift */; };
+		C8F4080000000000000000 /* ThemeSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F4070000000000000000 /* ThemeSettings.swift */; };
+		C8F4090000000000000000 /* ThemeSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F4070000000000000000 /* ThemeSettings.swift */; };
 		CA2100000000000000000001 /* RecentMapsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA2100000000000000000001 /* RecentMapsStore.swift */; };
 		CA2100000000000000000002 /* RecentMapsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA2100000000000000000001 /* RecentMapsStore.swift */; };
 		CA2100000000000000000003 /* RecentMapsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA2100000000000000000001 /* RecentMapsStore.swift */; };
@@ -341,6 +344,7 @@
 		F8F11070000000000000000 /* NotoSerif-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = NotoSerif-OFL.txt; sourceTree = "<group>"; };
 		F8F1200000000000000000 /* ThemeFontCascade.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeFontCascade.swift; sourceTree = "<group>"; };
 		F8F1210000000000000000 /* ThemeFontCascadeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeFontCascadeTests.swift; sourceTree = "<group>"; };
+		F8F4070000000000000000 /* ThemeSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeSettings.swift; sourceTree = "<group>"; };
 		F8F1220000000000000000 /* AppearanceSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettingsTests.swift; sourceTree = "<group>"; };
 		FA2100000000000000000001 /* RecentMapsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentMapsStore.swift; sourceTree = "<group>"; };
 		FA3100000000000000000001 /* DocumentSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentSession.swift; sourceTree = "<group>"; };
@@ -629,6 +633,7 @@
 				FA1100000000000000000001 /* AppSettings.swift */,
 				FA8A00000000000000000001 /* AppearanceSettingsPanel.swift */,
 				F8F1200000000000000000 /* ThemeFontCascade.swift */,
+				F8F4070000000000000000 /* ThemeSettings.swift */,
 				FA5100000000000000000001 /* DocumentEditor.swift */,
 				FA4500000000000000000001 /* EditorStatusBar.swift */,
 				FA4500000000000000000002 /* EditorToolbarChrome.swift */,
@@ -1256,6 +1261,7 @@
 				CA1100000000000000000001 /* AppSettings.swift in Sources */,
 				CA8A00000000000000000001 /* AppearanceSettingsPanel.swift in Sources */,
 				C8F4010000000000000000 /* ThemeFontCascade.swift in Sources */,
+				C8F4070000000000000000 /* ThemeSettings.swift in Sources */,
 				CA2100000000000000000001 /* RecentMapsStore.swift in Sources */,
 				CA3100000000000000000001 /* DocumentSession.swift in Sources */,
 				CA3200000000000000000001 /* MarkdownDocumentUI.swift in Sources */,
@@ -1299,6 +1305,7 @@
 				CA1100000000000000000002 /* AppSettings.swift in Sources */,
 				CA8A00000000000000000002 /* AppearanceSettingsPanel.swift in Sources */,
 				C8F4020000000000000000 /* ThemeFontCascade.swift in Sources */,
+				C8F4080000000000000000 /* ThemeSettings.swift in Sources */,
 				CA2100000000000000000002 /* RecentMapsStore.swift in Sources */,
 				CA3100000000000000000002 /* DocumentSession.swift in Sources */,
 				CA3200000000000000000002 /* MarkdownDocumentUI.swift in Sources */,
@@ -1382,6 +1389,7 @@
 				CA1100000000000000000003 /* AppSettings.swift in Sources */,
 				CA8A00000000000000000003 /* AppearanceSettingsPanel.swift in Sources */,
 				C8F4030000000000000000 /* ThemeFontCascade.swift in Sources */,
+				C8F4090000000000000000 /* ThemeSettings.swift in Sources */,
 				C8F4040000000000000000 /* ThemeFontCascadeTests.swift in Sources */,
 				C8F4070000000000000000 /* AppearanceSettingsTests.swift in Sources */,
 				CA4200000000000000000003 /* LocalDeviceLabel.swift in Sources */,

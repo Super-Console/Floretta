@@ -116,9 +116,9 @@ struct CanvasViewport: Equatable, Sendable {
     /// Gesture end. The scale becomes exactly one `ZoomStop`.
     @MainActor
     mutating func snapToStop(around anchor: CGPoint) {
-        let integerPercent = CGFloat((scale * 100).rounded()) / 100
-        guard integerPercent != scale else { return }
-        zoom(to: integerPercent, around: anchor)
+        let stopScale = ZoomStop.nearest(to: scale).scale
+        guard stopScale != scale else { return }
+        zoom(to: stopScale, around: anchor)
     }
 
     mutating func fit(content: CGRect, in viewSize: CGSize, padding: CGFloat = 48) {

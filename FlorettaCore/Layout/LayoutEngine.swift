@@ -400,10 +400,9 @@ public struct CanvasChrome: Equatable, Sendable {
         activeSheetIndex = index
     }
 
-    /// The chrome percent mirrors the integer-percent viewport scale.
+    /// The chrome percent mirrors the nearest legal interactive zoom stop.
     public mutating func syncZoomPercent(toScale scale: CGFloat) {
-        guard scale.isFinite else { zoomPercent = 100; return }
-        zoomPercent = min(400, max(50, Int((scale * 100).rounded())))
+        zoomPercent = ZoomStop.displayPercent(forScale: scale)
     }
 }
 

@@ -1894,8 +1894,7 @@ struct InfiniteCanvas: View {
                     nodeDesign: node.fontDesign,
                     size: CanvasTextScale.onScreenPointSize(fontSize: node.subtitleFontSize, scale: scale)
                 )
-                .foregroundStyle(color(node.textColor).opacity(0.72))
-                .multilineTextAlignment(node.textAlignment.swiftUITextAlignment)
+                .foregroundColor(color(node.textColor).opacity(0.72))
                 var subtitleLayer = layer
                 subtitleLayer.clip(to: Path(subtitleRect))
                 subtitleLayer.draw(subtitle, in: subtitleRect)
@@ -2008,8 +2007,7 @@ struct InfiniteCanvas: View {
             nodeDesign: node.fontDesign,
             size: pointSize
         )
-            .foregroundStyle(color(node.textColor))
-            .multilineTextAlignment(node.textAlignment.swiftUITextAlignment)
+            .foregroundColor(color(node.textColor))
         if node.bold { text = text.bold() }
         if node.italic { text = text.italic() }
         if node.strikethrough { text = text.strikethrough() }

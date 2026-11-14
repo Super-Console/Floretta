@@ -19,10 +19,10 @@ final class AppleGlassChromeContractTests: XCTestCase {
         let leadingPosition = try XCTUnwrap(macToolbar.range(of: "macToolbarItemsLeading")).lowerBound
         let actionsPosition = try XCTUnwrap(macToolbar.range(of: "macToolbarItemsPrimary")).lowerBound
 
-        XCTAssertTrue(leading.contains("placement: .navigation"), "document title/back must use the leading navigation slot, not the centered principal or trailing action area")
-        XCTAssertTrue(leading.contains("HStack(spacing: 8)"))
+        XCTAssertTrue(leading.contains("placement: .navigation"), "the independent back button uses the leading navigation slot")
         XCTAssertTrue(leading.contains("Button(action: onClose)"))
-        XCTAssertTrue(leading.contains("Button(action: beginRename)"))
+        XCTAssertFalse(leading.contains("HStack"), "the native window title and back button must not share a custom container")
+        XCTAssertFalse(leading.contains("document.title"))
         XCTAssertTrue(sharedToolbar.contains("#if os(iOS)"))
         XCTAssertFalse(sharedToolbar.contains("leadingDocumentChrome"), "the old cancellationAction title/back capsule must not also be installed on macOS")
         XCTAssertLessThan(leadingPosition, actionsPosition)

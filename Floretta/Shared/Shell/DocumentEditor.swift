@@ -90,24 +90,12 @@ struct DocumentEditor: View {
     @ToolbarContentBuilder
     private var macToolbarItemsLeading: some CustomizableToolbarContent {
         ToolbarItem(id: "document.navigation", placement: .navigation) {
-            HStack(spacing: 8) {
-                Button(action: onClose) {
-                    Image(systemName: "chevron.backward")
-                }
-                .accessibilityLabel(text("返回"))
-                .accessibilityIdentifier("basicChain.back")
-                .help(Text(verbatim: text("返回导图列表")))
-
-                Button(action: beginRename) {
-                    Text(verbatim: documentTitle)
-                        .lineLimit(1)
-                }
-                .buttonStyle(.borderless)
-                .help(Text(verbatim: text("为这份导图重新命名")))
-                .accessibilityLabel(documentTitle)
-                .accessibilityHint(text("为这份导图重新命名"))
-                .accessibilityIdentifier("document.title")
+            Button(action: onClose) {
+                Image(systemName: "chevron.backward")
             }
+            .accessibilityLabel(text("返回"))
+            .accessibilityIdentifier("basicChain.back")
+            .help(Text(verbatim: text("返回导图列表")))
         }
     }
 
@@ -817,25 +805,6 @@ struct DocumentEditor: View {
     private func beginRename() {
         renameText = session.document.title
         showRename = true
-    }
-
-    private var leadingDocumentChrome: some View {
-        HStack(spacing: 8) {
-            Button(action: onClose) {
-                Image(systemName: "chevron.backward")
-            }
-            .accessibilityLabel(text("返回"))
-            .accessibilityIdentifier("basicChain.back")
-            .help(Text(verbatim: text("返回导图列表")))
-            Button(action: beginRename) {
-                Text(verbatim: documentTitle)
-                    .lineLimit(1)
-            }
-            .help(Text(verbatim: text("为这份导图重新命名")))
-            .accessibilityLabel(documentTitle)
-            .accessibilityHint(text("为这份导图重新命名"))
-            .accessibilityIdentifier("document.title")
-        }
     }
 
     private var toolbarContext: EditorToolbarContext {

@@ -5,20 +5,18 @@ import XCTest
 /// is not a second copy of that name. The hit area itself is
 /// `EditorBackButtonHitAreaTests`.
 final class EditorChromeContractTests: XCTestCase {
-    func testBackButtonPrecedesTheFilenameInTheLeadingToolbar() throws {
+    func testMacBackButtonIsIndependentFromNativeDocumentTitle() throws {
         let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
-        XCTAssertTrue(source.contains("ToolbarItem(placement: .cancellationAction)"))
-        XCTAssertTrue(source.contains("leadingDocumentChrome"))
         let leading = try slice(
             source,
-            from: "private var leadingDocumentChrome",
-            until: "private var toolbarContext"
+            from: "private var macToolbarItemsLeading",
+            until: "private var macToolbarItemsPrimary"
         )
-        let back = try XCTUnwrap(leading.range(of: "\"basicChain.back\""))
-        let title = try XCTUnwrap(leading.range(of: "\"document.title\""))
-        XCTAssertLessThan(back.lowerBound, title.lowerBound)
         XCTAssertTrue(leading.contains("chevron.backward"))
-        XCTAssertTrue(leading.contains("documentTitle"))
+        XCTAssertTrue(leading.contains("\"basicChain.back\""))
+        XCTAssertFalse(leading.contains("HStack"))
+        XCTAssertFalse(leading.contains("document.title"))
+        XCTAssertTrue(source.contains(".modifier(MacEditorWindowTitle(title: documentTitle))"))
     }
 
     /// The iOS back control has to be a stock toolbar button. A custom style,
@@ -46,6 +44,7 @@ final class EditorChromeContractTests: XCTestCase {
         XCTAssertFalse(backItem.contains("ultraThinMaterial"))
         XCTAssertFalse(backItem.contains(".blur("))
         XCTAssertTrue(ios.contains(".sharedBackgroundVisibility(.hidden)"))
+        XCTAssertTrue(ios.contains("\"document.title\""))
         XCTAssertTrue(source.contains("ToolbarItem(id: \"document.navigation\", placement: .navigation)"))
     }
 

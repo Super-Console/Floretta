@@ -19,10 +19,10 @@ final class AppleGlassChromeContractTests: XCTestCase {
         let leadingPosition = try XCTUnwrap(macToolbar.range(of: "macToolbarItemsLeading")).lowerBound
         let actionsPosition = try XCTUnwrap(macToolbar.range(of: "macToolbarItemsPrimary")).lowerBound
 
-        XCTAssertTrue(leading.contains("placement: .navigation"), "document title/back must use the leading navigation slot, not the centered principal or trailing action area")
-        XCTAssertTrue(leading.contains("HStack(spacing: 8)"))
+        XCTAssertTrue(leading.contains("placement: .navigation"), "the independent back button uses the leading navigation slot")
         XCTAssertTrue(leading.contains("Button(action: onClose)"))
-        XCTAssertTrue(leading.contains("Button(action: beginRename)"))
+        XCTAssertFalse(leading.contains("HStack"), "the native window title and back button must not share a custom container")
+        XCTAssertFalse(leading.contains("document.title"))
         XCTAssertTrue(sharedToolbar.contains("#if os(iOS)"))
         XCTAssertFalse(sharedToolbar.contains("leadingDocumentChrome"), "the old cancellationAction title/back capsule must not also be installed on macOS")
         XCTAssertLessThan(leadingPosition, actionsPosition)
@@ -57,6 +57,15 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertFalse(try slice(fadeRoles, from: "case .floatingPanel", until: "case .inspectorPanel").contains("toolbarFloatingButton"), "the titlebar glass is excluded from the content-band bottom mask")
         XCTAssertTrue(fadeRoles.contains("case .inspectorPanel, .sidebarColumn, .iconButton, .toolbarFloatingButton"))
         XCTAssertEqual(editor.components(separatedBy: ".toolbarBackground(.hidden, for: .windowToolbar)").count - 1, 1, "the editor hides the system background once; no second material is installed there")
+    }
+
+    func testSidebarSelectionUsesOnlyTheNativeListSelection() throws {
+        let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
+        let inset = try slice(glass, from: "func sidebarSelectionInset()", until: "private struct GlassBandBottomFadeModifier")
+        XCTAssertTrue(inset.contains(".listRowInsets("))
+        XCTAssertTrue(inset.contains(".listRowBackground(Color.clear)"))
+        XCTAssertFalse(inset.contains("RoundedRectangle"))
+        XCTAssertTrue(try repoFile("Floretta/Shared/ContentView.swift").contains(".appleGlassChrome(.sidebarColumn)"))
     }
 
     func testOfficialGlassAPIsAndTheVisualEffectFallbackAreDocumented() throws {
@@ -178,7 +187,8 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertFalse(canvasTabs.contains(".shadow("))
         let status = try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift")
         XCTAssertTrue(status.contains("\"字数 %lld\""))
-        XCTAssertTrue(status.contains("appleGlassChrome(.toolbarFloatingButton)"))
+        XCTAssertFalse(status.contains("statusBar.zoom"))
+        XCTAssertTrue(editor.contains("accessibilityIdentifier(\"editor.zoom\")"))
         XCTAssertTrue(canvas.contains(".appleGlassChrome(.bottomBarCapsule)"))
         XCTAssertFalse(canvas.contains("ultraThinMaterial"))
         XCTAssertFalse(canvas.contains("regularMaterial"))

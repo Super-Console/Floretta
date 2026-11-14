@@ -90,24 +90,12 @@ struct DocumentEditor: View {
     @ToolbarContentBuilder
     private var macToolbarItemsLeading: some CustomizableToolbarContent {
         ToolbarItem(id: "document.navigation", placement: .navigation) {
-            HStack(spacing: 8) {
-                Button(action: onClose) {
-                    Image(systemName: "chevron.backward")
-                }
-                .accessibilityLabel(text("返回"))
-                .accessibilityIdentifier("basicChain.back")
-                .help(Text(verbatim: text("返回导图列表")))
-
-                Button(action: beginRename) {
-                    Text(verbatim: documentTitle)
-                        .lineLimit(1)
-                }
-                .buttonStyle(.borderless)
-                .help(Text(verbatim: text("为这份导图重新命名")))
-                .accessibilityLabel(documentTitle)
-                .accessibilityHint(text("为这份导图重新命名"))
-                .accessibilityIdentifier("document.title")
+            Button(action: onClose) {
+                Image(systemName: "chevron.backward")
             }
+            .accessibilityLabel(text("返回"))
+            .accessibilityIdentifier("basicChain.back")
+            .help(Text(verbatim: text("返回导图列表")))
         }
     }
 
@@ -819,25 +807,6 @@ struct DocumentEditor: View {
         showRename = true
     }
 
-    private var leadingDocumentChrome: some View {
-        HStack(spacing: 8) {
-            Button(action: onClose) {
-                Image(systemName: "chevron.backward")
-            }
-            .accessibilityLabel(text("返回"))
-            .accessibilityIdentifier("basicChain.back")
-            .help(Text(verbatim: text("返回导图列表")))
-            Button(action: beginRename) {
-                Text(verbatim: documentTitle)
-                    .lineLimit(1)
-            }
-            .help(Text(verbatim: text("为这份导图重新命名")))
-            .accessibilityLabel(documentTitle)
-            .accessibilityHint(text("为这份导图重新命名"))
-            .accessibilityIdentifier("document.title")
-        }
-    }
-
     private var toolbarContext: EditorToolbarContext {
         EditorToolbarContext(
             isMarkdownDocument: session.isMarkdownDocument,
@@ -1127,8 +1096,7 @@ struct DocumentEditor: View {
                 .keyboardShortcut("0", modifiers: .command)
         } label: {
             #if os(iOS)
-            // The bottom status bar already hosts the zoom percent. An icon
-            // here leaves room for editor.more on a compact phone.
+            // Keep the compact toolbar face on iOS; macOS shows the live percentage.
             commandLabel(.zoom, surface: .toolbar)
             #else
             switch EditorToolbarCatalog.command(.zoom).toolbarFace {
@@ -1141,6 +1109,7 @@ struct DocumentEditor: View {
         }
         .explained(EditorToolbarCatalog.command(.zoom).help)
         .appleGlassChrome(.toolbarFloatingButton)
+        .accessibilityIdentifier("editor.zoom")
     }
 
     @ViewBuilder

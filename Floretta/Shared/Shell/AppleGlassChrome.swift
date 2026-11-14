@@ -188,29 +188,13 @@ extension View {
         }
     }
 
-    /// Native sidebar row inset. Keeps the selected-row capsule inside the
-    /// content area and off the column's rounded edge, removing the second
-    /// arc. Uses `listRowInsets` + `listRowBackground` with a padded,
-    /// continuous shape and a hierarchical system fill — never a
-    /// hand-drawn `.background` on the row content.
-    func sidebarSelectionInset(isSelected: Bool) -> some View {
+    /// Keep the native sidebar selection inset while leaving selection drawing
+    /// to `List(.sidebar)`; a custom row background would layer a second shape.
+    func sidebarSelectionInset() -> some View {
         let inset = AppleGlassChromeMetrics.sidebarRowInset
         return self
             .listRowInsets(EdgeInsets(top: 0, leading: inset, bottom: 0, trailing: inset))
-            .listRowBackground(
-                Group {
-                    if isSelected {
-                        RoundedRectangle(
-                            cornerRadius: AppleGlassChromeMetrics.sidebarCornerRadius,
-                            style: .continuous
-                        )
-                        .fill(.tertiary)
-                    } else {
-                        Color.clear
-                    }
-                }
-                .padding(.horizontal, inset)
-            )
+            .listRowBackground(Color.clear)
     }
 }
 

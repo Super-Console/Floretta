@@ -2,9 +2,16 @@ import XCTest
 import FlorettaCore
 
 final class EditorStatusBarTests: XCTestCase {
-    func testBarHostsOnlyTheZoomControl() {
+    func testBottomBarDoesNotDuplicateToolbarZoomControl() throws {
         XCTAssertEqual(EditorStatusBarModel.controls, [.zoomMenu])
         XCTAssertEqual(EditorStatusBarChrome.controlMinHeight, 44)
+        let bar = try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift")
+        let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        XCTAssertFalse(bar.contains("statusBar.zoom"))
+        XCTAssertFalse(bar.contains("statusBar.controls"))
+        XCTAssertTrue(editor.contains("toolbarControl(.zoom)"))
+        XCTAssertTrue(editor.contains("accessibilityIdentifier(\"editor.zoom\")"))
+        XCTAssertTrue(bar.contains("EditorOverflowCensus"))
     }
 
     func testCompactToolbarLeavesOnlyInsertAndTheOverflowEllipsis() {
@@ -70,15 +77,6 @@ final class EditorStatusBarTests: XCTestCase {
         XCTAssertFalse(status.contains("TopicStatusBar("))
         XCTAssertFalse(status.contains(".shadow("))
 
-        let zoomControl = try slice(
-            bar,
-            from: "struct EditorStatusControls: View {",
-            until: "private struct StatusZoomMenu"
-        )
-        XCTAssertTrue(zoomControl.contains("StatusZoomMenu(camera: camera, language: language)"))
-        XCTAssertTrue(zoomControl.contains(".appleGlassChrome(.toolbarFloatingButton)"))
-        XCTAssertTrue(zoomControl.contains("accessibilityIdentifier(\"statusBar.controls\")"))
-
         XCTAssertTrue(inset.contains("canvas.tabs"))
         XCTAssertTrue(inset.contains("appleGlassChrome(.bottomBarCapsule)"))
         XCTAssertFalse(inset.contains(".shadow("))
@@ -90,10 +88,8 @@ final class EditorStatusBarTests: XCTestCase {
         XCTAssertFalse(editor.contains(".editorStatusBar("))
 
         XCTAssertTrue(bar.contains("accessibilityIdentifier(\"statusBar\")"))
-        XCTAssertTrue(bar.contains("accessibilityIdentifier(\"statusBar.zoom\")"))
-        XCTAssertTrue(bar.contains("appleGlassChrome(.toolbarFloatingButton)"))
-        XCTAssertTrue(bar.contains("camera.zoom(to: stop)"))
-        XCTAssertTrue(bar.contains("camera.fitToContent()"))
+        XCTAssertFalse(bar.contains("accessibilityIdentifier(\"statusBar.zoom\")"))
+        XCTAssertFalse(bar.contains("StatusZoomMenu"))
         XCTAssertTrue(bar.contains("struct EditorOverflowCensus"))
         XCTAssertTrue(bar.contains("\"主题 %lld\""))
         XCTAssertTrue(bar.contains("\"字数 %lld\""))
@@ -101,7 +97,6 @@ final class EditorStatusBarTests: XCTestCase {
         XCTAssertTrue(bar.contains("status.topics"))
         XCTAssertTrue(bar.contains("status.words"))
         XCTAssertTrue(bar.contains("status.characters"))
-        XCTAssertTrue(bar.contains("appleGlassChrome(.toolbarFloatingButton)"))
         XCTAssertFalse(bar.contains(".shadow("))
         XCTAssertFalse(bar.contains("TitleCountSupply"))
         XCTAssertFalse(bar.contains("safeAreaInset"))

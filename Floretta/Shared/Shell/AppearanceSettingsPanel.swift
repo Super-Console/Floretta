@@ -46,6 +46,7 @@ struct AppearanceSettingsPanel: View {
                 }
             }
             .pickerStyle(.segmented)
+            .labelsHidden()
             .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "mode"))
 
             Picker(text("字体族"), selection: fontFamilyID) {

@@ -77,6 +77,33 @@ final class PetalExpandTests: XCTestCase {
         }
     }
 
+    func testReduceMotionDoesNotArmPetalAnimationForMapOpenOrBranchExpand() throws {
+        let (open, _, childID, _) = sampleTree()
+        var folded = open
+        folded.mutateNode(childID) { $0.isCollapsed = true }
+        let openFrames = LayoutEngine().layout(open)
+        let foldedFrames = LayoutEngine().layout(folded)
+
+        var director = PetalExpandDirector(reduceMotion: true)
+        director.openMap(frames: openFrames, now: 0, layoutPassCount: 1)
+        XCTAssertFalse(director.isPlaying, "Reduce Motion must leave map-open content on its settled layout")
+        XCTAssertFalse(director.isActive(at: 0))
+        XCTAssertEqual(director.duration, 0)
+
+        director.noteDocumentChange(
+            from: CollapseFingerprint.capture(folded),
+            to: CollapseFingerprint.capture(open),
+            previousFrames: foldedFrames,
+            finalFrames: openFrames,
+            now: 1,
+            layoutPassCount: 2
+        )
+        XCTAssertFalse(director.isPlaying, "Reduce Motion must also skip the expand-branch animation")
+        XCTAssertFalse(director.isActive(at: 1))
+        XCTAssertNil(director.kind)
+        XCTAssertEqual(director.duration, 0)
+    }
+
     func testExpandAndCollapseFinishOnTheLayout() throws {
         let (open, _, childID, grandID) = sampleTree()
         var folded = open

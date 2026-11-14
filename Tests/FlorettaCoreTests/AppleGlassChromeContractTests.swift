@@ -3,6 +3,22 @@ import XCTest
 /// The named chrome surfaces call Apple's glass APIs. This machine cannot
 /// render light and dark screenshots; the contract is the source.
 final class AppleGlassChromeContractTests: XCTestCase {
+    func testInspectorModeSwitchKeepsNativePickerInStableTopInset() throws {
+        let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let body = try slice(editor, from: "private var inspectorBody", until: "private var inspectorHeader")
+        let header = try slice(editor, from: "private var inspectorHeader", until: "private var showsSheetDismissHandle")
+        let picker = try slice(editor, from: "private var inspectorTabPicker", until: "@ViewBuilder\n    private var inspectorTabPage")
+
+        XCTAssertTrue(body.contains(".safeAreaInset(edge: .top"))
+        XCTAssertTrue(body.contains(".frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)"))
+        XCTAssertTrue(header.contains("inspectorTabPicker"))
+        XCTAssertTrue(header.contains(".fixedSize(horizontal: false, vertical: true)"))
+        XCTAssertTrue(picker.contains("Picker(text(\"检查器\"), selection: $inspectorTab)"))
+        XCTAssertTrue(picker.contains(".pickerStyle(.segmented)"))
+        XCTAssertFalse(header.contains("GlassEffectContainer"), "mode changes must not replace the native picker with positioned custom content")
+        XCTAssertFalse(body.contains("overlay"), "selected mode is not redrawn as an overlay on the canvas")
+    }
+
     func testMacDocumentTitleAndBackButtonOccupyLeadingNavigationRegion() throws {
         let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         let leading = try slice(

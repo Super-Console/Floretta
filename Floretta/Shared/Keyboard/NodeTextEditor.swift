@@ -7,6 +7,35 @@ import AppKit
 import UIKit
 #endif
 
+/// Supplies the font-based height used by node-text vertical centering.
+/// `previousVerticalInset` is explicit so the measurement contract can be
+/// exercised with real prior-inset values; it must never affect the result.
+enum EditorTextCenteringMeasurement {
+    #if os(macOS)
+    static func glyphHeight(
+        font: NSFont,
+        layoutManager: NSLayoutManager,
+        textContainer: NSTextContainer,
+        previousVerticalInset: CGFloat
+    ) -> CGFloat {
+        _ = previousVerticalInset
+        layoutManager.ensureLayout(for: textContainer)
+        return layoutManager.defaultLineHeight(for: font)
+    }
+    #else
+    static func glyphHeight(
+        font: UIFont,
+        layoutManager: NSLayoutManager,
+        textContainer: NSTextContainer,
+        previousVerticalInset: CGFloat
+    ) -> CGFloat {
+        _ = previousVerticalInset
+        layoutManager.ensureLayout(for: textContainer)
+        return font.lineHeight
+    }
+    #endif
+}
+
 extension KeyModifiers {
     init(_ modifiers: EventModifiers) {
         self = []
@@ -538,9 +567,13 @@ private final class EditingTextView: NSTextView {
         // Latch before the inset write. The write re-enters layout, and a
         // second pass for the same bounds and string must not write again.
         centeringPass = TextCenteringPass(bounds: bounds.size, text: string)
-        layoutManager.ensureLayout(for: textContainer)
         let font = self.font ?? NSFont.systemFont(ofSize: 12)
-        let glyphHeight = layoutManager.defaultLineHeight(for: font)
+        let glyphHeight = EditorTextCenteringMeasurement.glyphHeight(
+            font: font,
+            layoutManager: layoutManager,
+            textContainer: textContainer,
+            previousVerticalInset: textContainerInset.height
+        )
         let vertical = EditorLayoutConvergence.centeredVerticalInset(
             boundsHeight: bounds.height,
             glyphHeight: glyphHeight
@@ -1012,9 +1045,13 @@ private final class FlorettaTextView: UITextView {
             return
         }
         centeringPass = TextCenteringPass(bounds: bounds.size, text: text)
-        layoutManager.ensureLayout(for: textContainer)
         let font = self.font ?? UIFont.systemFont(ofSize: 12)
-        let glyphHeight = font.lineHeight
+        let glyphHeight = EditorTextCenteringMeasurement.glyphHeight(
+            font: font,
+            layoutManager: layoutManager,
+            textContainer: textContainer,
+            previousVerticalInset: textContainerInset.top
+        )
         let vertical = EditorLayoutConvergence.centeredVerticalInset(
             boundsHeight: bounds.height,
             glyphHeight: glyphHeight

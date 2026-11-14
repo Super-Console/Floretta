@@ -92,29 +92,30 @@ final class ThemeFontCascadeTests: XCTestCase {
     }
 
     @MainActor
-    func testCenteringLineHeightIsIndependentOfTextContainerInsetAndProductionUsesIt() throws {
+    func testProductionCenteringMeasurementIgnoresPreviousTextContainerInset() {
         let font = NSFont.systemFont(ofSize: 18)
-        let manager = NSLayoutManager()
-        let container = NSTextContainer(size: NSSize(width: 200, height: 200))
-        manager.addTextContainer(container)
-        let view = NSTextView(frame: NSRect(x: 0, y: 0, width: 200, height: 200), textContainer: container)
+        let view = NSTextView(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
+        let manager = view.layoutManager!
+        let container = view.textContainer!
+        view.isVerticallyResizable = false
+        container.heightTracksTextView = true
         view.font = font
-        view.string = "Hello 汉字"
+        view.string = String(repeating: "Hello 汉字 ", count: 500)
 
-        let before = manager.defaultLineHeight(for: font)
-        view.textContainerInset = NSSize(width: 8, height: 20)
-        manager.ensureLayout(for: container)
-        let after = manager.defaultLineHeight(for: font)
-        XCTAssertEqual(after, before, accuracy: 0.001)
+        var measuredHeights: [CGFloat] = []
+        for inset: CGFloat in [0, 11, 20] {
+            view.textContainerInset = NSSize(width: 8, height: inset)
+            measuredHeights.append(EditorTextCenteringMeasurement.glyphHeight(
+                font: font,
+                layoutManager: manager,
+                textContainer: container,
+                previousVerticalInset: view.textContainerInset.height
+            ))
+        }
 
-        let sourceURL = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("Floretta/Shared/Keyboard/NodeTextEditor.swift")
-        let source = try String(contentsOf: sourceURL, encoding: .utf8)
-        XCTAssertTrue(source.contains("layoutManager.defaultLineHeight(for: font)"))
-        XCTAssertTrue(source.contains("let glyphHeight = font.lineHeight"))
-        XCTAssertFalse(source.contains("usedRect(for: textContainer).height"), "Centering must not regress to an inset-dependent used rect.")
+        XCTAssertEqual(measuredHeights.count, 3)
+        XCTAssertEqual(measuredHeights[0], measuredHeights[1], accuracy: 0.001)
+        XCTAssertEqual(measuredHeights[1], measuredHeights[2], accuracy: 0.001)
     }
 
     func testSystemSerifChineseAlsoUsesSongti() {

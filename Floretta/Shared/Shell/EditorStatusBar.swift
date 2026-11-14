@@ -17,6 +17,7 @@ struct EditorStatusStrip: View {
         .frame(minHeight: EditorStatusBarChrome.controlMinHeight)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("statusBar")
+        .themeTypography(language: language)
     }
 }
 

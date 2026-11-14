@@ -9,6 +9,16 @@ final class ThemeFontResolverTests: XCTestCase {
         XCTAssertEqual(spec.familyCandidates.first, "Songti SC")
     }
 
+    func testChineseInterfaceClassicPrefersSongtiFamily() {
+        let resolved = ThemeFontResolver.spec(for: .classic, script: .cjk)
+        XCTAssertTrue(resolved.familyCandidates.first?.hasPrefix("Songti") == true)
+    }
+
+    func testChineseInterfaceModernPrefersPingFangFamily() {
+        let resolved = ThemeFontResolver.spec(for: .modern, script: .cjk)
+        XCTAssertTrue(resolved.familyCandidates.first?.hasPrefix("PingFang") == true)
+    }
+
     func testClassicLatinUsesEBGaramondAndSerif() {
         let spec = ThemeFontResolver.spec(for: .classic, script: .latin)
 

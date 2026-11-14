@@ -344,7 +344,7 @@
 		F8F11070000000000000000 /* NotoSerif-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = NotoSerif-OFL.txt; sourceTree = "<group>"; };
 		F8F1200000000000000000 /* ThemeFontCascade.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeFontCascade.swift; sourceTree = "<group>"; };
 		F8F1210000000000000000 /* ThemeFontCascadeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeFontCascadeTests.swift; sourceTree = "<group>"; };
-		F8F4070000000000000000 /* ThemeSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeSettings.swift; sourceTree = "<group>"; };
+		F8F4070000000000000000 /* ThemeSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ../ThemeSettings.swift; sourceTree = "<group>"; };
 		F8F1220000000000000000 /* AppearanceSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettingsTests.swift; sourceTree = "<group>"; };
 		FA2100000000000000000001 /* RecentMapsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentMapsStore.swift; sourceTree = "<group>"; };
 		FA3100000000000000000001 /* DocumentSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentSession.swift; sourceTree = "<group>"; };

@@ -33,4 +33,5 @@ STATUS: BLOCKED
 
 ## 提交与 PR
 - 分项提交已推送：`2100095` (J1)、`1247713` + `a82a3c3` (J2)、`33cacb3` (J3)、`48c75b4` (J4)。
-- 已提交 PR：待创建。
+- 已提交 PR #14：https://github.com/Super-Console/Floretta/pull/14（未合并）。
+- 资源收尾：未启动模拟器；本任务构建进程已退出；未创建临时 DerivedData 目录。

@@ -165,8 +165,10 @@ final class ThemeModesScreenshotUITests: XCTestCase {
 
     @MainActor
     private func fitToWindow(_ app: XCUIApplication) {
-        let zoom = app.descendants(matching: .any)["statusBar.zoom"]
-        guard zoom.waitForExistence(timeout: 5) else { return }
+        XCTAssertFalse(app.descendants(matching: .any)["statusBar.zoom"].exists, "the bottom-right zoom duplicate must stay removed")
+        let zoom = app.buttons["editor.zoom"]
+        XCTAssertTrue(zoom.waitForExistence(timeout: 5), "the single toolbar zoom control must remain available")
+        XCTAssertTrue(zoom.isHittable, "the toolbar zoom control must be interactable")
         zoom.tap()
         let fit = app.buttons["适应窗口"]
         if fit.waitForExistence(timeout: 3) {

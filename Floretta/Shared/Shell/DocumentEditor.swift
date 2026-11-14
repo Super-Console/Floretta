@@ -1127,8 +1127,7 @@ struct DocumentEditor: View {
                 .keyboardShortcut("0", modifiers: .command)
         } label: {
             #if os(iOS)
-            // The bottom status bar already hosts the zoom percent. An icon
-            // here leaves room for editor.more on a compact phone.
+            // Keep the compact toolbar face on iOS; macOS shows the live percentage.
             commandLabel(.zoom, surface: .toolbar)
             #else
             switch EditorToolbarCatalog.command(.zoom).toolbarFace {
@@ -1141,6 +1140,7 @@ struct DocumentEditor: View {
         }
         .explained(EditorToolbarCatalog.command(.zoom).help)
         .appleGlassChrome(.toolbarFloatingButton)
+        .accessibilityIdentifier("editor.zoom")
     }
 
     @ViewBuilder

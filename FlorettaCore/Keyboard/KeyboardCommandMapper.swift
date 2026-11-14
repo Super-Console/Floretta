@@ -90,9 +90,8 @@ public enum MindMapCommand: Equatable, Sendable {
 /// Pure key → command map. The canvas calls this; it does not look at the tree.
 ///
 /// Command mode owns structure keys. Edit mode keeps Tab, Space, arrows, Delete, and ⌘Z
-/// from creating or deleting nodes. Enter in edit mode commits and returns to command mode
-/// (it does not create a sibling). Shift+Enter inserts a newline. A second Enter, back in
-/// command mode, creates the sibling.
+/// from creating or deleting nodes. Enter (with or without Shift) inserts a newline; only
+/// command mode Enter creates a sibling.
 ///
 /// Whenever a text field is focused (edit mode) or IME composition is active
 /// (`isComposing`), every single-key shortcut (Space, Enter, Tab, +, -, *, /)
@@ -135,11 +134,8 @@ public enum KeyboardCommandMapper {
     }
 
     private static func mapEdit(_ event: KeyEvent) -> MindMapCommand? {
-        if event.key == .enter, event.modifiers == .shift {
+        if event.key == .enter, event.modifiers == .shift || event.modifiers.isEmpty {
             return .insertNewline
-        }
-        if event.key == .enter, event.modifiers.isEmpty {
-            return .commitEdit
         }
         if event.key == .escape, event.modifiers.isEmpty {
             return .cancelEdit

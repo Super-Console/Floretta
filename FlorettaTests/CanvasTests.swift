@@ -476,12 +476,16 @@ final class LineBreakTests: XCTestCase {
         XCTAssertEqual(double, base)
     }
 
-    func testShiftEnterIsInsertedByTheTextViewNotTheSession() {
+    func testEnterAndShiftEnterAreInsertedAtTheCaretByTheTextView() {
         let shiftEnter = KeyEvent(key: .enter, modifiers: .shift, mode: .edit, isComposing: false)
         let enter = KeyEvent(key: .enter, modifiers: [], mode: .edit, isComposing: false)
+        let commandEnter = KeyEvent(key: .enter, modifiers: .command, mode: .edit, isComposing: false)
         XCTAssertTrue(NodeEditLineBreak.textViewInsertsLine(for: shiftEnter))
-        XCTAssertFalse(NodeEditLineBreak.textViewInsertsLine(for: enter))
+        XCTAssertTrue(NodeEditLineBreak.textViewInsertsLine(for: enter))
+        XCTAssertFalse(NodeEditLineBreak.textViewInsertsLine(for: commandEnter))
         XCTAssertEqual(KeyboardCommandMapper.map(shiftEnter), .insertNewline)
+        XCTAssertEqual(KeyboardCommandMapper.map(enter), .insertNewline)
+        XCTAssertNotEqual(KeyboardCommandMapper.map(enter), .createSibling)
     }
 
     func testLayoutCacheDoesNotGrowPastMaxTextWidthForLongTitles() {

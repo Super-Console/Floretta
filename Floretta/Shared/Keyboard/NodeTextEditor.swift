@@ -1383,9 +1383,9 @@ private extension KeyEvent {
 }
 #endif
 
-/// Shift+Enter belongs to the focused text view so the break lands at the caret.
+/// Enter belongs to the focused system text view so the break lands at the caret.
 enum NodeEditLineBreak {
     static func textViewInsertsLine(for event: KeyEvent) -> Bool {
-        event.key == .enter && event.modifiers.contains(.shift)
+        event.key == .enter && !event.modifiers.contains(.command)
     }
 }

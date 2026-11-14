@@ -155,7 +155,7 @@ final class KeyboardTests: XCTestCase {
         XCTAssertTrue(XMindShortcutCatalog.conflicts().isEmpty)
     }
 
-    func testEditModeDisablesCreateAndKeepsNewlineCommitAndCancel() {
+    func testEditModeDisablesCreateAndMapsEnterToNewlineAndCancel() {
         XCTAssertNil(map(.tab, mode: .edit))
         XCTAssertNil(map(.space, mode: .edit))
         XCTAssertNil(map(.delete, mode: .edit))
@@ -167,7 +167,7 @@ final class KeyboardTests: XCTestCase {
         XCTAssertNil(map(.right, mode: .edit))
         XCTAssertNil(map(.character("z"), .command, mode: .edit))
         XCTAssertNil(map(.character("z"), [.command, .shift], mode: .edit))
-        XCTAssertEqual(map(.enter, mode: .edit), .commitEdit)
+        XCTAssertEqual(map(.enter, mode: .edit), .insertNewline)
         XCTAssertNotEqual(map(.enter, mode: .edit), .createSibling)
         XCTAssertEqual(map(.enter, .shift, mode: .edit), .insertNewline)
         XCTAssertNotEqual(map(.enter, .shift, mode: .edit), .createSiblingBefore)
@@ -247,8 +247,10 @@ final class KeyboardTests: XCTestCase {
         XCTAssertEqual(session.mode, .edit)
         session.isComposing = false
         session.replaceEditingText("中文", document: &document)
-        XCTAssertEqual(press(.enter, session: &session, document: &document), .commitEdit)
-        XCTAssertEqual(document.roots[0].text, "中文")
+        XCTAssertEqual(press(.enter, session: &session, document: &document), .insertNewline)
+        XCTAssertEqual(document.roots[0].text, "中文\n")
+        XCTAssertEqual(session.mode, .edit)
+        session.apply(.commitEdit, document: &document, frames: [])
         XCTAssertEqual(press(.character("z"), .command, session: &session, document: &document), .undo)
         XCTAssertEqual(document.roots[0].text, "中心")
     }
@@ -379,7 +381,7 @@ final class KeyboardTests: XCTestCase {
         XCTAssertFalse(document.roots[0].isCollapsed)
     }
 
-    func testEnterInsertsSiblingAfterCurrentAndSecondEnterDoesNotWhileEditing() {
+    func testEnterCreatesSiblingInCommandModeAndNewlineWhileEditing() {
         let rootID = UUID()
         let first = UUID()
         let second = UUID()
@@ -397,12 +399,13 @@ final class KeyboardTests: XCTestCase {
         XCTAssertEqual(document.roots[0].children[0].id, first)
         XCTAssertEqual(document.roots[0].children[2].id, second)
         XCTAssertEqual(document.roots[0].children[1].id, session.selectedNodeID)
-        XCTAssertEqual(press(.enter, session: &session, document: &document), .commitEdit)
-        XCTAssertEqual(session.mode, .command)
+        XCTAssertEqual(press(.enter, session: &session, document: &document), .insertNewline)
+        XCTAssertEqual(session.mode, .edit)
         XCTAssertEqual(document.roots[0].children.count, 3)
+        XCTAssertTrue(document.node(session.selectedNodeID!)!.text.hasSuffix("\n"))
     }
 
-    func testShiftEnterInsertsNewlineOnlyInEditMode() {
+    func testEnterAndShiftEnterInsertNewlinesOnlyInEditMode() {
         let rootID = UUID()
         var document = MindMapDocument(title: "nl", roots: [MindMapNode(id: rootID, text: "根")])
         var session = MindMapKeyboardSession()
@@ -414,10 +417,12 @@ final class KeyboardTests: XCTestCase {
         session.selectedNodeID = rootID
         session.mode = .command
         XCTAssertEqual(press(.space, session: &session, document: &document), .beginEdit)
-        XCTAssertEqual(press(.enter, .shift, session: &session, document: &document), .insertNewline)
+        XCTAssertEqual(press(.enter, session: &session, document: &document), .insertNewline)
         XCTAssertEqual(document.roots[0].text, "根\n")
         XCTAssertEqual(session.editingText, "根\n")
         XCTAssertEqual(session.mode, .edit)
+        XCTAssertEqual(press(.enter, .shift, session: &session, document: &document), .insertNewline)
+        XCTAssertEqual(document.roots[0].text, "根\n\n")
     }
 
     func testEscapeRestoresOriginalTextAndUndoCoversCommittedText() {
@@ -440,12 +445,13 @@ final class KeyboardTests: XCTestCase {
 
         press(.space, session: &session, document: &document)
         session.replaceEditingText("改定", document: &document)
-        XCTAssertEqual(press(.enter, session: &session, document: &document), .commitEdit)
-        XCTAssertEqual(document.roots[0].text, "改定")
+        XCTAssertEqual(press(.enter, session: &session, document: &document), .insertNewline)
+        XCTAssertEqual(document.roots[0].text, "改定\n")
+        session.apply(.commitEdit, document: &document, frames: [])
         XCTAssertEqual(press(.character("z"), .command, session: &session, document: &document), .undo)
         XCTAssertEqual(document.roots[0].text, "根")
         XCTAssertEqual(press(.character("Z"), [.command, .shift], session: &session, document: &document), .redo)
-        XCTAssertEqual(document.roots[0].text, "改定")
+        XCTAssertEqual(document.roots[0].text, "改定\n")
     }
 
     func testDeleteAndBackspaceAreUndoableAndRedoClears() {
@@ -604,10 +610,12 @@ final class KeyboardTests: XCTestCase {
         session.selectedNodeID = rootID
         XCTAssertEqual(press(.space, session: &session, document: &document), .beginEdit)
         XCTAssertEqual(session.mode, .edit)
-        XCTAssertEqual(press(.enter, session: &session, document: &document), .commitEdit)
+        XCTAssertEqual(press(.enter, session: &session, document: &document), .insertNewline)
+        XCTAssertEqual(document.roots[0].text, "中心\n")
+        session.apply(.commitEdit, document: &document, frames: [])
         XCTAssertEqual(session.mode, .command)
         XCTAssertEqual(press(.enter, session: &session, document: &document), .createSibling)
-        XCTAssertEqual(document.roots.map(\.text), ["中心", MindMapKeyboardSession.newTopicText])
+        XCTAssertEqual(document.roots.map(\.text), ["中心\n", MindMapKeyboardSession.newTopicText])
         session.apply(.commitEdit, document: &document, frames: [])
         session.selectedNodeID = rootID
         XCTAssertEqual(press(.tab, session: &session, document: &document), .createChild)

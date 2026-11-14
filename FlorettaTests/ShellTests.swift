@@ -317,56 +317,66 @@ final class ShellTests: XCTestCase {
         XCTAssertFalse(library.recents.contains { $0.filename == "other.txt" })
     }
 
-    func testRecentMapsExcludeUITestTemporaryDocumentsAndKeepUserDocuments() throws {
+    func testRecentMapsKeepUserDocumentNamedUntitledVisible() throws {
         let root = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
 
-        let testDocuments = root
-            .appendingPathComponent("CoreSimulator/Devices/device/data/tmp", isDirectory: true)
-            .appendingPathComponent("FlorettaUITest-\(UUID().uuidString)", isDirectory: true)
-            .appendingPathComponent("Documents", isDirectory: true)
-        try FileManager.default.createDirectory(at: testDocuments, withIntermediateDirectories: true)
-        let testArtifact = testDocuments.appendingPathComponent("未命名 10.floretta")
-        try Data("test fixture".utf8).write(to: testArtifact)
-
         let defaults = try freshDefaults()
         var store = RecentMapsStore(defaults: defaults)
-        let testBookmark = try testArtifact.bookmarkData(
+        let userDocument = root.appendingPathComponent("Documents/未命名.floretta")
+        try FileManager.default.createDirectory(at: userDocument.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("user document".utf8).write(to: userDocument)
+        try store.remember(
+            userDocument,
+            clock: ShellFixedClock(instant: Date(timeIntervalSince1970: 1_700_000_123))
+        )
+        XCTAssertEqual(store.load().map(\.filename), ["未命名.floretta"])
+    }
+
+    func testRecentMapsKeepCurrentUITestRootVisible() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let currentRoot = root.appendingPathComponent("FlorettaUITest-current", isDirectory: true)
+        let document = currentRoot.appendingPathComponent("Documents/map.floretta")
+        try FileManager.default.createDirectory(at: document.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("current fixture".utf8).write(to: document)
+
+        let defaults = try freshDefaults()
+        var store = RecentMapsStore(defaults: defaults, currentUITestRoot: currentRoot)
+        try store.remember(
+            document,
+            clock: ShellFixedClock(instant: Date(timeIntervalSince1970: 1_700_000_124))
+        )
+        XCTAssertEqual(store.load().map(\.filename), ["map.floretta"])
+    }
+
+    func testRecentMapsExcludeOtherUITestRoots() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let currentRoot = root.appendingPathComponent("FlorettaUITest-current", isDirectory: true)
+        let otherRoot = root.appendingPathComponent("FlorettaUITest-other", isDirectory: true)
+        let otherDocument = otherRoot.appendingPathComponent("Documents/map.floretta")
+        try FileManager.default.createDirectory(at: otherDocument.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("other fixture".utf8).write(to: otherDocument)
+
+        let defaults = try freshDefaults()
+        let bookmark = try otherDocument.bookmarkData(
             options: [],
             includingResourceValuesForKeys: [.contentModificationDateKey],
             relativeTo: nil
         )
-        let legacyTestEntry = RecentMapEntry(
+        let legacyEntry = RecentMapEntry(
             id: UUID().uuidString,
-            filename: testArtifact.lastPathComponent,
-            modifiedAt: Date(timeIntervalSince1970: 1_700_000_123),
-            bookmark: testBookmark
+            filename: otherDocument.lastPathComponent,
+            modifiedAt: Date(timeIntervalSince1970: 1_700_000_125),
+            bookmark: bookmark
         )
-        defaults.set(try JSONEncoder().encode([legacyTestEntry]), forKey: store.key)
-        XCTAssertTrue(store.load().isEmpty, "Previously persisted UI-test bookmarks must also be filtered.")
-        try store.remember(
-            testArtifact,
-            clock: ShellFixedClock(instant: Date(timeIntervalSince1970: 1_700_000_123))
-        )
+        let store = RecentMapsStore(defaults: defaults, currentUITestRoot: currentRoot)
+        defaults.set(try JSONEncoder().encode([legacyEntry]), forKey: store.key)
 
-        let library = LibraryModel(
-            settings: AppSettings(defaults: defaults),
-            store: RecentMapsStore(defaults: defaults),
-            documentsDirectory: root
-        )
-        XCTAssertFalse(library.recents.contains { $0.filename == testArtifact.lastPathComponent })
-
-        let userDocuments = root.appendingPathComponent("Application Support/Floretta", isDirectory: true)
-        try FileManager.default.createDirectory(at: userDocuments, withIntermediateDirectories: true)
-        let userDocument = userDocuments.appendingPathComponent("未命名 10.floretta")
-        try Data("user document".utf8).write(to: userDocument)
-        try store.remember(
-            userDocument,
-            clock: ShellFixedClock(instant: Date(timeIntervalSince1970: 1_700_000_124))
-        )
-        library.reload()
-
-        XCTAssertEqual(library.recents.map(\.filename), [userDocument.lastPathComponent])
+        XCTAssertTrue(store.load().isEmpty, "Bookmarks from other UI-test sessions must stay hidden.")
     }
 
     func testFileTypesAreOnlyTheSupportedFormats() {

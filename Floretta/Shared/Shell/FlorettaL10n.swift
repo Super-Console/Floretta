@@ -99,6 +99,8 @@ enum FlorettaL10n {
         "无法恢复自动保存": "Couldn't Recover Autosave",
         "自动保存读不出来。": "The autosave could not be read.",
         "重新命名": "Rename",
+        "重新命名画布": "Rename Canvas",
+        "删除画布": "Delete Canvas",
         "名称": "Name",
         "为这份导图重新命名": "Rename this map",
         "返回导图列表": "Back to maps",

@@ -675,6 +675,22 @@ struct DocumentEditor: View {
             canvasRenameText = session.document.canvasTitle(at: index)
             showCanvasRename = true
         })
+        .contextMenu {
+            Button {
+                canvasRenameIndex = index
+                canvasRenameText = session.document.canvasTitle(at: index)
+                showCanvasRename = true
+            } label: {
+                Label(text("重新命名画布"), systemImage: "pencil")
+            }
+            if session.document.canvasCount > 1 {
+                Button(role: .destructive) {
+                    session.removeCanvas(at: index, viewport: camera.viewport.persisted)
+                } label: {
+                    Label(text("删除画布"), systemImage: "trash")
+                }
+            }
+        }
     }
 
     private var tagFilterBanner: some View {

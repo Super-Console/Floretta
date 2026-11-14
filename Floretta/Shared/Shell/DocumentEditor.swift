@@ -86,6 +86,30 @@ struct DocumentEditor: View {
 
     #if os(macOS)
     @ToolbarContentBuilder
+    private var macToolbarItemsLeading: some CustomizableToolbarContent {
+        ToolbarItem(id: "document.navigation", placement: .navigation) {
+            HStack(spacing: 8) {
+                Button(action: onClose) {
+                    Image(systemName: "chevron.backward")
+                }
+                .accessibilityLabel(text("返回"))
+                .accessibilityIdentifier("basicChain.back")
+                .help(Text(verbatim: text("返回导图列表")))
+
+                Button(action: beginRename) {
+                    Text(verbatim: documentTitle)
+                        .lineLimit(1)
+                }
+                .buttonStyle(.borderless)
+                .help(Text(verbatim: text("为这份导图重新命名")))
+                .accessibilityLabel(documentTitle)
+                .accessibilityHint(text("为这份导图重新命名"))
+                .accessibilityIdentifier("document.title")
+            }
+        }
+    }
+
+    @ToolbarContentBuilder
     private var macToolbarItemsPrimary: some CustomizableToolbarContent {
         macItem(.undo)
         macItem(.redo)
@@ -197,10 +221,6 @@ struct DocumentEditor: View {
                         .accessibilityIdentifier("document.title")
                     }
                     .sharedBackgroundVisibility(.hidden)
-                    #else
-                    ToolbarItem(placement: .cancellationAction) {
-                        leadingDocumentChrome
-                    }
                     #endif
                     #if !os(macOS)
                     ToolbarItemGroup(placement: .principal) {
@@ -260,6 +280,7 @@ struct DocumentEditor: View {
             #if os(macOS)
             .toolbar(id: "floretta.editor") {
                 if session.zen.chrome.showsToolbar {
+                    macToolbarItemsLeading
                     macToolbarItemsPrimary
                     macToolbarItemsInsert
                     macToolbarItemsNavigation

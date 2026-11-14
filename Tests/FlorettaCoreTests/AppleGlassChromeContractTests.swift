@@ -59,6 +59,15 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertEqual(editor.components(separatedBy: ".toolbarBackground(.hidden, for: .windowToolbar)").count - 1, 1, "the editor hides the system background once; no second material is installed there")
     }
 
+    func testSidebarSelectionUsesOnlyTheNativeListSelection() throws {
+        let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
+        let inset = try slice(glass, from: "func sidebarSelectionInset()", until: "private struct GlassBandBottomFadeModifier")
+        XCTAssertTrue(inset.contains(".listRowInsets("))
+        XCTAssertTrue(inset.contains(".listRowBackground(Color.clear)"))
+        XCTAssertFalse(inset.contains("RoundedRectangle"))
+        XCTAssertTrue(try repoFile("Floretta/Shared/ContentView.swift").contains(".appleGlassChrome(.sidebarColumn)"))
+    }
+
     func testOfficialGlassAPIsAndTheVisualEffectFallbackAreDocumented() throws {
         let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
         XCTAssertTrue(glass.contains("GlassEffectContainer"))

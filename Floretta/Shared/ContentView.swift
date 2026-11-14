@@ -140,7 +140,7 @@ struct ContentView: View {
                 ForEach(ShellTab.destinations, id: \.self) { destination in
                     Label(text(destination.title), systemImage: destination.systemImage)
                         .tag(destination)
-                        .sidebarSelectionInset(isSelected: destination == library.tab)
+                        .sidebarSelectionInset()
                 }
             }
             .navigationTitle("Floretta")

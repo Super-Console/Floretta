@@ -195,6 +195,25 @@ final class ShellTests: XCTestCase {
         XCTAssertEqual(session.keyboard.selectedNodeID, id)
     }
 
+    func testZenChromeRemovesEveryEditorSurfaceAndBlankCanvasDoubleTapExits() {
+        let id = UUID()
+        let session = EditorSession(
+            document: MindMapDocument(title: "zen", roots: [MindMapNode(id: id, text: "root")]),
+            url: nil,
+            sourceExtension: "floretta",
+            viewMode: .map
+        )
+        session.enterZen()
+        XCTAssertEqual(session.zen.chrome, .hidden)
+        XCTAssertFalse(session.zen.chrome.showsToolbar)
+        XCTAssertFalse(session.zen.chrome.showsTabBar)
+        XCTAssertFalse(session.zen.chrome.showsStatusBar)
+        XCTAssertFalse(session.zen.chrome.showsSidebar)
+        XCTAssertFalse(session.zen.chrome.showsInspector)
+        XCTAssertTrue(session.consumeBlankDoubleTap())
+        XCTAssertFalse(session.zen.isActive)
+    }
+
     func testSettingsRoundTripAndDriveExportAndNewDocuments() throws {
         let defaults = try freshDefaults()
         let settings = AppSettings(defaults: defaults)

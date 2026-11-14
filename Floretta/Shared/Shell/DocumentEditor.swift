@@ -159,12 +159,6 @@ struct DocumentEditor: View {
 
     private var editorCore: some View {
         canvasStack
-            .overlay(alignment: .topTrailing) {
-                if session.zen.isActive {
-                    immersiveExit
-                        .padding(16)
-                }
-            }
         .scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
         .navigationTitle("")
         #if os(macOS)
@@ -321,9 +315,12 @@ struct DocumentEditor: View {
                     session.noteViewport(viewport.persisted)
                 }
             }
-            .onChange(of: session.zen.isActive) { _, active in
-                syncFullScreen(active)
-            }
+        .onChange(of: session.zen.isActive) { _, active in
+            syncFullScreen(active)
+        }
+        .onAppear {
+            if session.zen.isActive { syncFullScreen(true) }
+        }
             .onKeyPress(.escape) {
                 session.handleEscape() ? .handled : .ignored
             }
@@ -556,22 +553,24 @@ struct DocumentEditor: View {
             }
         }
         .overlay(alignment: .top) {
-            VStack(spacing: 8) {
-                if session.markdownBannerVisible {
-                    markdownBanner
-                }
-                if let warning = session.visibleMarkdownWarning {
-                    markdownNotice(warning, identifier: "markdown.warning") {
-                        session.dismissMarkdownWarning()
+            if !session.zen.isActive {
+                VStack(spacing: 8) {
+                    if session.markdownBannerVisible {
+                        markdownBanner
                     }
-                }
-                if let blocked = session.blockedNotice {
-                    markdownNotice(blocked, identifier: "markdown.blocked") {
-                        session.dismissBlockedNotice()
+                    if let warning = session.visibleMarkdownWarning {
+                        markdownNotice(warning, identifier: "markdown.warning") {
+                            session.dismissMarkdownWarning()
+                        }
                     }
-                }
-                if session.tagFilter.isActive {
-                    tagFilterBanner
+                    if let blocked = session.blockedNotice {
+                        markdownNotice(blocked, identifier: "markdown.blocked") {
+                            session.dismissBlockedNotice()
+                        }
+                    }
+                    if session.tagFilter.isActive {
+                        tagFilterBanner
+                    }
                 }
             }
         }
@@ -776,23 +775,6 @@ struct DocumentEditor: View {
         showRename = true
     }
 
-    private var immersiveExit: some View {
-        Button {
-            session.exitZen()
-        } label: {
-            Image(systemName: "xmark")
-        }
-        .buttonStyle(.plain)
-        // The xmark glyph is about 16pt. A blank canvas tap in zen is a
-        // no-op, so a missed hit leaves the toolbar hidden. Use the same
-        // 44pt circular target as the iOS back button.
-        .frame(width: 44, height: 44)
-        .contentShape(Circle())
-        .appleGlassChrome(.iconButton)
-        .explained("退出沉浸模式，恢复工具栏")
-        .accessibilityIdentifier("zen.exit")
-    }
-
     private var leadingDocumentChrome: some View {
         HStack(spacing: 8) {
             Button(action: onClose) {
@@ -877,6 +859,8 @@ struct DocumentEditor: View {
         actions.zoomIn = { camera.stepZoom(1) }
         actions.zoomOut = { camera.stepZoom(-1) }
         actions.zoomActual = { camera.resetZoom() }
+        actions.isZenActive = session.zen.isActive
+        actions.exitZen = { session.exitZen() }
         return actions
     }
     #endif
@@ -2527,8 +2511,8 @@ struct DocumentEditor: View {
     private func syncFullScreen(_ active: Bool) {
         #if os(macOS)
         guard session.zenFullScreenApplied != active else { return }
-        session.zenFullScreenApplied = active
         guard let window = NSApp.keyWindow ?? NSApp.mainWindow else { return }
+        session.zenFullScreenApplied = active
         let full = window.styleMask.contains(.fullScreen)
         if active, !full {
             session.zenEnteredFullScreen = true

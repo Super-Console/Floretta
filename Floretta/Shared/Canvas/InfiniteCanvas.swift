@@ -93,19 +93,19 @@ struct InfiniteCanvas: View {
         .overlay { if !zenActive { hoverAddButtons } }
         .overlay { editField }
         .overlay { nodeChromeProbe }
-        .overlay { stickyChrome }
+        .overlay { if !zenActive { stickyChrome } }
         .overlay(alignment: .topLeading) { heldCanvasScaleLabel }
     }
 
     private func canvasSecondaryOverlays<V: View>(_ view: V) -> some View {
         view
-        .overlay { stickyEditor }
-        .overlay { regionToolbar }
-        .overlay { regionEditor }
-        .overlay { relationshipEditor }
-        .overlay { summaryEditor }
-        .overlay { boundaryEditor }
-        .overlay { audioPlaybackOverlay }
+        .overlay { if !zenActive { stickyEditor } }
+        .overlay { if !zenActive { regionToolbar } }
+        .overlay { if !zenActive { regionEditor } }
+        .overlay { if !zenActive { relationshipEditor } }
+        .overlay { if !zenActive { summaryEditor } }
+        .overlay { if !zenActive { boundaryEditor } }
+        .overlay { if !zenActive { audioPlaybackOverlay } }
     }
 
     private func canvasHoverSurface<V: View>(_ view: V) -> some View {

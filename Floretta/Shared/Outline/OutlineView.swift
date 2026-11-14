@@ -68,6 +68,7 @@ struct OutlineView: View {
                     ForEach(document.freeNodes.map(\.id), id: \.self) { id in
                         OutlineRow(document: $document, keyboard: $keyboard, tagFilter: tagFilter, id: id)
                             .tag(id)
+                            .sidebarSelectionInset(isSelected: keyboard.selectedNodeID == id)
                     }
                 }
             }
@@ -108,6 +109,7 @@ private struct OutlineLevel: View {
             if locksCollapse {
                 OutlineRow(document: $document, keyboard: $keyboard, tagFilter: tagFilter, id: id)
                     .tag(id)
+                    .sidebarSelectionInset(isSelected: keyboard.selectedNodeID == id)
                     .draggable(id.uuidString)
                     .dropDestination(for: String.self) { items, _ in
                         guard let raw = items.first, let dragged = UUID(uuidString: raw) else { return false }
@@ -136,6 +138,7 @@ private struct OutlineLevel: View {
                     OutlineRow(document: $document, keyboard: $keyboard, tagFilter: tagFilter, id: id)
                 }
                 .tag(id)
+                .sidebarSelectionInset(isSelected: keyboard.selectedNodeID == id)
                 .draggable(id.uuidString)
                 .dropDestination(for: String.self) { items, _ in
                     guard let raw = items.first, let dragged = UUID(uuidString: raw) else { return false }

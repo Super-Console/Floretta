@@ -6,7 +6,9 @@ final class AppleGlassChromeContractTests: XCTestCase {
     func testOfficialGlassAPIsAndTheVisualEffectFallbackAreDocumented() throws {
         let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
         XCTAssertTrue(glass.contains("GlassEffectContainer"))
-        XCTAssertTrue(glass.contains("glassEffect(.regular, in:"))
+        XCTAssertTrue(glass.contains(".glassEffect("))
+        XCTAssertTrue(glass.contains(".regular.tint("))
+        XCTAssertTrue(glass.contains("AppleGlassChromeMetrics.lightTint"))
         XCTAssertTrue(glass.contains("NSGlassEffectView"))
         XCTAssertTrue(glass.contains("NSVisualEffectView"))
         XCTAssertTrue(glass.contains(".underWindowBackground"))
@@ -25,10 +27,29 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertFalse(glass.contains(".blur("))
         XCTAssertFalse(glass.contains("ultraThinMaterial"))
         XCTAssertFalse(glass.contains("regularMaterial"))
-        XCTAssertFalse(glass.contains("Color.white"))
-        XCTAssertFalse(glass.contains("Color.black"))
         XCTAssertFalse(glass.contains(".shadow("))
         XCTAssertFalse(glass.contains("colorScheme"))
+
+        // Colors and gradients are forbidden when they paint a glass-like
+        // background, but are valid inside the dedicated alpha-mask modifier.
+        let mask = try slice(
+            glass,
+            from: "content.mask {",
+            until: "private struct AppleGlassChromePlate"
+        )
+        XCTAssertTrue(mask.contains("Rectangle().fill(Color.black)"))
+        XCTAssertTrue(mask.contains("LinearGradient("))
+        XCTAssertTrue(mask.contains("colors: [.black, .clear]"))
+        let glassPainting = glass.replacingOccurrences(of: mask, with: "")
+        XCTAssertFalse(glassPainting.contains("LinearGradient("))
+        XCTAssertFalse(glassPainting.contains("RadialGradient("))
+        XCTAssertFalse(glassPainting.contains("AngularGradient("))
+        XCTAssertFalse(glassPainting.contains(".fill(Color.white"))
+        XCTAssertFalse(glassPainting.contains(".fill(Color.black"))
+        XCTAssertFalse(glassPainting.contains(".background(Color.white"))
+        XCTAssertFalse(glassPainting.contains(".background(Color.black"))
+        XCTAssertFalse(glassPainting.contains("Color.white.opacity("))
+        XCTAssertFalse(glassPainting.contains("Color.black.opacity("))
     }
 
     func testLabelsOnGlassStayLegibleInLightAndDark() throws {

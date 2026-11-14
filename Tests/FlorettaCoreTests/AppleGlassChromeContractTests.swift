@@ -3,6 +3,62 @@ import XCTest
 /// The named chrome surfaces call Apple's glass APIs. This machine cannot
 /// render light and dark screenshots; the contract is the source.
 final class AppleGlassChromeContractTests: XCTestCase {
+    func testMacDocumentTitleAndBackButtonOccupyLeadingNavigationRegion() throws {
+        let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let leading = try slice(
+            editor,
+            from: "private var macToolbarItemsLeading",
+            until: "private var macToolbarItemsPrimary"
+        )
+        let sharedToolbar = try slice(
+            editor,
+            from: "private var editorToolbar",
+            until: ".toolbar(id: \"floretta.editor\")"
+        )
+        let macToolbar = try slice(editor, from: ".toolbar(id: \"floretta.editor\")", until: ".toolbarBackground(.hidden, for: .windowToolbar)")
+        let leadingPosition = try XCTUnwrap(macToolbar.range(of: "macToolbarItemsLeading")).lowerBound
+        let actionsPosition = try XCTUnwrap(macToolbar.range(of: "macToolbarItemsPrimary")).lowerBound
+
+        XCTAssertTrue(leading.contains("placement: .navigation"), "document title/back must use the leading navigation slot, not the centered principal or trailing action area")
+        XCTAssertTrue(leading.contains("HStack(spacing: 8)"))
+        XCTAssertTrue(leading.contains("Button(action: onClose)"))
+        XCTAssertTrue(leading.contains("Button(action: beginRename)"))
+        XCTAssertTrue(sharedToolbar.contains("#if os(iOS)"))
+        XCTAssertFalse(sharedToolbar.contains("leadingDocumentChrome"), "the old cancellationAction title/back capsule must not also be installed on macOS")
+        XCTAssertLessThan(leadingPosition, actionsPosition)
+        XCTAssertTrue(macToolbar.contains("macToolbarItemsPrimary"), "share/zoom/fit/overflow remain in their existing trailing actions group")
+    }
+
+    func testMacTitlebarGlassDoesNotExtendTheHomeGridIntoItsBackdrop() throws {
+        let content = try repoFile("Floretta/Shared/ContentView.swift")
+        let macShell = try slice(content, from: "#else\n        NavigationSplitView", until: "#endif")
+        let iosSplit = try slice(content, from: "private var iosLibrary", until: "#endif")
+        let home = try repoFile("Floretta/Shared/Shell/LibraryHome.swift")
+        let recents = try slice(home, from: "private var recentBody", until: "private var filtered")
+        let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
+        let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let activeLightBackend = try slice(glass, from: "static let renderingStyle", until: "/// The three system scenes")
+        let fallbackPlate = try slice(glass, from: "static func updateVisualEffectView", until: "#endif\n\n#if os(macOS)")
+        let nativePlate = try slice(glass, from: "private func configure(_ view: NSVisualEffectView)", until: "}\n#endif")
+        let fadeRoles = try slice(glass, from: "var fadesBottomEdge: Bool", until: "/// Scene used to pick")
+
+        XCTAssertFalse(macShell.contains("backgroundExtensionEffect()"), "Mac must not extend Home detail/grid pixels behind the window titlebar glass")
+        XCTAssertTrue(iosSplit.contains(".backgroundExtensionEffect()"), "the iOS split detail retains its independent navigation-bar behavior")
+        XCTAssertTrue(recents.contains("LazyVGrid"))
+        XCTAssertEqual(recents.components(separatedBy: "LazyVGrid").count - 1, 1, "the recents grid must have one rendered instance")
+        XCTAssertFalse(recents.contains("appleGlassChrome"), "the grid is rendered once as content, never supplied as a chrome background")
+        XCTAssertTrue(activeLightBackend.contains("= .light"))
+        XCTAssertTrue(glass.contains(".background(.thinMaterial, in: shape)"))
+        XCTAssertTrue(glass.contains(".regular.tint(AppleGlassChromeMetrics.lightTint)"))
+        XCTAssertTrue(fallbackPlate.contains("view.blendingMode = .behindWindow"))
+        XCTAssertTrue(nativePlate.contains("view.blendingMode = role.nativeBlendingMode"))
+        XCTAssertTrue(glass.contains("case .header, .hud: .withinWindow"), "withinWindow exists only on the explicitly selected native header/HUD path")
+        XCTAssertTrue(fadeRoles.contains(".toolbarFloatingButton"))
+        XCTAssertFalse(try slice(fadeRoles, from: "case .floatingPanel", until: "case .inspectorPanel").contains("toolbarFloatingButton"), "the titlebar glass is excluded from the content-band bottom mask")
+        XCTAssertTrue(fadeRoles.contains("case .inspectorPanel, .sidebarColumn, .iconButton, .toolbarFloatingButton"))
+        XCTAssertEqual(editor.components(separatedBy: ".toolbarBackground(.hidden, for: .windowToolbar)").count - 1, 1, "the editor hides the system background once; no second material is installed there")
+    }
+
     func testOfficialGlassAPIsAndTheVisualEffectFallbackAreDocumented() throws {
         let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
         XCTAssertTrue(glass.contains("GlassEffectContainer"))

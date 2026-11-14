@@ -39,4 +39,4 @@ Result: the full string was entered and remained after leaving/re-entering node 
 ## Resource and scope notes
 
 - The iOS test used one simulator (`ASC-iPhone16Pro`); `xcrun simctl list devices booted` was empty after the run.
-- The macOS test app launched from `/tmp/dd-verify-p0` was terminated by its own PID. No product code, keychain, merge, or push was changed.
+- The macOS test app launched from `/tmp/dd-verify-p0` was terminated by its own PID. No product code or keychain was changed. The verification commit was pushed only to `verify/p0-runtime2`; nothing was merged or pushed to `main`.

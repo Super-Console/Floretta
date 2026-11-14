@@ -255,6 +255,7 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
     public var childBadgeInset: CGFloat = 0
     /// True when that slot sits on `minX`. False puts it on `maxX`.
     public var childBadgeOnMinX: Bool = false
+    public var textAlignment: MindMapTextAlignment = .center
 
     public init(
         id: UUID,
@@ -286,7 +287,8 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
         markerIDs: [String] = [],
         tagBandHeight: CGFloat = 0,
         childBadgeInset: CGFloat = 0,
-        childBadgeOnMinX: Bool = false
+        childBadgeOnMinX: Bool = false,
+        textAlignment: MindMapTextAlignment = .center
     ) {
         self.id = id
         self.text = text
@@ -318,6 +320,7 @@ public struct NodeFrame: Equatable, Identifiable, Sendable {
         self.tagBandHeight = tagBandHeight
         self.childBadgeInset = childBadgeInset
         self.childBadgeOnMinX = childBadgeOnMinX
+        self.textAlignment = textAlignment
     }
 
     public var rect: CGRect { CGRect(origin: origin, size: size) }
@@ -883,7 +886,8 @@ public struct LayoutEngine: Sendable {
                 markerCount: node.markers.count
             )),
             childBadgeInset: childBadgeInset,
-            childBadgeOnMinX: childBadgeOnMinX
+            childBadgeOnMinX: childBadgeOnMinX,
+            textAlignment: node.textAlignment
         )
     }
 

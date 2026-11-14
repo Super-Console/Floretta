@@ -116,6 +116,12 @@ public enum MindMapSide: String, Equatable, Sendable, Codable {
     case right
 }
 
+public enum MindMapTextAlignment: String, Equatable, Sendable, Codable, CaseIterable {
+    case leading
+    case center
+    case trailing
+}
+
 /// One topic in the map. Children are an ordered tree.
 /// A value tree cannot point at itself, so a cycle is not representable in memory.
 public struct MindMapNode: Equatable, Sendable, Identifiable {
@@ -142,6 +148,8 @@ public struct MindMapNode: Equatable, Sendable, Identifiable {
     public var labels: [String]
     /// XMind `topic.markers` (`markerId`). Empty is omitted from JSON.
     public var markers: [TopicMarker]
+    /// Per-topic paragraph alignment. Older files retain the historical centered layout.
+    public var textAlignment: MindMapTextAlignment
 
     public init(
         id: UUID = UUID(),
@@ -158,7 +166,8 @@ public struct MindMapNode: Equatable, Sendable, Identifiable {
         summaries: [TopicSummary] = [],
         boundaries: [TopicBoundary] = [],
         labels: [String] = [],
-        markers: [TopicMarker] = []
+        markers: [TopicMarker] = [],
+        textAlignment: MindMapTextAlignment = .center
     ) {
         self.id = id
         self.text = text
@@ -175,6 +184,7 @@ public struct MindMapNode: Equatable, Sendable, Identifiable {
         self.boundaries = boundaries
         self.labels = labels
         self.markers = markers
+        self.textAlignment = textAlignment
     }
 }
 
@@ -195,6 +205,7 @@ extension MindMapNode: Codable {
         case boundaries
         case labels
         case markers
+        case textAlignment
     }
 
     public init(from decoder: Decoder) throws {
@@ -218,6 +229,7 @@ extension MindMapNode: Codable {
         boundaries = try container.decodeIfPresent([TopicBoundary].self, forKey: .boundaries) ?? []
         labels = try container.decodeIfPresent([String].self, forKey: .labels) ?? []
         markers = try container.decodeIfPresent([TopicMarker].self, forKey: .markers) ?? []
+        textAlignment = try container.decodeIfPresent(MindMapTextAlignment.self, forKey: .textAlignment) ?? .center
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -248,6 +260,9 @@ extension MindMapNode: Codable {
         }
         if !markers.isEmpty {
             try container.encode(markers, forKey: .markers)
+        }
+        if textAlignment != .center {
+            try container.encode(textAlignment, forKey: .textAlignment)
         }
     }
 }

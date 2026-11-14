@@ -2631,6 +2631,13 @@ private struct StyleInspector: View {
                 .accessibilityIdentifier("inspector.style.borderColor")
             }
             Section(text(InspectorStyleSection.text.titleKey)) {
+                Picker(text("文字对齐"), selection: textAlignment) {
+                    Text(verbatim: text("靠左")).tag(MindMapTextAlignment.leading)
+                    Text(verbatim: text("居中")).tag(MindMapTextAlignment.center)
+                    Text(verbatim: text("靠右")).tag(MindMapTextAlignment.trailing)
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("inspector.style.textAlignment")
                 Picker(text("字体"), selection: fontDesign) {
                     ForEach(fontDesignTags, id: \.self) { tag in
                         Text(verbatim: fontDesignTitle(tag)).tag(tag)
@@ -2850,6 +2857,16 @@ private struct StyleInspector: View {
         Binding(
             get: { StyleColor.color(hex: style?.textHex ?? InspectorStyle.fallbackColorHex) },
             set: { apply(.textHex(StyleColor.hex($0))) }
+        )
+    }
+
+    private var textAlignment: Binding<MindMapTextAlignment> {
+        Binding(
+            get: { nodeID.flatMap { document.node($0)?.textAlignment } ?? .center },
+            set: { alignment in
+                guard let nodeID else { return }
+                _ = document.setTextAlignment(alignment, on: nodeID)
+            }
         )
     }
 

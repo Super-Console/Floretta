@@ -74,9 +74,9 @@ enum NodeTextTypography {
         return CTFontCreateWithName(name as CFString, safe, nil)
     }
 
-    static func paragraphStyle() -> NSParagraphStyle {
+    static func paragraphStyle(alignment: NSTextAlignment = .center) -> NSParagraphStyle {
         let style = NSMutableParagraphStyle()
-        style.alignment = .center
+        style.alignment = alignment
         style.lineBreakMode = .byWordWrapping
         style.lineBreakStrategy = .standard
         return style

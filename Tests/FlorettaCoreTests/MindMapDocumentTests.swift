@@ -10,6 +10,15 @@ final class MindMapDocumentTests: XCTestCase {
     private let created = Date(timeIntervalSince1970: 1_762_646_400)
     private let modified = Date(timeIntervalSince1970: 1_762_732_800)
 
+    func testTextAlignmentDefaultsToCenterForExistingDocumentsAndPersistsPerNode() throws {
+        let legacy = Data(#"{"formatVersion":1,"title":"t","createdAt":"2026-11-09T00:00:00Z","modifiedAt":"2026-11-09T00:00:00Z","roots":[{"id":"11111111-1111-1111-1111-111111111111","text":"root","note":"","collapsed":false,"children":[]}]}"#.utf8)
+        var document = try FlorettaCodec.decode(legacy)
+        XCTAssertEqual(document.roots[0].textAlignment, .center)
+        XCTAssertTrue(document.setTextAlignment(.leading, on: rootID))
+        let reopened = try FlorettaCodec.decode(FlorettaCodec.encode(document))
+        XCTAssertEqual(reopened.roots[0].textAlignment, .leading)
+    }
+
     func testThemeIDRoundTripsWithoutBumpingTheFormat() throws {
         var document = MindMapDocument(
             title: "色",

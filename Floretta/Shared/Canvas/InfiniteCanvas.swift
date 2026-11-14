@@ -638,7 +638,8 @@ struct InfiniteCanvas: View {
                     bold: frame.bold,
                     italic: frame.italic,
                     strikethrough: frame.strikethrough,
-                    underline: frame.underline
+                    underline: frame.underline,
+                    textAlignment: frame.textAlignment
                 )
             )
             .frame(width: editor.width, height: editor.height)
@@ -1985,6 +1986,7 @@ struct InfiniteCanvas: View {
             size: pointSize
         )
             .foregroundStyle(color(node.textColor))
+            .multilineTextAlignment(node.textAlignment.swiftUITextAlignment)
         if node.bold { text = text.bold() }
         if node.italic { text = text.italic() }
         if node.strikethrough { text = text.strikethrough() }
@@ -2187,6 +2189,17 @@ struct NodeEditSurface: Equatable {
     var italic: Bool
     var strikethrough: Bool
     var underline: Bool
+    var textAlignment: MindMapTextAlignment = .center
+}
+
+private extension MindMapTextAlignment {
+    var swiftUITextAlignment: TextAlignment {
+        switch self {
+        case .leading: .leading
+        case .center: .center
+        case .trailing: .trailing
+        }
+    }
 }
 
 /// Taps that land on the system text field must not commit or close it.

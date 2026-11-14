@@ -20,6 +20,7 @@
 - iOS build 与指定的 `FlorettaTests` 因签名阻塞未运行。GUI 验收/pre-release未运行。
 - Xcode settings 回读：macOS `SDKROOT=MacOSX27.2.sdk`；iOS `SDKROOT=iPhoneSimulator27.2.sdk`。项目版本仍为 `1.0` / `17`，体积预算未改。
 - 没有启动模拟器；检查时 booted 数量为 `1`，来源未知，未关闭。构建生成的 `/tmp/dd-batch6` 尚待用户同意清理。
+- 已 push 至 `origin/feat/toolbar-canvas`，draft PR #19 已创建；由于 GUI 签名构建与指定 macOS 测试未通过/未运行，PR 标注为不可合并。
 
 ## 旧文件兼容性
 

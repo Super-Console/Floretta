@@ -29,4 +29,4 @@ STATUS: BLOCKED
 
 ## 资源与后续
 
-未启动或使用模拟器；`xcrun simctl list devices booted | grep -c Booted` 当前输出 `1`，未关闭未知来源的已启动模拟器。构建使用单一临时目录 `/tmp/dd-batch6`，按清理规则待用户批准后再清理。macOS GUI 签名构建、iOS build、指定 FlorettaTests、push / PR 均待签名阻塞处理后继续。
+未启动或使用模拟器；`xcrun simctl list devices booted | grep -c Booted` 当前输出 `1`，未关闭未知来源的已启动模拟器。构建使用单一临时目录 `/tmp/dd-batch6`，按清理规则待用户批准后再清理。分支已 push 至 `origin/feat/toolbar-canvas`，draft PR 已创建：[#19](https://github.com/Super-Console/Floretta/pull/19)。macOS GUI 签名构建、iOS build、指定 FlorettaTests 仍待签名阻塞处理后继续；该 PR 不应合并。

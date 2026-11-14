@@ -17,10 +17,12 @@ struct RecentMapEntry: Codable, Identifiable, Equatable, Sendable {
 struct RecentMapsStore {
     var defaults: UserDefaults
     var key: String
+    var currentUITestRoot: URL?
 
-    init(defaults: UserDefaults, key: String = "floretta.recentMaps") {
+    init(defaults: UserDefaults, key: String = "floretta.recentMaps", currentUITestRoot: URL? = nil) {
         self.defaults = defaults
         self.key = key
+        self.currentUITestRoot = currentUITestRoot?.standardizedFileURL.resolvingSymlinksInPath()
     }
 
     func load() -> [RecentMapEntry] {
@@ -28,12 +30,12 @@ struct RecentMapsStore {
         let entries = (try? JSONDecoder().decode([RecentMapEntry].self, from: data)) ?? []
         return entries.filter { entry in
             guard let url = resolve(entry.bookmark) else { return true }
-            return !Self.isUITestArtifact(url)
+            return !isUITestArtifact(url)
         }
     }
 
     mutating func remember(_ url: URL, clock: any ClockPort) throws {
-        guard !Self.isUITestArtifact(url) else { return }
+        guard !isUITestArtifact(url) else { return }
         let accessed = url.startAccessingSecurityScopedResource()
         defer {
             if accessed { url.stopAccessingSecurityScopedResource() }
@@ -120,10 +122,17 @@ struct RecentMapsStore {
     /// UI-test documents live under an isolated `FlorettaUITest-<UUID>` root.
     /// Match a path component, not a filename, so real documents named “未命名”
     /// and user-selected directories remain eligible for Recents.
-    private static func isUITestArtifact(_ url: URL) -> Bool {
-        url.standardizedFileURL
+    private func isUITestArtifact(_ url: URL) -> Bool {
+        let components = url.standardizedFileURL
             .resolvingSymlinksInPath()
             .pathComponents
-            .contains { $0.hasPrefix("FlorettaUITest-") }
+        guard let artifactIndex = components.firstIndex(where: { $0.hasPrefix("FlorettaUITest-") }) else {
+            return false
+        }
+
+        guard let currentUITestRoot else { return true }
+        let currentComponents = currentUITestRoot.pathComponents
+        // Only exempt artifacts beneath the explicitly injected root for this launch.
+        return !components.starts(with: currentComponents)
     }
 }

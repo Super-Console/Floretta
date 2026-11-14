@@ -4,9 +4,9 @@
 
 ## 本轮
 
-- 本轮进度：ui-polish-14（分支 `feat/ui-polish-14`，草稿 PR #1）已落地节点双击布局环的代码修复，并去掉临时 `UIPolishRuntimeTrace`。先前采样是 `layoutSubtreeIfNeeded` 里反复进入 `DocumentEditor.body` → `editorToolbar`，`bodyCount` 上涨而指纹 `stateChanges=none`。修复把窗口标题 / 工具栏 `displayMode` 的写从 `NSView.layout` 改成只做一次，文本框按字体签名和同一尺寸只写一次，工具栏下拉不再套第二层玻璃。另修首页 Recents：过滤 `FlorettaUITest-*` 路径组件，并增加旧书签与真实用户目录的回归测试。当前本地 `FlorettaTests` 为 455 tests、1 skipped、0 failures。详见 `DONE-ui-polish-14.md`。
-- 下一步：单根节点双击进入编辑后连续采样 30 秒 CPU/RSS，并截图测量字形中心误差；当前未启动目标构建，未取得这些数据。
-- 阻塞：运行时验收仍缺，保持 BLOCKED，不合并 PR #1。指定 `/tmp` 构建产物无法由 CuaDriver 的 app-name 路由启动；同 bundle ID 的已运行 `/Applications` 进程二进制不同，为避免触碰它没有用 Finder 启动或发送输入。CPU/RSS 与居中均未测。已验收的旧界面项目本轮没有新的截图。
+- 本轮进度：修复首页 Recents 把当前 UI-test 会话自产文档也过滤的问题。`RecentMapsStore` 注入当前会话根目录，仅放行该根下文档，其他 `FlorettaUITest-*` 残留仍过滤；新增真实用户“未命名”、当前会话可见、其他会话隐藏三条单测。`swift test` 369/1 skipped/0 failures，macOS `FlorettaTests` 460/1 skipped/0 failures，macOS 与 iOS unsigned build 均成功。详见 `DONE-recents-fix.md`。
+- 下一步：`fix/recents-uitest-visibility` 已推送并开 PR（不合并）；iOS UI 门禁待 Timmy 在 GUI 会话运行 `./scripts/pre-release.sh` 复验。
+- 阻塞：此会话未运行 iOS UI 自动化；复验前不能声称 pre-release 门禁全绿。
 
 状态词只用：✅ 已交付 / 🚧 进行中(PR#) / ❌ 缺失 / ⛔ 不做(原因)。证据列只写已存在的 PR、提交、路径或已核验的时间。不得用 ✅ 掩盖未收口项。
 

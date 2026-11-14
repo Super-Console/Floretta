@@ -445,7 +445,7 @@ enum AppLaunch {
         settings.language = AppLanguage.fromLaunchArguments(arguments) ?? .simplifiedChinese
         let library = LibraryModel(
             settings: settings,
-            store: RecentMapsStore(defaults: defaults),
+            store: RecentMapsStore(defaults: defaults, currentUITestRoot: root),
             documentsDirectory: documents
         )
         do {

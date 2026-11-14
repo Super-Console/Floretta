@@ -1,14 +1,39 @@
 {
   "sourceLanguage" : "zh-Hans",
   "strings" : {
-    "" : {
-
-    },
     "%lld" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld"
+          }
+        }
+      }
     },
     "%lld pt" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld pt"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld pt"
+          }
+        }
+      }
     },
     "%lld 个主题" : {
       "extractionState" : "manual",
@@ -28,7 +53,21 @@
       }
     },
     "%lld%%" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        }
+      }
     },
     "1/2" : {
       "extractionState" : "manual",
@@ -490,7 +529,21 @@
       }
     },
     "NOTICE" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NOTICE"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NOTICE"
+          }
+        }
+      }
     },
     "NOTICE 开源致谢" : {
       "extractionState" : "manual",
@@ -544,7 +597,21 @@
       }
     },
     "pinch scale %lld%%" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "pinch scale %lld%%"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "pinch scale %lld%%"
+          }
+        }
+      }
     },
     "PNG 和 PDF 可以带上便签。关掉后便签还在导图里，只是不画进图片。" : {
       "extractionState" : "manual",
@@ -598,7 +665,21 @@
       }
     },
     "px" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "px"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "px"
+          }
+        }
+      }
     },
     "一次换上分支色、画布背景和线条粗细" : {
       "extractionState" : "manual",
@@ -1281,7 +1362,21 @@
       }
     },
     "关系线" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Relationship"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关系线"
+          }
+        }
+      }
     },
     "关闭" : {
       "extractionState" : "manual",
@@ -1335,10 +1430,38 @@
       }
     },
     "关闭检查器" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close Inspector"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭检查器"
+          }
+        }
+      }
     },
     "关闭音频播放器" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close Audio Player"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭音频播放器"
+          }
+        }
+      }
     },
     "内容与 sha256 不符（实际 %@）。" : {
       "extractionState" : "manual",
@@ -1545,13 +1668,55 @@
       }
     },
     "剪切 / 复制 / 粘贴" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cut / Copy / Paste"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "剪切 / 复制 / 粘贴"
+          }
+        }
+      }
     },
     "加粗" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bold"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加粗"
+          }
+        }
+      }
     },
     "加粗 / 斜体" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bold / Italic"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加粗 / 斜体"
+          }
+        }
+      }
     },
     "包内没有这个附件。" : {
       "extractionState" : "manual",
@@ -2319,7 +2484,21 @@
       }
     },
     "字号" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Font Size"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "字号"
+          }
+        }
+      }
     },
     "字号缩放" : {
       "extractionState" : "manual",
@@ -2492,7 +2671,21 @@
       }
     },
     "实际大小" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actual Size"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "实际大小"
+          }
+        }
+      }
     },
     "宽度" : {
       "extractionState" : "manual",
@@ -2529,7 +2722,21 @@
       }
     },
     "导出" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导出"
+          }
+        }
+      }
     },
     "导出为 XMind，自由节点写成浮动主题" : {
       "extractionState" : "manual",
@@ -2702,7 +2909,21 @@
       }
     },
     "帮助" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Help"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "帮助"
+          }
+        }
+      }
     },
     "底色" : {
       "extractionState" : "manual",
@@ -2790,7 +3011,21 @@
       }
     },
     "快捷键一览" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keyboard Shortcuts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快捷键一览"
+          }
+        }
+      }
     },
     "恢复" : {
       "extractionState" : "manual",
@@ -3065,7 +3300,21 @@
       }
     },
     "把内容存入 ${document} 的 ${node}" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save content to ${node} in ${document}"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "把内容存入 ${document} 的 ${node}"
+          }
+        }
+      }
     },
     "把剪贴板里的图片放进节点；没有图片时粘贴文字" : {
       "extractionState" : "manual",
@@ -3510,7 +3759,21 @@
       }
     },
     "播放音频" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Play Audio"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播放音频"
+          }
+        }
+      }
     },
     "放入" : {
       "extractionState" : "manual",
@@ -3564,10 +3827,38 @@
       }
     },
     "放大" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zoom In"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "放大"
+          }
+        }
+      }
     },
     "放大 / 缩小" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zoom In / Out"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "放大 / 缩小"
+          }
+        }
+      }
     },
     "文件" : {
       "extractionState" : "manual",
@@ -3740,7 +4031,21 @@
       }
     },
     "新建 / 保存" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New / Save"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新建 / 保存"
+          }
+        }
+      }
     },
     "新建导图" : {
       "extractionState" : "manual",
@@ -4083,7 +4388,21 @@
       }
     },
     "暂停音频" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pause Audio"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂停音频"
+          }
+        }
+      }
     },
     "暮色" : {
       "extractionState" : "manual",
@@ -4426,7 +4745,21 @@
       }
     },
     "格式" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Format"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "格式"
+          }
+        }
+      }
     },
     "检查器" : {
       "extractionState" : "manual",
@@ -5092,10 +5425,38 @@
       }
     },
     "视图" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "视图"
+          }
+        }
+      }
     },
     "视频无法播放" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unable to Play Video"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "视频无法播放"
+          }
+        }
+      }
     },
     "移除标签" : {
       "extractionState" : "manual",
@@ -5489,7 +5850,21 @@
       }
     },
     "缩小" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zoom Out"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "缩小"
+          }
+        }
+      }
     },
     "缺失的节点" : {
       "extractionState" : "manual",
@@ -6546,7 +6921,21 @@
       }
     },
     "音频文件无法播放" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unable to Play Audio File"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音频文件无法播放"
+          }
+        }
+      }
     },
     "颜色" : {
       "extractionState" : "manual",

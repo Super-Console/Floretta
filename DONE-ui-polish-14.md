@@ -1,6 +1,12 @@
-STATUS: BLOCKED
+STATUS: CODE_FIXED_RUNTIME_PENDING
 
 # ui-polish-14
+
+## Current acceptance status (2026-11-14)
+
+- **Edit-path hang — code fix in place, runtime verification pending.** The source-level layout feedback writes are addressed by `WindowChromePass`, `EditingFontSignature`, and `TextCenteringPass`. The user reports macOS UI automation is blocked by TCC authorization, so do not claim the runtime hang is cleared.
+- **Text centering — code fix in place, runtime verification pending.** `TextCenteringPass` applies once per bounds/string; the ≤2pt glyph-to-node center acceptance still needs a successful GUI measurement.
+- GUI-signed macOS and iOS builds passed in the user-provided final log. The follow-up local run passed all 454 `FlorettaTests` (1 skipped, 0 failures), including the localization contract. Status is not DONE until runtime checks are complete.
 
 ## Layout-loop code fix (cloud VM, no GUI)
 

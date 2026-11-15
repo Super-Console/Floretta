@@ -156,19 +156,20 @@ public enum EditorToolbarCatalog {
         item(.redo, "重做", "arrow.uturn.forward", "恢复刚刚撤销的编辑", customization: .visible, placement: .principal),
         item(.delete, "删除", "trash", "删除选中的节点、便签、关系、概要、边界或专区", customization: .visible, placement: .principal),
         item(.insert, "插入", "plus", "插入子节点、同级、语音输入、自由节点、便签、概要、边界、专区、图片、附件，或从文件导入", kind: .pulldown, customization: .visible),
-        item(.share, "分享", "square.and.arrow.up", "把导图导出为 PDF、PNG、Markdown，或保存为已支持的文件", kind: .pulldown, customization: .visible),
-        item(.zoom, "缩放", "plus.magnifyingglass", "选择缩放比例，或让导图适应窗口", kind: .pulldown, customization: .visible),
-        item(.immersive, "全屏沉浸", "rectangle.expand.diagonal", "进入全屏沉浸模式，暂时只留下导图", customization: .visible),
-        item(.more, "更多", "ellipsis", "大纲、样式、配色、查找、标签筛选、版本历史、粘贴和文档统计", kind: .pulldown, customization: .visible),
+        item(.share, "分享", "square.and.arrow.up", "把导图导出为 PDF、PNG、Markdown，或保存为已支持的文件", kind: .pulldown, customization: .addable),
+        // Zoom is a pulldown, not a bar item: the bottom status capsule owns the
+        // live percent (TD-003), so the toolbar no longer draws a second entry.
+        item(.zoom, "缩放", "plus.magnifyingglass", "选择缩放比例，或让导图适应窗口", kind: .pulldown, customization: .menuOnly),
+        item(.immersive, "全屏沉浸", "rectangle.expand.diagonal", "进入全屏沉浸模式，暂时只留下导图", customization: .addable),
 
         item(.child, "子节点", "plus.square", "在选中的节点下新建一个子节点", menu: .insert, customization: .addable),
         item(.sibling, "同级", "square.on.square", "在选中的节点旁新建一个同级节点", menu: .insert, customization: .addable),
         item(.dictation, "语音输入", "mic", "用系统听写新建子节点。正在编辑或选中自由节点时，听写写进当前文字。", availability: .notWhileComposing, menu: .insert, customization: .addable),
         item(.freeNode, "自由节点", "arrow.up.left.and.arrow.down.right", "在画布上放一个不进层级的节点，位置会保存", availability: .notInMarkdown, menu: .insert, customization: .addable),
         item(.sticky, "便签", "note.text", "在画布上放一张便签。最多五种颜色，不计入节点，可以拖动，大小有上限", availability: .notInMarkdown, menu: .insert, customization: .addable),
-        item(.link, "连到", "point.topleft.down.to.point.bottomright.curvepath", "把选中的节点连到另一个节点，画布上会画出这条线。", availability: .requiresSelectedTopic, kind: .submenu, menu: .insert, customization: .addable),
-        item(.summary, "概要", "curlybraces", "为选中的节点生成概要，并画出括住它的括号", availability: .requiresEnclosableTopic, menu: .insert, customization: .addable),
-        item(.boundary, "边界", "rectangle.dashed", "用边界圈住选中的节点", availability: .requiresEnclosableTopic, menu: .insert, customization: .addable),
+        item(.link, "连到", "point.topleft.down.to.point.bottomright.curvepath", "把选中的节点连到另一个节点，画布上会画出这条线。", availability: .requiresSelectedTopic, kind: .submenu, menu: .more, customization: .visible),
+        item(.summary, "概要", "curlybraces", "为选中的节点生成概要，并画出括住它的括号", availability: .requiresEnclosableTopic, menu: .more, customization: .visible),
+        item(.boundary, "边界", "rectangle.dashed", "用边界圈住选中的节点", availability: .requiresEnclosableTopic, menu: .more, customization: .visible),
         item(.region, "专区", "rectangle", "在画布上放一个矩形区域。它可以圈住节点，但不会改变节点层级。", availability: .notInMarkdown, menu: .insert, customization: .addable),
         item(.image, "图片", "photo", "从文件选择一张图片放进选中的节点", availability: .notInMarkdown, menu: .insert, customization: .addable),
         item(.attachment, "附件", "paperclip", "把一个文件原样放进选中的节点", availability: .notInMarkdown, menu: .insert, customization: .addable),
@@ -180,7 +181,7 @@ public enum EditorToolbarCatalog {
         item(.viewMode, "查看模式", "eye", "在地图模式和聚焦模式之间切换", kind: .submenu, customization: .menuOnly),
         item(.newCanvas, "新建画布", "plus.rectangle.on.rectangle", "在这份导图里再加一个中心主题", customization: .menuOnly),
         item(.find, "查找", "magnifyingglass", "按文字或标签查找节点", menu: .more, customization: .addable),
-        item(.tagFilter, "标签筛选", "tag", "给选中的主题加上优先级、进度、旗帜或标签，并按标签高亮", availability: .notInMarkdown, menu: .more, customization: .addable),
+        item(.tagFilter, "标签筛选", "tag", "给选中的主题加上优先级、进度、旗帜或标签，并按标签高亮", availability: .notInMarkdown, menu: .more, customization: .visible),
         item(.history, "版本历史", "clock.arrow.circlepath", "查看已保存的历史版本，回滚或对比两份内容。", availability: .requiresSavedPackage, menu: .more, customization: .addable),
         item(.paste, "粘贴", "doc.on.clipboard", "把剪贴板里的图片放进节点；没有图片时粘贴文字", menu: .more, customization: .addable),
         item(.about, "关于", "info.circle", "查看版本号和开源致谢", customization: .menuOnly),
@@ -199,6 +200,10 @@ public enum EditorToolbarCatalog {
         item(.opml, "OPML", "list.bullet", "把这份导图导出为 OPML", menu: .share, customization: .menuOnly),
         item(.xmind, ".xmind", "square.stack.3d.up", "导出为 XMind，自由节点写成浮动主题", menu: .share, customization: .menuOnly),
         item(.printMap, "打印", "printer", "打印这份导图", menu: .share, customization: .menuOnly),
+
+        // Declared last so `defaultToolbarItems` ends with the overflow, which the
+        // bar draws rightmost. TD-006 keeps every other menu-only command above it.
+        item(.more, "更多", "ellipsis", "大纲、样式、配色、查找、标签筛选、版本历史、粘贴和文档统计", kind: .pulldown, customization: .visible),
     ]
 
     private static let byID: [EditorToolbarCommandID: EditorToolbarCommand] = {

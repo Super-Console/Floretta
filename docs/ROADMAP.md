@@ -65,7 +65,10 @@
 
 ### TD-003 右下角状态胶囊与主题统计 popover
 
-- 状态：❌ 未开工。
+- 状态：🚧 进行中(fix/td003)。
+- 本轮证据（2026-11-15，`fix/td003`）：提交 `5707796`。`Floretta/Shared/Shell/EditorStatusBar.swift` 的 `EditorStatusStrip` 现在是右下角单块玻璃胶囊（`AppleGlassChrome` 的 `bottomBarCapsule` 角色，无自绘渐变/blur/shadow），从左到右为 主题数 ｜ 实时缩放百分比 ｜ 查看模式 ｜ 大纲 ｜ 全屏。悬停（macOS `.onHover`）与点按（iPad / iPhone 走同一个 `.popover`）弹出 主题 / 字数 / 字符数。统计已从 `•••` 移出：SwiftUI 菜单与 iOS `makeOverflowUIMenu` 两处都删掉了 census 行，三数仍只来自 `TopicTitleCensus`（`statusCensus` 一处读取）。缩放同时从 macOS / iOS 顶栏移除，胶囊成为唯一缩放入口（`EditorToolbarCatalog` 的 `.zoom` 改为 `menuOnly`）。单测：`EditorStatusBarTests` 5/0、`AppleGlassChromeContractTests` 12/0、`EditorChromeContractTests` 7/0；`swift test` 全量 396 通过 / 1 skipped / 0 failures。
+- 未收口：悬停→popover 的真机手感、浅色/深色可读性、窄窗口不遮挡画布，均未做视觉验收（本会话不启动 App）。`FlorettaUITests/ThemeModesScreenshotUITests.fitToWindow` 已改为点 `statusBar.zoom`，但本会话未跑 iOS UI 自动化。
+- 跨端差异已显式实现：`onHover` 仅在 macOS 生效，iPad / iPhone 用点按打开同一个 popover。XMind 的「卡片视图」在本仓没有对应功能，该槽位驱动既有「查看模式」（地图 / 聚焦），不是死按钮。
 - 参照：XMind 右下角胶囊「主题: 5 ｜ 100% ▾ ｜ 卡片视图 / 大纲 / 全屏 / 演说」，hover「主题: 5」弹出「主题 / 字数 / 字符数」三行（用户 2026-11-15 20:54、20:55 截图）。**用户明确只要前三个图标，不做「演说」**。
 - 现状证据：`Floretta/Shared/Shell/EditorStatusBar.swift:10-20` 的 `EditorStatusStrip` 现在是个空 `Spacer`，底栏什么都不画；主题 / 字数 / 字符数被塞在 `EditorOverflowCensus`（同文件 26 行起，即 `•••` 菜单内）；缩放百分比是工具栏项 `zoomPercent`。
 - 差距：把已有零件搬进胶囊，不新建数据源；统计直接复用 `TopicTitleCensus`（`EditorOverflowCensus` 已在用），禁止第二套计数器。
@@ -94,7 +97,9 @@
 
 ### TD-006 顶栏铺开与窄窗口收敛
 
-- 状态：❌ 未开工。
+- 状态：🚧 进行中(fix/td003)。
+- 本轮证据（2026-11-15，`fix/td003`）：提交 `ce69362`。macOS 顶栏改为三组 —— `macToolbarItemsPrimary`（撤销 / 重做 / 删除）｜ `macToolbarItemsInsert`（＋ 插入 一个下拉，子节点 / 同级 / 语音输入 / 自由节点 / 便签 / 专区 / 图片 / 附件 / 从文件导入 是菜单行）｜ `macToolbarItemsRelations`（关系线 / 概要 / 边界 / 标签），随后是 `•••` 与检查器胶囊。导入导出、全屏、历史、主题、查找、粘贴、大纲、样式、适应窗口默认不在顶栏（`addable`，仍可从工具栏自定义面板加回）。`•••` 新增 `overflowMenuCommands`：`EditorToolbarCatalog.menu(.more)` 减去 `EditorToolbarLayout` 当前显示在顶栏的命令，因此同一命令不会有两处入口；窄窗口交给系统 toolbar 溢出，没有另写「变窄就换 •••」的判定。目录侧同时把 概要 / 边界 / 关系线的菜单归属从 `insert` 移到 `more`（作为窄栏回退），`.more` 声明移到数组末尾，使 `defaultToolbarItems` 以 `•••` 结尾。单测：`EditorToolbarCatalogTests` 7/0、`EditorChromeContractTests` 7/0（含新增 `testMacTopBarGroupsHighFrequencyCommandsAndOverflowComesLast`）；`swift test` 全量 396 通过 / 1 skipped / 0 failures；macOS 未签名 build `** BUILD SUCCEEDED **`。
+- 未收口：窗口收窄到最小宽度时是否裁切、`•••` 是否仍可达，需要真机截图验收（本会话不启动 App）。XMind 顶栏的「备注」在本仓没有对应命令，未做。`•••` 帮助文案仍写「文档统计」，统计实际在胶囊里；改文案要新增本地化 key，本轮未动。
 - 参照：XMind 顶栏一排图标（撤销 / 关系线 / 边界 / 概要 / 标签 / 备注 / ＋插入），窗口变窄时由系统溢出（用户 2026-11-15 20:58 截图）。
 - 现状证据：`FlorettaCore/Editor/EditorToolbarCatalog.swift` 的 `EditorToolbarCommandID` 已含 40+ 命令（含 link / summary / boundary / region / tagFilter / outline / viewMode / focusMode / immersive / zoom / fit / newCanvas / history），并已有 `EditorCommandPlacement`（principal / primary）与 `EditorCommandVisibility`（visible / menuOnly）分级。差距是**分组策略**，不是造轮子。
 - 修法：顶栏分三组——`撤销 / 重做` ｜ `＋ 插入`（子节点 / 同级 / 自由节点 / 便签 / 图片 / 附件 / 录音）｜ `关系线 / 概要 / 边界 / 标签 / 备注`；低频项（导入导出、历史、主题、查找、统计）留 `•••`。溢出交给系统 toolbar，不另写「变窄就换 •••」的判定。
@@ -103,7 +108,9 @@
 
 ### TD-007 检查器开关的玻璃胶囊样式
 
-- 状态：❌ 未开工。
+- 状态：🚧 进行中(fix/td003)。
+- 本轮证据（2026-11-15，`fix/td003`）：提交 `3bc52dd`。`DocumentEditor.macInspectorToggle` 是独立 `ToolbarItem(id: "inspector.toggle", placement: .primaryAction)`，画在 `macToolbarItemsView` 末尾（右上角）。玻璃来自既有 `AppleGlassChrome` 的 `toolbarFloatingButton` 角色（`Capsule()` + 系统 glass / 材质回退），未手写渐变、blur 或阴影；标签区 `frame(width: 34, height: 28)` 满足 ≥ 28×28，图标 `sidebar.trailing`，字号与顶栏其它按钮一致（13pt medium）。标题与帮助文本复用 `样式` 目录项，未新增文案。单测：`EditorChromeContractTests.testMacInspectorToggleIsOneGlassCapsule` 通过（该批 7/0）。
+- 未收口：浅色 / 深色下的可读性与点按区域只在代码层保证，未做真机截图与 AX 实测（本会话不启动 App）。
 - 参照：XMind 右上角「笑脸 + 侧栏开关」的玻璃胶囊（用户 2026-11-15 20:56 截图）。
 - 现状证据：检查器开关已存在（AX `inspector.tabs`），只缺样式。
 - 修法：复用 `Floretta/Shared/Shell/AppleGlassChrome.swift` 的 toolbar 角色，不手写渐变。

@@ -111,47 +111,97 @@ struct DocumentEditor: View {
         }
     }
 
+    /// Group 1 (TD-006): the two commands everyone reaches for, plus delete.
     @ToolbarContentBuilder
     private var macToolbarItemsPrimary: some CustomizableToolbarContent {
         macItem(.undo)
         macItem(.redo)
         macItem(.delete)
-        macItem(.share)
-        macItem(.zoom)
-        macItem(.immersive)
-        macItem(.more)
-        macItem(.child)
-        macItem(.sibling)
     }
 
+    /// Group 2 (TD-006): one ＋ 插入 pulldown. 子节点 / 同级 / 自由节点 / 便签 /
+    /// 专区 / 图片 / 附件 / 语音输入 are rows of that menu, not bar items; they
+    /// stay declared here so the customization palette can still surface them.
     @ToolbarContentBuilder
     private var macToolbarItemsInsert: some CustomizableToolbarContent {
+        macItem(.insert)
+        macItem(.child)
+        macItem(.sibling)
         macItem(.dictation)
         macItem(.freeNode)
         macItem(.sticky)
-        macItem(.link)
-        macItem(.summary)
-        macItem(.boundary)
         macItem(.region)
         macItem(.image)
         macItem(.attachment)
         macItem(.importFile)
     }
 
+    /// Group 3 (TD-006): the commands that act on the current selection —
+    /// 关系线 / 概要 / 边界 / 标签.
     @ToolbarContentBuilder
-    private var macToolbarItemsNavigation: some CustomizableToolbarContent {
+    private var macToolbarItemsRelations: some CustomizableToolbarContent {
+        macItem(.link)
+        macItem(.summary)
+        macItem(.boundary)
+        macItem(.tagFilter)
+    }
+
+    /// The ••• overflow. It stays a normal toolbar item, so a narrow window lets
+    /// the system toolbar push it into its own overflow instead of this file
+    /// inventing a "collapse to •••" rule.
+    @ToolbarContentBuilder
+    private var macToolbarItemsOverflow: some CustomizableToolbarContent {
+        macItem(.more)
+    }
+
+    /// Low-frequency commands (import/export, full screen, history, theme, find,
+    /// paste, outline, style). Off the bar by default, reachable from ••• and
+    /// addable again from the toolbar customization palette.
+    @ToolbarContentBuilder
+    private var macToolbarItemsLowFrequency: some CustomizableToolbarContent {
+        macItem(.share)
+        macItem(.immersive)
         macItem(.outline)
         macItem(.style)
         macItem(.theme)
         macItem(.find)
-        macItem(.tagFilter)
         macItem(.history)
         macItem(.paste)
     }
 
+    /// Trailing pair: 适应窗口 (addable) and the inspector capsule, which stays
+    /// at the far right like the XMind sidebar switch.
     @ToolbarContentBuilder
     private var macToolbarItemsView: some CustomizableToolbarContent {
         macItem(.fit)
+        macInspectorToggle
+    }
+
+    /// Right-top inspector switch (TD-007). One glass capsule, drawn by the
+    /// official role `toolbarFloatingButton` (`AppleGlassChrome` -> `Capsule()`);
+    /// nothing here paints a gradient, a blur, or a shadow. The 34x28 label
+    /// frame is the hit target the road map requires (>= 28x28) and keeps the
+    /// glyph on the same baseline as the other bar items. It reuses the 样式
+    /// command for title and help, so no new strings or menu entries appear.
+    private var macInspectorToggle: some CustomizableToolbarContent {
+        ToolbarItem(id: "inspector.toggle", placement: .primaryAction) {
+            Button {
+                showInspector.toggle()
+            } label: {
+                Image(systemName: "sidebar.trailing")
+                    .symbolRenderingMode(.monochrome)
+                    .font(.system(size: 13, weight: .medium))
+                    .frame(width: 34, height: 28)
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .appleGlassChrome(.toolbarFloatingButton)
+            .accessibilityLabel(text(EditorToolbarCatalog.command(.style).title))
+            .accessibilityHint(text(EditorToolbarCatalog.command(.style).help))
+            .accessibilityIdentifier("inspector.toggle")
+            .help(Text(verbatim: text(EditorToolbarCatalog.command(.style).help)))
+        }
+        .defaultCustomization(.visible)
     }
     #endif
 
@@ -258,18 +308,6 @@ struct DocumentEditor: View {
                             toolbarControl(.insert)
                                 .appleGlassChrome(.toolbarFloatingButton)
                         }
-                        if toolbarVisibleItems.contains(.share) {
-                            toolbarControl(.share)
-                                .appleGlassChrome(.toolbarFloatingButton)
-                        }
-                        if toolbarVisibleItems.contains(.zoom) {
-                            toolbarControl(.zoom)
-                                .appleGlassChrome(.toolbarFloatingButton)
-                        }
-                        if toolbarVisibleItems.contains(.immersive) {
-                            toolbarControl(.immersive)
-                                .appleGlassChrome(.toolbarFloatingButton)
-                        }
                         #if os(iOS)
                         // Keep the inspector entry and the overflow as trailing
                         // siblings in this group so `editor.more` stays rightmost.
@@ -300,7 +338,9 @@ struct DocumentEditor: View {
                 if session.zen.chrome.showsToolbar {
                     macToolbarItemsPrimary
                     macToolbarItemsInsert
-                    macToolbarItemsNavigation
+                    macToolbarItemsRelations
+                    macToolbarItemsOverflow
+                    macToolbarItemsLowFrequency
                     macToolbarItemsView
                 }
             }
@@ -632,7 +672,9 @@ struct DocumentEditor: View {
                     EditorStatusStrip(
                         session: session,
                         camera: camera,
-                        language: settings.language
+                        census: statusCensus,
+                        language: settings.language,
+                        showOutline: $showOutline
                     )
                 }
             }
@@ -942,13 +984,10 @@ struct DocumentEditor: View {
         EditorToolbarLayout.visibleItems(for: toolbarWidthClass)
     }
 
-    private var overflowCensus: TopicTitleCensus {
+    /// One census read for the status capsule. Same cache as before; the editor
+    /// still counts topics, words, and characters in exactly one place.
+    private var statusCensus: TopicTitleCensus {
         topicCensus.census(of: session.editingDocument)
-    }
-
-    private func overflowAccessibilityLabel(census: TopicTitleCensus) -> String {
-        let stats = EditorOverflowCensus(census: census, locale: settings.resolvedLocale)
-        return "\(text(EditorToolbarCatalog.command(.more).title))\n\(stats.accessibilityLabel)"
     }
 
     private func commandLabel(
@@ -1059,7 +1098,6 @@ struct DocumentEditor: View {
             case .insert: insertMenu
             case .share: shareMenu
             case .more: moreMenu
-            case .zoom: zoomMenu
             default: EmptyView()
             }
         case .submenu:
@@ -1143,29 +1181,6 @@ struct DocumentEditor: View {
         .accessibilityHint(text(commandHelp(.link)))
     }
 
-    private var zoomMenu: some View {
-        Menu {
-            ForEach(ZoomStop.allCases, id: \.self) { stop in
-                Button { camera.zoom(to: stop) } label: {
-                    Label("\(stop.percent)%", systemImage: "magnifyingglass")
-                }
-                    .explained(FlorettaL10n.format("把画布缩放到 %lld%%", locale: settings.resolvedLocale, arguments: [Int64(stop.percent)]))
-            }
-            commandMenuButton(.fit) { perform(.fit) }
-                .keyboardShortcut("0", modifiers: .command)
-        } label: {
-            #if os(iOS)
-            // Keep the compact toolbar face on iOS; macOS shows the live percentage.
-            commandLabel(.zoom, surface: .toolbar)
-            #else
-            commandLabel(.zoom, surface: .toolbar)
-            #endif
-        }
-        .explained(EditorToolbarCatalog.command(.zoom).help)
-        .appleGlassChrome(.toolbarFloatingButton)
-        .accessibilityIdentifier("editor.zoom")
-    }
-
     @ViewBuilder
     private var shareMenu: some View {
         #if os(iOS)
@@ -1217,51 +1232,62 @@ struct DocumentEditor: View {
 
     @ViewBuilder
     private var moreMenu: some View {
-        let census = overflowCensus
         #if os(iOS)
         IdentifiedSystemMenuButton(
             symbol: EditorToolbarCatalog.command(.more).symbol,
             accessibilityIdentifier: "editor.more",
-            accessibilityLabel: overflowAccessibilityLabel(census: census),
+            accessibilityLabel: text(EditorToolbarCatalog.command(.more).title),
             help: text(EditorToolbarCatalog.command(.more).help),
-            makeMenu: { makeOverflowUIMenu(census: census) }
+            makeMenu: { makeOverflowUIMenu() }
         )
         .help(Text(verbatim: text(EditorToolbarCatalog.command(.more).help)))
         .appleGlassChrome(.toolbarFloatingButton)
         #else
         Menu {
-            EditorOverflowCensus(census: census, locale: settings.resolvedLocale)
-                .accessibilityIdentifier("status.topicCensus")
-            Divider()
-            #if os(macOS)
-            insertOverflowSubmenu
-            #else
+            // TD-006: the ••• menu never repeats a command the bar already
+            // shows. Every row below falls back into this menu exactly when
+            // `EditorToolbarLayout` keeps that command off the bar, so compact
+            // widths still reach everything.
             if !toolbarVisibleItems.contains(.insert) {
                 insertOverflowSubmenu
             }
-            #endif
             if !toolbarVisibleItems.contains(.share) {
                 shareOverflowSubmenu
             }
-            commandMenuButton(.undo) { perform(.undo) }
-            commandMenuButton(.redo) { perform(.redo) }
-            commandMenuButton(.delete) { perform(.delete) }
-            commandMenuButton(.immersive) { perform(.immersive) }
+            if !toolbarVisibleItems.contains(.undo) {
+                commandMenuButton(.undo) { perform(.undo) }
+            }
+            if !toolbarVisibleItems.contains(.redo) {
+                commandMenuButton(.redo) { perform(.redo) }
+            }
+            if !toolbarVisibleItems.contains(.delete) {
+                commandMenuButton(.delete) { perform(.delete) }
+            }
+            if !toolbarVisibleItems.contains(.immersive) {
+                commandMenuButton(.immersive) { perform(.immersive) }
+            }
             overflowAlwaysCommandButton(.mapMode)
             overflowAlwaysCommandButton(.focusMode)
             overflowAlwaysCommandButton(.newCanvas)
-            ForEach(EditorToolbarCatalog.menu(.more), id: \.self) { id in
+            ForEach(overflowMenuCommands, id: \.self) { id in
                 moreRow(id)
             }
         } label: {
             commandLabel(.more, surface: .toolbar)
                 .accessibilityIdentifier("editor.more")
         }
-        .accessibilityLabel(overflowAccessibilityLabel(census: census))
+        .accessibilityLabel(text(EditorToolbarCatalog.command(.more).title))
         .accessibilityIdentifier("editor.more")
         .help(Text(verbatim: text(EditorToolbarCatalog.command(.more).help)))
         .appleGlassChrome(.toolbarFloatingButton)
         #endif
+    }
+
+    /// `menu(.more)` minus whatever the bar already shows. This is the whole
+    /// de-duplication rule; no platform-specific list is kept here.
+    private var overflowMenuCommands: [EditorToolbarCommandID] {
+        let onBar = Set(toolbarVisibleItems)
+        return EditorToolbarCatalog.menu(.more).filter { !onBar.contains($0) }
     }
 
     private var insertOverflowSubmenu: some View {
@@ -1305,44 +1331,24 @@ struct DocumentEditor: View {
 
 
     #if os(iOS)
-    private func makeOverflowUIMenu(census: TopicTitleCensus) -> UIMenu {
-        var children: [UIMenuElement] = [makeCensusUIMenu(census: census)]
+    private func makeOverflowUIMenu() -> UIMenu {
+        var children: [UIMenuElement] = []
         if !toolbarVisibleItems.contains(.insert) {
             children.append(makeInsertUIMenu())
         }
         if !toolbarVisibleItems.contains(.share) {
             children.append(makeShareUIMenu())
         }
-        for id in [EditorToolbarCommandID.undo, .redo, .delete, .immersive] {
+        for id in [EditorToolbarCommandID.undo, .redo, .delete, .immersive] where !toolbarVisibleItems.contains(id) {
             children.append(commandUIAction(id))
         }
         children.append(overflowAlwaysCommandUIAction(.mapMode))
         children.append(overflowAlwaysCommandUIAction(.focusMode))
         children.append(overflowAlwaysCommandUIAction(.newCanvas))
-        for id in EditorToolbarCatalog.menu(.more) {
+        for id in overflowMenuCommands {
             children.append(commandUIAction(id))
         }
         return UIMenu(children: children)
-    }
-
-    private func makeCensusUIMenu(census: TopicTitleCensus) -> UIMenu {
-        func item(_ key: String, _ value: Int, identifier: String) -> UIAction {
-            let title = FlorettaL10n.format(key, locale: settings.resolvedLocale, arguments: [Int64(value)])
-            let action = UIAction(title: title, handler: { _ in })
-            action.attributes.insert(.disabled)
-            action.accessibilityIdentifier = identifier
-            return action
-        }
-        let menu = UIMenu(
-            options: .displayInline,
-            children: [
-                item("主题 %lld", census.topics, identifier: "status.topics"),
-                item("字数 %lld", census.words, identifier: "status.words"),
-                item("字符数 %lld", census.characters, identifier: "status.characters"),
-            ]
-        )
-        menu.accessibilityIdentifier = "status.topicCensus"
-        return menu
     }
 
     private func makeShareUIMenu() -> UIMenu {
@@ -3575,15 +3581,5 @@ private struct CanvasViewportRelay: View {
             .onChange(of: camera.viewport) { _, viewport in
                 onChange(viewport)
             }
-    }
-}
-
-/// Toolbar zoom face. Reads the zoom percent in its own body so a zoom frame redraws only this label.
-private struct ZoomPercentText: View {
-    let camera: CanvasCamera
-
-    var body: some View {
-        Text("\(camera.chrome.zoomPercent)%")
-            .monospacedDigit()
     }
 }

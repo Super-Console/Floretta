@@ -38,10 +38,16 @@ public enum EditorStatusBarChrome: Sendable {
     public static let controlMinHeight: CGFloat = 44
 }
 
-/// Controls on the one bottom bar, leading to trailing.
-/// Topic counts live in the overflow menu via `TopicTitleCensus`. This list does not count text.
+/// Controls on the one bottom bar capsule, leading to trailing (TD-003).
+/// The topic count opens the 主题 / 字数 / 字符数 breakdown; the numbers come from
+/// `TopicTitleCensus`, so this list counts nothing. The presentation tab is
+/// deliberately absent.
 public enum EditorStatusControl: String, Equatable, Sendable {
+    case topics
     case zoomMenu
+    case viewMode
+    case outline
+    case immersive
 }
 
 /// How many standalone toolbar buttons fit. Compact widths keep only
@@ -66,7 +72,11 @@ public enum EditorToolbarLayout {
 
 public enum EditorStatusBarModel {
     public static let controls: [EditorStatusControl] = [
+        .topics,
         .zoomMenu,
+        .viewMode,
+        .outline,
+        .immersive,
     ]
 
     /// Writes a menu stop into the chrome percent the editor already displays.

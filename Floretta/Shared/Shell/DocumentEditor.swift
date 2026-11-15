@@ -152,6 +152,34 @@ struct DocumentEditor: View {
     @ToolbarContentBuilder
     private var macToolbarItemsView: some CustomizableToolbarContent {
         macItem(.fit)
+        macInspectorToggle
+    }
+
+    /// Right-top inspector switch (TD-007). One glass capsule, drawn by the
+    /// official role `toolbarFloatingButton` (`AppleGlassChrome` -> `Capsule()`);
+    /// nothing here paints a gradient, a blur, or a shadow. The 34x28 label
+    /// frame is the hit target the road map requires (>= 28x28) and keeps the
+    /// glyph on the same baseline as the other bar items. It reuses the 样式
+    /// command for title and help, so no new strings or menu entries appear.
+    private var macInspectorToggle: some CustomizableToolbarContent {
+        ToolbarItem(id: "inspector.toggle", placement: .primaryAction) {
+            Button {
+                showInspector.toggle()
+            } label: {
+                Image(systemName: "sidebar.trailing")
+                    .symbolRenderingMode(.monochrome)
+                    .font(.system(size: 13, weight: .medium))
+                    .frame(width: 34, height: 28)
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .appleGlassChrome(.toolbarFloatingButton)
+            .accessibilityLabel(text(EditorToolbarCatalog.command(.style).title))
+            .accessibilityHint(text(EditorToolbarCatalog.command(.style).help))
+            .accessibilityIdentifier("inspector.toggle")
+            .help(Text(verbatim: text(EditorToolbarCatalog.command(.style).help)))
+        }
+        .defaultCustomization(.visible)
     }
     #endif
 

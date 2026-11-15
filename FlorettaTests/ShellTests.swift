@@ -1057,6 +1057,10 @@ final class ShellTests: XCTestCase {
         XCTAssertEqual(json["version"] as? String, "1.0")
         let strings = try XCTUnwrap(json["strings"] as? [String: Any])
         XCTAssertEqual(Set(strings.keys), Set(FlorettaL10n.english.keys))
+        // Structures are named by Core's `layout.*` keys, so their zh-Hans value
+        // is the Chinese title rather than the key. Every other entry keeps
+        // zh-Hans == key.
+        let structureKeys = Set(LayoutKind.allCases.map(\.displayNameKey))
         for (key, english) in FlorettaL10n.english {
             let entry = try XCTUnwrap(strings[key] as? [String: Any])
             let localizations = try XCTUnwrap(entry["localizations"] as? [String: Any])
@@ -1064,7 +1068,13 @@ final class ShellTests: XCTestCase {
             let en = try XCTUnwrap(localizations["en"] as? [String: Any])
             let zhUnit = try XCTUnwrap(zh["stringUnit"] as? [String: Any])
             let enUnit = try XCTUnwrap(en["stringUnit"] as? [String: Any])
-            XCTAssertEqual(zhUnit["value"] as? String, key)
+            let zhValue = try XCTUnwrap(zhUnit["value"] as? String)
+            XCTAssertFalse(zhValue.isEmpty, key)
+            if structureKeys.contains(key) {
+                XCTAssertNotEqual(zhValue, key, "an untranslated key must never reach the 结构 picker")
+            } else {
+                XCTAssertEqual(zhValue, key)
+            }
             XCTAssertEqual(enUnit["value"] as? String, english)
         }
         for kept in ["未命名", "中心", "新画布", "甲图", "乙图", "周末出行", "便签正文"] {

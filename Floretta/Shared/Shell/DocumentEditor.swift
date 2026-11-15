@@ -1878,7 +1878,9 @@ struct DocumentEditor: View {
         VStack(alignment: .leading, spacing: 0) {
             Form {
                 // Document-scope XMind groups. They stay readable with nothing
-                // selected, because a color scheme and a branch are map-wide.
+                // selected, because a structure, a color scheme and a branch are
+                // map-wide.
+                inspectorStructureSection
                 inspectorColorSchemeSection
                 inspectorBranchSection
                 AppearanceSettingsPanel(
@@ -1893,6 +1895,35 @@ struct DocumentEditor: View {
             .appleGlassInspectorFormPlate()
             inspectorDocumentStyle
         }
+    }
+
+    /// 结构. Seven structures, one document field. The canvas, the PNG/PDF export
+    /// and a reopened file all read `document.layoutKind`, so this row is the whole
+    /// entry point for the layout engine.
+    private var inspectorStructureSection: some View {
+        Section(text(InspectorStyleSection.structure.titleKey)) {
+            Picker(text("结构"), selection: structureSelection) {
+                ForEach(LayoutKind.allCases, id: \.self) { kind in
+                    Text(verbatim: text(kind.displayNameKey)).tag(kind)
+                }
+            }
+            .pickerStyle(.menu)
+            .accessibilityLabel(text("结构"))
+            .accessibilityIdentifier("inspector.style.structure")
+        }
+        // A Markdown projection owns its own order; a structure written here
+        // would be a field the file cannot show.
+        .disabled(session.isMarkdownDocument)
+    }
+
+    private var structureSelection: Binding<LayoutKind> {
+        Binding(
+            get: { session.editingDocument.layoutKind },
+            set: { kind in
+                guard !session.isMarkdownDocument else { return }
+                session.setLayoutKind(kind)
+            }
+        )
     }
 
     /// 配色方案. Writes the same `themeID` the 配色 sheet writes, so both entries

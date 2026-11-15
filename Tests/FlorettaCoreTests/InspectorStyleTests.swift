@@ -188,19 +188,23 @@ final class InspectorStyleTests: XCTestCase {
         XCTAssertFalse(InspectorStyle.mapValue("文档大小", facts: stored).isEmpty)
     }
 
-    func testStyleGroupsFollowXMindOrderAndSkipStructure() {
+    func testStyleGroupsFollowXMindOrderWithStructureAfterShape() {
         XCTAssertEqual(InspectorTab.allCases.map(\.titleKey), ["样式", "导图"], "no 演说 tab ships")
         XCTAssertEqual(
             InspectorStyle.sections.map(\.titleKey),
-            ["形状", "填充", "边框", "宽度", "文本", "分支", "配色方案", "背景色", "全局字体", "连到"]
+            ["形状", "结构", "填充", "边框", "宽度", "文本", "分支", "配色方案", "背景色", "全局字体", "连到"]
         )
-        // 结构 belongs to the layout engine (TD-005). No row may exist before it does.
-        XCTAssertNil(InspectorStyle.sections.first { $0.rawValue == "structure" })
-        XCTAssertNil(InspectorStyle.sections.first { $0.titleKey == "结构" })
+        // 结构 now has its engine, so the row that writes `document.layoutKind` exists.
+        XCTAssertEqual(InspectorStyle.sections.first { $0.rawValue == "structure" }, .structure)
+        XCTAssertEqual(
+            InspectorStyle.sections.map(\.rawValue).prefix(2).map { $0 },
+            ["shape", "structure"],
+            "XMind lists 形状 then 结构"
+        )
         XCTAssertEqual(
             InspectorStyle.sections.filter(\.isDocumentScope).map(\.titleKey),
-            ["分支", "配色方案", "背景色", "全局字体"],
-            "these four stay visible with nothing selected"
+            ["结构", "分支", "配色方案", "背景色", "全局字体"],
+            "these five stay visible with nothing selected"
         )
         XCTAssertEqual(InspectorWidthMode.allCases.map(\.titleKey), ["PX", "适应"])
         XCTAssertEqual(BranchLineStyle.allCases.map(\.titleKey), ["曲线", "直线"])
@@ -284,13 +288,13 @@ final class InspectorStyleTests: XCTestCase {
         XCTAssertTrue(inspector.contains("ColorPicker"))
         XCTAssertTrue(inspector.contains("Slider"))
         XCTAssertTrue(inspector.contains("Toggle"))
-        for section in ["shape", "fill", "border", "width", "text", "branch", "colorScheme", "links"] {
+        for section in ["shape", "structure", "fill", "border", "width", "text", "branch", "colorScheme", "links"] {
             XCTAssertTrue(
                 inspector.contains("InspectorStyleSection.\(section).titleKey"),
                 "the \(section) group is a titled section"
             )
         }
-        XCTAssertFalse(inspector.contains("InspectorStyleSection.structure.titleKey"), "结构 is TD-005")
+        XCTAssertTrue(inspector.contains("InspectorStyleSection.structure.titleKey"), "结构 has its engine now")
         XCTAssertTrue(inspector.contains("InspectorStyle.mapRowTitleKeys"))
         XCTAssertTrue(inspector.contains("InspectorStyle.mapFacts"))
         XCTAssertTrue(inspector.contains("InspectorStyle.apply"))
@@ -322,6 +326,7 @@ final class InspectorStyleTests: XCTestCase {
             "inspector.style.branchLine",
             "inspector.style.branchEnd",
             "inspector.style.colorScheme",
+            "inspector.style.structure",
             "inspector.map",
             "relationship.label",
             "summary.text",

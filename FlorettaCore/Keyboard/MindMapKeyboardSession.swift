@@ -840,6 +840,17 @@ public struct MindMapKeyboardSession {
         return true
     }
 
+    /// 结构. One document-wide token, so a switch is one undo step. The canvas
+    /// and the exporter both build their engine from `document.layoutKind`.
+    @discardableResult
+    public mutating func setLayoutKind(_ kind: LayoutKind, document: inout MindMapDocument) -> Bool {
+        guard mode == .command, editOrigin == nil, pendingChange == nil else { return false }
+        if document.layoutKind == kind { return true }
+        record(document)
+        document.layoutKind = kind
+        return true
+    }
+
     @discardableResult
     public mutating func setStickyColor(
         _ color: StickyColor,

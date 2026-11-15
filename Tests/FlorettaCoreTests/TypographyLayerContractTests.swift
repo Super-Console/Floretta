@@ -54,7 +54,7 @@ final class TypographyLayerContractTests: XCTestCase {
     func testContentSurfacesStillResolveTheThemeFamily() throws {
         let canvas = try repoFile("Floretta/Shared/Canvas/InfiniteCanvas.swift")
         XCTAssertTrue(
-            canvas.contains("ThemeTypography.font(mode: mode, language: language, locale: locale, size: pointSize)"),
+            canvas.contains("familyID: appearanceProfile.fontFamilyID"),
             "canvas topics keep the theme face"
         )
         XCTAssertTrue(canvas.contains("NodeTextTypography.canvasText("))

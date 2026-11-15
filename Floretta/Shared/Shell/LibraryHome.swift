@@ -546,7 +546,7 @@ struct MacSettingsScene: View {
         .frame(width: 520, height: 460)
         .preferredColorScheme(settings.appearance.colorScheme)
         .environment(\.locale, settings.resolvedLocale)
-        .themeTypography(language: settings.language)
+        .chromeTypography(language: settings.language)
     }
 
     private func text(_ key: String) -> String {

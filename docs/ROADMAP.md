@@ -107,7 +107,7 @@
 
 ### TD-005 结构布局引擎（9 种图，第一版只做 2 种）
 
-- 状态：🚧 进行中（1.0 (21) 已交付逻辑图与组织结构图；其余 6 种未做（括号图 / 树形图 / 时间轴 / 鱼骨图 / 树型表格 / 矩阵图），入口 UI 随 TD-004 预留在模型层）
+- 状态：✅ 已交付（1.0 (22) TestFlight；逻辑图/组织结构图/时间轴/鱼骨图/树型表格/矩阵图 + 思维导图共 7 种，检查器可选；括号图与树形图按决定作为变体不做）
 - 参照：XMind「结构」下拉九项——思维导图 / 逻辑图 / 括号图 / 组织结构图 / 树形图 / 时间轴 / 鱼骨图 / 树型表格 / 矩阵图（用户 2026-11-15 20:56 截图）。
 - 现状证据（2026-11-15，分支 `fix/td005`）：`LayoutKind` 已从单 case 扩成 `.bilateral` / `.logicChart` / `.orgChart`（`FlorettaCore/Layout/LayoutEngine.swift`），每个 case 背后是 `StructureLayout` 的一个实现（`BilateralLayout.swift` / `LogicChartLayout.swift` / `OrgChartLayout.swift`）；量尺寸、配色与连线统一收在 `LayoutGeometry.swift`，布局不许另写测量公式；`MindMapDocument.layoutKind` 存结构（`.bilateral` 不写进 JSON，旧文件照旧打开为思维导图），`LayoutEngine.forDocument(_:)` 让画布与导出取同一结构。
 - 差距（本项是全批里唯一的工程级投入）：其余 8 种各需一套布局算法 + 连线规则 + 折行 + 导出渲染一致性，`Floretta/Shared/Canvas/InfiniteCanvas.swift` 与 `Floretta/Shared/Canvas/MapExport.swift` 都要跟着支持；同时影响 XMind 导入时 layout 字段的映射。
@@ -183,7 +183,7 @@ TD-003 → TD-002 → TD-007 → TD-006 → TD-004 → TD-005。前四条都是�
 
 ### TD-009 落地 Chrome/内容字体分工
 
-- 状态：🚧 进行中（`feat/chrome-typography`）。
+- 状态：✅ 已交付（1.0 (22) TestFlight；`280dd2f`，7 处审计、4 个 chrome 文件改系统字体）
 - 现状证据：`themeTypography` 全仓仅 7 处调用、5 个文件（`ThemeSettings.swift` 定义处、`AppearanceSettingsPanel.swift`、`DocumentEditor.swift`、`LibraryHome.swift`、`EditorStatusBar.swift`）。
 - 修法：新增 chrome 专用系统字体修饰器，替换 chrome 侧调用；内容侧保留 `themeTypography`；加源码级契约测试（chrome 文件不得出现 `themeTypography(`）与 `docs/THEME-MODES.md` 说明。
 - 验收：经典模式下工具栏/侧栏/首页/设置/检查器/底栏全部系统无衬线；画布节点与 Markdown 正文仍随主题变化；modern 模式不回退。
@@ -205,6 +205,15 @@ TD-003 → TD-002 → TD-007 → TD-006 → TD-004 → TD-005。前四条都是�
 - **iPhone**：设置入口 Timmy 仍在权衡（候选：导航栏齿轮 → push 新页面 / sheet）。
 
 - 状态：❌ 未开工（规格已定稿，按 Timmy 要求讨论阶段暂不派工）。
+
+### 交付记录：1.0 (22) → TestFlight（2026-11-15）
+
+- 分支：`release/1.0.21` 之后的 `main`，末尾提交 `fec49f9`（build 22）。合并顺序：`fix/bottom-bar-alignment` → `feat/chrome-typography` → `feat/layouts-4` → `feat/appearance-simplification` → `feat/structure-picker`。
+- 本轮落地：底栏两胶囊同排同高 + macOS 28pt / iOS 44pt 平台拆分 + SF Symbols 统一字重 + 地图/聚焦单键切换；Chrome 永远系统无衬线（7 处审计，4 个界面文件改为 `chromeTypography`）；新增时间轴 / 鱼骨图 / 树型表格 / 矩阵图四种结构（引擎共 7 种）；取消经典/现代模式改为「首页背景：纸质米白 / 纯白」（浅深各一套色值、存语义、新建文档按当前外观解析、旧值迁移）；macOS 与 iPad 删首页侧边栏、首页单栏、设置改为 `Settings` 场景独立窗口（⌘,）；检查器新增「结构」选择器（7 种 + 中英文本地化键）。
+- 闸门（`fec49f9` 实测）：`swift test` 493 项 / 1 skipped / 0 failures；`FlorettaTests` 495 项 / 1 skipped / 0 failures `** TEST SUCCEEDED **`；macOS 与 iOS Debug 编译 exit 0。
+- 合并时契约测试抓到一处真回归：`LibraryHome.swift` 的 macOS 设置窗口套了 `themeTypography`（设置窗口属 chrome，应为系统字体），修复提交 `caf8dba`。另更新了一条因字体 API 改名而过期的断言（`ThemeTypography.font(mode:)` → `familyID:` 路径），意图未削弱。
+- 归档与上传：iOS 与 macOS **并行**归档（72s 双成功，零 `errSecInternalComponent`）、并行上传（156s 双 `Upload succeeded`）。ASC 回读：iOS build 22 `VALID`（2026-11-15T07:17:37-08:00 = 23:17 CST）、macOS build 22 `VALID`（07:18:21-08:00 = 23:18 CST），均挂在 App `6832552931` 的 1.0 下。
+- 仍开着的口子（不得写成已交付）：① iPhone 的设置入口 Timmy 仍在权衡，本轮 iPhone 行为逐字未变；② 结构只有 7 种（括号图/树形图按决定作为变体不做，PRO 网格不做）；③ 「备注」命令仓库内不存在；④ Web 端 TD-008 未开始；⑤ 本轮未做真机视觉验收（按 Timmy 要求改为直接在 TestFlight 上看）。
 
 ## 功能矩阵
 

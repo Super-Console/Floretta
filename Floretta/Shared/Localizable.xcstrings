@@ -4129,6 +4129,55 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "删除画布" } }
       }
     },
+    "拷贝画布" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Copy Canvas" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拷贝画布" } }
+      }
+    },
+    "粘贴画布" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paste Canvas" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "粘贴画布" } }
+      }
+    },
+    "复制画布" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Duplicate Canvas" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "复制画布" } }
+      }
+    },
+    "撤销删除画布" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Undo Delete Canvas" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "撤销删除画布" } }
+      }
+    },
+    "画布另存为…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Save Canvas As…" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "画布另存为…" } }
+      }
+    },
+    "副本" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "copy" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "副本" } }
+      }
+    },
+    "切换、重命名或删除画布" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Switch, rename, or delete a canvas" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "切换、重命名或删除画布" } }
+      }
+    },
     "新建窗口" : {
       "extractionState" : "manual",
       "localizations" : {

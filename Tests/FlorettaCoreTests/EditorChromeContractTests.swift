@@ -1,11 +1,11 @@
 import XCTest
 
-/// Locks editor chrome alongside the UI test: the back button and persistent
-/// filename occupy the leading Mac toolbar region, and the iOS control is a
-/// stock toolbar item. The hit area itself is
-/// `EditorBackButtonHitAreaTests`.
+/// Locks editor chrome alongside the UI test: the back glyph and the editable
+/// filename share one leading Mac navigation capsule (system glass only, no
+/// custom plate stacked inside it), and the iOS control is a stock toolbar
+/// item. The hit area itself is `EditorBackButtonHitAreaTests`.
 final class EditorChromeContractTests: XCTestCase {
-    func testMacBackButtonIsIndependentFromNativeDocumentTitle() throws {
+    func testMacBackButtonAndTitleShareOneNavigationCapsule() throws {
         let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         let leading = try slice(
             source,
@@ -14,9 +14,11 @@ final class EditorChromeContractTests: XCTestCase {
         )
         XCTAssertTrue(leading.contains("chevron.backward"))
         XCTAssertTrue(leading.contains("\"basicChain.back\""))
-        XCTAssertTrue(leading.contains("ToolbarItem(id: \"document.title\", placement: .navigation)"))
+        XCTAssertTrue(leading.contains("ToolbarItem(id: \"document.navigation\", placement: .navigation)"))
+        XCTAssertTrue(leading.contains("HStack(spacing: 8)"), "the title sits beside the back glyph in the one system capsule")
+        XCTAssertTrue(leading.contains("\"document.title\""), "the rename control keeps its accessibility identifier")
         XCTAssertTrue(leading.contains("Text(verbatim: documentTitle)"))
-        XCTAssertTrue(leading.contains(".appleGlassChrome(.floatingPanel)"))
+        XCTAssertFalse(leading.contains(".appleGlassChrome(.floatingPanel)"), "no custom glass plate may be nested inside the system navigation capsule")
         XCTAssertTrue(source.contains(".modifier(MacEditorWindowTitle(title: \"\"))"))
     }
 
@@ -84,7 +86,9 @@ final class EditorChromeContractTests: XCTestCase {
         XCTAssertTrue(editor.contains("shouldApply(to:"))
     }
 
-    func testWordCountSitsInTheOverflowMenu() throws {
+    /// TD-003: the counts left the ••• menu for the bottom capsule's popover.
+    /// Both still read the one `TopicTitleCensus`; nothing counts twice.
+    func testStatusCapsuleCarriesTheCountsInsteadOfTheOverflowMenu() throws {
         let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         let bar = try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift")
         let more = try slice(source, from: "private var moreMenu", until: "private var insertOverflowSubmenu")
@@ -92,17 +96,21 @@ final class EditorChromeContractTests: XCTestCase {
         XCTAssertTrue(source.contains("session.zen.chrome.showsStatusBar"))
         XCTAssertTrue(source.contains("EditorStatusStrip("))
         XCTAssertFalse(source.contains("TopicStatusBar("))
-        XCTAssertTrue(more.contains("EditorOverflowCensus("))
-        XCTAssertTrue(more.contains("overflowCensus"))
+        XCTAssertFalse(more.contains("EditorCensusBreakdown"))
+        XCTAssertFalse(more.contains("StatusCensusBreakdown"))
+        XCTAssertFalse(more.contains("status.topicCensus"))
+        XCTAssertFalse(source.contains("makeCensusUIMenu"))
+        XCTAssertFalse(source.contains("EditorOverflowCensus"))
+        XCTAssertTrue(source.contains("census: statusCensus"))
         XCTAssertFalse(more.contains("perform(.about)"))
         XCTAssertFalse(more.contains(".about"))
-        XCTAssertTrue(bar.contains("struct EditorOverflowCensus"))
+        XCTAssertTrue(bar.contains("struct StatusCensusBreakdown"))
         XCTAssertTrue(bar.contains("\"主题 %lld\""))
         XCTAssertTrue(bar.contains("\"字数 %lld\""))
         XCTAssertTrue(bar.contains("\"字符数 %lld\""))
-        XCTAssertTrue(bar.contains("status.topics"))
-        XCTAssertTrue(bar.contains("status.words"))
-        XCTAssertTrue(bar.contains("status.characters"))
+        XCTAssertTrue(bar.contains("status.popover.topics"))
+        XCTAssertTrue(bar.contains("status.popover.words"))
+        XCTAssertTrue(bar.contains("status.popover.characters"))
         XCTAssertTrue(bar.contains("TopicTitleCensus"))
         let inspector = try slice(source, from: "private var documentInfo", until: "private var relationshipLabelForm")
         XCTAssertFalse(inspector.contains("字数"))
@@ -110,7 +118,55 @@ final class EditorChromeContractTests: XCTestCase {
         let editor = try repoFile("Floretta/Shared/Keyboard/NodeTextEditor.swift")
         XCTAssertFalse(editor.contains("字数"))
         XCTAssertFalse(editor.contains("TopicStatusBar"))
+        XCTAssertFalse(editor.contains("StatusCensusBreakdown"))
         XCTAssertFalse(editor.contains("EditorOverflowCensus"))
+    }
+
+    /// TD-006: the Mac top bar is three groups — 撤销/重做/删除 | ＋插入 |
+    /// 关系线/概要/边界/标签 — with the ••• last, and the ••• menu never repeats
+    /// a command the bar already draws.
+    func testMacTopBarGroupsHighFrequencyCommandsAndOverflowComesLast() throws {
+        let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let primary = try slice(source, from: "private var macToolbarItemsPrimary", until: "private var macToolbarItemsInsert")
+        XCTAssertTrue(primary.contains("macItem(.undo)"))
+        XCTAssertTrue(primary.contains("macItem(.redo)"))
+        XCTAssertFalse(primary.contains("macItem(.share)"), "import/export is low frequency")
+
+        let insert = try slice(source, from: "private var macToolbarItemsInsert", until: "private var macToolbarItemsRelations")
+        XCTAssertTrue(insert.contains("macItem(.insert)"), "＋ 插入 is a bar item")
+        XCTAssertTrue(insert.contains("macItem(.freeNode)"))
+        XCTAssertTrue(insert.contains("macItem(.sticky)"))
+        XCTAssertTrue(insert.contains("macItem(.image)"))
+        XCTAssertTrue(insert.contains("macItem(.attachment)"))
+        XCTAssertFalse(insert.contains("macItem(.link)"), "关系线 is its own group now")
+        XCTAssertFalse(insert.contains("macItem(.summary)"))
+        XCTAssertFalse(insert.contains("macItem(.boundary)"))
+
+        let relations = try slice(source, from: "private var macToolbarItemsRelations", until: "private var macToolbarItemsOverflow")
+        for id in ["link", "summary", "boundary", "tagFilter"] {
+            XCTAssertTrue(relations.contains("macItem(.\(id))"), id)
+        }
+
+        let groups = try slice(source, from: ".toolbar(id: \"floretta.editor\")", until: ".toolbarBackground(.hidden, for: .windowToolbar)")
+        var cursor = groups.startIndex
+        for name in ["macToolbarItemsPrimary", "macToolbarItemsInsert", "macToolbarItemsRelations", "macToolbarItemsOverflow"] {
+            let range = try XCTUnwrap(groups.range(of: name, range: cursor..<groups.endIndex), name)
+            cursor = range.upperBound
+        }
+        let overflow = try XCTUnwrap(groups.range(of: "macToolbarItemsView"))
+        XCTAssertLessThan(cursor, overflow.lowerBound, "the ••• comes before the trailing inspector capsule")
+
+        // One de-duplication rule, no per-platform list.
+        let more = try slice(source, from: "private var moreMenu", until: "private var overflowMenuCommands")
+        XCTAssertFalse(more.contains("#if os(macOS)\n            insertOverflowSubmenu"))
+        for guarded in [".insert", ".share", ".undo", ".redo", ".delete", ".immersive"] {
+            XCTAssertTrue(more.contains("toolbarVisibleItems.contains(\(guarded))"), guarded)
+        }
+        XCTAssertTrue(source.contains("EditorToolbarCatalog.menu(.more).filter { !onBar.contains($0) }"))
+        XCTAssertTrue(source.contains("ForEach(overflowMenuCommands"))
+
+        // Narrow windows are the system toolbar's job, not a "swap to •••" rule.
+        XCTAssertTrue(source.contains("/// The ••• overflow. It stays a normal toolbar item"))
     }
 
     private func repoFile(_ relative: String) throws -> String {

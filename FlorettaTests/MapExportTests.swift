@@ -93,6 +93,116 @@ final class MapExportTests: XCTestCase {
         XCTAssertTrue(hasPixel(in: rep) { ($0.usingColorSpace(.sRGB)?.alphaComponent ?? 0) > 0.5 })
     }
 
+    /// Preview text used to be painted with `GraphicsContext.draw(Text, in:)`,
+    /// which starts at the container's leading/top edge, so a node's text sat in
+    /// the top-left corner while the editor centred it. The exporter breaks the
+    /// string line by line and centres every row now. One root node fills the
+    /// render bounds, so the glyph ink has to be centred on the node.
+    ///
+    /// The standard is the typographic line box, not the ink: ink bounds depend on
+    /// whether the glyphs have ascenders or descenders, so a word with a "g" reads
+    /// ~3.5pt low while the line box is dead centre. Centring ink would make the
+    /// text jump when the wording changes, and both `NSTextView` and XMind centre
+    /// the line box. The ink offsets below are therefore a "has the whole block
+    /// wandered off" probe, not a pixel-level acceptance number.
+    func testExportedNodeTextInkIsCentredInTheNode() throws {
+        let cases: [(text: String, tolerance: Double)] = [
+            ("中心", 2),
+            ("HAMBURG", 4),
+        ]
+        for (text, tolerance) in cases {
+            let node = MindMapNode(text: text)
+            let document = MindMapDocument(title: "居中", roots: [node])
+            let options = MapExportOptions(scale: .two, background: .white, padding: 24)
+            let result = MapExporter.png(document: document, options: options)
+            let rep = try bitmap(try XCTUnwrap(result.png))
+            let frame = try XCTUnwrap(MapExporter.visibleFrames(in: document).first { $0.id == node.id })
+            let box = try inkBox(in: rep, nodeFrame: frame.frame, renderBounds: result.renderBounds, scale: Double(options.scale.rawValue))
+            let nodeRect = CGRect(
+                x: (frame.frame.minX - result.renderBounds.minX) * options.scale.rawValue,
+                y: (frame.frame.minY - result.renderBounds.minY) * options.scale.rawValue,
+                width: frame.size.width * options.scale.rawValue,
+                height: frame.size.height * options.scale.rawValue
+            )
+            let dx = (box.midX - nodeRect.midX) / options.scale.rawValue
+            let dy = (box.midY - nodeRect.midY) / options.scale.rawValue
+            print("TD-001 export ink offset for \(text): dx=\(dx)pt dy=\(dy)pt (tolerance ±\(tolerance)pt, line box is the standard)")
+
+            XCTAssertEqual(dx, 0, accuracy: 1, "\(text): glyph ink must be horizontally centred in the node")
+            // Vertical placement follows the line box, exactly like the editor's
+            // NSTextView path; the residual ink offset belongs to the font's
+            // ascender/descender asymmetry.
+            XCTAssertEqual(dy, 0, accuracy: tolerance, "\(text): the text block must not wander off the node centre")
+        }
+    }
+
+    /// A wrapped node whose last line is shorter must centre that short line too;
+    /// before this fix every line started at the node's leading edge.
+    func testExportedShortLastLineIsAlsoCentred() throws {
+        let node = MindMapNode(text: "第一行文字\n短")
+        let document = MindMapDocument(title: "折行", roots: [node])
+        let options = MapExportOptions(scale: .two, background: .white, padding: 24)
+        let result = MapExporter.png(document: document, options: options)
+        let rep = try bitmap(try XCTUnwrap(result.png))
+        let frame = try XCTUnwrap(MapExporter.visibleFrames(in: document).first { $0.id == node.id })
+        let whole = try inkBox(in: rep, nodeFrame: frame.frame, renderBounds: result.renderBounds, scale: Double(options.scale.rawValue))
+        let nodeRect = CGRect(
+            x: (frame.frame.minX - result.renderBounds.minX) * options.scale.rawValue,
+            y: (frame.frame.minY - result.renderBounds.minY) * options.scale.rawValue,
+            width: frame.size.width * options.scale.rawValue,
+            height: frame.size.height * options.scale.rawValue
+        )
+        let scale = Double(options.scale.rawValue)
+
+        // Split the ink into per-row bands at the block's vertical middle and
+        // require each band's centre to sit on the node's centre line.
+        let rows = whole.height > 0 ? 2 : 0
+        XCTAssertEqual(rows, 2, "the two lines must both rasterise")
+        let bands = [
+            CGRect(x: whole.minX, y: whole.minY, width: whole.width, height: whole.height / 2),
+            CGRect(x: whole.minX, y: whole.midY, width: whole.width, height: whole.height / 2),
+        ]
+        for (index, band) in bands.enumerated() {
+            let box = try inkBox(in: rep, pixelBand: band)
+            print("TD-001 short-last-line row \(index) ink dx=\((box.midX - nodeRect.midX) / scale)pt width=\(box.width / scale)pt")
+            XCTAssertEqual(box.midX, nodeRect.midX, accuracy: 1.5 * scale, "row \(index) must be centred on the node")
+        }
+    }
+
+    /// Bounding box of dark ink inside a node, in bitmap pixels.
+    private func inkBox(
+        in rep: NSBitmapImageRep,
+        nodeFrame: CGRect,
+        renderBounds: CGRect,
+        scale: Double
+    ) throws -> CGRect {
+        let inset = 8.0
+        let window = CGRect(
+            x: (nodeFrame.minX - renderBounds.minX + inset) * scale,
+            y: (nodeFrame.minY - renderBounds.minY + inset) * scale,
+            width: (nodeFrame.width - 2 * inset) * scale,
+            height: (nodeFrame.height - 2 * inset) * scale
+        )
+        return try inkBox(in: rep, pixelBand: window)
+    }
+
+    private func inkBox(in rep: NSBitmapImageRep, pixelBand band: CGRect) throws -> CGRect {
+        var minX = rep.pixelsWide, maxX = -1, minY = rep.pixelsHigh, maxY = -1
+        for y in 0..<rep.pixelsHigh {
+            for x in 0..<rep.pixelsWide {
+                guard band.contains(CGPoint(x: Double(x) + 0.5, y: Double(y) + 0.5)) else { continue }
+                guard let color = rep.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { continue }
+                // Glyph ink, not the node fill (white) or its hairline border.
+                guard color.redComponent < 0.5, color.greenComponent < 0.5, color.blueComponent < 0.5 else { continue }
+                minX = min(minX, x); maxX = max(maxX, x)
+                minY = min(minY, y); maxY = max(maxY, y)
+            }
+        }
+        XCTAssertGreaterThan(maxX, minX, "the node must contain glyph ink")
+        XCTAssertGreaterThan(maxY, minY, "the node must contain glyph ink")
+        return CGRect(x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1)
+    }
+
     func testPDFPageAndMediaBox() throws {
         let result = MapExporter.pdf(
             document: sampleMap(),

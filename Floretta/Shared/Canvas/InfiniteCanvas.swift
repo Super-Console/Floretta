@@ -1460,7 +1460,7 @@ struct InfiniteCanvas: View {
                 let curve = pose.map { PetalExpandGeometry.grow(link, from: $0.origin, growth: $0.growth) } ?? link
                 stroke(
                     curve,
-                    straight: CanvasDrawPolicy.useStraightLink(nodeCount: placed.count, link: link),
+                    straight: branchIsStraight || CanvasDrawPolicy.useStraightLink(nodeCount: placed.count, link: link),
                     opacity: pose?.opacity ?? 1,
                     in: context
                 )
@@ -1471,20 +1471,19 @@ struct InfiniteCanvas: View {
                 let curve = PetalExpandGeometry.grow(link, from: ghost.pose.origin, growth: ghost.pose.growth)
                 stroke(
                     curve,
-                    straight: CanvasDrawPolicy.useStraightLink(nodeCount: placed.count, link: link),
+                    straight: branchIsStraight || CanvasDrawPolicy.useStraightLink(nodeCount: placed.count, link: link),
                     opacity: ghost.pose.opacity,
                     in: context
                 )
             }
         } else {
             ghosts = []
+            let straightBranch = branchIsStraight
             for node in placed where linkIDs.contains(node.id) {
                 guard let link = node.link else { continue }
-                stroke(
-                    link,
-                    straight: CanvasDrawPolicy.useStraightLink(nodeCount: placed.count, link: link),
-                    in: context
-                )
+                let straight = straightBranch || CanvasDrawPolicy.useStraightLink(nodeCount: placed.count, link: link)
+                stroke(link, straight: straight, in: context)
+                drawBranchEnd(link, straight: straight, in: context)
             }
         }
         let relationships = blooming ? [] : relationshipLines(in: placed)
@@ -1586,6 +1585,36 @@ struct InfiniteCanvas: View {
             context.fill(drawn.path, with: .color(ink))
         } else {
             context.stroke(drawn.path, with: .color(ink), lineWidth: link.lineWidth)
+        }
+    }
+
+    /// 分支 · 线条. The document token wins over the density fallback: a map set to
+    /// 直线 draws straight at every node count, and the PNG/PDF export matches it.
+    private var branchIsStraight: Bool {
+        BranchStyle.line(document.branchLineStyle) == .straight
+    }
+
+    /// 分支 · 终点. Drawn after the link so the marker sits on top of the tapered fill.
+    private func drawBranchEnd(_ link: LinkCurve, straight: Bool, in context: GraphicsContext) {
+        switch BranchStyle.endMarker(document.branchEndMarker) {
+        case .none:
+            return
+        case .arrow:
+            let tip = camera.viewport.viewPoint(fromCanvas: link.end)
+            let from = camera.viewport.viewPoint(fromCanvas: straight ? link.start : link.control2)
+            let head = BranchStyle.arrow(tip: tip, from: from)
+            var path = Path()
+            path.move(to: tip)
+            path.addLine(to: head.left)
+            path.addLine(to: head.right)
+            path.closeSubpath()
+            context.fill(path, with: .color(color(link.color)))
+        case .dot:
+            // Same constant width convention as the branch stroke, so it reads at any zoom.
+            let radius = BranchStyle.dotRadius(lineWidth: link.endWidth)
+            let center = camera.viewport.viewPoint(fromCanvas: link.end)
+            let rect = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
+            context.fill(Path(ellipseIn: rect), with: .color(color(link.color)))
         }
     }
 
@@ -1873,15 +1902,35 @@ struct InfiniteCanvas: View {
         textRect = excludingChildBadge(textRect, node: node, scale: scale)
         let showTitle = (pose?.showsText ?? true) && !editing
         if showTitle, CanvasTextLOD.level(onScreenPointSize: pointSize).drawsTitle, textRect.height > 1, textRect.width > 1 {
-            let text = styledText(node, pointSize: pointSize)
+            let shown = NodeAttachmentDrawing.canvasText(
+                title: node.text,
+                caption: node.caption,
+                fileBadges: node.fileBadges
+            )
             let subtitleHeight = node.subtitle.isEmpty ? 0 : node.subtitleHeight * scale + 2 * scale
             var titleRect = textRect
             titleRect.size.height = max(0, textRect.height - subtitleHeight)
             var textLayer = layer
             textLayer.clip(to: Path(titleRect))
-            // Same wrap path as MapExport. `draw(at:)` paints the ideal (usually
-            // single-line) size and clips mid-glyph; `draw(in:)` wraps to the node.
-            textLayer.draw(text, in: titleRect)
+            // `draw(in:)` wraps at the node width but starts at the leading/top
+            // edge, and SwiftUI's `Text` ignores the paragraph style's centering,
+            // so the preview sat in the corner while the editor centered the same
+            // string. Break the text with the same attributes MapExport uses and
+            // paint each line at its own mid point instead.
+            for line in CenteredNodeTextLayout.lines(
+                shown,
+                lineHeight: appearanceProfile.lineHeight,
+                familyID: appearanceProfile.fontFamilyID,
+                nodeDesign: node.fontDesign,
+                size: pointSize,
+                in: titleRect
+            ) {
+                textLayer.draw(
+                    styledText(line.text, node: node, pointSize: pointSize),
+                    at: line.center,
+                    anchor: .center
+                )
+            }
             if !node.subtitle.isEmpty, subtitleHeight > 1 {
                 let subtitleRect = CGRect(
                     x: textRect.minX,
@@ -1889,17 +1938,23 @@ struct InfiniteCanvas: View {
                     width: textRect.width,
                     height: min(subtitleHeight, textRect.maxY - titleRect.maxY)
                 )
-                let subtitle = NodeTextTypography.canvasText(
+                let subtitleSize = CanvasTextScale.onScreenPointSize(fontSize: node.subtitleFontSize, scale: scale)
+                var subtitleLayer = layer
+                subtitleLayer.clip(to: Path(subtitleRect))
+                for line in CenteredNodeTextLayout.lines(
                     node.subtitle,
                     lineHeight: appearanceProfile.lineHeight,
                     familyID: appearanceProfile.fontFamilyID,
                     nodeDesign: node.fontDesign,
-                    size: CanvasTextScale.onScreenPointSize(fontSize: node.subtitleFontSize, scale: scale)
-                )
-                .foregroundColor(color(node.textColor).opacity(0.72))
-                var subtitleLayer = layer
-                subtitleLayer.clip(to: Path(subtitleRect))
-                subtitleLayer.draw(subtitle, in: subtitleRect)
+                    size: subtitleSize,
+                    in: subtitleRect
+                ) {
+                    subtitleLayer.draw(
+                        styledSubtitle(line.text, node: node, pointSize: subtitleSize),
+                        at: line.center,
+                        anchor: .center
+                    )
+                }
             }
         }
         if pose == nil, detail.drawsText {
@@ -1996,12 +2051,7 @@ struct InfiniteCanvas: View {
         )
     }
 
-    private func styledText(_ node: NodeFrame, pointSize: CGFloat) -> Text {
-        let shown = NodeAttachmentDrawing.canvasText(
-            title: node.text,
-            caption: node.caption,
-            fileBadges: node.fileBadges
-        )
+    private func styledText(_ shown: String, node: NodeFrame, pointSize: CGFloat) -> Text {
         var text = NodeTextTypography.canvasText(
             shown,
             lineHeight: appearanceProfile.lineHeight,
@@ -2020,6 +2070,19 @@ struct InfiniteCanvas: View {
         if node.strikethrough { text = text.strikethrough() }
         if node.underline { text = text.underline() }
         return text
+    }
+
+    /// Subtitles keep their own ink: the theme face and the bold/italic flags
+    /// belong to the title only, as before this change.
+    private func styledSubtitle(_ shown: String, node: NodeFrame, pointSize: CGFloat) -> Text {
+        NodeTextTypography.canvasText(
+            shown,
+            lineHeight: appearanceProfile.lineHeight,
+            familyID: appearanceProfile.fontFamilyID,
+            nodeDesign: node.fontDesign,
+            size: pointSize
+        )
+        .foregroundColor(color(node.textColor).opacity(0.72))
     }
 
     private func excludingChildBadge(_ textRect: CGRect, node: NodeFrame, scale: CGFloat) -> CGRect {

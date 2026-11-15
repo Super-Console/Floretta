@@ -90,69 +90,118 @@ struct DocumentEditor: View {
     @ToolbarContentBuilder
     private var macToolbarItemsLeading: some CustomizableToolbarContent {
         ToolbarItem(id: "document.navigation", placement: .navigation) {
-            Button(action: onClose) {
-                Image(systemName: "chevron.backward")
+            HStack(spacing: 8) {
+                Button(action: onClose) {
+                    Image(systemName: "chevron.backward")
+                }
+                .accessibilityLabel(text("返回"))
+                .accessibilityIdentifier("basicChain.back")
+                .help(Text(verbatim: text("返回导图列表")))
+
+                Button(action: beginRename) {
+                    Text(verbatim: documentTitle)
+                        .lineLimit(1)
+                }
+                .buttonStyle(.borderless)
+                .help(Text(verbatim: text("为这份导图重新命名")))
+                .accessibilityLabel(documentTitle)
+                .accessibilityHint(text("为这份导图重新命名"))
+                .accessibilityIdentifier("document.title")
             }
-            .accessibilityLabel(text("返回"))
-            .accessibilityIdentifier("basicChain.back")
-            .help(Text(verbatim: text("返回导图列表")))
-        }
-        ToolbarItem(id: "document.title", placement: .navigation) {
-            Button(action: beginRename) {
-                Text(verbatim: documentTitle)
-                    .lineLimit(1)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-            }
-            .buttonStyle(.plain)
-            .appleGlassChrome(.floatingPanel)
-            .accessibilityLabel(documentTitle)
-            .accessibilityHint(text("为这份导图重新命名"))
-            .accessibilityIdentifier("document.title")
         }
     }
 
+    /// Group 1 (TD-006): the two commands everyone reaches for, plus delete.
     @ToolbarContentBuilder
     private var macToolbarItemsPrimary: some CustomizableToolbarContent {
         macItem(.undo)
         macItem(.redo)
         macItem(.delete)
-        macItem(.share)
-        macItem(.zoom)
-        macItem(.immersive)
-        macItem(.more)
-        macItem(.child)
-        macItem(.sibling)
     }
 
+    /// Group 2 (TD-006): one ＋ 插入 pulldown. 子节点 / 同级 / 自由节点 / 便签 /
+    /// 专区 / 图片 / 附件 / 语音输入 are rows of that menu, not bar items; they
+    /// stay declared here so the customization palette can still surface them.
     @ToolbarContentBuilder
     private var macToolbarItemsInsert: some CustomizableToolbarContent {
+        macItem(.insert)
+        macItem(.child)
+        macItem(.sibling)
         macItem(.dictation)
         macItem(.freeNode)
         macItem(.sticky)
-        macItem(.link)
-        macItem(.summary)
-        macItem(.boundary)
         macItem(.region)
         macItem(.image)
         macItem(.attachment)
         macItem(.importFile)
     }
 
+    /// Group 3 (TD-006): the commands that act on the current selection —
+    /// 关系线 / 概要 / 边界 / 标签.
     @ToolbarContentBuilder
-    private var macToolbarItemsNavigation: some CustomizableToolbarContent {
+    private var macToolbarItemsRelations: some CustomizableToolbarContent {
+        macItem(.link)
+        macItem(.summary)
+        macItem(.boundary)
+        macItem(.tagFilter)
+    }
+
+    /// The ••• overflow. It stays a normal toolbar item, so a narrow window lets
+    /// the system toolbar push it into its own overflow instead of this file
+    /// inventing a "collapse to •••" rule.
+    @ToolbarContentBuilder
+    private var macToolbarItemsOverflow: some CustomizableToolbarContent {
+        macItem(.more)
+    }
+
+    /// Low-frequency commands (import/export, full screen, history, theme, find,
+    /// paste, outline, style). Off the bar by default, reachable from ••• and
+    /// addable again from the toolbar customization palette.
+    @ToolbarContentBuilder
+    private var macToolbarItemsLowFrequency: some CustomizableToolbarContent {
+        macItem(.share)
+        macItem(.immersive)
         macItem(.outline)
         macItem(.style)
         macItem(.theme)
         macItem(.find)
-        macItem(.tagFilter)
         macItem(.history)
         macItem(.paste)
     }
 
+    /// Trailing pair: 适应窗口 (addable) and the inspector capsule, which stays
+    /// at the far right like the XMind sidebar switch.
     @ToolbarContentBuilder
     private var macToolbarItemsView: some CustomizableToolbarContent {
         macItem(.fit)
+        macInspectorToggle
+    }
+
+    /// Right-top inspector switch (TD-007). One glass capsule, drawn by the
+    /// official role `toolbarFloatingButton` (`AppleGlassChrome` -> `Capsule()`);
+    /// nothing here paints a gradient, a blur, or a shadow. The 34x28 label
+    /// frame is the hit target the road map requires (>= 28x28) and keeps the
+    /// glyph on the same baseline as the other bar items. It reuses the 样式
+    /// command for title and help, so no new strings or menu entries appear.
+    private var macInspectorToggle: some CustomizableToolbarContent {
+        ToolbarItem(id: "inspector.toggle", placement: .primaryAction) {
+            Button {
+                showInspector.toggle()
+            } label: {
+                Image(systemName: "sidebar.trailing")
+                    .symbolRenderingMode(.monochrome)
+                    .font(.system(size: 13, weight: .medium))
+                    .frame(width: 34, height: 28)
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .appleGlassChrome(.toolbarFloatingButton)
+            .accessibilityLabel(text(EditorToolbarCatalog.command(.style).title))
+            .accessibilityHint(text(EditorToolbarCatalog.command(.style).help))
+            .accessibilityIdentifier("inspector.toggle")
+            .help(Text(verbatim: text(EditorToolbarCatalog.command(.style).help)))
+        }
+        .defaultCustomization(.visible)
     }
     #endif
 
@@ -259,18 +308,6 @@ struct DocumentEditor: View {
                             toolbarControl(.insert)
                                 .appleGlassChrome(.toolbarFloatingButton)
                         }
-                        if toolbarVisibleItems.contains(.share) {
-                            toolbarControl(.share)
-                                .appleGlassChrome(.toolbarFloatingButton)
-                        }
-                        if toolbarVisibleItems.contains(.zoom) {
-                            toolbarControl(.zoom)
-                                .appleGlassChrome(.toolbarFloatingButton)
-                        }
-                        if toolbarVisibleItems.contains(.immersive) {
-                            toolbarControl(.immersive)
-                                .appleGlassChrome(.toolbarFloatingButton)
-                        }
                         #if os(iOS)
                         // Keep the inspector entry and the overflow as trailing
                         // siblings in this group so `editor.more` stays rightmost.
@@ -301,7 +338,9 @@ struct DocumentEditor: View {
                 if session.zen.chrome.showsToolbar {
                     macToolbarItemsPrimary
                     macToolbarItemsInsert
-                    macToolbarItemsNavigation
+                    macToolbarItemsRelations
+                    macToolbarItemsOverflow
+                    macToolbarItemsLowFrequency
                     macToolbarItemsView
                 }
             }
@@ -633,7 +672,9 @@ struct DocumentEditor: View {
                     EditorStatusStrip(
                         session: session,
                         camera: camera,
-                        language: settings.language
+                        census: statusCensus,
+                        language: settings.language,
+                        showOutline: $showOutline
                     )
                 }
             }
@@ -659,24 +700,61 @@ struct DocumentEditor: View {
         isExitAffordanceRevealed = false
     }
 
-    /// One row of sheet titles. Only the visible canvas is mounted, so switching
-    /// sheets lays that sheet out once and leaves the others off the frame path.
+    /// The sheet capsule stays visible with a single sheet, so 新建画布 always has a
+    /// permanent entry point. Markdown documents and Zen hide the bottom chrome.
     private var showsCanvasTabs: Bool {
-        !session.isMarkdownDocument && !session.zen.isActive && session.document.canvasCount > 1
+        !session.isMarkdownDocument && !session.zen.isActive
     }
 
+    /// XMind's sheet capsule: the current sheet name behind a `▾` menu, then `＋`.
+    ///
+    /// One capsule instead of a row of tabs. Switching sheets, rename, copy, paste,
+    /// duplicate, delete, new sheet, and 画布另存为 all live in the menu, which is
+    /// where XMind puts them too. The capsule is left-aligned and only as wide as
+    /// its content, so the bottom-right corner of the canvas stays clear.
     private var canvasTabBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(0..<session.document.canvasCount, id: \.self) { index in
-                    canvasTab(index)
+        HStack(spacing: 2) {
+            Menu {
+                canvasSheetMenu
+            } label: {
+                HStack(spacing: 4) {
+                    Text(verbatim: currentCanvasTitle)
+                        .lineLimit(1)
+                    Image(systemName: "chevron.down")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
+                .padding(.leading, 12)
+                .padding(.trailing, 10)
+                .frame(minHeight: EditorStatusBarChrome.controlMinHeight)
+                .contentShape(Rectangle())
             }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help(Text(verbatim: text("切换、重命名或删除画布")))
+            .accessibilityLabel(Text(verbatim: currentCanvasTitle))
+            .accessibilityHint(text("切换、重命名或删除画布"))
+            .accessibilityIdentifier("canvas.menu")
+
+            Divider()
+                .frame(height: 18)
+
+            Button {
+                session.addCanvas(viewport: camera.viewport.persisted)
+            } label: {
+                Image(systemName: "plus")
+                    .frame(width: 34, height: EditorStatusBarChrome.controlMinHeight)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(Text(verbatim: text("新建画布")))
+            .accessibilityLabel(text("新建画布"))
+            .accessibilityIdentifier("canvas.add")
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .frame(maxWidth: 320, alignment: .leading)
-        .frame(minHeight: EditorStatusBarChrome.controlMinHeight, alignment: .leading)
+        .padding(.horizontal, 4)
+        .frame(minHeight: EditorStatusBarChrome.controlMinHeight)
         .appleGlassChrome(.bottomBarCapsule)
         .padding(.leading, 12)
         .accessibilityElement(children: .contain)
@@ -690,44 +768,147 @@ struct DocumentEditor: View {
         }
     }
 
-    private func canvasTab(_ index: Int) -> some View {
-        let selected = index == session.document.clampedCanvasIndex
-        return Button {
-            session.activateCanvas(index, viewport: camera.viewport.persisted)
-        } label: {
-            Text(verbatim: session.document.canvasTitle(at: index))
-                .lineLimit(1)
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .frame(minHeight: EditorStatusBarChrome.controlMinHeight)
-        .contentShape(Rectangle())
-        .tint(selected ? Color.accentColor : Color.secondary)
-        .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityIdentifier("canvas.tab.\(index)")
-        .simultaneousGesture(TapGesture(count: 2).onEnded {
-            canvasRenameIndex = index
-            canvasRenameText = session.document.canvasTitle(at: index)
-            showCanvasRename = true
-        })
-        .contextMenu {
+    private var currentCanvasIndex: Int { session.document.clampedCanvasIndex }
+
+    /// Sheet names are user text, so they never go through the string table.
+    private func sheetTitle(at index: Int) -> String {
+        let title = session.document.canvasTitle(at: index)
+        return title.isEmpty ? "未命名" : title
+    }
+
+    private var currentCanvasTitle: String { sheetTitle(at: currentCanvasIndex) }
+
+    /// 「<当前画布> 副本」, numbered when that name is taken.
+    private func copyCanvasTitle(suffix: String) -> String {
+        session.document.uniqueCanvasTitle(basedOn: currentCanvasTitle, suffix: suffix)
+    }
+
+    /// The `▾` menu. A capability that does not exist is not drawn as a dead row:
+    /// 删除 needs a second sheet, 粘贴 needs a copied one.
+    @ViewBuilder
+    private var canvasSheetMenu: some View {
+        ForEach(0..<session.document.canvasCount, id: \.self) { index in
             Button {
-                canvasRenameIndex = index
-                canvasRenameText = session.document.canvasTitle(at: index)
-                showCanvasRename = true
+                session.activateCanvas(index, viewport: camera.viewport.persisted)
             } label: {
-                Label(text("重新命名画布"), systemImage: "pencil")
-            }
-            if session.document.canvasCount > 1 {
-                Button(role: .destructive) {
-                    session.removeCanvas(at: index, viewport: camera.viewport.persisted)
-                } label: {
-                    Label(text("删除画布"), systemImage: "trash")
+                if index == currentCanvasIndex {
+                    Label(sheetTitle(at: index), systemImage: "checkmark")
+                } else {
+                    Text(verbatim: sheetTitle(at: index))
                 }
             }
+            .accessibilityIdentifier("canvas.tab.\(index)")
+        }
+
+        Divider()
+
+        Button {
+            beginCanvasRename()
+        } label: {
+            Label(text("重新命名画布"), systemImage: "pencil")
+        }
+        .accessibilityIdentifier("canvas.menu.rename")
+
+        Button {
+            session.copyActiveCanvas(viewport: camera.viewport.persisted)
+        } label: {
+            Label(text("拷贝画布"), systemImage: "doc.on.doc")
+        }
+        .accessibilityIdentifier("canvas.menu.copy")
+
+        if session.hasStagedCanvas {
+            Button {
+                session.pasteCanvas(
+                    viewport: camera.viewport.persisted,
+                    title: copyCanvasTitle(suffix: text("副本"))
+                )
+            } label: {
+                Label(text("粘贴画布"), systemImage: "doc.on.clipboard")
+            }
+            .accessibilityIdentifier("canvas.menu.paste")
+        }
+
+        Button {
+            session.duplicateCanvas(
+                viewport: camera.viewport.persisted,
+                title: copyCanvasTitle(suffix: text("副本"))
+            )
+        } label: {
+            Label(text("复制画布"), systemImage: "plus.square.on.square")
+        }
+        .accessibilityIdentifier("canvas.menu.duplicate")
+
+        if session.document.canvasCount > 1 {
+            Button(role: .destructive) {
+                session.removeCanvas(at: currentCanvasIndex, viewport: camera.viewport.persisted)
+            } label: {
+                Label(text("删除画布"), systemImage: "trash")
+            }
+            .accessibilityIdentifier("canvas.menu.delete")
+        }
+
+        if session.restorableCanvasRemoval != nil {
+            Button {
+                session.restoreRemovedCanvas()
+            } label: {
+                Label(text("撤销删除画布"), systemImage: "arrow.uturn.backward")
+            }
+            .accessibilityIdentifier("canvas.menu.undoDelete")
+        }
+
+        Button {
+            session.addCanvas(viewport: camera.viewport.persisted)
+        } label: {
+            Label(text("新建画布"), systemImage: "plus.rectangle.on.rectangle")
+        }
+        .accessibilityIdentifier("canvas.menu.add")
+
+        Button {
+            saveActiveCanvasAs()
+        } label: {
+            Label(text("画布另存为…"), systemImage: "square.and.arrow.down.on.square")
+        }
+        .accessibilityIdentifier("canvas.menu.saveAs")
+    }
+
+    private func beginCanvasRename() {
+        canvasRenameIndex = currentCanvasIndex
+        canvasRenameText = session.document.canvasTitle(at: currentCanvasIndex)
+        showCanvasRename = true
+    }
+
+    /// 画布另存为…: writes this sheet alone as a new `.floretta` file.
+    /// The open document keeps its own URL — this is a copy, not 另存为 for the map,
+    /// so the export kind is not "floretta" and the save callback is not run.
+    private func saveActiveCanvasAs() {
+        session.prepareToSave()
+        let index = currentCanvasIndex
+        let title = currentCanvasTitle
+        var canvas = session.document.isolatedCanvas(at: index)
+        canvas.title = title
+        do {
+            exportKind = "canvas"
+            exportType = FlorettaFileTypes.contentType(forExport: "floretta")
+            exportName = exportFilename(title: title, kind: "floretta")
+            if !AttachmentReferences.hashes(in: canvas).isEmpty, let archive = session.url {
+                let destination = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("\(UUID().uuidString).floretta")
+                _ = try FlorettaStreamingDocument.save(
+                    document: canvas,
+                    to: destination,
+                    files: FoundationStreamingFiles(),
+                    copyingAssetsFrom: archive
+                )
+                exportFile = ExportFile(data: Data(), fileURL: destination)
+            } else {
+                exportFile = ExportFile(data: try SharePayload.bytes(for: "floretta", document: canvas))
+            }
+            presentPreparedExport()
+        } catch {
+            exportError = error.localizedDescription
         }
     }
+
 
     private var tagFilterBanner: some View {
         HStack(spacing: 8) {
@@ -943,13 +1124,10 @@ struct DocumentEditor: View {
         EditorToolbarLayout.visibleItems(for: toolbarWidthClass)
     }
 
-    private var overflowCensus: TopicTitleCensus {
+    /// One census read for the status capsule. Same cache as before; the editor
+    /// still counts topics, words, and characters in exactly one place.
+    private var statusCensus: TopicTitleCensus {
         topicCensus.census(of: session.editingDocument)
-    }
-
-    private func overflowAccessibilityLabel(census: TopicTitleCensus) -> String {
-        let stats = EditorOverflowCensus(census: census, locale: settings.resolvedLocale)
-        return "\(text(EditorToolbarCatalog.command(.more).title))\n\(stats.accessibilityLabel)"
     }
 
     private func commandLabel(
@@ -1060,7 +1238,6 @@ struct DocumentEditor: View {
             case .insert: insertMenu
             case .share: shareMenu
             case .more: moreMenu
-            case .zoom: zoomMenu
             default: EmptyView()
             }
         case .submenu:
@@ -1144,29 +1321,6 @@ struct DocumentEditor: View {
         .accessibilityHint(text(commandHelp(.link)))
     }
 
-    private var zoomMenu: some View {
-        Menu {
-            ForEach(ZoomStop.allCases, id: \.self) { stop in
-                Button { camera.zoom(to: stop) } label: {
-                    Label("\(stop.percent)%", systemImage: "magnifyingglass")
-                }
-                    .explained(FlorettaL10n.format("把画布缩放到 %lld%%", locale: settings.resolvedLocale, arguments: [Int64(stop.percent)]))
-            }
-            commandMenuButton(.fit) { perform(.fit) }
-                .keyboardShortcut("0", modifiers: .command)
-        } label: {
-            #if os(iOS)
-            // Keep the compact toolbar face on iOS; macOS shows the live percentage.
-            commandLabel(.zoom, surface: .toolbar)
-            #else
-            commandLabel(.zoom, surface: .toolbar)
-            #endif
-        }
-        .explained(EditorToolbarCatalog.command(.zoom).help)
-        .appleGlassChrome(.toolbarFloatingButton)
-        .accessibilityIdentifier("editor.zoom")
-    }
-
     @ViewBuilder
     private var shareMenu: some View {
         #if os(iOS)
@@ -1218,51 +1372,62 @@ struct DocumentEditor: View {
 
     @ViewBuilder
     private var moreMenu: some View {
-        let census = overflowCensus
         #if os(iOS)
         IdentifiedSystemMenuButton(
             symbol: EditorToolbarCatalog.command(.more).symbol,
             accessibilityIdentifier: "editor.more",
-            accessibilityLabel: overflowAccessibilityLabel(census: census),
+            accessibilityLabel: text(EditorToolbarCatalog.command(.more).title),
             help: text(EditorToolbarCatalog.command(.more).help),
-            makeMenu: { makeOverflowUIMenu(census: census) }
+            makeMenu: { makeOverflowUIMenu() }
         )
         .help(Text(verbatim: text(EditorToolbarCatalog.command(.more).help)))
         .appleGlassChrome(.toolbarFloatingButton)
         #else
         Menu {
-            EditorOverflowCensus(census: census, locale: settings.resolvedLocale)
-                .accessibilityIdentifier("status.topicCensus")
-            Divider()
-            #if os(macOS)
-            insertOverflowSubmenu
-            #else
+            // TD-006: the ••• menu never repeats a command the bar already
+            // shows. Every row below falls back into this menu exactly when
+            // `EditorToolbarLayout` keeps that command off the bar, so compact
+            // widths still reach everything.
             if !toolbarVisibleItems.contains(.insert) {
                 insertOverflowSubmenu
             }
-            #endif
             if !toolbarVisibleItems.contains(.share) {
                 shareOverflowSubmenu
             }
-            commandMenuButton(.undo) { perform(.undo) }
-            commandMenuButton(.redo) { perform(.redo) }
-            commandMenuButton(.delete) { perform(.delete) }
-            commandMenuButton(.immersive) { perform(.immersive) }
+            if !toolbarVisibleItems.contains(.undo) {
+                commandMenuButton(.undo) { perform(.undo) }
+            }
+            if !toolbarVisibleItems.contains(.redo) {
+                commandMenuButton(.redo) { perform(.redo) }
+            }
+            if !toolbarVisibleItems.contains(.delete) {
+                commandMenuButton(.delete) { perform(.delete) }
+            }
+            if !toolbarVisibleItems.contains(.immersive) {
+                commandMenuButton(.immersive) { perform(.immersive) }
+            }
             overflowAlwaysCommandButton(.mapMode)
             overflowAlwaysCommandButton(.focusMode)
             overflowAlwaysCommandButton(.newCanvas)
-            ForEach(EditorToolbarCatalog.menu(.more), id: \.self) { id in
+            ForEach(overflowMenuCommands, id: \.self) { id in
                 moreRow(id)
             }
         } label: {
             commandLabel(.more, surface: .toolbar)
                 .accessibilityIdentifier("editor.more")
         }
-        .accessibilityLabel(overflowAccessibilityLabel(census: census))
+        .accessibilityLabel(text(EditorToolbarCatalog.command(.more).title))
         .accessibilityIdentifier("editor.more")
         .help(Text(verbatim: text(EditorToolbarCatalog.command(.more).help)))
         .appleGlassChrome(.toolbarFloatingButton)
         #endif
+    }
+
+    /// `menu(.more)` minus whatever the bar already shows. This is the whole
+    /// de-duplication rule; no platform-specific list is kept here.
+    private var overflowMenuCommands: [EditorToolbarCommandID] {
+        let onBar = Set(toolbarVisibleItems)
+        return EditorToolbarCatalog.menu(.more).filter { !onBar.contains($0) }
     }
 
     private var insertOverflowSubmenu: some View {
@@ -1306,44 +1471,24 @@ struct DocumentEditor: View {
 
 
     #if os(iOS)
-    private func makeOverflowUIMenu(census: TopicTitleCensus) -> UIMenu {
-        var children: [UIMenuElement] = [makeCensusUIMenu(census: census)]
+    private func makeOverflowUIMenu() -> UIMenu {
+        var children: [UIMenuElement] = []
         if !toolbarVisibleItems.contains(.insert) {
             children.append(makeInsertUIMenu())
         }
         if !toolbarVisibleItems.contains(.share) {
             children.append(makeShareUIMenu())
         }
-        for id in [EditorToolbarCommandID.undo, .redo, .delete, .immersive] {
+        for id in [EditorToolbarCommandID.undo, .redo, .delete, .immersive] where !toolbarVisibleItems.contains(id) {
             children.append(commandUIAction(id))
         }
         children.append(overflowAlwaysCommandUIAction(.mapMode))
         children.append(overflowAlwaysCommandUIAction(.focusMode))
         children.append(overflowAlwaysCommandUIAction(.newCanvas))
-        for id in EditorToolbarCatalog.menu(.more) {
+        for id in overflowMenuCommands {
             children.append(commandUIAction(id))
         }
         return UIMenu(children: children)
-    }
-
-    private func makeCensusUIMenu(census: TopicTitleCensus) -> UIMenu {
-        func item(_ key: String, _ value: Int, identifier: String) -> UIAction {
-            let title = FlorettaL10n.format(key, locale: settings.resolvedLocale, arguments: [Int64(value)])
-            let action = UIAction(title: title, handler: { _ in })
-            action.attributes.insert(.disabled)
-            action.accessibilityIdentifier = identifier
-            return action
-        }
-        let menu = UIMenu(
-            options: .displayInline,
-            children: [
-                item("主题 %lld", census.topics, identifier: "status.topics"),
-                item("字数 %lld", census.words, identifier: "status.words"),
-                item("字符数 %lld", census.characters, identifier: "status.characters"),
-            ]
-        )
-        menu.accessibilityIdentifier = "status.topicCensus"
-        return menu
     }
 
     private func makeShareUIMenu() -> UIMenu {
@@ -1576,7 +1721,7 @@ struct DocumentEditor: View {
 
     private var inspectorBody: some View {
         // The header is an inset, not a sibling of the page. Switching between
-        // 演说 / 样式 / 导图 rebuilds pages with different intrinsic heights. If
+        // 样式 / 导图 rebuilds pages with different intrinsic heights. If
         // that height drives the inspector host, AppKit can recenter its shared
         // toolbar controls over the canvas. Keep the native Picker in a stable,
         // top-anchored inset; only the page below is flexible and scrollable.
@@ -1600,7 +1745,7 @@ struct DocumentEditor: View {
             if showsSheetDismissHandle {
                 // Taller than the segmented control, so the header's center is this
                 // handle. A downward drag here dismisses the compact sheet. The same
-                // drag on the segments selects 演说 instead, because that control
+                // drag on the segments selects 导图 instead, because that control
                 // takes the touch on contact. A tap also dismisses, because a UI
                 // test swipeDown often misses the DragGesture.
                 Button {
@@ -1663,8 +1808,6 @@ struct DocumentEditor: View {
         switch inspectorTab {
         case .style:
             stylePage
-        case .presentation:
-            presentationPage
         case .map:
             documentInfo
         }
@@ -1674,16 +1817,107 @@ struct DocumentEditor: View {
     private var stylePage: some View {
         VStack(alignment: .leading, spacing: 0) {
             Form {
+                // Document-scope XMind groups. They stay readable with nothing
+                // selected, because a color scheme and a branch are map-wide.
+                inspectorColorSchemeSection
+                inspectorBranchSection
                 AppearanceSettingsPanel(
                     settings: settings,
                     identifierPrefix: "inspector.appearance",
-                    density: .inspector
+                    density: .inspector,
+                    fields: .mapScope
                 )
             }
             .formStyle(.grouped)
             .appleGlassInspectorFormPlate()
             inspectorDocumentStyle
         }
+    }
+
+    /// 配色方案. Writes the same `themeID` the 配色 sheet writes, so both entries
+    /// show one selected scheme.
+    private var inspectorColorSchemeSection: some View {
+        Section(text(InspectorStyleSection.colorScheme.titleKey)) {
+            Picker(text("配色方案"), selection: colorSchemeSelection) {
+                ForEach(InspectorStyle.colorSchemeChoiceIDs, id: \.self) { id in
+                    Text(verbatim: colorSchemeTitle(id)).tag(id)
+                }
+            }
+            .pickerStyle(.menu)
+            .accessibilityLabel(text("配色方案"))
+            .accessibilityIdentifier("inspector.style.colorScheme")
+        }
+        // A Markdown projection owns its colors; the write would be refused anyway.
+        .disabled(session.isMarkdownDocument)
+    }
+
+    /// 分支 · 线条 / 终点. One token each, stored on the document.
+    private var inspectorBranchSection: some View {
+        Section(text(InspectorStyleSection.branch.titleKey)) {
+            Picker(text("线条"), selection: branchLineSelection) {
+                ForEach(BranchLineStyle.allCases) { line in
+                    Text(verbatim: text(line.titleKey)).tag(line)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityLabel(text("线条"))
+            .accessibilityIdentifier("inspector.style.branchLine")
+
+            Picker(text("终点"), selection: branchEndSelection) {
+                ForEach(BranchEndMarker.allCases) { marker in
+                    Text(verbatim: text(marker.titleKey)).tag(marker)
+                }
+            }
+            .pickerStyle(.menu)
+            .accessibilityLabel(text("终点"))
+            .accessibilityIdentifier("inspector.style.branchEnd")
+        }
+        .disabled(session.isMarkdownDocument)
+    }
+
+    private var colorSchemeSelection: Binding<String> {
+        Binding(
+            get: { InspectorStyle.colorSchemeValue(of: session.editingDocument) },
+            set: { id in
+                guard !session.isMarkdownDocument else { return }
+                session.setBranchTheme(id)
+            }
+        )
+    }
+
+    private func colorSchemeTitle(_ id: String) -> String {
+        guard let key = InspectorStyle.colorSchemeNameKey(id) else { return id }
+        return text(key)
+    }
+
+    private var branchLineSelection: Binding<BranchLineStyle> {
+        Binding(
+            get: { InspectorStyle.branchLineValue(of: session.editingDocument) },
+            set: { line in
+                _ = session.editActive { document in
+                    InspectorStyle.applyDocument(
+                        .branchLine(line),
+                        document: &document,
+                        allowsAppearanceWrites: !session.isMarkdownDocument
+                    )
+                }
+            }
+        )
+    }
+
+    private var branchEndSelection: Binding<BranchEndMarker> {
+        Binding(
+            get: { InspectorStyle.branchEndValue(of: session.editingDocument) },
+            set: { marker in
+                _ = session.editActive { document in
+                    InspectorStyle.applyDocument(
+                        .branchEnd(marker),
+                        document: &document,
+                        allowsAppearanceWrites: !session.isMarkdownDocument
+                    )
+                }
+            }
+        )
     }
 
     @ViewBuilder
@@ -1708,16 +1942,6 @@ struct DocumentEditor: View {
                 }
             )
         }
-    }
-
-    private var presentationPage: some View {
-        ContentUnavailableView {
-            Label(text("尚未实现"), systemImage: "clock")
-        } description: {
-            Text(verbatim: text("演说"))
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityIdentifier("inspector.presentation")
     }
 
     private var documentInfo: some View {
@@ -2634,7 +2858,7 @@ private struct StyleInspector: View {
 
     private var appearanceForm: some View {
         Form {
-            Section(text(InspectorStyleSection.topic.titleKey)) {
+            Section(text(InspectorStyleSection.shape.titleKey)) {
                 Picker(text("形状"), selection: shape) {
                     ForEach(InspectorTopicShape.allCases) { item in
                         Text(verbatim: text(item.titleKey)).tag(item)
@@ -2642,6 +2866,8 @@ private struct StyleInspector: View {
                 }
                 .pickerStyle(.menu)
                 .accessibilityIdentifier("inspector.style.shape")
+            }
+            Section(text(InspectorStyleSection.fill.titleKey)) {
                 Picker(text("填充样式"), selection: fillStyle) {
                     ForEach(fillStyleTags, id: \.self) { tag in
                         Text(verbatim: fillStyleTitle(tag)).tag(tag)
@@ -2653,14 +2879,6 @@ private struct StyleInspector: View {
                     Text(verbatim: text("填充颜色"))
                 }
                 .accessibilityIdentifier("inspector.style.fillColor")
-                LabeledContent(text("长度")) {
-                    Text(verbatim: "\(Int(InspectorStyle.topicWidthValue(of: style)))px")
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                }
-                Slider(value: topicWidth, in: InspectorStyle.topicWidthRange)
-                    .accessibilityLabel(text("长度"))
-                    .accessibilityIdentifier("inspector.style.topicWidth")
             }
             Section(text(InspectorStyleSection.border.titleKey)) {
                 Picker(text("样式"), selection: borderStyle) {
@@ -2682,6 +2900,25 @@ private struct StyleInspector: View {
                     Text(verbatim: text("颜色"))
                 }
                 .accessibilityIdentifier("inspector.style.borderColor")
+            }
+            Section(text(InspectorStyleSection.width.titleKey)) {
+                Picker(text("宽度模式"), selection: widthMode) {
+                    ForEach(InspectorWidthMode.allCases) { mode in
+                        Text(verbatim: text(mode.titleKey)).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityLabel(text("宽度模式"))
+                .accessibilityIdentifier("inspector.style.widthMode")
+                LabeledContent(text("长度")) {
+                    Text(verbatim: widthReadout)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+                Slider(value: topicWidth, in: InspectorStyle.topicWidthRange)
+                    .accessibilityLabel(text("长度"))
+                    .disabled(InspectorStyle.widthMode(of: style) == .fit)
+                    .accessibilityIdentifier("inspector.style.topicWidth")
             }
             Section(text(InspectorStyleSection.text.titleKey)) {
                 TextField(text("副文本"), text: subtitle)
@@ -2865,6 +3102,22 @@ private struct StyleInspector: View {
             get: { InspectorStyle.topicWidthValue(of: style) },
             set: { apply(.topicWidth($0)) }
         )
+    }
+
+    private var widthMode: Binding<InspectorWidthMode> {
+        Binding(
+            get: { InspectorStyle.widthMode(of: style) },
+            set: { apply(.widthMode($0)) }
+        )
+    }
+
+    private var widthReadout: String {
+        switch InspectorStyle.widthMode(of: style) {
+        case .fit:
+            return text("适应")
+        case .pixels:
+            return "\(Int(InspectorStyle.topicWidthValue(of: style)))px"
+        }
     }
 
     private var borderStyle: Binding<String> {
@@ -3576,15 +3829,5 @@ private struct CanvasViewportRelay: View {
             .onChange(of: camera.viewport) { _, viewport in
                 onChange(viewport)
             }
-    }
-}
-
-/// Toolbar zoom face. Reads the zoom percent in its own body so a zoom frame redraws only this label.
-private struct ZoomPercentText: View {
-    let camera: CanvasCamera
-
-    var body: some View {
-        Text("\(camera.chrome.zoomPercent)%")
-            .monospacedDigit()
     }
 }

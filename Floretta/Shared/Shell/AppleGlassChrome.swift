@@ -54,7 +54,7 @@ import UIKit
 enum AppleGlassChromeRole: String, Equatable {
     /// iOS inspector column. macOS returns the content unchanged.
     case inspectorPanel
-    /// The 样式 / 演说 / 导图 segmented control.
+    /// The 样式 / 导图 segmented control.
     case segmentedContainer
     /// Icon buttons, including the inspector empty-state brush.
     case iconButton

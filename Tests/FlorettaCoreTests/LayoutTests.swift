@@ -672,6 +672,33 @@ final class LayoutTests: XCTestCase {
         XCTAssertTrue(EditorLayoutConvergence.shouldWriteVerticalInset(current: 11, proposed: 12))
     }
 
+    /// The preview paints one row per wrapped line. The rows must sit symmetrically
+    /// about the container's centre, otherwise the fix just moves the text to a
+    /// different corner.
+    func testCenteredRowsAreSymmetricAboutTheContainerCentre() {
+        let container = CGRect(x: 10, y: 20, width: 120, height: 90)
+        let rows = EditorLayoutConvergence.centeredRows(in: container, rowHeights: [24, 22, 14])
+
+        XCTAssertEqual(rows.count, 3)
+        XCTAssertEqual(rows[0].minY - container.minY, container.maxY - rows[2].maxY, accuracy: 0.0001, "top and bottom margins must match")
+        XCTAssertEqual((rows[0].minY + rows[2].maxY) / 2, container.midY, accuracy: 0.0001, "the whole text block is centred")
+
+        let evenRows = EditorLayoutConvergence.centeredRows(in: container, rowHeights: [20, 20])
+        XCTAssertEqual(evenRows[0].midY - container.midY, container.midY - evenRows[1].midY, accuracy: 0.0001, "equal-height rows mirror each other")
+        for row in rows {
+            XCTAssertEqual(row.midX, container.midX, accuracy: 0.0001, "every row is centred horizontally")
+            XCTAssertEqual(row.width, container.width, accuracy: 0.0001, "a row spans the whole wrap width")
+        }
+        XCTAssertEqual(rows[1].minY, rows[0].maxY, accuracy: 0.0001, "rows stack without gaps")
+
+        let single = EditorLayoutConvergence.centeredRows(in: container, rowHeights: [20])
+        XCTAssertEqual(single[0].midY, container.midY, accuracy: 0.0001, "a single line's centre is the container's centre")
+        XCTAssertEqual(single[0].midX, container.midX, accuracy: 0.0001)
+
+        XCTAssertTrue(EditorLayoutConvergence.centeredRows(in: container, rowHeights: []).isEmpty)
+        XCTAssertTrue(EditorLayoutConvergence.centeredRows(in: .zero, rowHeights: [10]).isEmpty)
+    }
+
     func testCenteringPassDoesNotRewriteInsetForDifferentPriorInsetsWithSameInput() {
         let bounds = CGSize(width: 72, height: 40)
         var pass = TextCenteringPass.idle

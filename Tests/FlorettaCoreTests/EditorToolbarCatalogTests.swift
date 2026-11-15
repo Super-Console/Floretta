@@ -38,12 +38,16 @@ final class EditorToolbarCatalogTests: XCTestCase {
             title: "圈",
             roots: [MindMapNode(id: root, text: "根", children: [MindMapNode(id: child, text: "子")])]
         )
+        // TD-006: 概要 and 边界 are bar commands now. The ＋ menu keeps the insert
+        // operations; ••• still lists them as the fallback when the bar is narrow.
         let insert = EditorToolbarCatalog.menu(.insert)
-        XCTAssertTrue(insert.contains(.summary))
-        XCTAssertTrue(insert.contains(.boundary))
+        XCTAssertFalse(insert.contains(.summary))
+        XCTAssertFalse(insert.contains(.boundary))
         XCTAssertTrue(insert.contains(.region))
-        XCTAssertLessThan(try XCTUnwrap(insert.firstIndex(of: .summary)), try XCTUnwrap(insert.firstIndex(of: .boundary)))
-        XCTAssertLessThan(try XCTUnwrap(insert.firstIndex(of: .boundary)), try XCTUnwrap(insert.firstIndex(of: .region)))
+        let more = EditorToolbarCatalog.menu(.more)
+        XCTAssertTrue(more.contains(.summary))
+        XCTAssertTrue(more.contains(.boundary))
+        XCTAssertLessThan(try XCTUnwrap(more.firstIndex(of: .summary)), try XCTUnwrap(more.firstIndex(of: .boundary)))
 
         var nothing = EditorToolbarContext()
         nothing.canEncloseSelection = document.canEnclose(nil)
@@ -79,7 +83,8 @@ final class EditorToolbarCatalogTests: XCTestCase {
     func testLinkAndHistoryFollowSelectionAndTheSavedPackage() {
         var context = EditorToolbarContext()
         XCTAssertFalse(EditorToolbarCatalog.isEnabled(.link, in: context))
-        XCTAssertTrue(EditorToolbarCatalog.menu(.insert).contains(.link))
+        XCTAssertTrue(EditorToolbarCatalog.menu(.more).contains(.link))
+        XCTAssertFalse(EditorToolbarCatalog.menu(.insert).contains(.link))
         XCTAssertEqual(EditorToolbarCatalog.command(.link).kind, .submenu)
         XCTAssertEqual(EditorToolbarCatalog.command(.viewMode).kind, .submenu)
 
@@ -100,19 +105,22 @@ final class EditorToolbarCatalogTests: XCTestCase {
     }
 
     func testDefaultToolbarMatchesTheCurrentBarAndTheRestCanBeAdded() {
+        // TD-006: undo/redo/delete | ＋插入 | 关系线/概要/边界/标签 | •••.
+        // Import/export, full screen, and the rest stay off the bar by default.
         XCTAssertEqual(
             EditorToolbarCatalog.defaultToolbarItems,
-            [.undo, .redo, .delete, .insert, .share, .zoom, .immersive, .more]
+            [.undo, .redo, .delete, .insert, .link, .summary, .boundary, .tagFilter, .more]
         )
-        XCTAssertTrue(EditorToolbarCatalog.addableToolbarItems.contains(.summary))
-        XCTAssertTrue(EditorToolbarCatalog.addableToolbarItems.contains(.boundary))
+        XCTAssertTrue(EditorToolbarCatalog.addableToolbarItems.contains(.share))
+        XCTAssertTrue(EditorToolbarCatalog.addableToolbarItems.contains(.immersive))
         XCTAssertTrue(EditorToolbarCatalog.addableToolbarItems.contains(.region))
         XCTAssertFalse(EditorToolbarCatalog.menu(.more).contains(.viewMode))
         XCTAssertFalse(EditorToolbarCatalog.menu(.more).contains(.newCanvas))
         for id in [EditorToolbarCommandID.viewMode, .mapMode, .focusMode, .newCanvas] {
             XCTAssertEqual(EditorToolbarCatalog.command(id).customization, .menuOnly, id.rawValue)
         }
-        XCTAssertFalse(EditorToolbarCatalog.defaultToolbarItems.contains(.summary))
+        XCTAssertTrue(EditorToolbarCatalog.defaultToolbarItems.contains(.summary))
+        XCTAssertFalse(EditorToolbarCatalog.defaultToolbarItems.contains(.share))
         for id in EditorToolbarCatalog.addableToolbarItems {
             XCTAssertEqual(EditorToolbarCatalog.command(id).customization, .addable)
         }
@@ -151,14 +159,13 @@ final class EditorToolbarCatalogTests: XCTestCase {
         XCTAssertTrue(editor.contains("overflowAlwaysCommandButton(.mapMode)"))
         XCTAssertTrue(editor.contains("overflowAlwaysCommandButton(.focusMode)"))
         XCTAssertTrue(editor.contains("overflowAlwaysCommandButton(.newCanvas)"))
-        // Insert stays in the overflow menu. A toolbar `macItem(.insert)` is the
-        // separate plus button this polish removed.
-        let macToolbarIDs = (EditorToolbarCatalog.defaultToolbarItems + EditorToolbarCatalog.addableToolbarItems)
-            .filter { $0 != .insert }
+        // TD-006: ＋ 插入 is a bar item again. Every visible or addable command
+        // still declares one `macItem`, so the palette can surface all of them.
+        let macToolbarIDs = EditorToolbarCatalog.defaultToolbarItems + EditorToolbarCatalog.addableToolbarItems
         for id in macToolbarIDs {
             XCTAssertTrue(editor.contains("macItem(.\(id.rawValue))"), id.rawValue)
         }
-        XCTAssertFalse(editor.contains("macItem(.insert)"))
+        XCTAssertTrue(editor.contains("macItem(.insert)"))
         XCTAssertTrue(editor.contains("insertOverflowSubmenu"))
         for id in [EditorToolbarCommandID.viewMode, .mapMode, .focusMode, .newCanvas] {
             XCTAssertFalse(editor.contains("macItem(.\(id.rawValue))"), id.rawValue)
@@ -185,8 +192,9 @@ final class EditorToolbarCatalogTests: XCTestCase {
     private func assertSummaryAndBoundary(enabled: Bool, in context: EditorToolbarContext) {
         XCTAssertEqual(EditorToolbarCatalog.isEnabled(.summary, in: context), enabled)
         XCTAssertEqual(EditorToolbarCatalog.isEnabled(.boundary, in: context), enabled)
-        XCTAssertTrue(EditorToolbarCatalog.menu(.insert).contains(.summary))
-        XCTAssertTrue(EditorToolbarCatalog.menu(.insert).contains(.boundary))
+        // TD-006: both are bar commands; ••• keeps them as the narrow-bar fallback.
+        XCTAssertTrue(EditorToolbarCatalog.menu(.more).contains(.summary))
+        XCTAssertTrue(EditorToolbarCatalog.menu(.more).contains(.boundary))
     }
 
     private func repoFile(_ relative: String) throws -> String {

@@ -58,7 +58,6 @@ struct InfiniteCanvas: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.locale) private var locale
     @Environment(\.appearanceProfile) private var appearanceProfile
-    @AppStorage("floretta.theme.mode") private var storedThemeMode = ThemeMode.default.rawValue
     @AppStorage("floretta.language") private var storedInterfaceLanguage = AppLanguage.system.rawValue
     @FocusState private var canvasFocused: Bool
 
@@ -1177,9 +1176,10 @@ struct InfiniteCanvas: View {
         colorScheme == .dark ? .dark : .light
     }
 
-    /// The color scheme's paper, or the system background when the map has no scheme.
+    /// The paper this document draws on. Its own stored color wins; a file that
+    /// never stored one keeps the appearance default, so old files stay put.
     private var resolvedAppearance: LayoutAppearance {
-        appearanceProfile.applying(
+        var resolved = appearanceProfile.applying(
             to: MapThemeCatalog.appearance(
                 themeID: document.themeID,
                 scheme: branchScheme,
@@ -1187,6 +1187,8 @@ struct InfiniteCanvas: View {
             ),
             scheme: branchScheme
         )
+        resolved.canvasBackground = document.resolvedCanvasBackground(fallback: resolved.canvasBackground)
+        return resolved
     }
 
     @ViewBuilder
@@ -2060,11 +2062,6 @@ struct InfiniteCanvas: View {
             size: pointSize
         )
             .foregroundColor(color(node.textColor))
-        let mode = ThemeMode(rawValue: storedThemeMode) ?? .default
-        let language = AppLanguage(rawValue: storedInterfaceLanguage) ?? .system
-        if let font = ThemeTypography.font(mode: mode, language: language, locale: locale, size: pointSize) {
-            text = text.font(font)
-        }
         if node.bold { text = text.bold() }
         if node.italic { text = text.italic() }
         if node.strikethrough { text = text.strikethrough() }

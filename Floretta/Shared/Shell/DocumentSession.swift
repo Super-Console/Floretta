@@ -1017,6 +1017,25 @@ enum LaunchDocumentQueue {
     @MainActor static var pending: Pending?
 }
 
+/// The three 「打开」 commands the home sidebar used to carry. They are commands,
+/// not destinations: the home toolbar's 打开▾ menu and the macOS 「文件」 menu
+/// both send them, and the home view runs them.
+enum HomeOpenCommand: String, CaseIterable, Equatable, Sendable, Identifiable {
+    case files
+    case iCloud
+    case local
+
+    var id: String { rawValue }
+
+    var titleKey: String {
+        switch self {
+        case .files: "从文件应用打开"
+        case .iCloud: "从 iCloud 云盘打开"
+        case .local: "打开本机文件夹"
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class LibraryModel {
@@ -1039,6 +1058,19 @@ final class LibraryModel {
     var showImporter = false
     var alertTitle = "无法打开"
     var openError: String?
+    /// Set by the macOS 「文件」 menu. The home view consumes it, so the toolbar
+    /// buttons and the menu items run one code path.
+    var pendingHomeOpen: HomeOpenCommand?
+
+    func requestHomeOpen(_ command: HomeOpenCommand) {
+        pendingHomeOpen = command
+    }
+
+    /// Returns the pending command once and clears it.
+    func consumeHomeOpen() -> HomeOpenCommand? {
+        defer { pendingHomeOpen = nil }
+        return pendingHomeOpen
+    }
 
     var canSaveActiveFile: Bool {
         guard let editor else { return false }
@@ -1207,8 +1239,35 @@ final class LibraryModel {
     }
 
     func makeNew() {
-        let document = MindMapDocument.newMap(title: "未命名", roots: [MindMapNode(text: "中心")], clock: ports.clock)
+        let document = MindMapDocument.newMap(
+            title: "未命名",
+            roots: [MindMapNode(text: "中心")],
+            canvasBackgroundHex: newDocumentPaperHex,
+            clock: ports.clock
+        )
         openDocument(document, preferredURL: nil, sourceExtension: "floretta")
+    }
+
+    /// Paper a document created now stores: the home background resolved for the
+    /// appearance that is on screen. Stored as a concrete color, so a map created
+    /// in dark is not white, and an export cannot drift with the setting.
+    var newDocumentPaperHex: String {
+        settings.defaultDocumentBackgroundHex(for: currentScheme)
+    }
+
+    /// The scheme the app draws in right now, system appearance included.
+    var currentScheme: MapColorScheme {
+        switch settings.appearance {
+        case .light: return .light
+        case .dark: return .dark
+        case .system:
+            #if os(macOS)
+            let match = NSApp?.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua])
+            return match == .darkAqua ? .dark : .light
+            #else
+            return UITraitCollection.current.userInterfaceStyle == .dark ? .dark : .light
+            #endif
+        }
     }
 
     /// Opens the launch-argument document once the first window has appeared.
@@ -1236,7 +1295,12 @@ final class LibraryModel {
     }
 
     func makeTemplate(_ kind: TemplateKind) {
-        openDocument(kind.document(clock: ports.clock), preferredURL: nil, sourceExtension: "floretta")
+        // A template is a new document too: it inherits the current 首页背景.
+        var document = kind.document(clock: ports.clock)
+        if document.canvasBackgroundHex == nil {
+            document.canvasBackgroundHex = newDocumentPaperHex
+        }
+        openDocument(document, preferredURL: nil, sourceExtension: "floretta")
     }
 
     func openRecovered(_ document: MindMapDocument) {

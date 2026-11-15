@@ -1864,6 +1864,15 @@ struct DocumentEditor: View {
         }
     }
 
+    /// The open document's paper. The inspector edits this value, so a background
+    /// changed here belongs to the file and never follows the home preference.
+    private var documentBackground: Binding<String?> {
+        Binding(
+            get: { session.document.canvasBackgroundHex },
+            set: { session.document.canvasBackgroundHex = HomeBackground.canonicalHex($0) }
+        )
+    }
+
     @ViewBuilder
     private var stylePage: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -1876,7 +1885,8 @@ struct DocumentEditor: View {
                     settings: settings,
                     identifierPrefix: "inspector.appearance",
                     density: .inspector,
-                    fields: .mapScope
+                    fields: .mapScope,
+                    documentBackground: documentBackground
                 )
             }
             .formStyle(.grouped)

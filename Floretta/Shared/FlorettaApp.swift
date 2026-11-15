@@ -53,6 +53,11 @@ struct FlorettaApp: App {
         .commands {
             FlorettaCommands(settings: settings, library: library)
         }
+        // Standard Settings scene: ⌘, opens this window on its own, outside the
+        // document window and outside the Dock.
+        Settings {
+            MacSettingsScene(settings: settings)
+        }
         #endif
     }
 }
@@ -204,13 +209,26 @@ private struct FlorettaCommands: Commands {
         CommandGroup(before: .windowList) {
             OpenSameDocumentWindowButton(settings: settings, library: library)
         }
-        CommandGroup(replacing: .appSettings) {
+        // The three 打开 commands the home sidebar used to carry. The Settings
+        // window itself is the `Settings` scene, which the system wires to ⌘,.
+        CommandGroup(after: .newItem) {
             Button {
-                library.tab = .settings
+                library.requestHomeOpen(.files)
             } label: {
-                Label(FlorettaL10n.string(ShellTab.settings.title, language: settings.language), systemImage: "gearshape")
+                Label(FlorettaL10n.string(HomeOpenCommand.files.titleKey, language: settings.language), systemImage: "folder")
             }
-            .keyboardShortcut(",", modifiers: .command)
+            .disabled(library.editor != nil)
+            Button {
+                library.requestHomeOpen(.iCloud)
+            } label: {
+                Label(FlorettaL10n.string(HomeOpenCommand.iCloud.titleKey, language: settings.language), systemImage: "icloud")
+            }
+            .disabled(library.editor != nil)
+            Button {
+                library.requestHomeOpen(.local)
+            } label: {
+                Label(FlorettaL10n.string(HomeOpenCommand.local.titleKey, language: settings.language), systemImage: "internaldrive")
+            }
             .disabled(library.editor != nil)
         }
     }

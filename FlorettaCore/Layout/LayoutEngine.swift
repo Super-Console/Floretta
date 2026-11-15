@@ -10,6 +10,14 @@ public enum LayoutKind: String, CaseIterable, Codable, Equatable, Sendable {
     case logicChart
     /// Root at the top, every branch grows down (XMind 组织结构图).
     case orgChart
+    /// One horizontal spine; first-level topics alternate above and below it (XMind 时间轴).
+    case timeline
+    /// A horizontal spine with diagonal ribs (XMind 鱼骨图).
+    case fishbone
+    /// One column per depth, one row band per subtree (XMind 树型表格).
+    case treeTable
+    /// A two-dimensional grid: column headers, row bands, crossing cells (XMind 矩阵图).
+    case matrix
 
     /// Localization key for a structure picker. The app resolves it; Core stays string-free.
     public var displayNameKey: String {
@@ -17,6 +25,10 @@ public enum LayoutKind: String, CaseIterable, Codable, Equatable, Sendable {
         case .bilateral: return "layout.bilateral"
         case .logicChart: return "layout.logicChart"
         case .orgChart: return "layout.orgChart"
+        case .timeline: return "layout.timeline"
+        case .fishbone: return "layout.fishbone"
+        case .treeTable: return "layout.treeTable"
+        case .matrix: return "layout.matrix"
         }
     }
 
@@ -27,6 +39,10 @@ public enum LayoutKind: String, CaseIterable, Codable, Equatable, Sendable {
         case .bilateral: return BilateralLayout(geometry: geometry)
         case .logicChart: return LogicChartLayout(geometry: geometry)
         case .orgChart: return OrgChartLayout(geometry: geometry)
+        case .timeline: return TimelineLayout(geometry: geometry)
+        case .fishbone: return FishboneLayout(geometry: geometry)
+        case .treeTable: return TreeTableLayout(geometry: geometry)
+        case .matrix: return MatrixLayout(geometry: geometry)
         }
     }
 }

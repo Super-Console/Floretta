@@ -14,6 +14,7 @@ struct RecentPage: View {
     var openFiles: () -> Void
     var openICloud: () -> Void
     var browseLocal: () -> Void
+    var openSettings: () -> Void
     @Environment(\.locale) private var locale
     @Environment(\.colorScheme) private var colorScheme
     #if os(iOS)
@@ -27,6 +28,18 @@ struct RecentPage: View {
             .background(homeSurface(raised: false))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.large)
+            // 设置 entry: one standalone circular glass button in the page's
+            // top-right corner. It reserves its own strip above the cards, so it
+            // covers no card, and it is not a tab: 设置 opens as a sheet card.
+            .safeAreaInset(edge: .top, spacing: 0) {
+                HStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    settingsButton
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 6)
+                .padding(.bottom, 2)
+            }
             .searchable(
                 text: $searchText,
                 placement: .navigationBarDrawer(displayMode: .always),
@@ -53,6 +66,24 @@ struct RecentPage: View {
     /// gets the 新建 / 打开▾ arrangement, so iPhone behaviour does not move.
     private var compactChrome: Bool {
         horizontalSizeClass == .compact
+    }
+
+    /// The 设置 entry: one standalone circular glass button in the top-right
+    /// corner. It is not a toolbar item (which would already be glass, and a
+    /// second plate inside it is the double-glass bug) and not a tab, so the
+    /// button owns the only plate, and that plate is a circle.
+    private var settingsButton: some View {
+        Button(action: openSettings) {
+            Image(systemName: "gearshape")
+                .font(.system(size: 17, weight: .semibold))
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .appleGlassChrome(.iconButton)
+        .accessibilityLabel(text("设置"))
+        .accessibilityIdentifier("home.settings")
+        .help(Text(verbatim: text("设置")))
     }
 
     /// System navigation-bar items. One toolbar button and one menu; the system
@@ -388,8 +419,8 @@ struct LocalBrowser: View {
 
 // MARK: - Settings
 
-/// The settings items, in one order, in three pages. The iPhone / iPad 「设置」
-/// tab stacks all three in one form; the macOS Settings window shows one page per
+/// The settings items, in one order, in three pages. The iPhone / iPad 设置 card
+/// stacks all three in one form; the macOS Settings window shows one page per
 /// system tab. No item is defined twice.
 struct SettingsGeneralPage: View {
     @Bindable var settings: AppSettings
@@ -487,9 +518,13 @@ private struct NoticeSheet: View {
     }
 }
 
-/// iOS host: the 「设置」 tab, all three pages in one form.
+/// iOS / iPadOS host: 设置 as a card, not a page. The home page's gear pulls it
+/// up from the bottom edge, so it carries an inline 设置 header on the card's own
+/// bar instead of a large title, and 完成 dismisses the card. The three groups of
+/// items are the same three pages the macOS window shows, one after another.
 struct SettingsView: View {
     @Bindable var settings: AppSettings
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
@@ -500,6 +535,15 @@ struct SettingsView: View {
             }
             .formStyle(.grouped)
             .navigationTitle(text("设置"))
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(text("完成")) { dismiss() }
+                        .accessibilityIdentifier("settings.done")
+                }
+            }
         }
         .chromeTypography(language: settings.language)
     }

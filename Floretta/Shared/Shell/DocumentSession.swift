@@ -1141,7 +1141,6 @@ final class LibraryModel {
     }
 
     var inventoryError: AssetInventoryError?
-    var tab: ShellTab = .home
     var showInterruptedSave = false
     var interruptedTitle: String { interruptedPayload?.promptTitle ?? "保存未完成" }
     var interruptedMessage: String { interruptedPayload?.promptMessage ?? "" }

@@ -53,26 +53,6 @@ enum PNGBackgroundPreference: String, CaseIterable, Equatable, Sendable {
     }
 }
 
-enum ShellTab: Hashable, Equatable, Sendable {
-    case home
-    case settings
-
-    var title: String {
-        switch self {
-        case .home: "首页"
-        case .settings: "设置"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .home: "house"
-        case .settings: "gearshape"
-        }
-    }
-
-}
-
 enum HomeLibrary {
     static let navigationTitle = "项目"
 

@@ -13,6 +13,7 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertTrue(body.contains(".frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)"))
         XCTAssertTrue(header.contains("inspectorTabPicker"))
         XCTAssertTrue(header.contains(".fixedSize(horizontal: false, vertical: true)"))
+        XCTAssertTrue(header.contains(".frame(minHeight: 64)"), "the shared inspector header reserves height even when the selected page is empty")
         XCTAssertTrue(picker.contains("Picker(text(\"检查器\"), selection: $inspectorTab)"))
         XCTAssertTrue(picker.contains(".pickerStyle(.segmented)"))
         XCTAssertFalse(header.contains("GlassEffectContainer"), "mode changes must not replace the native picker with positioned custom content")
@@ -182,6 +183,7 @@ final class AppleGlassChromeContractTests: XCTestCase {
         let empty = try slice(editor, from: "text(\"选择一个主题\")", until: "accessibilityIdentifier(\"inspector.empty\")")
         XCTAssertTrue(empty.contains(".appleGlassChrome(.iconButton)"))
         XCTAssertTrue(empty.contains("inspector.empty.brush"))
+        XCTAssertTrue(empty.contains(".frame(maxWidth: .infinity, maxHeight: .infinity)"), "empty content fills the shared page area instead of constraining the header")
 
         // Zen exit is hidden by default and floats out only after a canvas tap;
         // the immersive canvas must not have a persistent chrome button.

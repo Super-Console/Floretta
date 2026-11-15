@@ -232,6 +232,19 @@ TD-003 → TD-002 → TD-007 → TD-006 → TD-004 → TD-005。前四条都是�
 - 修法：把该胶囊拆成独立的小 `View` 结构体（`CanvasSheetCapsule` / `CanvasSheetNameLabel`），把 `.alert` 移到父级，切断类型链；并用 **Release 配置**在 iOS 模拟器跑 UI 测试实测确认「点新建不崩」。
 - 教训：凡是把一个巨型视图体内联在 `DocumentEditor` 这种超大 View 里、又叠加大量 modifier 的地方，都可能在 Release 下踩这个坑。验收这类改动必须用 Release 构建，Debug 通过不算数。
 
+### 交付记录：1.0 (24) → TestFlight（2026-11-16）
+
+- 分支 `main`，末尾 `1eff516`。合并顺序：`feat/ios-settings-sheet` → `fix/ios-launch-crash` → `feat/sidebar-glass` → `feat/key-latency`。
+- 本版内容：
+  1. **修 iPhone/iPad 线上闪退（TD-012）**：把 `DocumentEditor.canvasTabBar` 拆成 `CanvasSheetCapsule` / `CanvasSheetNameLabel` 两个独立小 View，`.alert` 移到父级；`canvasTabBar` 相关 mangled 类型名从 1313 字符降到 125 字符，父链不再内嵌菜单子树。Release 构建 + Release UI 测试（含新增的重命名弹窗测试）全部跑完，无 crash/stack/EXC_BAD_ACCESS。**注意**：同测试在未修复版本上于模拟器也通过，说明模拟器复现不了真机栈溢出——真机结论仍需本次 TestFlight 验证。
+  2. **iOS 设置入口改造**：移除底部「设置」Tab，首页右上角圆形齿轮（`home.settings`）→ `.sheet`（medium/large detents + 拖拽指示器），卡内无大标题。macOS Settings 窗口未动。
+  3. **侧边栏/面板玻璃**：引入单一规则 `sampleSource`——**底板采样它真正遮住的那一层**。编辑器大纲栏与 iOS 检查器改为 `windowContent`（画布），macOS 检查器保持交给系统 `.inspector` 玻璃（no-op），底栏/浮层早已是 `windowContent`。审计表见提交报告。
+  4. **键位延迟**：先测后改。测量结论（Release，12 节点）：Tab p50 207.7ms、Enter 200.9ms；对照「只按方向键、不改文档」也有 172–183ms → 存在约 170ms 地板。已优化 `NodeTextEditor` 的 AppKit chrome 重复写入（13 次/按键 → 2 次），但**总延迟未下降**（Tab 210.4ms、Enter 216.3ms，在噪声内）。采样显示主线程停在 `NSHostingView.layout → ViewGraph.updateOutputs → ToolbarBridge.updateStorage`，下一步须用 Instruments Time Profiler 在 GUI 会话取 Timeline。**本项不得记为已修复。**
+- 闸门（`1eff516` 实测）：`swift test` 555 项 / 1 skipped / 0 failures；`FlorettaTests` 505 项 / 1 skipped / 0 failures `** TEST SUCCEEDED **`；macOS 与 iOS Debug 编译 exit 0。
+- 归档上传：双平台并行归档 72s（零 `errSecInternalComponent`）、并行上传 114s 双 `Upload succeeded`。ASC 回读：iOS build 24 `VALID`（2026-11-15T09:39:33-08:00）、macOS build 24 `VALID`（09:39:46-08:00）。
+- 工作区清理（Timmy 2026-11-16 授权，全部移至废纸篓可恢复）：18 个已合并工作树 → `~/.Trash/floretta-worktrees-20261116-014059/`；UI 测试残留的测试文档与快照（未命名 10–19 及 `.snapshots`）+ `ui-polish-14-ui-test` 缓存 → `~/.Trash/floretta-cleanup-*`。保留 `floretta`、`floretta-wt/integration` 与 6 个历史 `.worktrees/*`。
+- 仍未完成：① 键位延迟未解决（见上）；② 观感一律由 Timmy 在 TestFlight 验收，助手不做截图/CUA 验收；③ 「备注」命令仓库内不存在；④ Web 端 TD-008 未开始；⑤ iPhone 设置入口已按新形态重做，但真机体验待验。
+
 ## 功能矩阵
 
 | 功能 | macOS | iPad | iPhone | Web | 证据 |

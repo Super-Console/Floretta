@@ -5,11 +5,13 @@ import XCTest
 /// control writes through `InspectorStyle` / `InspectorMarkField` rather than
 /// view state. The source check locks the system controls around those calls.
 final class InspectorStyleTests: XCTestCase {
-    func testAppearanceModeSectionDoesNotRepeatItsHeadingAsPickerLabel() throws {
+    func testHomeBackgroundSectionDoesNotRepeatItsHeadingAsPickerLabel() throws {
         let panel = try repoFile("Floretta/Shared/Shell/AppearanceSettingsPanel.swift")
-        let section = try slice(panel, from: "Section(text(\"外观模式\"))", until: "if showsFamily {")
-        XCTAssertTrue(section.contains("Picker(text(\"外观模式\"), selection: $settings.appearanceMode)"))
+        let section = try slice(panel, from: "Section(text(\"首页背景\"))", until: "/// 背景色 group")
+        XCTAssertTrue(section.contains("Picker(text(\"首页背景\"), selection: $settings.homeBackground)"))
         XCTAssertTrue(section.contains(".labelsHidden()"), "the picker keeps its accessible label but hides its repeated visual label")
+        XCTAssertFalse(panel.contains("appearanceMode"), "the appearance modes are gone")
+        XCTAssertFalse(panel.contains("AppearanceMode"))
     }
 
     private let rootID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!

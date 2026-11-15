@@ -46,6 +46,11 @@ public struct MindMapDocument: Equatable, Sendable {
     /// Omitted from JSON when nil. Branch colors are computed at layout time, not copied onto nodes.
     /// A new map stores `MapThemeCatalog.defaultThemeID`. Opening a file does not fill this in.
     public var themeID: String?
+    /// `BranchLineStyle` token for every parent→child link. Nil is the theme's cubic.
+    /// One token for the whole map: a branch line belongs to the branch, not to a topic.
+    public var branchLineStyle: String?
+    /// `BranchEndMarker` token drawn at the child end. Nil draws nothing.
+    public var branchEndMarker: String?
     /// Which canvas the editor shows. 0 is the first sheet (`roots`). Omitted from JSON when 0.
     /// A stored index past the last sheet is read back as 0 so an older file still opens.
     public var activeCanvasIndex: Int
@@ -75,6 +80,8 @@ public struct MindMapDocument: Equatable, Sendable {
         opmlForeign: OPMLForeign? = nil,
         mmForeign: MMForeign? = nil,
         themeID: String? = nil,
+        branchLineStyle: String? = nil,
+        branchEndMarker: String? = nil,
         activeCanvasIndex: Int = 0,
         primaryCanvasTitle: String? = nil,
         primaryCanvasViewport: CanvasViewportState = .standard,
@@ -96,6 +103,8 @@ public struct MindMapDocument: Equatable, Sendable {
         self.opmlForeign = opmlForeign
         self.mmForeign = mmForeign
         self.themeID = MapThemeCatalog.persistedID(themeID)
+        self.branchLineStyle = BranchStyle.persistedLine(BranchStyle.line(branchLineStyle))
+        self.branchEndMarker = BranchStyle.persistedEndMarker(BranchStyle.endMarker(branchEndMarker))
         self.activeCanvasIndex = activeCanvasIndex
         let trimmedTitle = primaryCanvasTitle?.trimmingCharacters(in: .whitespacesAndNewlines)
         self.primaryCanvasTitle = (trimmedTitle?.isEmpty == false) ? trimmedTitle : nil
@@ -195,6 +204,8 @@ extension MindMapDocument: Codable {
         case opmlForeign
         case mmForeign
         case themeID
+        case branchLineStyle
+        case branchEndMarker
         case activeCanvasIndex
         case primaryCanvasTitle
         case primaryCanvasViewport
@@ -230,6 +241,12 @@ extension MindMapDocument: Codable {
         let themeID = MapThemeCatalog.persistedID(
             try container.decodeIfPresent(String.self, forKey: .themeID)
         )
+        let branchLineStyle = BranchStyle.persistedLine(
+            BranchStyle.line(try container.decodeIfPresent(String.self, forKey: .branchLineStyle))
+        )
+        let branchEndMarker = BranchStyle.persistedEndMarker(
+            BranchStyle.endMarker(try container.decodeIfPresent(String.self, forKey: .branchEndMarker))
+        )
         let activeCanvasIndex = try container.decodeIfPresent(Int.self, forKey: .activeCanvasIndex) ?? 0
         let primaryCanvasTitle = try container.decodeIfPresent(String.self, forKey: .primaryCanvasTitle)
         let primaryCanvasViewport = try container.decodeIfPresent(
@@ -253,6 +270,8 @@ extension MindMapDocument: Codable {
         self.opmlForeign = opmlForeign
         self.mmForeign = mmForeign
         self.themeID = themeID
+        self.branchLineStyle = branchLineStyle
+        self.branchEndMarker = branchEndMarker
         self.activeCanvasIndex = activeCanvasIndex
         let trimmedTitle = primaryCanvasTitle?.trimmingCharacters(in: .whitespacesAndNewlines)
         self.primaryCanvasTitle = (trimmedTitle?.isEmpty == false) ? trimmedTitle : nil
@@ -299,6 +318,8 @@ extension MindMapDocument: Codable {
         if let themeID = MapThemeCatalog.persistedID(themeID) {
             try container.encode(themeID, forKey: .themeID)
         }
+        try container.encodeIfPresent(branchLineStyle, forKey: .branchLineStyle)
+        try container.encodeIfPresent(branchEndMarker, forKey: .branchEndMarker)
         if clampedCanvasIndex != 0 {
             try container.encode(clampedCanvasIndex, forKey: .activeCanvasIndex)
         }

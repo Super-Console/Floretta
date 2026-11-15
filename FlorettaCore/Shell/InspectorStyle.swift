@@ -1,38 +1,73 @@
 import Foundation
 
-/// Inspector tabs that already exist. Presentation stays empty: it has no controls.
+/// Inspector tabs that exist. There is no 演说 tab: the style work does not ship a
+/// presentation surface, and an empty tab is not an entry point.
 public enum InspectorTab: Int, CaseIterable, Identifiable, Sendable {
     case style = 0
-    case presentation = 1
-    case map = 2
+    case map = 1
 
     public var id: Int { rawValue }
 
     public var titleKey: String {
         switch self {
         case .style: "样式"
-        case .presentation: "演说"
         case .map: "导图"
         }
     }
 }
 
-/// Style-page groups the inspector already edits. Order is the form order.
+/// Style-page groups in XMind's order. `shape` / `fill` / `border` / `width` / `text`
+/// are written on the selected topic; `branch` / `colorScheme` / `background` /
+/// `globalFont` are written on the document or the app profile and stay visible
+/// with nothing selected. There is no `structure` case: the 结构 dropdown belongs
+/// to the layout engine (TD-005) and must not appear until that engine exists.
 public enum InspectorStyleSection: String, CaseIterable, Identifiable, Sendable {
-    case topic
+    case shape
+    case fill
     case border
+    case width
     case text
+    case branch
+    case colorScheme
+    case background
+    case globalFont
     case links
 
     public var id: String { rawValue }
 
     public var titleKey: String {
         switch self {
-        case .topic: "主题"
+        case .shape: "形状"
+        case .fill: "填充"
         case .border: "边框"
+        case .width: "宽度"
         case .text: "文本"
+        case .branch: "分支"
+        case .colorScheme: "配色方案"
+        case .background: "背景色"
+        case .globalFont: "全局字体"
         case .links: "连到"
         }
+    }
+
+    /// True for the sections that do not need a selected topic.
+    public var isDocumentScope: Bool {
+        switch self {
+        case .branch, .colorScheme, .background, .globalFont: true
+        case .shape, .fill, .border, .width, .text, .links: false
+        }
+    }
+}
+
+/// `PX` pins `topicWidth`; `适应` lets the measured text set the width.
+public enum InspectorWidthMode: String, CaseIterable, Identifiable, Sendable {
+    case pixels
+    case fit
+
+    public var id: String { rawValue }
+
+    public var titleKey: String {
+        self == .pixels ? "PX" : "适应"
     }
 }
 
@@ -151,6 +186,15 @@ public enum InspectorStyleEdit: Equatable, Sendable {
     case fontSize(Double)
     case textHex(String)
     case flag(InspectorTextFlag, Bool)
+    case widthMode(InspectorWidthMode)
+}
+
+/// One write that lands on the document instead of a topic. Same contract as
+/// `InspectorStyleEdit`: the view keeps no second copy of these fields.
+public enum InspectorDocumentStyleEdit: Equatable, Sendable {
+    case branchLine(BranchLineStyle)
+    case branchEnd(BranchEndMarker)
+    case colorScheme(String?)
 }
 
 public struct InspectorMapFacts: Equatable, Sendable {
@@ -187,7 +231,6 @@ public struct InspectorMapFacts: Equatable, Sendable {
 /// Document edits behind the inspector. Called when a control changes, not on a timer.
 public enum InspectorStyle {
     public static let sections = InspectorStyleSection.allCases
-    public static let presentationControlKeys: [String] = []
     public static let mapRowTitleKeys = [
         "附件合计", "文档大小", "引用", "节点", "便签", "关系", "概要", "边界",
     ]
@@ -232,6 +275,37 @@ public enum InspectorStyle {
 
     public static func topicWidthValue(of style: MindMapNodeStyle?) -> Double {
         style?.topicWidth ?? defaultTopicWidth
+    }
+
+    public static func widthMode(of style: MindMapNodeStyle?) -> InspectorWidthMode {
+        style?.autoWidth == true ? .fit : .pixels
+    }
+
+    public static func branchLineValue(of document: MindMapDocument) -> BranchLineStyle {
+        BranchStyle.line(document.branchLineStyle)
+    }
+
+    public static func branchEndValue(of document: MindMapDocument) -> BranchEndMarker {
+        BranchStyle.endMarker(document.branchEndMarker)
+    }
+
+    /// The stored id, or the standard scheme the layout falls back to.
+    public static func colorSchemeValue(of document: MindMapDocument) -> String {
+        MapThemeCatalog.persistedID(document.themeID) ?? MapThemeCatalog.standardID
+    }
+
+    /// Six color presets, then the branch themes. Same ids the 配色 sheet lists.
+    public static var colorSchemeChoiceIDs: [String] {
+        MapColorPresetCatalog.all.map(\.id) + MapThemeCatalog.all.map(\.id)
+    }
+
+    /// Nil for an id neither catalog knows, so a newer preset still round-trips
+    /// and the picker can show its raw id instead of inventing a name.
+    public static func colorSchemeNameKey(_ id: String) -> String? {
+        if let preset = MapColorPresetCatalog.all.first(where: { $0.id == id }) {
+            return preset.nameKey
+        }
+        return MapThemeCatalog.all.first(where: { $0.id == id })?.nameKey
     }
 
     public static func borderWidthValue(of style: MindMapNodeStyle?) -> Double {
@@ -345,6 +419,31 @@ public enum InspectorStyle {
         }
     }
 
+    /// Document-scope writes: branch line/end tokens and the color scheme id.
+    @discardableResult
+    public static func applyDocument(
+        _ edit: InspectorDocumentStyleEdit,
+        document: inout MindMapDocument,
+        allowsAppearanceWrites: Bool
+    ) -> Bool {
+        guard allowsAppearanceWrites else { return false }
+        switch edit {
+        case .branchLine(let line):
+            let stored = BranchStyle.persistedLine(line)
+            guard document.branchLineStyle != stored else { return false }
+            document.branchLineStyle = stored
+        case .branchEnd(let marker):
+            let stored = BranchStyle.persistedEndMarker(marker)
+            guard document.branchEndMarker != stored else { return false }
+            document.branchEndMarker = stored
+        case .colorScheme(let id):
+            let stored = MapThemeCatalog.persistedID(id)
+            guard MapThemeCatalog.persistedID(document.themeID) != stored else { return false }
+            document.themeID = stored
+        }
+        return true
+    }
+
     private static func write(_ edit: InspectorStyleEdit, into style: inout MindMapNodeStyle) {
         switch edit {
         case .fillHex:
@@ -357,8 +456,15 @@ public enum InspectorStyle {
             }
         case .fillStyle(let fill):
             style.fillStyle = fill.rawValue
+        case .widthMode(let mode):
+            style.autoWidth = mode == .fit
+            // 适应 keeps the last px width, so switching back restores the value.
+            if mode == .pixels, style.topicWidth == nil {
+                style.topicWidth = defaultTopicWidth
+            }
         case .topicWidth(let width):
             style.topicWidth = width
+            style.autoWidth = false
         case .borderStyle(let border):
             style.borderStyle = border.rawValue
             if border == .none { style.borderWidth = 0 }

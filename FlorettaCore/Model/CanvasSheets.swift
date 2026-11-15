@@ -107,7 +107,9 @@ extension MindMapDocument {
                 stickies: stickies,
                 regions: regions,
                 formatVersion: formatVersion,
-                themeID: themeID
+                themeID: themeID,
+                branchLineStyle: branchLineStyle,
+                branchEndMarker: branchEndMarker
             )
         }
         let canvas = additionalCanvases[index - 1]
@@ -121,15 +123,20 @@ extension MindMapDocument {
             stickies: canvas.stickies,
             regions: canvas.regions,
             formatVersion: formatVersion,
-            themeID: themeID
+            themeID: themeID,
+            branchLineStyle: branchLineStyle,
+            branchEndMarker: branchEndMarker
         )
     }
 
-    /// Writes one sheet's topics, relationships, stickies, and the shared theme back.
+    /// Writes one sheet's topics, relationships, stickies, the shared theme, and the
+    /// branch line tokens back.
     /// Other sheets, the active index, and every camera stay where they are.
     public mutating func replaceCanvasContent(at index: Int, with surface: MindMapDocument) {
         let index = storedIndex(index)
         themeID = MapThemeCatalog.persistedID(surface.themeID)
+        branchLineStyle = surface.branchLineStyle
+        branchEndMarker = surface.branchEndMarker
         if index == 0 {
             roots = surface.roots
             freeNodes = surface.freeNodes

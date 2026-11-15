@@ -85,10 +85,23 @@
 
 ### TD-004 右侧样式检查器（XMind 式）
 
-- 状态：❌ 未开工。
+- 状态：🚧 进行中(fix/td004)。
 - 参照：XMind 右侧浮层，tab「样式 / 演说 / 画布」，区块为 形状 / 填充 / 边框 / 宽度（PX·适应）/ 文本（字体、字号、加粗斜体下划线、对齐）/ 结构 / 分支（线条、终点）/ 配色方案 / 背景色 / 全局字体 / 分支线粗细（用户 2026-11-15 20:55–20:57 截图）。**明确不做：演说 tab、彩虹分支。**
-- 现状证据：`InspectorTab` 已存在（`Floretta/Shared/Shell/DocumentEditor.swift:51` 声明、`:1649` 渲染，AX 标识 `inspector.tabs`）；外观三模式与字体在 `Floretta/Shared/Shell/AppearanceSettingsPanel.swift`。
-- 差距：字段大多在模型里已有，缺的是按 XMind 分组的重排；形状 / 结构下拉引用 TD-005，未实现前该行不出现。
+- 现状证据（开工前）：`InspectorTab` 已存在（`Floretta/Shared/Shell/DocumentEditor.swift:51` 声明、`:1649` 渲染，AX 标识 `inspector.tabs`）；外观三模式与字体在 `Floretta/Shared/Shell/AppearanceSettingsPanel.swift`。
+- 已落地（分支 `fix/td004`，基于 `09f1398`，本地提交未推送）：
+  - 分组重排：`FlorettaCore/Shell/InspectorStyle.swift` 的 `InspectorStyleSection` 改为 `形状 / 填充 / 边框 / 宽度 / 文本 / 分支 / 配色方案 / 背景色 / 全局字体 / 连到`，并新增 `isDocumentScope`（分支、配色方案、背景色、全局字体 为文档级，无选中时仍可见）。**没有 `structure` case**：结构下拉属 TD-005，未实现前该行在数据层就不存在（`testStyleGroupsFollowXMindOrderAndSkipStructure` 断言其不存在）。
+  - 面板结构：`DocumentEditor.stylePage` 先给文档级分组（`inspectorColorSchemeSection` = 配色方案、`inspectorBranchSection` = 分支 线条/终点），再放 `AppearanceSettingsPanel(fields: .mapScope)`，后者把「底色」与「字体族」提升为独立的 背景色 / 全局字体 两个 `Section`（`Floretta/Shared/Shell/AppearanceSettingsPanel.swift`）；节点级 `StyleInspector` 拆成 形状 / 填充 / 边框 / 宽度 / 文本 / 连到 六段。
+  - 新字段与新映射（均有单测）：`MindMapNodeStyle.autoWidth`（`FlorettaCore/Model/MindMapNode.swift`）+ `InspectorWidthMode`（PX·适应）；`MindMapDocument.branchLineStyle` / `branchEndMarker`（`FlorettaCore/Model/MindMapDocument.swift`，`curve`/`none` 不写入 JSON，旧文件字节不变），并在 `FlorettaCore/Model/CanvasSheets.swift` 的 `isolatedCanvas` / `replaceCanvasContent` 里逐画布带过（否则检查器经 `activeCanvasDocument` 写入会丢）。
+  - 真正生效：`FlorettaCore/Layout/LayoutEngine.swift:667` 在 `autoWidth == true` 时不再套用 `topicWidth`（适应 = 量文字）；`FlorettaCore/Layout/BranchStyle.swift` 定义 曲线/直线、无/箭头/圆点 与箭头/圆点几何；`Floretta/Shared/Canvas/InfiniteCanvas.swift` 按 `branchLineStyle` 决定直线并画终点，`Floretta/Shared/Canvas/MapExport.swift` 用同一套 token 与几何，PNG/PDF 与屏幕一致。
+  - 写法：节点样式走 `InspectorStyle.apply`（新 `.widthMode`），文档级走新增的 `InspectorStyle.applyDocument`（`.branchLine` / `.branchEnd` / `.colorScheme`），配色方案复用 `EditorSession.setBranchTheme`（与「配色」sheet 同一入口、同一 `themeID`）。
+  - 移除 `演说` tab：`InspectorTab` 只剩 `样式 / 导图`，空占位页删除（`AppleGlassChromeContractTests` 与 `FlorettaUITests/InspectorTabPinUITests.swift` 同步改动）。
+  - 验证：`swift test` 399 tests / 1 skipped / 0 failures；macOS Debug（ad-hoc 身份）`xcodebuild ... Floretta-macOS build` → `** BUILD SUCCEEDED **`。新增单测：`testWidthModeFitDropsTheStoredPixelWidth`（适应 与「无 topicWidth」布局等宽、px 滑块回落）、`testBranchTokensAndColorSchemeWriteThrough`（往返、默认省略、Markdown 拒写）、`testColorSchemeAndBranchChoicesCoverBothCatalogs`、`testBranchEndGeometryMatchesTheRelationshipArrow`、`testStyleGroupsFollowXMindOrderAndSkipStructure`。
+- 缺口（本分支未做，不要按 ✅ 读）：
+  1. 参考列里的「分支线粗细」未做：`LayoutAppearance.linkStroke` 目前仍由配色方案决定，没有独立滑杆。
+  2. 「背景色 / 全局字体」写的是应用外观 profile（`AppSettings.currentProfile`），不是文档内字段；XMind 里背景色是文档级。要改成文档级需要新字段 + 布局/导出 plumbing，属独立一轮。
+  3. 「结构」行按 TD-005 预留：`InspectorStyleSection` 无该 case，入口在 TD-005 落地时再加。
+  4. 未在 GUI 会话跑 `FlorettaUITests`（SSH 会话无法签名构建 App）：分段控件两段化的 UI 测试改动只做了源码级修订，需在图形会话复验。
+- 差距（原始评估，保留以便对照）：字段大多在模型里已有，缺的是按 XMind 分组的重排；形状 / 结构下拉引用 TD-005，未实现前该行不出现。
 - 难度：中（2–3 天，不含结构布局）。
 - 验收：每个控件改动即时反映到画布与导出；面板可收起且不挤压画布；键盘可达；深色模式对比度合规。
 

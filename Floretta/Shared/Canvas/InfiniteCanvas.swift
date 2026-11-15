@@ -1460,7 +1460,7 @@ struct InfiniteCanvas: View {
                 let curve = pose.map { PetalExpandGeometry.grow(link, from: $0.origin, growth: $0.growth) } ?? link
                 stroke(
                     curve,
-                    straight: CanvasDrawPolicy.useStraightLink(nodeCount: placed.count, link: link),
+                    straight: branchIsStraight || CanvasDrawPolicy.useStraightLink(nodeCount: placed.count, link: link),
                     opacity: pose?.opacity ?? 1,
                     in: context
                 )
@@ -1471,20 +1471,19 @@ struct InfiniteCanvas: View {
                 let curve = PetalExpandGeometry.grow(link, from: ghost.pose.origin, growth: ghost.pose.growth)
                 stroke(
                     curve,
-                    straight: CanvasDrawPolicy.useStraightLink(nodeCount: placed.count, link: link),
+                    straight: branchIsStraight || CanvasDrawPolicy.useStraightLink(nodeCount: placed.count, link: link),
                     opacity: ghost.pose.opacity,
                     in: context
                 )
             }
         } else {
             ghosts = []
+            let straightBranch = branchIsStraight
             for node in placed where linkIDs.contains(node.id) {
                 guard let link = node.link else { continue }
-                stroke(
-                    link,
-                    straight: CanvasDrawPolicy.useStraightLink(nodeCount: placed.count, link: link),
-                    in: context
-                )
+                let straight = straightBranch || CanvasDrawPolicy.useStraightLink(nodeCount: placed.count, link: link)
+                stroke(link, straight: straight, in: context)
+                drawBranchEnd(link, straight: straight, in: context)
             }
         }
         let relationships = blooming ? [] : relationshipLines(in: placed)
@@ -1586,6 +1585,36 @@ struct InfiniteCanvas: View {
             context.fill(drawn.path, with: .color(ink))
         } else {
             context.stroke(drawn.path, with: .color(ink), lineWidth: link.lineWidth)
+        }
+    }
+
+    /// 分支 · 线条. The document token wins over the density fallback: a map set to
+    /// 直线 draws straight at every node count, and the PNG/PDF export matches it.
+    private var branchIsStraight: Bool {
+        BranchStyle.line(document.branchLineStyle) == .straight
+    }
+
+    /// 分支 · 终点. Drawn after the link so the marker sits on top of the tapered fill.
+    private func drawBranchEnd(_ link: LinkCurve, straight: Bool, in context: GraphicsContext) {
+        switch BranchStyle.endMarker(document.branchEndMarker) {
+        case .none:
+            return
+        case .arrow:
+            let tip = camera.viewport.viewPoint(fromCanvas: link.end)
+            let from = camera.viewport.viewPoint(fromCanvas: straight ? link.start : link.control2)
+            let head = BranchStyle.arrow(tip: tip, from: from)
+            var path = Path()
+            path.move(to: tip)
+            path.addLine(to: head.left)
+            path.addLine(to: head.right)
+            path.closeSubpath()
+            context.fill(path, with: .color(color(link.color)))
+        case .dot:
+            // Same constant width convention as the branch stroke, so it reads at any zoom.
+            let radius = BranchStyle.dotRadius(lineWidth: link.endWidth)
+            let center = camera.viewport.viewPoint(fromCanvas: link.end)
+            let rect = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
+            context.fill(Path(ellipseIn: rect), with: .color(color(link.color)))
         }
     }
 

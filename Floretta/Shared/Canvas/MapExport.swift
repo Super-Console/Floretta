@@ -318,7 +318,9 @@ enum MapExporter {
             renderBounds: plan.renderBounds,
             paper: paper.color,
             images: images,
-            appearanceProfile: options.appearanceProfile
+            appearanceProfile: options.appearanceProfile,
+            branchLine: document.branchLineStyle,
+            branchEndMarker: document.branchEndMarker
         )
         let renderer = ImageRenderer(content: view)
         renderer.scale = plan.pixelScale
@@ -381,6 +383,10 @@ private struct MapExportView: View {
     var paper: Color
     var images: [String: CGImage]
     var appearanceProfile: AppearanceProfile = AppearanceCatalog.defaultProfile(for: .classic)
+    /// 分支 · 线条 token, copied from the document so the export matches the canvas.
+    var branchLine: String? = nil
+    /// 分支 · 终点 token. Nil draws nothing.
+    var branchEndMarker: String? = nil
 
     var body: some View {
         Canvas { context, _ in
@@ -424,14 +430,35 @@ private struct MapExportView: View {
                     }
                 }
             }
+            let straightBranch = BranchStyle.line(branchLine) == .straight
+            let endMarker = BranchStyle.endMarker(branchEndMarker)
             for node in frames {
                 guard let link = node.link else { continue }
-                let drawn = ThemeCurvePath.make(link: link, straight: false) { local($0) }
+                let drawn = ThemeCurvePath.make(link: link, straight: straightBranch) { local($0) }
                 let ink = color(link.color)
                 if drawn.tapered {
                     context.fill(drawn.path, with: .color(ink))
                 } else {
                     context.stroke(drawn.path, with: .color(ink), lineWidth: link.lineWidth)
+                }
+                switch endMarker {
+                case .none:
+                    break
+                case .arrow:
+                    let tip = local(link.end)
+                    let from = local(straightBranch ? link.start : link.control2)
+                    let head = BranchStyle.arrow(tip: tip, from: from)
+                    var arrow = Path()
+                    arrow.move(to: tip)
+                    arrow.addLine(to: head.left)
+                    arrow.addLine(to: head.right)
+                    arrow.closeSubpath()
+                    context.fill(arrow, with: .color(ink))
+                case .dot:
+                    let radius = BranchStyle.dotRadius(lineWidth: link.endWidth)
+                    let center = local(link.end)
+                    let rect = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
+                    context.fill(Path(ellipseIn: rect), with: .color(ink))
                 }
             }
             for line in lines {

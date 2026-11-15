@@ -2,9 +2,9 @@ import XCTest
 
 /// The inspector's segmented control stays pinned while the page under it changes.
 ///
-/// The product title is 「演说」. A short page used to recenter the whole column,
-/// so this records the control's frame on 样式 (a tall form) and requires the
-/// same origin and size after 演说, 导图, and back.
+/// A short page used to recenter the whole column, so this records the control's
+/// frame on 样式 (a tall form) and requires the same origin and size after 导图
+/// and back. There is no 演说 page: that tab does not ship.
 final class InspectorTabPinUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -36,10 +36,7 @@ final class InspectorTabPinUITests: XCTestCase {
         XCTAssertGreaterThan(pinned.width, 40, "分段控件宽度异常：\(describe(pinned))")
         XCTAssertGreaterThan(pinned.height, 8, "分段控件高度异常：\(describe(pinned))")
 
-        show(app, tabs: tabs, segment: "演说", index: 1, appeared: "尚未实现", disappeared: "形状")
-        assertSameFrame(settledFrame(tabs), pinned)
-
-        show(app, tabs: tabs, segment: "导图", index: 2, appeared: "文档大小", disappeared: "尚未实现")
+        show(app, tabs: tabs, segment: "导图", index: 1, appeared: "文档大小", disappeared: "形状")
         assertSameFrame(settledFrame(tabs), pinned)
 
         show(app, tabs: tabs, segment: "样式", index: 0, appeared: "形状", disappeared: "文档大小")

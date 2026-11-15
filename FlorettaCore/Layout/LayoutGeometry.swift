@@ -148,7 +148,9 @@ public struct LayoutGeometry: Sendable {
                 + CGFloat(FileBadgeMetrics.iconSide + FileBadgeMetrics.gap + FileBadgeMetrics.horizontalInset * 2)
         }
         let subtitle = subtitleSize(node, fontSize: font, face: face)
-        let width = max(raw.width, subtitle.width, CGFloat(node.style?.topicWidth ?? 0), imageWidth, fileWidth)
+        // 「适应」 measures the text; a stored px width only applies while the topic is fixed.
+        let storedWidth: CGFloat = node.style?.autoWidth == true ? 0 : CGFloat(node.style?.topicWidth ?? 0)
+        let width = max(raw.width, subtitle.width, storedWidth, imageWidth, fileWidth)
         let badge: CGFloat = reservesChildBadge ? appearance.childCountBadgeInset : 0
         return CGSize(
             width: width + badge,

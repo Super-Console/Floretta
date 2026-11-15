@@ -1,8 +1,8 @@
 import XCTest
 
-/// Locks editor chrome alongside the UI test: the back button sits before the
-/// filename, the iOS control is a stock toolbar item, and the Mac window title
-/// is not a second copy of that name. The hit area itself is
+/// Locks editor chrome alongside the UI test: the back button and persistent
+/// filename occupy the leading Mac toolbar region, and the iOS control is a
+/// stock toolbar item. The hit area itself is
 /// `EditorBackButtonHitAreaTests`.
 final class EditorChromeContractTests: XCTestCase {
     func testMacBackButtonIsIndependentFromNativeDocumentTitle() throws {
@@ -14,9 +14,10 @@ final class EditorChromeContractTests: XCTestCase {
         )
         XCTAssertTrue(leading.contains("chevron.backward"))
         XCTAssertTrue(leading.contains("\"basicChain.back\""))
-        XCTAssertFalse(leading.contains("HStack"))
-        XCTAssertFalse(leading.contains("document.title"))
-        XCTAssertTrue(source.contains(".modifier(MacEditorWindowTitle(title: documentTitle))"))
+        XCTAssertTrue(leading.contains("ToolbarItem(id: \"document.title\", placement: .navigation)"))
+        XCTAssertTrue(leading.contains("Text(verbatim: documentTitle)"))
+        XCTAssertTrue(leading.contains(".appleGlassChrome(.floatingPanel)"))
+        XCTAssertTrue(source.contains(".modifier(MacEditorWindowTitle(title: \"\"))"))
     }
 
     /// The iOS back control has to be a stock toolbar button. A custom style,
@@ -48,12 +49,21 @@ final class EditorChromeContractTests: XCTestCase {
         XCTAssertTrue(source.contains("ToolbarItem(id: \"document.navigation\", placement: .navigation)"))
     }
 
-    func testDocumentFilenameUsesTheNativeWindowTitle() throws {
+    func testDocumentFilenameIsNotDuplicatedInNativeWindowTitle() throws {
         let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         XCTAssertTrue(source.contains(".navigationTitle(\"\")"))
-        XCTAssertTrue(source.contains(".modifier(MacEditorWindowTitle(title: documentTitle))"))
+        XCTAssertTrue(source.contains(".modifier(MacEditorWindowTitle(title: \"\"))"))
         XCTAssertTrue(source.contains("window.title = title"))
         XCTAssertTrue(source.contains("window.titleVisibility = .visible"))
+    }
+
+    func testMacDocumentTitleIsPersistentOutsideSelectionDependentToolbar() throws {
+        let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let toolbar = try slice(source, from: ".toolbar(id: \"floretta.editor\")", until: ".toolbarBackground(.hidden, for: .windowToolbar)")
+        let title = try XCTUnwrap(toolbar.range(of: "macToolbarItemsLeading"))
+        let conditional = try XCTUnwrap(toolbar.range(of: "if session.zen.chrome.showsToolbar"))
+
+        XCTAssertLessThan(title.lowerBound, conditional.lowerBound, "back and title stay installed regardless of editor selection/focus chrome")
     }
 
     /// Window chrome is corrected once, from attachment and representable

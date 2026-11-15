@@ -24,7 +24,7 @@ struct RecentPage: View {
         recentBody
             .themeTypography(language: .system)
             .navigationTitle(text(HomeLibrary.navigationTitle))
-            .background(homeSurface(page: true, raised: false))
+            .background(homeSurface(raised: false))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.large)
             .searchable(
@@ -174,7 +174,7 @@ struct RecentPage: View {
 
     /// Page or card surface. In dark the card is raised by lightness; there is no
     /// border, because an outline in a dark page reads as dirt.
-    private func homeSurface(page isPage: Bool, raised: Bool) -> Color {
+    private func homeSurface(raised: Bool) -> Color {
         let hex = raised ? palette.cardHex : palette.pageHex
         guard let color = BranchColor(hex: hex) else { return .clear }
         return Color(red: color.red, green: color.green, blue: color.blue)
@@ -215,7 +215,7 @@ struct RecentPage: View {
                             .padding(10)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(
-                                homeSurface(page: false, raised: true),
+                                homeSurface(raised: true),
                                 in: RoundedRectangle(cornerRadius: 12, style: .continuous)
                             )
                         }

@@ -55,6 +55,9 @@ public struct MindMapDocument: Equatable, Sendable {
     /// Zoom and pan of the first sheet. Later sheets store this on `MindMapCanvas`.
     /// The identity camera (scale 1, no pan) is omitted from JSON.
     public var primaryCanvasViewport: CanvasViewportState
+    /// Structure of the first canvas. `.bilateral` is the shipped mind map.
+    /// Omitted from JSON when `.bilateral`, so an older file opens on the mind map.
+    public var layoutKind: LayoutKind
 
     public init(
         title: String,
@@ -75,6 +78,7 @@ public struct MindMapDocument: Equatable, Sendable {
         activeCanvasIndex: Int = 0,
         primaryCanvasTitle: String? = nil,
         primaryCanvasViewport: CanvasViewportState = .standard,
+        layoutKind: LayoutKind = .bilateral,
         clock: any ClockPort = FoundationClock()
     ) {
         self.formatVersion = formatVersion
@@ -96,6 +100,7 @@ public struct MindMapDocument: Equatable, Sendable {
         let trimmedTitle = primaryCanvasTitle?.trimmingCharacters(in: .whitespacesAndNewlines)
         self.primaryCanvasTitle = (trimmedTitle?.isEmpty == false) ? trimmedTitle : nil
         self.primaryCanvasViewport = primaryCanvasViewport
+        self.layoutKind = layoutKind
         clampActiveCanvasIndex()
     }
 
@@ -193,6 +198,7 @@ extension MindMapDocument: Codable {
         case activeCanvasIndex
         case primaryCanvasTitle
         case primaryCanvasViewport
+        case layoutKind
     }
 
     public init(from decoder: Decoder) throws {
@@ -230,6 +236,8 @@ extension MindMapDocument: Codable {
             CanvasViewportState.self,
             forKey: .primaryCanvasViewport
         ) ?? .standard
+        // An unknown structure id falls back to the mind map instead of refusing the file.
+        let layoutKind = (try container.decodeIfPresent(LayoutKind.self, forKey: .layoutKind)) ?? .bilateral
         self.formatVersion = version
         self.title = title
         self.createdAt = createdAt
@@ -249,6 +257,7 @@ extension MindMapDocument: Codable {
         let trimmedTitle = primaryCanvasTitle?.trimmingCharacters(in: .whitespacesAndNewlines)
         self.primaryCanvasTitle = (trimmedTitle?.isEmpty == false) ? trimmedTitle : nil
         self.primaryCanvasViewport = primaryCanvasViewport
+        self.layoutKind = layoutKind
         clampActiveCanvasIndex()
         promoteUnmappedTopicTags()
         try FlorettaTree.validate(self)
@@ -298,6 +307,9 @@ extension MindMapDocument: Codable {
         }
         if !primaryCanvasViewport.isStandard {
             try container.encode(primaryCanvasViewport, forKey: .primaryCanvasViewport)
+        }
+        if layoutKind != .bilateral {
+            try container.encode(layoutKind, forKey: .layoutKind)
         }
     }
 }

@@ -548,7 +548,8 @@ enum ImageExportLoader {
         try? FileManager.default.createDirectory(at: spillDirectory, withIntermediateDirectories: true)
         let files = FoundationStreamingFiles()
         var decoded: [String: CGImage] = [:]
-        for frame in LayoutEngine().layout(document) {
+        // Same structure engine the canvas draws with, so image slots match the screen.
+        for frame in CanvasPlacement.nodes(in: document) {
             let slot = ImageSlot.slot(nodeWidth: Double(frame.size.width))
             for hash in frame.thumbnailHashes where decoded[hash] == nil {
                 guard let entry = entries.first(where: { $0.sha256 == hash }) else { continue }

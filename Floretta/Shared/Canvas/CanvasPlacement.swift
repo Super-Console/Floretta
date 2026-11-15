@@ -7,14 +7,20 @@ import SwiftFlow
 /// Point hits go through SwiftFlow `getIntersectingNodes`. Later frames get a
 /// higher `zIndex`, which matches painting the later node on top.
 enum CanvasPlacement {
-    static let engine = LayoutEngine(cache: TextMeasurementCache(metrics: ThemeAwareFontMetrics()))
+    /// One measuring cache for the whole canvas. The structure comes from the
+    /// document, so a switch redraws through the same path a reload uses.
+    static let cache = TextMeasurementCache(metrics: ThemeAwareFontMetrics())
+
+    static func engine(for document: MindMapDocument) -> LayoutEngine {
+        LayoutEngine.forDocument(document, cache: cache)
+    }
 
     static func nodes(
         in document: MindMapDocument,
         scheme: MapColorScheme = .light,
         profile: AppearanceProfile? = nil
     ) -> [NodeFrame] {
-        engine.layout(document, scheme: scheme, profile: profile)
+        engine(for: document).layout(document, scheme: scheme, profile: profile)
     }
 
     static func contentBounds(

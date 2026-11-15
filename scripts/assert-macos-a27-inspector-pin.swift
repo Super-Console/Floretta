@@ -2,11 +2,11 @@ import ApplicationServices
 import AppKit
 import Foundation
 
-/// Launch a current-source Floretta-macOS.app (not an already-installed build)
+/// Launch a current-source macOS .app (not an already-installed build)
 /// and assert A27: the inspector「样式」segment's AXFrame.minY is readable in
 /// both the selected and empty states, and the two values match.
 ///
-/// Usage: assert-macos-a27-inspector-pin <Floretta-macOS.app>
+/// Usage: assert-macos-a27-inspector-pin <macOS-app.app>
 /// Exit 0 only when both minY values are readable and within 1 pt.
 /// If a state cannot be read, prints 无法读取 and exits 1. Never invents numbers.
 
@@ -163,7 +163,7 @@ func clickCG(_ p: CGPoint) {
 }
 
 guard CommandLine.arguments.count >= 2 else {
-    fputs("usage: assert-macos-a27-inspector-pin <Floretta-macOS.app>\n", stderr)
+    fputs("usage: assert-macos-a27-inspector-pin <macOS-app.app>\n", stderr)
     exit(64)
 }
 

@@ -42,7 +42,7 @@
 #   scripts/check-packaged-app-size.sh
 #   scripts/check-packaged-app-size.sh --self-test
 #   scripts/check-packaged-app-size.sh --ios path/to/Floretta-iOS.app \
-#       --macos path/to/Floretta-macOS.app
+#       --macos path/to/any-macOS-app.app
 set -euo pipefail
 # Command substitutions must keep failing when a nested call returns non-zero.
 shopt -s inherit_errexit
@@ -767,7 +767,7 @@ self_test() {
   local ipa_over ipa_support junk app
   tmp="$(mktemp -d)"
   small_ios="$tmp/small-ios/Floretta-iOS.app"
-  small_mac="$tmp/small-mac/Floretta-macOS.app"
+  small_mac="$tmp/small-mac/Floretta.app"
   mkdir -p "$small_ios" "$small_mac"
   echo ok >"$small_ios/Info.plist"
   echo ok >"$small_mac/Info.plist"
@@ -775,8 +775,8 @@ self_test() {
 
   exact_ios="$tmp/exact-ios/Floretta-iOS.app"
   under_ios="$tmp/under-ios/Floretta-iOS.app"
-  exact_mac="$tmp/exact-mac/Floretta-macOS.app"
-  under_mac="$tmp/under-mac/Floretta-macOS.app"
+  exact_mac="$tmp/exact-mac/Floretta.app"
+  under_mac="$tmp/under-mac/Floretta.app"
   mkdir -p "$exact_ios" "$under_ios" "$exact_mac" "$under_mac"
   truncate -s "$IOS_BUDGET" "$exact_ios/payload"
   truncate -s $((IOS_BUDGET - 1)) "$under_ios/payload"

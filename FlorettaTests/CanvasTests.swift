@@ -501,3 +501,47 @@ final class LineBreakTests: XCTestCase {
         XCTAssertGreaterThan(size.height, 48)
     }
 }
+
+/// The structure a document stores decides the frames. `LaidOutFrames` keys its
+/// one cache slot on the document, and `LayoutKind` is part of that value, so
+/// switching the structure has to re-measure instead of serving the previous
+/// layout — through the same `CanvasPlacement.nodes` path that `MapExport` reads.
+@MainActor
+final class StructureSwitchCacheTests: XCTestCase {
+    func testSwitchingLayoutKindRemeasuresTheCanvasAndTheExport() {
+        let root = MindMapNode(text: "根", children: [
+            MindMapNode(text: "甲", children: [MindMapNode(text: "甲一")]),
+            MindMapNode(text: "乙"),
+        ])
+        var document = MindMapDocument(title: "switch", roots: [root], layoutKind: .bilateral)
+        let cache = LaidOutFrames()
+        let bilateral = cache.frames(for: document, scheme: .light)
+        XCTAssertEqual(cache.layoutPassCount, 1)
+        XCTAssertEqual(
+            CanvasPlacement.nodes(in: document, scheme: .light),
+            MapExporter.visibleFrames(in: document, scheme: .light),
+            "the canvas and the exporter must read one layout pass"
+        )
+
+        var passes = 1
+        for kind in [LayoutKind.timeline, .fishbone, .treeTable, .matrix] {
+            document.layoutKind = kind
+            let frames = cache.frames(for: document, scheme: .light)
+            passes += 1
+            XCTAssertEqual(cache.layoutPassCount, passes, "\(kind) must re-measure, not reuse the old frames")
+            XCTAssertNotEqual(frames, bilateral)
+            XCTAssertEqual(frames.map(\.id), bilateral.map(\.id))
+            XCTAssertEqual(
+                frames,
+                MapExporter.visibleFrames(in: document, scheme: .light),
+                "\(kind) must export exactly what the canvas drew"
+            )
+        }
+
+        // Coming back to the first structure re-measures again rather than
+        // trusting a stale slot.
+        document.layoutKind = .bilateral
+        XCTAssertEqual(cache.frames(for: document, scheme: .light), bilateral)
+        XCTAssertEqual(cache.layoutPassCount, passes + 1)
+    }
+}

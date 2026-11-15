@@ -16,7 +16,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "E10000000000000000000001"
-               BuildableName = "Floretta-macOS.app"
+               BuildableName = "Floretta.app"
                BlueprintName = "Floretta-macOS"
                ReferencedContainer = "container:Floretta.xcodeproj">
             </BuildableReference>
@@ -71,7 +71,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "E10000000000000000000001"
-            BuildableName = "Floretta-macOS.app"
+            BuildableName = "Floretta.app"
             BlueprintName = "Floretta-macOS"
             ReferencedContainer = "container:Floretta.xcodeproj">
          </BuildableReference>
@@ -88,7 +88,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "E10000000000000000000001"
-            BuildableName = "Floretta-macOS.app"
+            BuildableName = "Floretta.app"
             BlueprintName = "Floretta-macOS"
             ReferencedContainer = "container:Floretta.xcodeproj">
          </BuildableReference>

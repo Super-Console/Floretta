@@ -24,7 +24,7 @@ settings_value() {
 }
 
 build_and_measure() {
-  local platform="$1" scheme="$2" destination="$3" budget="$4"
+  local platform="$1" scheme="$2" destination="$3" budget="$4" product_name="$5"
   local products app bytes mb
   products="$(settings_value "$scheme" "$destination" BUILT_PRODUCTS_DIR)"
   if ! xcodebuild build -project Floretta.xcodeproj -scheme "$scheme" \
@@ -33,7 +33,7 @@ build_and_measure() {
     echo "ERROR $platform Release build failed; refusing to measure a stale bundle" >&2
     return 1
   fi
-  app="$products/Floretta-$platform.app"
+  app="$products/$product_name.app"
   [[ -d "$app" ]] || { echo "ERROR missing app bundle: $app" >&2; return 1; }
   # DWARF belongs in the sibling .dSYM, not the measured payload (docs/PACKAGED-SIZE.md).
   # A regular Release `build` (and this unsigned CI build) leaves the symbol table in
@@ -50,6 +50,6 @@ build_and_measure() {
 }
 
 failed=0
-build_and_measure iOS Floretta-iOS 'generic/platform=iOS' 15 || failed=1
-build_and_measure macOS Floretta-macOS 'platform=macOS' 25 || failed=1
+build_and_measure iOS Floretta-iOS 'generic/platform=iOS' 15 Floretta-iOS || failed=1
+build_and_measure macOS Floretta-macOS 'platform=macOS' 25 Floretta || failed=1
 exit "$failed"

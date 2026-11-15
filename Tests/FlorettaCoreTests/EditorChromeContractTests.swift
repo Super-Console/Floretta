@@ -1,3 +1,4 @@
+import FlorettaCore
 import XCTest
 
 /// Locks editor chrome alongside the UI test: the back glyph and the editable
@@ -167,6 +168,157 @@ final class EditorChromeContractTests: XCTestCase {
 
         // Narrow windows are the system toolbar's job, not a "swap to •••" rule.
         XCTAssertTrue(source.contains("/// The ••• overflow. It stays a normal toolbar item"))
+    }
+
+    /// TD-002 + TD-003 on one line: the sheet capsule and the status capsule are
+    /// siblings in one bottom row, share one plate height and one bottom inset,
+    /// and neither side adds a compensating padding. This is the regression guard
+    /// for the two capsules drifting onto two different lines.
+    func testBottomCapsulesShareOneRowHeightAndInset() throws {
+        let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let bar = try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift")
+        let core = try repoFile("FlorettaCore/Layout/EditorStatusBar.swift")
+
+        let row = try slice(
+            source,
+            from: "private var bottomBarRow",
+            until: "private func revealZenExitAffordance"
+        )
+        XCTAssertTrue(row.contains("HStack(alignment: .bottom"), "the two capsules are one row")
+        XCTAssertTrue(row.contains("canvasTabBar"))
+        XCTAssertTrue(row.contains("EditorStatusStrip("))
+        XCTAssertFalse(row.contains("VStack"), "a VStack puts the capsules on two lines; that is the bug")
+        XCTAssertTrue(row.contains(".padding(.horizontal, EditorStatusBarChrome.horizontalInset)"))
+        XCTAssertTrue(row.contains(".padding(.bottom, EditorStatusBarChrome.bottomInset)"))
+        XCTAssertTrue(row.contains(".safeAreaPadding(.bottom)"))
+        XCTAssertTrue(row.contains(".layoutPriority(1)"), "the status capsule is served first, never squeezed")
+
+        // Both plates are the same height, so `.bottom` alignment is enough.
+        let canvas = try slice(
+            source,
+            from: "private var canvasTabBar",
+            until: "private var currentCanvasIndex"
+        )
+        XCTAssertTrue(canvas.contains(".frame(minHeight: EditorStatusBarChrome.controlMinHeight)"))
+        XCTAssertTrue(bar.contains(".frame(minHeight: EditorStatusBarChrome.controlMinHeight)"))
+        XCTAssertFalse(bar.contains(".padding(.vertical, 6)"), "the strip's own bottom padding made the two plates hang from different lines")
+        XCTAssertFalse(bar.contains("Spacer("), "the row places the capsule; the strip owns no trailing gap")
+        XCTAssertTrue(bar.contains(".fixedSize(horizontal: true, vertical: false)"))
+
+        // The row owns the window inset; no capsule re-adds its own.
+        let canvasPlate = try slice(
+            canvas,
+            from: ".appleGlassChrome(.bottomBarCapsule)",
+            until: ".accessibilityElement"
+        )
+        XCTAssertFalse(canvasPlate.contains(".padding"), "a per-capsule window inset is the magic padding that must not come back")
+
+        // One copy of the numbers, in core, beside the chrome role.
+        XCTAssertTrue(core.contains("public static let controlMinHeight"))
+        XCTAssertTrue(core.contains("public static let horizontalInset"))
+        XCTAssertTrue(core.contains("public static let bottomInset"))
+        XCTAssertTrue(core.contains("public static let capsuleGap"))
+        XCTAssertTrue(core.contains("public static let canvasTitleMaxWidth"))
+
+        // Narrow windows: the name truncates, then the divider goes. Nothing
+        // overlaps and the status capsule is never pushed off screen.
+        XCTAssertTrue(canvas.contains(".truncationMode(.tail)"))
+        XCTAssertTrue(canvas.contains("EditorStatusBarChrome.canvasTitleMaxWidth"))
+        XCTAssertTrue(canvas.contains("if showsSheetDivider"))
+        XCTAssertTrue(source.contains("EditorBottomBarLayout.showsSheetDivider("))
+        XCTAssertTrue(canvas.contains("accessibilityIdentifier(\"canvas.tabs\")"))
+    }
+
+    /// Both bottom capsules draw at one platform-aware plate height, with one
+    /// padding, one spacing, and one icon box. The Mac plate is 28 pt — the
+    /// optical height of a native toolbar control — while iOS keeps the 44 pt
+    /// touch target.
+    func testBottomCapsulesUsePlatformPlateHeightAndOneSetOfSizes() throws {
+        let bar = try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift")
+        let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let core = try repoFile("FlorettaCore/Layout/EditorStatusBar.swift")
+
+        XCTAssertTrue(core.contains("#if os(macOS)"))
+        XCTAssertTrue(core.contains("public static let controlMinHeight: CGFloat = 28"))
+        XCTAssertTrue(core.contains("public static let controlMinHeight: CGFloat = 44"))
+
+        XCTAssertTrue(bar.contains("EditorStatusBarChrome.capsuleControlSpacing"))
+        XCTAssertTrue(bar.contains("EditorStatusBarChrome.capsuleHorizontalPadding"))
+        XCTAssertTrue(bar.contains("EditorStatusBarChrome.capsuleVerticalPadding"))
+        XCTAssertTrue(bar.contains("EditorStatusBarChrome.iconButtonSize"))
+        XCTAssertTrue(bar.contains(".controlSize(.small)"))
+        XCTAssertTrue(bar.contains(".frame(minHeight: EditorStatusBarChrome.controlMinHeight)"))
+        XCTAssertFalse(bar.contains(".padding(.horizontal, 12)"), "no per-capsule literal padding")
+        XCTAssertFalse(bar.contains(".padding(.vertical, 4)"), "no per-capsule literal padding")
+
+        let canvas = try slice(
+            source,
+            from: "private var canvasTabBar",
+            until: "private var currentCanvasIndex"
+        )
+        XCTAssertTrue(canvas.contains(".controlSize(.small)"))
+        XCTAssertTrue(canvas.contains(".frame(minHeight: EditorStatusBarChrome.controlMinHeight)"))
+        XCTAssertFalse(canvas.contains(".frame(minHeight: 44)"), "the plate height comes from the one constant, not a literal")
+
+        // This branch never sets a font family on the capsules; the theme face is
+        // handled by the chrome-typography branch.
+        XCTAssertFalse(bar.contains(".custom("))
+        XCTAssertFalse(bar.contains("Font.custom"))
+    }
+
+    /// The view-mode control is one button that flips 地图模式 ⇄ 聚焦模式. No ▾
+    /// menu and no second click, and the glyph is the mode that is showing.
+    func testViewModeControlIsAToggleNotAMenu() throws {
+        let bar = try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift")
+
+        XCTAssertTrue(bar.contains("private var viewModeToggle"))
+        XCTAssertFalse(bar.contains("private var viewModeMenu"))
+        XCTAssertFalse(bar.contains("ForEach(DocumentViewMode.allCases"), "a mode picker means a menu")
+
+        let toggle = try slice(bar, from: "private var viewModeToggle", until: "private var outlineToggle")
+        XCTAssertTrue(toggle.contains("Button {"))
+        XCTAssertTrue(toggle.contains("session.viewMode = session.viewMode == .map ? .focus : .map"))
+        XCTAssertFalse(toggle.contains("Menu {"), "a menu needs a second click and a ▾")
+        XCTAssertFalse(toggle.contains("menuIndicator"))
+        XCTAssertTrue(toggle.contains(".buttonStyle(.plain)"))
+        XCTAssertTrue(toggle.contains(".help(Text(verbatim:"))
+        XCTAssertTrue(toggle.contains(".accessibilityLabel(Text(verbatim:"))
+        XCTAssertTrue(toggle.contains(".accessibilityHint("))
+        XCTAssertTrue(toggle.contains("accessibilityIdentifier(\"statusBar.views\")"))
+
+        // The two glyphs are the stock SF Symbols the rest of the app uses.
+        XCTAssertEqual(EditorToolbarCatalog.command(.mapMode).symbol, "map")
+        XCTAssertEqual(EditorToolbarCatalog.command(.focusMode).symbol, "scope")
+        let symbols = try slice(bar, from: "private func viewModeSymbol", until: "private func viewModeTitle")
+        XCTAssertTrue(symbols.contains("EditorToolbarCatalog.command(.mapMode).symbol"))
+        XCTAssertTrue(symbols.contains("EditorToolbarCatalog.command(.focusMode).symbol"))
+    }
+
+    /// Every glyph in the two bottom capsules is a vector SF Symbol at one
+    /// weight (regular) and one size (`chromeFontSize`), inside one icon box, and
+    /// every control keeps a tooltip and an accessibility label.
+    func testBottomCapsuleIconsShareOneWeightAndSize() throws {
+        let bar = try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift")
+        let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+
+        let symbol = try slice(bar, from: "private func statusSymbol", until: "// MARK: text")
+        XCTAssertTrue(symbol.contains("size: EditorStatusBarChrome.chromeFontSize, weight: .regular"))
+        XCTAssertTrue(symbol.contains("width: EditorStatusBarChrome.iconButtonSize"))
+        XCTAssertTrue(symbol.contains("height: EditorStatusBarChrome.iconButtonSize"))
+        XCTAssertTrue(symbol.contains("symbolRenderingMode(.monochrome)"))
+        XCTAssertFalse(symbol.contains("weight: .bold"))
+        XCTAssertFalse(bar.contains("weight: .medium"))
+
+        // help() + accessibilityLabel() on every control of the status capsule.
+        XCTAssertGreaterThanOrEqual(bar.components(separatedBy: ".help(").count - 1, 5)
+        XCTAssertGreaterThanOrEqual(bar.components(separatedBy: ".accessibilityLabel(").count - 1, 5)
+
+        // The sheet capsule's own glyphs follow the same weight.
+        let canvas = try slice(source, from: "private var canvasTabBar", until: "private var currentCanvasIndex")
+        XCTAssertTrue(canvas.contains("chevron.down"))
+        XCTAssertTrue(canvas.contains("weight: .regular"))
+        XCTAssertTrue(canvas.contains("EditorStatusBarChrome.chromeFontSize"))
+        XCTAssertFalse(canvas.contains(".font(.caption2)"))
     }
 
     private func repoFile(_ relative: String) throws -> String {

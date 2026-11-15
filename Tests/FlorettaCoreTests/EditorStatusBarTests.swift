@@ -7,7 +7,11 @@ final class EditorStatusBarTests: XCTestCase {
             EditorStatusBarModel.controls,
             [.topics, .zoomMenu, .viewMode, .outline, .immersive]
         )
+        #if os(macOS)
+        XCTAssertEqual(EditorStatusBarChrome.controlMinHeight, 28)
+        #else
         XCTAssertEqual(EditorStatusBarChrome.controlMinHeight, 44)
+        #endif
         let bar = try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift")
         let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         // TD-003: the capsule is the one zoom entry, so no bar draws a second.
@@ -104,6 +108,8 @@ final class EditorStatusBarTests: XCTestCase {
         XCTAssertTrue(bar.contains("EditorToolbarCatalog.command(.outline)"))
         XCTAssertTrue(bar.contains("EditorToolbarCatalog.command(.immersive)"))
         XCTAssertTrue(bar.contains("EditorToolbarCatalog.command(.mapMode)"))
+        XCTAssertFalse(bar.contains("viewModeMenu"), "the mode control is a toggle, not a menu")
+        XCTAssertTrue(bar.contains("viewModeToggle"))
         XCTAssertTrue(bar.contains("session.enterZen()"))
         XCTAssertFalse(bar.contains(".shadow("))
         XCTAssertFalse(bar.contains("linearGradient"))
@@ -134,6 +140,33 @@ final class EditorStatusBarTests: XCTestCase {
             XCTAssertFalse(core.contains(counting), counting)
             XCTAssertFalse(bar.contains(counting), counting)
         }
+    }
+
+    /// One set of numbers for both bottom capsules, plus the give-way order on a
+    /// narrow window: the sheet name truncates, then its divider goes, and the
+    /// status capsule is never compressed.
+    func testBottomBarSharesOneInsetOneHeightAndOneFitRule() {
+        #if os(macOS)
+        XCTAssertEqual(EditorStatusBarChrome.controlMinHeight, 28)
+        #else
+        XCTAssertEqual(EditorStatusBarChrome.controlMinHeight, 44)
+        #endif
+        XCTAssertEqual(EditorStatusBarChrome.chromeFontSize, 13)
+        XCTAssertEqual(EditorStatusBarChrome.iconButtonSize, 22)
+        XCTAssertEqual(EditorStatusBarChrome.capsuleHorizontalPadding, 10)
+        XCTAssertEqual(EditorStatusBarChrome.capsuleVerticalPadding, 3)
+        XCTAssertEqual(EditorStatusBarChrome.capsuleControlSpacing, 8)
+        XCTAssertEqual(EditorStatusBarChrome.horizontalInset, 12)
+        XCTAssertEqual(EditorStatusBarChrome.bottomInset, 6)
+        XCTAssertEqual(EditorStatusBarChrome.capsuleGap, 8)
+        XCTAssertEqual(EditorStatusBarChrome.canvasTitleMaxWidth, 240)
+        XCTAssertEqual(EditorBottomBarLayout.minimumWidthWithDivider, 200)
+
+        XCTAssertTrue(EditorBottomBarLayout.showsSheetDivider(rowWidth: 1200, statusWidth: 320))
+        XCTAssertTrue(EditorBottomBarLayout.showsSheetDivider(rowWidth: 560, statusWidth: 320))
+        XCTAssertFalse(EditorBottomBarLayout.showsSheetDivider(rowWidth: 420, statusWidth: 320))
+        XCTAssertTrue(EditorBottomBarLayout.showsSheetDivider(rowWidth: 300, statusWidth: 0))
+        XCTAssertFalse(EditorBottomBarLayout.showsSheetDivider(rowWidth: 0, statusWidth: 0))
     }
 
     private func repoFile(_ relative: String) throws -> String {

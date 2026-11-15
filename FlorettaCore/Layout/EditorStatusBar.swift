@@ -34,8 +34,64 @@ public enum EditorStatusZoomChoice: Hashable, Sendable {
     }
 }
 
+/// The one set of numbers both bottom capsules draw from: the canvas sheet
+/// capsule (TD-002) on the leading edge and the status capsule (TD-003) on the
+/// trailing edge. They share one row, one plate height, one window inset, and
+/// one bottom inset, so their bottom edges land on the same line. Neither
+/// capsule keeps a private copy of these numbers: separate copies are exactly
+/// how the two plates drifted onto two different lines.
 public enum EditorStatusBarChrome: Sendable {
+    /// Plate height for both capsules, matched to the platform's own control:
+    /// 28 pt on the Mac, the same optical height as a native toolbar control, and
+    /// the 44 pt touch target on iOS and iPadOS. Symbols stay 13 pt on both, so
+    /// the plates sit level with the toolbar instead of a head taller.
+    #if os(macOS)
+    public static let controlMinHeight: CGFloat = 28
+    #else
     public static let controlMinHeight: CGFloat = 44
+    #endif
+    /// Size of the SF Symbols the bottom capsules draw. Vector glyphs scale with
+    /// this number, so every chrome icon has one weight and one size.
+    public static let chromeFontSize: CGFloat = 13
+    /// Square size of one icon button inside the bottom capsules.
+    public static let iconButtonSize: CGFloat = 22
+    /// Horizontal padding inside the status capsule.
+    public static let capsuleHorizontalPadding: CGFloat = 10
+    /// Vertical padding inside the status capsule.
+    public static let capsuleVerticalPadding: CGFloat = 3
+    /// Spacing between the controls inside the status capsule.
+    public static let capsuleControlSpacing: CGFloat = 8
+    /// Window edge to the outer edge of either capsule.
+    public static let horizontalInset: CGFloat = 12
+    /// Bottom safe area to the capsules' bottom edge. Applied once, to the shared
+    /// row, never per capsule.
+    public static let bottomInset: CGFloat = 6
+    /// Smallest gap the row keeps between the two capsules. A narrower window
+    /// truncates the sheet name instead of letting the plates touch.
+    public static let capsuleGap: CGFloat = 8
+    /// Width the sheet name may claim before it truncates with an ellipsis.
+    public static let canvasTitleMaxWidth: CGFloat = 240
+}
+
+/// How the two bottom capsules share a narrow window. The status capsule is
+/// measured, never guessed, and never compressed: the sheet name truncates
+/// first, then the sheet capsule's divider goes, and the two plates never
+/// overlap or push each other off screen.
+public enum EditorBottomBarLayout {
+    /// Narrowest the sheet capsule gets while it still draws its divider and a
+    /// readable name: plate insets, the ▾ label, the ＋ button, the divider, and
+    /// room for a truncated name.
+    public static let minimumWidthWithDivider: CGFloat = 200
+
+    /// The sheet capsule keeps its divider only while the row can still afford
+    /// it beside the measured status capsule. `statusWidth == 0` means no status
+    /// capsule is drawn at all.
+    public static func showsSheetDivider(rowWidth: CGFloat, statusWidth: CGFloat) -> Bool {
+        guard rowWidth > 0 else { return false }
+        let reserved = statusWidth > 0 ? statusWidth + EditorStatusBarChrome.capsuleGap : 0
+        let available = rowWidth - EditorStatusBarChrome.horizontalInset * 2 - reserved
+        return available >= minimumWidthWithDivider
+    }
 }
 
 /// Controls on the one bottom bar capsule, leading to trailing (TD-003).

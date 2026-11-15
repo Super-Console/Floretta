@@ -770,7 +770,7 @@ struct DocumentEditor: View {
                             alignment: .leading
                         )
                     Image(systemName: "chevron.down")
-                        .font(.caption2)
+                        .font(.system(size: 10, weight: .regular))
                         .foregroundStyle(.secondary)
                 }
                 .padding(.leading, 12)
@@ -795,6 +795,7 @@ struct DocumentEditor: View {
                 session.addCanvas(viewport: camera.viewport.persisted)
             } label: {
                 Image(systemName: "plus")
+                    .font(.system(size: EditorStatusBarChrome.chromeFontSize, weight: .regular))
                     .frame(width: 34, height: EditorStatusBarChrome.controlMinHeight)
                     .contentShape(Rectangle())
             }

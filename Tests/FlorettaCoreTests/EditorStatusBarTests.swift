@@ -108,6 +108,8 @@ final class EditorStatusBarTests: XCTestCase {
         XCTAssertTrue(bar.contains("EditorToolbarCatalog.command(.outline)"))
         XCTAssertTrue(bar.contains("EditorToolbarCatalog.command(.immersive)"))
         XCTAssertTrue(bar.contains("EditorToolbarCatalog.command(.mapMode)"))
+        XCTAssertFalse(bar.contains("viewModeMenu"), "the mode control is a toggle, not a menu")
+        XCTAssertTrue(bar.contains("viewModeToggle"))
         XCTAssertTrue(bar.contains("session.enterZen()"))
         XCTAssertFalse(bar.contains(".shadow("))
         XCTAssertFalse(bar.contains("linearGradient"))

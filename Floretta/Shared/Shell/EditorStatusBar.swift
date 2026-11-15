@@ -51,7 +51,7 @@ struct EditorStatusStrip: View {
             separator
             zoomMenu
             separator
-            viewModeMenu
+            viewModeToggle
             outlineToggle
             fullScreenToggle
         }
@@ -171,22 +171,26 @@ struct EditorStatusStrip: View {
 
     /// The first icon control of the XMind capsule (卡片视图). This app has no
     /// card view; the existing 查看模式 command is what the icon drives, so the
-    /// slot ships a live control instead of a dead button.
-    private var viewModeMenu: some View {
-        Menu {
-            ForEach(DocumentViewMode.allCases, id: \.self) { mode in
-                Button {
-                    session.viewMode = mode
-                } label: {
-                    Label(viewModeTitle(mode), systemImage: viewModeSymbol(mode))
-                }
-            }
+    /// slot ships a live control. One click flips 地图模式 ⇄ 聚焦模式: the glyph
+    /// is the mode that is showing (`map` / `scope`), and the tooltip and the
+    /// accessibility label both say which mode the click lands in. No ▾ menu, so
+    /// no second click.
+    private var viewModeToggle: some View {
+        Button {
+            session.viewMode = session.viewMode == .map ? .focus : .map
         } label: {
             statusSymbol(viewModeSymbol(session.viewMode), on: session.viewMode == .focus)
         }
-        .help(Text(verbatim: string("在地图模式和聚焦模式之间切换")))
-        .accessibilityLabel(Text(verbatim: string("查看模式")))
+        .buttonStyle(.plain)
+        .help(Text(verbatim: viewModeActionLabel))
+        .accessibilityLabel(Text(verbatim: viewModeActionLabel))
+        .accessibilityHint(Text(verbatim: string("在地图模式和聚焦模式之间切换")))
         .accessibilityIdentifier("statusBar.views")
+    }
+
+    /// Current mode, then what a click does. Both halves are existing keys.
+    private var viewModeActionLabel: String {
+        "\(viewModeTitle(session.viewMode)) · \(string("在地图模式和聚焦模式之间切换"))"
     }
 
     private var outlineToggle: some View {
@@ -227,7 +231,7 @@ struct EditorStatusStrip: View {
     private func statusSymbol(_ symbol: String, on: Bool = false) -> some View {
         Image(systemName: symbol)
             .symbolRenderingMode(.monochrome)
-            .font(.system(size: EditorStatusBarChrome.chromeFontSize, weight: .medium))
+            .font(.system(size: EditorStatusBarChrome.chromeFontSize, weight: .regular))
             .frame(
                 width: EditorStatusBarChrome.iconButtonSize,
                 height: EditorStatusBarChrome.iconButtonSize

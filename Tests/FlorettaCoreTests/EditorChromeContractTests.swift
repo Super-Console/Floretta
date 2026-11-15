@@ -1,3 +1,4 @@
+import FlorettaCore
 import XCTest
 
 /// Locks editor chrome alongside the UI test: the back glyph and the editable
@@ -263,6 +264,61 @@ final class EditorChromeContractTests: XCTestCase {
         // handled by the chrome-typography branch.
         XCTAssertFalse(bar.contains(".custom("))
         XCTAssertFalse(bar.contains("Font.custom"))
+    }
+
+    /// The view-mode control is one button that flips 地图模式 ⇄ 聚焦模式. No ▾
+    /// menu and no second click, and the glyph is the mode that is showing.
+    func testViewModeControlIsAToggleNotAMenu() throws {
+        let bar = try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift")
+
+        XCTAssertTrue(bar.contains("private var viewModeToggle"))
+        XCTAssertFalse(bar.contains("private var viewModeMenu"))
+        XCTAssertFalse(bar.contains("ForEach(DocumentViewMode.allCases"), "a mode picker means a menu")
+
+        let toggle = try slice(bar, from: "private var viewModeToggle", until: "private var outlineToggle")
+        XCTAssertTrue(toggle.contains("Button {"))
+        XCTAssertTrue(toggle.contains("session.viewMode = session.viewMode == .map ? .focus : .map"))
+        XCTAssertFalse(toggle.contains("Menu {"), "a menu needs a second click and a ▾")
+        XCTAssertFalse(toggle.contains("menuIndicator"))
+        XCTAssertTrue(toggle.contains(".buttonStyle(.plain)"))
+        XCTAssertTrue(toggle.contains(".help(Text(verbatim:"))
+        XCTAssertTrue(toggle.contains(".accessibilityLabel(Text(verbatim:"))
+        XCTAssertTrue(toggle.contains(".accessibilityHint("))
+        XCTAssertTrue(toggle.contains("accessibilityIdentifier(\"statusBar.views\")"))
+
+        // The two glyphs are the stock SF Symbols the rest of the app uses.
+        XCTAssertEqual(EditorToolbarCatalog.command(.mapMode).symbol, "map")
+        XCTAssertEqual(EditorToolbarCatalog.command(.focusMode).symbol, "scope")
+        let symbols = try slice(bar, from: "private func viewModeSymbol", until: "private func viewModeTitle")
+        XCTAssertTrue(symbols.contains("EditorToolbarCatalog.command(.mapMode).symbol"))
+        XCTAssertTrue(symbols.contains("EditorToolbarCatalog.command(.focusMode).symbol"))
+    }
+
+    /// Every glyph in the two bottom capsules is a vector SF Symbol at one
+    /// weight (regular) and one size (`chromeFontSize`), inside one icon box, and
+    /// every control keeps a tooltip and an accessibility label.
+    func testBottomCapsuleIconsShareOneWeightAndSize() throws {
+        let bar = try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift")
+        let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+
+        let symbol = try slice(bar, from: "private func statusSymbol", until: "// MARK: text")
+        XCTAssertTrue(symbol.contains("size: EditorStatusBarChrome.chromeFontSize, weight: .regular"))
+        XCTAssertTrue(symbol.contains("width: EditorStatusBarChrome.iconButtonSize"))
+        XCTAssertTrue(symbol.contains("height: EditorStatusBarChrome.iconButtonSize"))
+        XCTAssertTrue(symbol.contains("symbolRenderingMode(.monochrome)"))
+        XCTAssertFalse(symbol.contains("weight: .bold"))
+        XCTAssertFalse(bar.contains("weight: .medium"))
+
+        // help() + accessibilityLabel() on every control of the status capsule.
+        XCTAssertGreaterThanOrEqual(bar.components(separatedBy: ".help(").count - 1, 5)
+        XCTAssertGreaterThanOrEqual(bar.components(separatedBy: ".accessibilityLabel(").count - 1, 5)
+
+        // The sheet capsule's own glyphs follow the same weight.
+        let canvas = try slice(source, from: "private var canvasTabBar", until: "private var currentCanvasIndex")
+        XCTAssertTrue(canvas.contains("chevron.down"))
+        XCTAssertTrue(canvas.contains("weight: .regular"))
+        XCTAssertTrue(canvas.contains("EditorStatusBarChrome.chromeFontSize"))
+        XCTAssertFalse(canvas.contains(".font(.caption2)"))
     }
 
     private func repoFile(_ relative: String) throws -> String {

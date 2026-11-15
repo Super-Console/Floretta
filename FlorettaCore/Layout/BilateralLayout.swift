@@ -105,7 +105,20 @@ struct BilateralLayout: StructureLayout {
             let leftNext = left.isEmpty
                 ? block.blockHeight
                 : leftHeight + geometry.metrics.siblingGap + block.blockHeight
-            if rightNext < leftNext || (rightNext == leftNext && right.count <= left.count) {
+            // A topic that names its side goes there: `side` is written by the
+            // left/right add handle, and an imported FreeMind `POSITION` means the
+            // same thing. Everything else keeps the height-balancing rule, so a map
+            // with no stored sides lays out exactly as it did before.
+            let growsRight: Bool
+            switch child.side {
+            case .right:
+                growsRight = true
+            case .left:
+                growsRight = false
+            case nil:
+                growsRight = rightNext < leftNext || (rightNext == leftNext && right.count <= left.count)
+            }
+            if growsRight {
                 right.append(block)
                 rightHeight = rightNext
             } else {

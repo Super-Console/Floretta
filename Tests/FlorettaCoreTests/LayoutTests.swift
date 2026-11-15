@@ -212,10 +212,11 @@ final class LayoutTests: XCTestCase {
         var document = MindMapDocument(title: "hooks", roots: [MindMapNode(text: "根")])
         let rootID = document.roots[0].id
         CanvasCommands.apply(.hover(rootID), document: &document, interaction: &interaction)
-        XCTAssertEqual(interaction.addDirections, CanvasDirection.allCases)
-        XCTAssertEqual(interaction.addDirections.count, 4)
+        // The handles follow the structure: a mind map splits left and right.
+        XCTAssertEqual(interaction.addDirections(for: .bilateral), [.left, .right])
+        XCTAssertEqual(interaction.addDirections(for: .logicChart), [.right])
         CanvasCommands.apply(.hover(nil), document: &document, interaction: &interaction)
-        XCTAssertTrue(interaction.addDirections.isEmpty)
+        XCTAssertTrue(interaction.addDirections(for: .bilateral).isEmpty)
 
         CanvasCommands.apply(.select(rootID), document: &document, interaction: &interaction)
         XCTAssertTrue(interaction.showsSelectionChrome)

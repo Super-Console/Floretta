@@ -75,6 +75,18 @@ enum CanvasPlacement {
         hit(at: canvasPoint, in: nodes(in: document), rootsOnly: false)
     }
 
+    /// Topmost topic at `canvasPoint`, or the nearest one whose box grown by
+    /// `inflate` still reaches it. The add handles are drawn outside the topic
+    /// box, so hover has to accept the ring around a topic as well as the topic.
+    /// `inflate` is in canvas units; callers convert from view points.
+    static func nodeIDNear(
+        at canvasPoint: CGPoint,
+        inflate: CGFloat,
+        in document: MindMapDocument
+    ) -> UUID? {
+        NodeHitRegion.nodeID(at: canvasPoint, inflate: inflate, in: nodes(in: document))
+    }
+
     /// Topmost root whose frame contains the canvas point. Children are not draggable.
     static func rootID(at canvasPoint: CGPoint, in document: MindMapDocument) -> UUID? {
         hit(at: canvasPoint, in: nodes(in: document), rootsOnly: true)

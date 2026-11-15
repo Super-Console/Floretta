@@ -428,7 +428,193 @@ final class StructureKindsLayoutTests: XCTestCase {
         XCTAssertEqual(LayoutKind.treeTable.makeLayout(geometry: geometry()).kind, .treeTable)
     }
 
+    // MARK: - 矩阵图
+
+    func testMatrixLaysFirstLevelTopicsAsColumnHeadersAndSecondLevelAsRows() throws {
+        let columns = (0..<3).map { index in
+            MindMapNode(text: "列\(index)", children: (0..<2).map { MindMapNode(text: "行\($0)") })
+        }
+        let root = MindMapNode(text: "矩阵", children: columns)
+        let frames = matrix(MindMapDocument(title: "grid", roots: [root]))
+        let rootFrame = try XCTUnwrap(frames.first { $0.id == root.id })
+        let headers = try columns.map { column in
+            try XCTUnwrap(frames.first { $0.id == column.id })
+        }
+        // One header row: every column header shares one top edge.
+        XCTAssertEqual(Set(headers.map { ($0.frame.minY * 100).rounded() / 100 }).count, 1)
+        XCTAssertEqual(headers.map(\.frame.minX), headers.map(\.frame.minX).sorted())
+        XCTAssertGreaterThan(headers[0].frame.minY, rootFrame.frame.maxY)
+
+        // Row k of every column sits on the same y, and rows are disjoint bands.
+        let rowZero = try columns.map { column in
+            try XCTUnwrap(frames.first { $0.id == column.children[0].id })
+        }
+        let rowOne = try columns.map { column in
+            try XCTUnwrap(frames.first { $0.id == column.children[1].id })
+        }
+        XCTAssertEqual(Set(rowZero.map { ($0.frame.minY * 100).rounded() / 100 }).count, 1)
+        XCTAssertEqual(Set(rowOne.map { ($0.frame.minY * 100).rounded() / 100 }).count, 1)
+        XCTAssertGreaterThan(rowOne[0].frame.minY, rowZero[0].frame.maxY)
+        // A cell is left aligned to its column, so x is a grid coordinate too.
+        for (index, column) in columns.enumerated() {
+            XCTAssertEqual(rowZero[index].frame.minX, headers[index].frame.minX, accuracy: 0.001)
+        }
+    }
+
+    func testMatrixGrowsARowForItsTallestCellAndKeepsTheOtherColumnsAligned() throws {
+        let tall = MindMapNode(
+            text: "高格",
+            children: (0..<3).map { MindMapNode(text: "要点\($0)") }
+        )
+        let first = MindMapNode(text: "列甲", children: [tall, MindMapNode(text: "甲二")])
+        let second = MindMapNode(text: "列乙", children: [MindMapNode(text: "乙一"), MindMapNode(text: "乙二")])
+        let root = MindMapNode(text: "矩阵", children: [first, second])
+        let frames = matrix(MindMapDocument(title: "rows", roots: [root]))
+        let tallFrame = try XCTUnwrap(frames.first { $0.id == tall.id })
+        let firstRowTwo = try XCTUnwrap(frames.first { $0.id == first.children[1].id })
+        let secondRowTwo = try XCTUnwrap(frames.first { $0.id == second.children[1].id })
+        XCTAssertGreaterThan(tallFrame.frame.height, 0)
+        // Row 1 is shared: the tall cell in column 0 pushed row 1 down in both
+        // columns, which is the y axis of the grid.
+        XCTAssertEqual(firstRowTwo.frame.minY, secondRowTwo.frame.minY, accuracy: 0.001)
+        XCTAssertGreaterThanOrEqual(
+            firstRowTwo.frame.minY - tallFrame.frame.maxY,
+            LayoutMetrics().horizontalGap - 0.001
+        )
+        assertNoOverlap(frames)
+    }
+
+    func testMatrixStacksLeavesInsideTheirCrossingCell() throws {
+        let leaves = (0..<2).map { MindMapNode(text: "叶子\($0)") }
+        let cell = MindMapNode(text: "行头", children: leaves)
+        let first = MindMapNode(text: "列甲", children: [cell])
+        let second = MindMapNode(text: "列乙", children: [MindMapNode(text: "另一个行头")])
+        let root = MindMapNode(text: "矩阵", children: [first, second])
+        let frames = matrix(MindMapDocument(title: "cells", roots: [root]))
+        let cellFrame = try XCTUnwrap(frames.first { $0.id == cell.id })
+        let leafFrames = try leaves.map { leaf in
+            try XCTUnwrap(frames.first { $0.id == leaf.id })
+        }.sorted { $0.frame.minY < $1.frame.minY }
+        // Leaves stay inside the crossing cell: same column, stacked downwards.
+        XCTAssertEqual(leafFrames[0].frame.minX, cellFrame.frame.minX, accuracy: 0.001)
+        XCTAssertEqual(leafFrames[0].frame.minY - cellFrame.frame.maxY, LayoutMetrics().horizontalGap, accuracy: 0.001)
+        XCTAssertEqual(leafFrames[1].frame.minY - leafFrames[0].frame.maxY, LayoutMetrics().siblingGap, accuracy: 0.001)
+        // And they never cross the next column.
+        let secondFrame = try XCTUnwrap(frames.first { $0.id == second.id })
+        XCTAssertLessThan(leafFrames.map(\.frame.maxX).max() ?? 0, secondFrame.frame.minX)
+        assertNoOverlap(frames)
+    }
+
+    func testMatrixLinksDropFromTheParentIntoTheCellBelow() throws {
+        let leaf = MindMapNode(text: "叶子")
+        let cell = MindMapNode(text: "行头", children: [leaf])
+        let column = MindMapNode(text: "列", children: [cell])
+        let root = MindMapNode(text: "矩阵", children: [column])
+        let frames = matrix(MindMapDocument(title: "links", roots: [root]))
+        let rootFrame = try XCTUnwrap(frames.first { $0.id == root.id })
+        let columnFrame = try XCTUnwrap(frames.first { $0.id == column.id })
+        let cellFrame = try XCTUnwrap(frames.first { $0.id == cell.id })
+        let leafFrame = try XCTUnwrap(frames.first { $0.id == leaf.id })
+        for (parent, child) in [(rootFrame, columnFrame), (columnFrame, cellFrame), (cellFrame, leafFrame)] {
+            let link = try XCTUnwrap(child.link)
+            XCTAssertEqual(link.start.x, parent.frame.midX, accuracy: 0.001)
+            XCTAssertEqual(link.start.y, parent.frame.maxY, accuracy: 0.001)
+            XCTAssertEqual(link.end.x, child.frame.midX, accuracy: 0.001)
+            XCTAssertEqual(link.end.y, child.frame.minY, accuracy: 0.001)
+            XCTAssertEqual(child.parentID, parent.id)
+        }
+        XCTAssertNil(rootFrame.link)
+    }
+
+    func testMatrixCollapsedTopicHidesItsSubtree() {
+        let column = MindMapNode(text: "列", children: [MindMapNode(text: "行头")])
+        var root = MindMapNode(text: "矩阵", children: [column, MindMapNode(text: "另一列")])
+        root.isCollapsed = true
+        let frames = matrix(MindMapDocument(title: "fold", roots: [root]))
+        XCTAssertEqual(frames.count, 1)
+        XCTAssertEqual(frames.first?.id, root.id)
+    }
+
+    func testMatrixPlacesAStoredRootPoint() throws {
+        let column = MindMapNode(text: "列", children: [MindMapNode(text: "行头")])
+        let root = MindMapNode(
+            text: "矩阵",
+            position: MindMapPoint(x: -80, y: 64),
+            children: [column]
+        )
+        let frames = matrix(MindMapDocument(title: "manual", roots: [root]))
+        let rootFrame = try XCTUnwrap(frames.first { $0.id == root.id })
+        let columnFrame = try XCTUnwrap(frames.first { $0.id == column.id })
+        XCTAssertEqual(rootFrame.origin.x, -80, accuracy: 0.001)
+        XCTAssertEqual(rootFrame.origin.y, 64, accuracy: 0.001)
+        XCTAssertEqual(columnFrame.frame.minY, rootFrame.frame.maxY + LayoutMetrics().horizontalGap, accuracy: 0.001)
+    }
+
+    func testMatrixKeepsFortyOneTopicsFromOverlapping() {
+        let root = MindMapNode(text: "矩阵", children: (0..<4).map { column in
+            MindMapNode(
+                text: "列\(column)",
+                children: (0..<3).map { row in
+                    MindMapNode(
+                        text: "行头\(column)-\(row)",
+                        children: (0..<2).map { MindMapNode(text: "叶子\(column)-\(row)-\($0)") }
+                    )
+                }
+            )
+        })
+        let frames = matrix(MindMapDocument(title: "big", roots: [root]))
+        XCTAssertEqual(frames.count, 41)
+        assertNoOverlap(frames)
+    }
+
+    func testMatrixJoinsTheStructureRegistry() {
+        XCTAssertEqual(LayoutKind.matrix.displayNameKey, "layout.matrix")
+        XCTAssertEqual(LayoutKind.matrix.makeLayout(geometry: geometry()).kind, .matrix)
+    }
+
+    // MARK: - 画布与导出同源
+
+    /// The canvas (`CanvasPlacement.nodes`) and `MapExport` both build their
+    /// engine with `LayoutEngine.forDocument`, and `LaidOutFrames` reuses its
+    /// cache only while the document is equal. These two facts are what make a
+    /// structure switch land in the canvas and in the exported PNG/PDF the same
+    /// way, so they are asserted here rather than assumed.
+    func testEveryKindDrivesTheDocumentEngineAndChangesTheDocumentIdentity() throws {
+        let root = MindMapNode(text: "根", children: [
+            MindMapNode(text: "甲", children: [MindMapNode(text: "甲一")]),
+            MindMapNode(text: "乙"),
+        ])
+        var documents: [MindMapDocument] = []
+        for kind in LayoutKind.allCases {
+            let document = MindMapDocument(title: "kind", roots: [root], layoutKind: kind)
+            documents.append(document)
+            let engine = LayoutEngine.forDocument(document)
+            XCTAssertEqual(engine.kind, kind)
+            XCTAssertEqual(engine.layout(document), LayoutEngine(kind: kind).layout(document))
+            // The codec keeps the structure, so a reopened map exports the same
+            // frames the canvas drew.
+            let reopened = try FlorettaCodec.decode(FlorettaCodec.encode(document))
+            XCTAssertEqual(reopened.layoutKind, kind)
+            XCTAssertEqual(LayoutEngine.forDocument(reopened).layout(reopened), engine.layout(document))
+        }
+        // A different kind is a different document, so `LaidOutFrames` cannot
+        // serve its cached frames across a switch.
+        for left in documents.indices {
+            for right in documents.indices where right > left {
+                XCTAssertNotEqual(documents[left], documents[right])
+            }
+        }
+        XCTAssertEqual(
+            Set(LayoutKind.allCases),
+            [.bilateral, .logicChart, .orgChart, .timeline, .fishbone, .treeTable, .matrix]
+        )
+    }
+
     // MARK: - Helpers
+
+    private func matrix(_ document: MindMapDocument) -> [NodeFrame] {
+        LayoutEngine(kind: .matrix).layout(document)
+    }
 
     private func treeTable(_ document: MindMapDocument) -> [NodeFrame] {
         LayoutEngine(kind: .treeTable).layout(document)

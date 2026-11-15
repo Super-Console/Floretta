@@ -16,6 +16,8 @@ public enum LayoutKind: String, CaseIterable, Codable, Equatable, Sendable {
     case fishbone
     /// One column per depth, one row band per subtree (XMind 树型表格).
     case treeTable
+    /// A two-dimensional grid: column headers, row bands, crossing cells (XMind 矩阵图).
+    case matrix
 
     /// Localization key for a structure picker. The app resolves it; Core stays string-free.
     public var displayNameKey: String {
@@ -26,6 +28,7 @@ public enum LayoutKind: String, CaseIterable, Codable, Equatable, Sendable {
         case .timeline: return "layout.timeline"
         case .fishbone: return "layout.fishbone"
         case .treeTable: return "layout.treeTable"
+        case .matrix: return "layout.matrix"
         }
     }
 
@@ -39,6 +42,7 @@ public enum LayoutKind: String, CaseIterable, Codable, Equatable, Sendable {
         case .timeline: return TimelineLayout(geometry: geometry)
         case .fishbone: return FishboneLayout(geometry: geometry)
         case .treeTable: return TreeTableLayout(geometry: geometry)
+        case .matrix: return MatrixLayout(geometry: geometry)
         }
     }
 }

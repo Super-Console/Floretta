@@ -215,6 +215,15 @@ TD-003 → TD-002 → TD-007 → TD-006 → TD-004 → TD-005。前四条都是�
 - 归档与上传：iOS 与 macOS **并行**归档（72s 双成功，零 `errSecInternalComponent`）、并行上传（156s 双 `Upload succeeded`）。ASC 回读：iOS build 22 `VALID`（2026-11-15T07:17:37-08:00 = 23:17 CST）、macOS build 22 `VALID`（07:18:21-08:00 = 23:18 CST），均挂在 App `6832552931` 的 1.0 下。
 - 仍开着的口子（不得写成已交付）：① iPhone 的设置入口 Timmy 仍在权衡，本轮 iPhone 行为逐字未变；② 结构只有 7 种（括号图/树形图按决定作为变体不做，PRO 网格不做）；③ 「备注」命令仓库内不存在；④ Web 端 TD-008 未开始；⑤ 本轮未做真机视觉验收（按 Timmy 要求改为直接在 TestFlight 上看）。
 
+### 交付记录：1.0 (23) → TestFlight（2026-11-16）
+
+- 分支：`main`，末尾提交 `f35017e`。合并顺序：`feat/bottomfix` → `feat/inspectorglass` → `feat/pointer-modes` → `feat/add-handles`，另有 `337486c` 修本地化目录。
+- 本轮落地：①浮层玻璃底板按角色区分采样模式（底栏与浮层 `.withinWindow`、侧栏与检查器 `.behindWindow`），底栏压在节点上时可读；②左下画布名居中、超长中间省略、宽度上限 30% 窗口且胶囊贴合内容；③胶囊内间距 8→10、组间 16、图标命中区 28；④工具栏去掉第二层玻璃（`.toolbarFloatingButton` 在 macOS 也改 no-op）；⑤检查器面板玻璃化、行块保持不透明实底；⑥macOS 指针/手掌两种模式（默认指针，空白拖动框选、Shift 追加、Esc 恢复；手掌拖动平移；空格按下即应手、抬起按 300ms 判定短按编辑/长按无事，忽略自动重复）；⑦节点快捷加号可点（外扩 28pt 命中 + 200ms 宽限）、按布局只显示有意义方向、方向写入 `MindMapNode.side` 让双侧布局左/右真实生效。
+- 闸门：Core `swift test` 549 项 / 1 skipped / 0 failures；`FlorettaTests` 499 项 / 1 skipped / 0 failures `** TEST SUCCEEDED **`；macOS 与 iOS Debug 编译 exit 0。
+- 合并期两次修复：`EditorStatusBar.swift` 冲突按「保留底栏分组 + 指针按钮并入组内」解；本地化目录缺 3 条指针文案，按脚本算出的差集补齐（444 条，JSON 校验通过）。
+- 归档上传：双平台并行归档 66s 双成功、并行上传 132s 双 `Upload succeeded`。ASC 回读：iOS build 23 `VALID`（2026-11-15T08:04:37-08:00）、macOS build 23 `VALID`（08:04:53-08:00）。
+- 未完成（不得写成已交付）：①本轮未做屏幕级验收（助手截图受上下文限制被吞，只有离屏渲染与契约测试背书），观感由 Timmy 在 TestFlight 确认；②键位响应延迟（Tab/Enter 约 0.2s）仅做了代码层怀疑点分析，未跑 profile；③iPhone 设置入口仍待定；④Web 端 TD-008 未开始；⑤「备注」命令仓库内不存在。
+
 ## 功能矩阵
 
 | 功能 | macOS | iPad | iPhone | Web | 证据 |

@@ -241,15 +241,15 @@ final class ShellTests: XCTestCase {
         XCTAssertEqual(again.appearance.colorScheme, .light)
         again.appearance = .system
         XCTAssertNil(again.appearance.colorScheme)
-        XCTAssertEqual(again.appearanceMode, .classic)
-        XCTAssertEqual(again.currentProfile.fontFamilyID, "system-serif")
-        again.updateCurrentProfile { $0.fontFamilyID = "system-sans" }
+        XCTAssertEqual(again.homeBackground, .paper)
         XCTAssertEqual(again.currentProfile.fontFamilyID, "system-sans")
+        again.updateCurrentProfile { $0.fontFamilyID = "system-serif" }
+        XCTAssertEqual(again.currentProfile.fontFamilyID, "system-serif")
         let reread = AppSettings(defaults: defaults)
-        XCTAssertEqual(reread.appearanceMode, .classic)
-        XCTAssertEqual(reread.currentProfile.fontFamilyID, "system-sans")
-        reread.restoreCurrentModeDefaults()
+        XCTAssertEqual(reread.homeBackground, .paper)
         XCTAssertEqual(reread.currentProfile.fontFamilyID, "system-serif")
+        reread.restoreContentAppearanceDefaults()
+        XCTAssertEqual(reread.currentProfile.fontFamilyID, AppearanceCatalog.defaultFontFamilyID)
         again.language = .english
         XCTAssertTrue(again.resolvedLocale.identifier.lowercased().hasPrefix("en"))
         XCTAssertEqual(again.defaultView, .focus)

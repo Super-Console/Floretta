@@ -200,6 +200,12 @@ private struct MacNodeTextEditor: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> EditingTextView {
+        KeyLatencyProbe.shared.timeTextView {
+            makeEditingTextView(context: context)
+        }
+    }
+
+    private func makeEditingTextView(context: Context) -> EditingTextView {
         let view = EditingTextView()
         view.delegate = context.coordinator
         view.isRichText = false
@@ -231,6 +237,7 @@ private struct MacNodeTextEditor: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: EditingTextView, context: Context) {
+        KeyLatencyProbe.shared.countEditorUpdate()
         context.coordinator.text = $text
         context.coordinator.isComposing = $isComposing
         context.coordinator.minimumWidth = $minimumWidth
@@ -301,6 +308,32 @@ private struct MacNodeTextEditor: NSViewRepresentable {
 
     /// Focus must not swap the topic for the system text background or font.
     private func applyNodeChrome(_ chrome: NodeEditSurface, to view: EditingTextView, ownsKeys: Bool) {
+        let signature = NodeEditChromeSignature(
+            fillRed: chrome.fill.red,
+            fillGreen: chrome.fill.green,
+            fillBlue: chrome.fill.blue,
+            fillAlpha: chrome.hidesFill ? 0 : 1,
+            inkRed: chrome.textColor.red,
+            inkGreen: chrome.textColor.green,
+            inkBlue: chrome.textColor.blue,
+            drawsBackground: !chrome.hidesFill,
+            cornerRadius: Double(chrome.cornerRadius),
+            fontSize: Double(chrome.fontSize),
+            fontDesign: chrome.fontDesign,
+            bold: chrome.bold,
+            italic: chrome.italic,
+            alignment: chrome.textAlignment,
+            ownsKeys: ownsKeys
+        )
+        // One write per signature. Entering edit mode runs updateNSView about ten
+        // times; rewriting the chrome each time re-entered layout and stretched a
+        // single keystroke to ~200 ms.
+        guard EditorLayoutConvergence.shouldApplyNodeChrome(
+            requested: signature,
+            lastApplied: view.appliedChromeSignature
+        ) else { return }
+        view.appliedChromeSignature = signature
+        KeyLatencyProbe.shared.countChromeWrite()
         let fill = NSColor(
             srgbRed: CGFloat(chrome.fill.red),
             green: CGFloat(chrome.fill.green),
@@ -507,6 +540,9 @@ private final class EditingTextView: NSTextView {
     var lockedTextColor: NSColor = .labelColor
     var lockedFont: NSFont?
     var appliedFontSignature: EditingFontSignature?
+    /// Chrome the last `applyNodeChrome` wrote. A pass with an equal signature
+    /// must not touch the field again.
+    var appliedChromeSignature: NodeEditChromeSignature?
     var centeringPass = TextCenteringPass.idle
     private var applyingChrome = false
 

@@ -82,11 +82,35 @@ struct InfiniteCanvas: View {
     @FocusState private var canvasFocused: Bool
 
     var body: some View {
-        let _ = CanvasPerfRun.noteBody()
-        GeometryReader { geo in
-            observeCanvas(canvasSurface(size: geo.size), size: geo.size)
+        KeyLatencyProbe.shared.timeBuild("canvas") {
+            let _ = CanvasPerfRun.noteBody()
+            let _ = KeyLatencyProbe.shared.countCanvasBody(signature: canvasBodySignature())
+            return GeometryReader { geo in
+                observeCanvas(canvasSurface(size: geo.size), size: geo.size)
+            }
+            .focusEffectDisabled(true)
         }
-        .focusEffectDisabled(true)
+    }
+
+    /// Diagnostic only: what each `body` pass saw. The key-latency run diffs
+    /// consecutive lines to name the state that invalidated the canvas.
+    private func canvasBodySignature() -> String {
+        guard KeyLatencyProbe.isEnabled else { return "" }
+        let sel = keyboard.selectedNodeID.map { $0.uuidString.prefix(4).lowercased() } ?? "-"
+        let hov = interaction.hoveredNodeID.map { $0.uuidString.prefix(4).lowercased() } ?? "-"
+        let scale = String(format: "%.3f", camera.viewport.scale)
+        let offX = Int(camera.viewport.offset.x)
+        let offY = Int(camera.viewport.offset.y)
+        let boundsW = Int(camera.contentBounds?.width ?? 0)
+        let boundsH = Int(camera.contentBounds?.height ?? 0)
+        let mode = keyboard.mode == .edit ? "edit" : "cmd"
+        let composing = keyboard.isComposing ? 1 : 0
+        let playing = petal.isPlaying ? 1 : 0
+        let topics = document.roots.count + document.freeNodes.count
+        let live = camera.liveNodeOrigin == nil ? 0 : 1
+        let width = Int(compositionWidth)
+        let pass = laidOut.layoutPassCount
+        return "mode=\(mode),comp=\(composing),sel=\(sel),hov=\(hov),scale=\(scale),off=\(offX):\(offY),bounds=\(boundsW)x\(boundsH),pass=\(pass),width=\(width),petal=\(playing),doc=\(topics),live=\(live)"
     }
 
     private func canvasSurface(size: CGSize) -> some View {
@@ -197,8 +221,11 @@ struct InfiniteCanvas: View {
         return TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !isPetalPlaying)) { timeline in
             Canvas { context, size in
                 let perf = CanvasPerfRun.beginDraw()
+                KeyLatencyProbe.shared.mark(.drawStarted)
                 draw(in: context, size: size, at: timeline.date.timeIntervalSinceReferenceDate)
+                KeyLatencyProbe.shared.mark(.drawEnded)
                 CanvasPerfRun.endDraw(perf)
+                KeyLatencyProbe.shared.noteDrawEnded()
             }
             .allowsHitTesting(false)
             .onChange(of: timeline.date) { _, date in
@@ -230,6 +257,16 @@ struct InfiniteCanvas: View {
                 #endif
             }
             .onKeyPress(phases: [.down, .repeat, .up]) { press in
+                // Key-latency probe: the two create keys open a timed press here,
+                // before any dispatch, so the frame that shows the new topic can be
+                // measured against the moment the key arrived.
+                if KeyLatencyProbe.isEnabled, press.phase == .down, keyboard.mode == .command {
+                    if press.key == .tab {
+                        KeyLatencyProbe.shared.noteKeyPress(name: "tab")
+                    } else if press.key == .return {
+                        KeyLatencyProbe.shared.noteKeyPress(name: "enter")
+                    }
+                }
                 // Escape with a marquee in flight puts back the selection the
                 // drag started from, and must not also leave zen mode.
                 if press.key == .escape, press.modifiers.isEmpty, marquee != nil {
@@ -282,6 +319,7 @@ struct InfiniteCanvas: View {
                 openPetalMap()
                 canvasFocused = true
                 startPerfRunIfRequested()
+                KeyLatencyDriver.startIfRequested()
                 applyPendingHeldCanvasScale(in: size)
             }
             .background {
@@ -679,6 +717,7 @@ struct InfiniteCanvas: View {
     }
 
     private func publishBounds() {
+        KeyLatencyProbe.shared.countBoundsPublish()
         camera.contentBounds = CanvasPlacement.contentBounds(
             in: layoutSource(),
             scheme: branchScheme,
@@ -1334,6 +1373,7 @@ struct InfiniteCanvas: View {
         ) { command in
             handleChrome(command)
         }
+        KeyLatencyProbe.shared.mark(.modelApplied)
         interaction.selectedNodeID = keyboard.selectedNodeID
         return handled
     }
@@ -2349,6 +2389,7 @@ struct InfiniteCanvas: View {
     }
 
     private func refreshThumbnails() {
+        KeyLatencyProbe.shared.countThumbnailSync()
         let view = camera.viewport.canvasRect(in: camera.viewSize)
         let viewport = AttachmentViewportRect(
             minX: view.minX,
@@ -2833,7 +2874,9 @@ final class LaidOutFrames {
     func frames(for document: MindMapDocument, scheme: MapColorScheme, profile: AppearanceProfile? = nil) -> [NodeFrame] {
         if let source, source == document, cachedScheme == scheme, cachedProfile == profile { return cached }
         layoutPassCount += 1
-        cached = CanvasPlacement.nodes(in: document, scheme: scheme, profile: profile)
+        cached = KeyLatencyProbe.shared.timeLayout {
+            CanvasPlacement.nodes(in: document, scheme: scheme, profile: profile)
+        }
         source = document
         cachedScheme = scheme
         cachedProfile = profile

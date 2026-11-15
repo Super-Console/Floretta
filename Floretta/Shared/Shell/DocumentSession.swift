@@ -1022,6 +1022,8 @@ enum LaunchDocumentQueue {
     enum Pending: Equatable {
         case editChromeSample
         case perfFixture(nodeCount: Int)
+        /// `-FlorettaKeyLatency` opens it: the key-latency run types into a known map.
+        case keyLatencyFixture(nodes: Int)
     }
 
     @MainActor static var pending: Pending?
@@ -1288,6 +1290,8 @@ final class LibraryModel {
             openEditChromeSample()
         case .perfFixture(let nodeCount):
             openPerfFixture(nodeCount: nodeCount)
+        case .keyLatencyFixture(let nodes):
+            openKeyLatencyFixture(nodes: nodes)
         }
     }
 
@@ -1295,6 +1299,15 @@ final class LibraryModel {
     func openEditChromeSample() {
         settings.defaultView = .map
         openDocument(NodeEditChrome.sampleDocument(clock: ports.clock), preferredURL: nil, sourceExtension: "floretta")
+    }
+
+    /// `-FlorettaKeyLatency` only. `nodes` of 0 or 1 opens a fresh one-topic map.
+    func openKeyLatencyFixture(nodes: Int) {
+        settings.defaultView = .map
+        let document = nodes > 1
+            ? CanvasPerfFixture.document(nodeCount: nodes)
+            : MindMapDocument.newMap(title: "按键延迟")
+        openDocument(document, preferredURL: nil, sourceExtension: "floretta")
     }
 
     /// `-FlorettaPerfNodes` only. Opens the deterministic canvas performance map.

@@ -213,8 +213,11 @@ struct DocumentEditor: View {
     #endif
 
     var body: some View {
-        editorPresentations
-            .chromeTypography(language: settings.language)
+        let _ = KeyLatencyProbe.shared.countEditorBody()
+        KeyLatencyProbe.shared.timeBuild("editor") {
+            editorPresentations
+                .chromeTypography(language: settings.language)
+        }
     }
 
     private var editorCore: some View {
@@ -1282,7 +1285,9 @@ struct DocumentEditor: View {
     /// One census read for the status capsule. Same cache as before; the editor
     /// still counts topics, words, and characters in exactly one place.
     private var statusCensus: TopicTitleCensus {
-        topicCensus.census(of: session.editingDocument)
+        KeyLatencyProbe.shared.timeCensus {
+            topicCensus.census(of: session.editingDocument)
+        }
     }
 
     private func commandLabel(

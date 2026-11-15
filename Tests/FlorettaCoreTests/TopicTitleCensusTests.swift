@@ -176,4 +176,43 @@ final class TopicTitleCensusTests: XCTestCase {
         XCTAssertEqual(sheetEdited, document.titleCensus)
         XCTAssertNotEqual(sheetEdited.words, edited.words)
     }
+
+    /// The status capsule reads the census on every body pass. The cache may only
+    /// remeasure the titles a document edit touched; a camera-only change (same
+    /// document value) must not remeasure anything.
+    func testCensusCacheInvalidatesOnDocumentChangeOnly() {
+        var document = MindMapDocument(
+            title: "cache",
+            roots: [
+                MindMapNode(
+                    text: "中心主题",
+                    children: [MindMapNode(text: "分支主题 1"), MindMapNode(text: "分支主题 2")]
+                )
+            ]
+        )
+        var cache = TopicTitleCensusCache()
+        let first = cache.update(document)
+        XCTAssertEqual(first, TopicTitleCensus(topics: 3, words: 14, characters: 16))
+        XCTAssertEqual(cache.remeasuredActiveTitles, 3, "The first pass measures every title.")
+
+        // Same document value: the camera moved, the titles did not.
+        let cameraOnly = cache.update(document)
+        XCTAssertEqual(cameraOnly, first, "A camera-only change must return the same census.")
+        XCTAssertEqual(cache.remeasuredActiveTitles, 0, "A camera-only change must not remeasure a title.")
+
+        // One title edited in place: only that title is measured again.
+        _ = document.mutateNode(document.roots[0].id) { $0.text = "新中心" }
+        let edited = cache.update(document)
+        XCTAssertEqual(edited.topics, 3, "An edit must not change the topic count.")
+        XCTAssertEqual(edited.characters, 15, "「新中心」 is one character shorter than 「中心主题」.")
+        XCTAssertEqual(cache.remeasuredActiveTitles, 1, "Only the edited title may be measured again.")
+
+        // A new topic: the cache must count it and measure exactly one new title.
+        document.insertChild(MindMapNode(text: "新主题"), under: document.roots[0].id)
+        let grown = cache.update(document)
+        XCTAssertEqual(grown.topics, 4, "The inserted topic must be counted.")
+        XCTAssertEqual(cache.remeasuredActiveTitles, 1, "Only the inserted title may be measured.")
+        XCTAssertNotEqual(grown, edited, "A structural change must invalidate the census.")
+    }
+
 }

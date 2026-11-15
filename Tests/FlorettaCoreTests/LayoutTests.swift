@@ -809,4 +809,77 @@ final class LayoutTests: XCTestCase {
             }
         }
     }
+
+    /// The node editor writes about fifteen AppKit properties per chrome write,
+    /// and the field is updated about ten times for one key press. Only the first
+    /// write for a given shape may reach AppKit; every later pass must be a no-op
+    /// or it re-enters layout (measured: 13 writes -> 2 for one Return).
+    func testNodeEditChromeWritesOncePerSignature() {
+        let requested = NodeEditChromeSignature(
+            fillRed: 1,
+            fillGreen: 1,
+            fillBlue: 1,
+            fillAlpha: 1,
+            inkRed: 0.1,
+            inkGreen: 0.1,
+            inkBlue: 0.1,
+            drawsBackground: true,
+            cornerRadius: 8,
+            fontSize: 14,
+            fontDesign: "default",
+            bold: false,
+            italic: false,
+            alignment: .center,
+            ownsKeys: false
+        )
+        var last: NodeEditChromeSignature?
+        var writes = 0
+        // Ten layout passes with one shape, the count a real key press produces.
+        for _ in 0..<10 {
+            if EditorLayoutConvergence.shouldApplyNodeChrome(requested: requested, lastApplied: last) {
+                writes += 1
+                last = requested
+            }
+        }
+        XCTAssertEqual(writes, 1, "An unchanged chrome signature must write once across ten passes.")
+
+        var recolored = requested
+        recolored.fillRed = 0.5
+        XCTAssertTrue(
+            EditorLayoutConvergence.shouldApplyNodeChrome(requested: recolored, lastApplied: last),
+            "A fill change must write the chrome again."
+        )
+
+        var resized = requested
+        resized.cornerRadius = 12
+        XCTAssertTrue(
+            EditorLayoutConvergence.shouldApplyNodeChrome(requested: resized, lastApplied: last),
+            "A corner radius change must write the chrome again."
+        )
+
+        var realigned = requested
+        realigned.alignment = .leading
+        XCTAssertTrue(
+            EditorLayoutConvergence.shouldApplyNodeChrome(requested: realigned, lastApplied: last),
+            "An alignment change must write the chrome again."
+        )
+
+        var focused = requested
+        focused.ownsKeys = true
+        XCTAssertTrue(
+            EditorLayoutConvergence.shouldApplyNodeChrome(requested: focused, lastApplied: last),
+            "The view taking the keys must write the chrome again: the field paints differently."
+        )
+
+        last = recolored
+        XCTAssertFalse(
+            EditorLayoutConvergence.shouldApplyNodeChrome(requested: recolored, lastApplied: last),
+            "The signature that was just applied must latch."
+        )
+        XCTAssertTrue(
+            EditorLayoutConvergence.shouldApplyNodeChrome(requested: requested, lastApplied: last),
+            "Returning to an earlier shape must write because it differs from the last applied value."
+        )
+    }
+
 }

@@ -35,18 +35,21 @@
 		C40000000000000000000002 /* CanvasPlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000002 /* CanvasPlacement.swift */; };
 		C40000000000000000000003 /* InfiniteCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000003 /* InfiniteCanvas.swift */; };
 		C4D0000000000000000000A1 /* CanvasPerfProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D0000000000000000000A1 /* CanvasPerfProbe.swift */; };
+		C4D0000000000000000000E1 /* KeyLatencyProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D0000000000000000000E1 /* KeyLatencyProbe.swift */; };
 		C4D0000000000000000000B1 /* CanvasScaleHook.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D0000000000000000000B1 /* CanvasScaleHook.swift */; };
 		C40000000000000000000004 /* CanvasScrollInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000004 /* CanvasScrollInput.swift */; };
 		C40000000000000000000005 /* CanvasViewport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000001 /* CanvasViewport.swift */; };
 		C40000000000000000000006 /* CanvasPlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000002 /* CanvasPlacement.swift */; };
 		C40000000000000000000007 /* InfiniteCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000003 /* InfiniteCanvas.swift */; };
 		C4D0000000000000000000A2 /* CanvasPerfProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D0000000000000000000A1 /* CanvasPerfProbe.swift */; };
+		C4D0000000000000000000E2 /* KeyLatencyProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D0000000000000000000E1 /* KeyLatencyProbe.swift */; };
 		C4D0000000000000000000B2 /* CanvasScaleHook.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D0000000000000000000B1 /* CanvasScaleHook.swift */; };
 		C40000000000000000000008 /* CanvasScrollInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000004 /* CanvasScrollInput.swift */; };
 		C40000000000000000000009 /* CanvasViewport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000001 /* CanvasViewport.swift */; };
 		C4000000000000000000000A /* CanvasPlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000002 /* CanvasPlacement.swift */; };
 		C4000000000000000000000B /* InfiniteCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30000000000000000000003 /* InfiniteCanvas.swift */; };
 		C4D0000000000000000000A3 /* CanvasPerfProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D0000000000000000000A1 /* CanvasPerfProbe.swift */; };
+		C4D0000000000000000000E3 /* KeyLatencyProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D0000000000000000000E1 /* KeyLatencyProbe.swift */; };
 		C4D0000000000000000000B3 /* CanvasScaleHook.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D0000000000000000000B1 /* CanvasScaleHook.swift */; };
 		C93000000000000000000001 /* MapExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F93000000000000000000001 /* MapExport.swift */; };
 		C93000000000000000000002 /* MapExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F93000000000000000000001 /* MapExport.swift */; };
@@ -291,6 +294,7 @@
 		F30000000000000000000002 /* CanvasPlacement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasPlacement.swift; sourceTree = "<group>"; };
 		F30000000000000000000003 /* InfiniteCanvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfiniteCanvas.swift; sourceTree = "<group>"; };
 		F3D0000000000000000000A1 /* CanvasPerfProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasPerfProbe.swift; sourceTree = "<group>"; };
+		F3D0000000000000000000E1 /* KeyLatencyProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyLatencyProbe.swift; sourceTree = "<group>"; };
 		F3D0000000000000000000B1 /* CanvasScaleHook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasScaleHook.swift; sourceTree = "<group>"; };
 		F8B500000000000000000001 /* CanvasAudioPlaybackBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasAudioPlaybackBar.swift; sourceTree = "<group>"; };
 		F8B600000000000000000001 /* MediaVideoPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaVideoPlayer.swift; sourceTree = "<group>"; };
@@ -607,6 +611,7 @@
 				F30000000000000000000001 /* CanvasViewport.swift */,
 				F30000000000000000000003 /* InfiniteCanvas.swift */,
 				F3D0000000000000000000A1 /* CanvasPerfProbe.swift */,
+				F3D0000000000000000000E1 /* KeyLatencyProbe.swift */,
 				F3D0000000000000000000B1 /* CanvasScaleHook.swift */,
 				F93000000000000000000001 /* MapExport.swift */,
 				F42000000000000000000001 /* MapPictureMarks.swift */,
@@ -1254,6 +1259,7 @@
 				C40000000000000000000002 /* CanvasPlacement.swift in Sources */,
 				C40000000000000000000003 /* InfiniteCanvas.swift in Sources */,
 				C4D0000000000000000000A1 /* CanvasPerfProbe.swift in Sources */,
+				C4D0000000000000000000E1 /* KeyLatencyProbe.swift in Sources */,
 				C4D0000000000000000000B1 /* CanvasScaleHook.swift in Sources */,
 				C8B500000000000000000001 /* CanvasAudioPlaybackBar.swift in Sources */,
 				C8B600000000000000000001 /* MediaVideoPlayer.swift in Sources */,
@@ -1299,6 +1305,7 @@
 				C40000000000000000000006 /* CanvasPlacement.swift in Sources */,
 				C40000000000000000000007 /* InfiniteCanvas.swift in Sources */,
 				C4D0000000000000000000A2 /* CanvasPerfProbe.swift in Sources */,
+				C4D0000000000000000000E2 /* KeyLatencyProbe.swift in Sources */,
 				C4D0000000000000000000B2 /* CanvasScaleHook.swift in Sources */,
 				C8B500000000000000000002 /* CanvasAudioPlaybackBar.swift in Sources */,
 				C8B600000000000000000002 /* MediaVideoPlayer.swift in Sources */,
@@ -1353,6 +1360,7 @@
 				C4000000000000000000000A /* CanvasPlacement.swift in Sources */,
 				C4000000000000000000000B /* InfiniteCanvas.swift in Sources */,
 				C4D0000000000000000000A3 /* CanvasPerfProbe.swift in Sources */,
+				C4D0000000000000000000E3 /* KeyLatencyProbe.swift in Sources */,
 				C4D0000000000000000000B3 /* CanvasScaleHook.swift in Sources */,
 				C8B500000000000000000003 /* CanvasAudioPlaybackBar.swift in Sources */,
 				C93000000000000000000003 /* MapExport.swift in Sources */,

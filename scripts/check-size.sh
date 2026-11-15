@@ -24,10 +24,9 @@ settings_value() {
 }
 
 build_and_measure() {
-  local platform="$1" scheme="$2" destination="$3" budget="$4"
-  local products product_name app bytes mb
+  local platform="$1" scheme="$2" destination="$3" budget="$4" product_name="$5"
+  local products app bytes mb
   products="$(settings_value "$scheme" "$destination" BUILT_PRODUCTS_DIR)"
-  product_name="$(settings_value "$scheme" "$destination" PRODUCT_NAME)"
   if ! xcodebuild build -project Floretta.xcodeproj -scheme "$scheme" \
     -configuration Release -destination "$destination" \
     CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" -quiet; then
@@ -51,6 +50,6 @@ build_and_measure() {
 }
 
 failed=0
-build_and_measure iOS Floretta-iOS 'generic/platform=iOS' 15 || failed=1
-build_and_measure macOS Floretta-macOS 'platform=macOS' 25 || failed=1
+build_and_measure iOS Floretta-iOS 'generic/platform=iOS' 15 Floretta-iOS || failed=1
+build_and_measure macOS Floretta-macOS 'platform=macOS' 25 Floretta || failed=1
 exit "$failed"

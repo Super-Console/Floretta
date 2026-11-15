@@ -71,7 +71,7 @@ final class HomeSmokeTests: XCTestCase {
         let title = app.buttons["document.title"]
         XCTAssertTrue(title.waitForExistence(timeout: 5), "编辑器标题不存在")
 
-        XCTAssertFalse(app.descendants(matching: .any)["canvas.tabs"].exists, "单画布文档不应显示画布切换器")
+        XCTAssertTrue(app.buttons["canvas.menu"].waitForExistence(timeout: 8), "单画布文档也应显示画布胶囊")
         var more = app.descendants(matching: .any)["editor.more"]
         XCTAssertTrue(more.waitForExistence(timeout: 5), "更多菜单入口不存在")
         more.tap()
@@ -130,7 +130,8 @@ final class HomeSmokeTests: XCTestCase {
         XCTAssertTrue(addCanvas.waitForExistence(timeout: 5), "编辑器中没有新建画布入口")
         XCTAssertTrue(addCanvas.isEnabled, "新建画布入口不可用")
         addCanvas.tap()
-        XCTAssertTrue(app.buttons["canvas.tab.1"].waitForExistence(timeout: 5), "新画布没有加入画布标签栏")
+        XCTAssertTrue(app.buttons["canvas.menu"].waitForExistence(timeout: 5), "新建画布后画布胶囊消失")
+        XCTAssertEqual(app.buttons["canvas.menu"].label, "新画布", "新建画布后胶囊没有显示新画布")
 
         more = app.descendants(matching: .any)["editor.more"]
         more.tap()
@@ -153,29 +154,33 @@ final class HomeSmokeTests: XCTestCase {
         XCTAssertTrue(newMap.waitForExistence(timeout: 15), "首页没有「新建导图」")
         newMap.tap()
 
-        XCTAssertFalse(app.descendants(matching: .any)["canvas.tabs"].exists, "单画布文档不应显示画布切换器")
+        // The sheet capsule is always visible, so 新建画布 has a permanent entry point
+        // even on a one-sheet document. Its label is the current sheet name.
+        let capsule = app.buttons["canvas.menu"]
+        XCTAssertTrue(capsule.waitForExistence(timeout: 8), "单画布文档也应显示画布胶囊")
+        XCTAssertEqual(capsule.label, "未命名", "胶囊应显示当前画布名")
+        XCTAssertTrue(app.buttons["canvas.add"].exists, "画布胶囊缺少 ＋ 新建画布")
 
-        let more = app.descendants(matching: .any)["editor.more"]
-        XCTAssertTrue(more.waitForExistence(timeout: 5), "更多菜单入口不存在")
-        more.tap()
-        let addCanvas = app.buttons["canvas.tab.add"]
-        XCTAssertTrue(addCanvas.waitForExistence(timeout: 5), "编辑器中没有新建画布入口")
-        XCTAssertTrue(addCanvas.isEnabled, "新建画布入口不可用")
-        addCanvas.tap()
+        app.buttons["canvas.add"].tap()
+        XCTAssertTrue(app.buttons["canvas.menu"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons["canvas.menu"].label, "新画布", "新建画布后胶囊没有切到新画布")
 
-        let secondCanvas = app.buttons["canvas.tab.1"]
-        XCTAssertTrue(secondCanvas.waitForExistence(timeout: 5), "新增画布没有出现在标签栏")
-        XCTAssertTrue(secondCanvas.isSelected, "新增画布后没有切换到新画布")
+        // Switching lives in the `▾` menu: every sheet is one row there.
+        tapCanvasEntry(app, index: 0)
+        XCTAssertEqual(app.buttons["canvas.menu"].label, "未命名", "切回第一张画布后胶囊名没有变")
+        tapCanvasEntry(app, index: 1)
+        XCTAssertEqual(app.buttons["canvas.menu"].label, "新画布", "切到第二张画布后胶囊名没有变")
+    }
 
-        let firstCanvas = app.buttons["canvas.tab.0"]
-        XCTAssertTrue(firstCanvas.waitForExistence(timeout: 5), "多画布后第一张画布标签没有出现")
-        XCTAssertFalse(firstCanvas.isSelected, "新建后第二张画布应保持选中")
-        firstCanvas.tap()
-        XCTAssertTrue(firstCanvas.isSelected, "点击第一张画布后选择状态没有切换")
-        XCTAssertFalse(secondCanvas.isSelected, "切回第一张后第二张仍被标记为选中")
-        secondCanvas.tap()
-        XCTAssertTrue(secondCanvas.isSelected, "点击第二张画布后选择状态没有切换")
-        XCTAssertFalse(firstCanvas.isSelected, "切到第二张后第一张仍被标记为选中")
+    /// Opens the sheet capsule's `▾` menu and taps one sheet row.
+    @MainActor
+    private func tapCanvasEntry(_ app: XCUIApplication, index: Int) {
+        let capsule = app.buttons["canvas.menu"]
+        XCTAssertTrue(capsule.waitForExistence(timeout: 5), "画布胶囊不存在")
+        capsule.tap()
+        let entry = app.buttons["canvas.tab.\(index)"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 5), "画布菜单没有第 \(index) 张画布")
+        entry.tap()
     }
 
     /// The home chrome is a system tab bar, a toolbar menu, and `.searchable`.

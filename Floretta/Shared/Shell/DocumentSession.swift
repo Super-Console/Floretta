@@ -116,6 +116,18 @@ enum SharePayload {
     }
 }
 
+/// One slot of sheet clipboard behind 拷贝 / 粘贴 on the canvas sheet menu.
+///
+/// Process-wide on purpose: a copied sheet can be pasted into another document the
+/// user opens, which is how the sheet clipboard behaves in XMind. Nothing here is
+/// written to disk, and the value holds no attachment bytes — only the hashes the
+/// sheet refers to, so an asset that is not in the target document stays missing
+/// rather than being duplicated.
+@MainActor
+enum CanvasSheetBoard {
+    static var staged: MindMapCanvas?
+}
+
 enum AttachmentInserter {
     /// Hashes and stores after the user confirms. Does not read the source into one buffer.
     static func insert(
@@ -403,6 +415,9 @@ final class EditorSession {
     @ObservationIgnored var liveViewport: CanvasViewportState?
     /// Bumps when a snapshot replaces the saved camera and the editor should apply it.
     var canvasCameraToken = 0
+    /// Sheet-structure undo records. Content edits keep the keyboard stack; the clock
+    /// inside this value orders the two so ⌘Z undoes the newest step.
+    var canvasHistory = CanvasSheetHistory()
 
     init(
         document: MindMapDocument,
@@ -571,8 +586,14 @@ final class EditorSession {
     func editActive<T>(_ body: (inout MindMapDocument) -> T) -> T {
         let index = document.clampedCanvasIndex
         var surface = document.isolatedCanvas(at: index)
+        let before = surface
         let result = body(&surface)
-        document.replaceCanvasContent(at: index, with: surface)
+        // Only a real edit counts as a step. A no-op (⌘Z with an empty stack, a
+        // rejected insert) must not sink a sheet removal lower in the undo order.
+        if surface != before {
+            canvasHistory.noteContentEdit()
+            document.replaceCanvasContent(at: index, with: surface)
+        }
         return result
     }
 
@@ -606,12 +627,113 @@ final class EditorSession {
         document.renameCanvas(at: index, to: title)
     }
 
+    /// Removes one sheet and keeps it, so ⌘Z or the menu can put it back.
+    /// The last sheet never goes away.
     func removeCanvas(at index: Int, viewport: CanvasViewportState) {
         guard !isMarkdownDocument, document.canvasCount > 1 else { return }
+        guard var removed = document.canvasSnapshot(at: index) else { return }
+        closeEditingForCanvasChange()
+        let active = document.clampedCanvasIndex
+        // The live camera belongs to the sheet on screen. Keep it on the sheet the
+        // user is about to lose, so undo brings the camera back too.
+        if index == active {
+            removed.viewport = CanvasViewportState.clamped(viewport)
+        }
+        var next = document
+        next.setViewport(CanvasViewportState.clamped(viewport), forCanvas: active)
+        guard next.removeCanvas(at: index) else { return }
+        canvasHistory.recordRemoval(index: index, canvas: removed)
+        liveViewport = nil
+        document = next
+        focusSelectionOnActiveCanvas()
+    }
+
+    /// Is a removed sheet the step ⌘Z means right now?
+    var canUndoCanvasRemoval: Bool { canvasHistory.undoableRemoval != nil }
+    /// Is a put-back sheet the step ⌘⇧Z means right now?
+    var canRedoCanvasRemoval: Bool { canvasHistory.redoableRemoval != nil }
+    /// A sheet the menu can still put back, even after later edits.
+    var restorableCanvasRemoval: CanvasSheetRemoval? { canvasHistory.restorableRemoval }
+
+    /// Puts the newest removed sheet back and shows it. False when there is none,
+    /// or when a content edit is the newer step.
+    @discardableResult
+    func undoCanvasRemoval() -> Bool {
+        guard let removal = canvasHistory.popUndo() else { return false }
+        putBack(removal)
+        return true
+    }
+
+    /// The sheet menu's 「撤销删除画布」. Works after later edits, so a removed sheet
+    /// is never lost just because the user typed in another one.
+    @discardableResult
+    func restoreRemovedCanvas() -> Bool {
+        guard let removal = canvasHistory.popRestorable() else { return false }
+        putBack(removal)
+        return true
+    }
+
+    /// Removes the sheet a put-back created, again. ⌘⇧Z after undoing a deletion.
+    @discardableResult
+    func redoCanvasRemoval() -> Bool {
+        guard let removal = canvasHistory.popRedo() else { return false }
         closeEditingForCanvasChange()
         var next = document
+        guard next.removeCanvas(at: removal.index) else { return false }
+        liveViewport = nil
+        document = next
+        focusSelectionOnActiveCanvas()
+        return true
+    }
+
+    /// One slot of sheet clipboard, for 拷贝 / 粘贴. Nil until a sheet is copied.
+    var hasStagedCanvas: Bool { CanvasSheetBoard.staged != nil }
+
+    /// 拷贝: holds this sheet, camera included. Nothing in the document changes.
+    func copyActiveCanvas(viewport: CanvasViewportState) {
+        guard !isMarkdownDocument else { return }
+        guard var snapshot = document.canvasSnapshot(at: document.clampedCanvasIndex) else { return }
+        snapshot.viewport = CanvasViewportState.clamped(viewport)
+        CanvasSheetBoard.staged = snapshot
+    }
+
+    /// 粘贴: inserts the held sheet right after this one with fresh ids and shows it.
+    @discardableResult
+    func pasteCanvas(viewport: CanvasViewportState, title: String) -> Bool {
+        guard !isMarkdownDocument, let staged = CanvasSheetBoard.staged else { return false }
+        insertCopy(of: staged, title: title, viewport: viewport)
+        return true
+    }
+
+    /// 复制: the same sheet twice, the copy right after the original.
+    @discardableResult
+    func duplicateCanvas(viewport: CanvasViewportState, title: String) -> Bool {
+        guard !isMarkdownDocument else { return false }
+        guard var source = document.canvasSnapshot(at: document.clampedCanvasIndex) else { return false }
+        source.viewport = CanvasViewportState.clamped(viewport)
+        insertCopy(of: source, title: title, viewport: viewport)
+        return true
+    }
+
+    private func insertCopy(of canvas: MindMapCanvas, title: String, viewport: CanvasViewportState) {
+        closeEditingForCanvasChange()
+        // An inserted sheet shifts every index after it, so a recorded removal would
+        // no longer name the sheet it came from.
+        canvasHistory.clear()
+        var next = document
         next.setViewport(CanvasViewportState.clamped(viewport), forCanvas: next.clampedCanvasIndex)
-        guard next.removeCanvas(at: index) else { return }
+        var copy = canvas.copyWithFreshIDs()
+        copy.title = title
+        next.insertCanvas(copy, at: next.clampedCanvasIndex + 1)
+        liveViewport = nil
+        document = next
+        focusSelectionOnActiveCanvas()
+    }
+
+    private func putBack(_ removal: CanvasSheetRemoval) {
+        closeEditingForCanvasChange()
+        var next = document
+        next.insertCanvas(removal.canvas, at: removal.index)
         liveViewport = nil
         document = next
         focusSelectionOnActiveCanvas()
@@ -634,6 +756,9 @@ final class EditorSession {
     func undo() {
         finishEditingIfNeeded()
         guard keyboard.mode == .command, !keyboard.isComposing else { return }
+        // A sheet removal is a whole-document step. It is newer than any content
+        // edit right after the delete, so ⌘Z puts the sheet back first.
+        if undoCanvasRemoval() { return }
         let event = KeyEvent(key: .character("z"), modifiers: .command, mode: .command, isComposing: false)
         editActive { document in
             _ = keyboard.handle(event, document: &document, frames: [])
@@ -643,6 +768,7 @@ final class EditorSession {
     func redo() {
         finishEditingIfNeeded()
         guard keyboard.mode == .command, !keyboard.isComposing else { return }
+        if redoCanvasRemoval() { return }
         let event = KeyEvent(key: .character("Z"), modifiers: [.command, .shift], mode: .command, isComposing: false)
         editActive { document in
             _ = keyboard.handle(event, document: &document, frames: [])

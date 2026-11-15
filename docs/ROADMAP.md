@@ -14,7 +14,7 @@
 
 ### TD-001 画布节点文字在预览态不居中（贴在框左上）
 
-- 状态：🚧 进行中(fix/glass-title-restore 分支)。
+- 状态：✅ 已交付（1.0 (21) TestFlight；提交 `8f2b15e`；观感验收由 Timmy 在 TestFlight 上进行）
 - 实测证据（2026-11-15 21:06 CST，本机 `fix/glass-title-restore`）：
   - 实现：`FlorettaCore/Layout/EditorLayoutConvergence.swift` 新增 `centeredRows(in:rowHeights:)`（纯几何，块居中、行等距堆叠）；`Floretta/Shared/Canvas/MapExport.swift` 新增 `CenteredNodeTextLayout`（`ThemeFontCascade.platformFont` + `NodeTextTypography.paragraphStyle(lineHeight:)` 组属性，`CTFramesetter` 在容器宽度断行，`CTFrameGetLineOrigins` 排出上→下顺序，逐行 `draw(Text, at: 行中心, anchor: .center)`）。
   - 画布：`InfiniteCanvas.swift` 的 `draw(_ node:...)` 标题与副标题都改为逐行居中，`excludingChildBadge` / 徽章 `badgeTop` / `tagBandHeight` / 缩略图让位 / `clip(to:)` 全部保留；副标题仍用原有的 0.72 墨色，不吃标题的主题字体与粗斜体。
@@ -55,7 +55,7 @@
 
 ### TD-002 画布标签栏（多画布切换 UI）
 
-- 状态：🚧 进行中(fix/td002)。
+- 状态：✅ 已交付（1.0 (21) TestFlight；提交 `e44bb5b`）
 - 参照：XMind 画布左下角一条胶囊：「结构版 | 画布 2 ▾ | ＋」，`▾` 弹出 重命名 / 拷贝 / 粘贴 / 复制 / 删除 / 新画布 / 画布另存为…（用户 2026-11-15 20:54 截图）。
 - 现状证据（2026-11-15 复核，修正下面「没有任何切换栏 UI」一句）：多画布**模型层**在 `FlorettaCore/Model/CanvasSheets.swift`（`canvasCount` / `addCanvas` / `removeCanvas` / `renameCanvas` / `viewport(forCanvas:)`），会话层在 `Floretta/Shared/Shell/DocumentSession.swift` 的 `editingDocument` / `activateCanvas` / `addCanvas` / `removeCanvas`；`EditorToolbarCommandID.newCanvas` 在 `FlorettaCore/Editor/EditorToolbarCatalog.swift`。UI 层**当时确实已有一条横向标签栏**（`DocumentEditor.swift` 旧 `canvasTabBar` + `canvasTab(_:)`，AX 标识 `canvas.tabs` / `canvas.tab.N`，单画布时隐藏，改名靠双击、删除靠右键菜单）——原文「无命中」是因为只 grep 了 `sheetBar|canvasTabs` 两个词，漏掉了 `canvasTabBar`；本次把它整体替换成 XMind 式胶囊。
 - 差距（开工时）：缺 `▾` 菜单、删除不可撤销、没有拷贝 / 粘贴 / 复制画布 / 画布另存为。
@@ -72,7 +72,7 @@
 
 ### TD-003 右下角状态胶囊与主题统计 popover
 
-- 状态：🚧 进行中(fix/td003)。
+- 状态：✅ 已交付（1.0 (21) TestFlight；提交 `5707796`）
 - 本轮证据（2026-11-15，`fix/td003`）：提交 `5707796`。`Floretta/Shared/Shell/EditorStatusBar.swift` 的 `EditorStatusStrip` 现在是右下角单块玻璃胶囊（`AppleGlassChrome` 的 `bottomBarCapsule` 角色，无自绘渐变/blur/shadow），从左到右为 主题数 ｜ 实时缩放百分比 ｜ 查看模式 ｜ 大纲 ｜ 全屏。悬停（macOS `.onHover`）与点按（iPad / iPhone 走同一个 `.popover`）弹出 主题 / 字数 / 字符数。统计已从 `•••` 移出：SwiftUI 菜单与 iOS `makeOverflowUIMenu` 两处都删掉了 census 行，三数仍只来自 `TopicTitleCensus`（`statusCensus` 一处读取）。缩放同时从 macOS / iOS 顶栏移除，胶囊成为唯一缩放入口（`EditorToolbarCatalog` 的 `.zoom` 改为 `menuOnly`）。单测：`EditorStatusBarTests` 5/0、`AppleGlassChromeContractTests` 12/0、`EditorChromeContractTests` 7/0；`swift test` 全量 396 通过 / 1 skipped / 0 failures。
 - 未收口：悬停→popover 的真机手感、浅色/深色可读性、窄窗口不遮挡画布，均未做视觉验收（本会话不启动 App）。`FlorettaUITests/ThemeModesScreenshotUITests.fitToWindow` 已改为点 `statusBar.zoom`，但本会话未跑 iOS UI 自动化。
 - 跨端差异已显式实现：`onHover` 仅在 macOS 生效，iPad / iPhone 用点按打开同一个 popover。XMind 的「卡片视图」在本仓没有对应功能，该槽位驱动既有「查看模式」（地图 / 聚焦），不是死按钮。
@@ -85,7 +85,7 @@
 
 ### TD-004 右侧样式检查器（XMind 式）
 
-- 状态：🚧 进行中(fix/td004)。
+- 状态：✅ 已交付（1.0 (21) TestFlight；提交 `aa89576`）
 - 参照：XMind 右侧浮层，tab「样式 / 演说 / 画布」，区块为 形状 / 填充 / 边框 / 宽度（PX·适应）/ 文本（字体、字号、加粗斜体下划线、对齐）/ 结构 / 分支（线条、终点）/ 配色方案 / 背景色 / 全局字体 / 分支线粗细（用户 2026-11-15 20:55–20:57 截图）。**明确不做：演说 tab、彩虹分支。**
 - 现状证据（开工前）：`InspectorTab` 已存在（`Floretta/Shared/Shell/DocumentEditor.swift:51` 声明、`:1649` 渲染，AX 标识 `inspector.tabs`）；外观三模式与字体在 `Floretta/Shared/Shell/AppearanceSettingsPanel.swift`。
 - 已落地（分支 `fix/td004`，基于 `09f1398`，本地提交未推送）：
@@ -107,7 +107,7 @@
 
 ### TD-005 结构布局引擎（9 种图，第一版只做 2 种）
 
-- 状态：🚧 进行中(fix/td005；已完成逻辑图与组织结构图)。
+- 状态：🚧 进行中（1.0 (21) 已交付逻辑图与组织结构图；其余 7 种未做，入口 UI 随 TD-004 预留在模型层）
 - 参照：XMind「结构」下拉九项——思维导图 / 逻辑图 / 括号图 / 组织结构图 / 树形图 / 时间轴 / 鱼骨图 / 树型表格 / 矩阵图（用户 2026-11-15 20:56 截图）。
 - 现状证据（2026-11-15，分支 `fix/td005`）：`LayoutKind` 已从单 case 扩成 `.bilateral` / `.logicChart` / `.orgChart`（`FlorettaCore/Layout/LayoutEngine.swift`），每个 case 背后是 `StructureLayout` 的一个实现（`BilateralLayout.swift` / `LogicChartLayout.swift` / `OrgChartLayout.swift`）；量尺寸、配色与连线统一收在 `LayoutGeometry.swift`，布局不许另写测量公式；`MindMapDocument.layoutKind` 存结构（`.bilateral` 不写进 JSON，旧文件照旧打开为思维导图），`LayoutEngine.forDocument(_:)` 让画布与导出取同一结构。
 - 差距（本项是全批里唯一的工程级投入）：其余 8 种各需一套布局算法 + 连线规则 + 折行 + 导出渲染一致性，`Floretta/Shared/Canvas/InfiniteCanvas.swift` 与 `Floretta/Shared/Canvas/MapExport.swift` 都要跟着支持；同时影响 XMind 导入时 layout 字段的映射。
@@ -126,7 +126,7 @@
 
 ### TD-006 顶栏铺开与窄窗口收敛
 
-- 状态：🚧 进行中(fix/td003)。
+- 状态：✅ 已交付（1.0 (21) TestFlight；提交 `ce69362`）
 - 本轮证据（2026-11-15，`fix/td003`）：提交 `ce69362`。macOS 顶栏改为三组 —— `macToolbarItemsPrimary`（撤销 / 重做 / 删除）｜ `macToolbarItemsInsert`（＋ 插入 一个下拉，子节点 / 同级 / 语音输入 / 自由节点 / 便签 / 专区 / 图片 / 附件 / 从文件导入 是菜单行）｜ `macToolbarItemsRelations`（关系线 / 概要 / 边界 / 标签），随后是 `•••` 与检查器胶囊。导入导出、全屏、历史、主题、查找、粘贴、大纲、样式、适应窗口默认不在顶栏（`addable`，仍可从工具栏自定义面板加回）。`•••` 新增 `overflowMenuCommands`：`EditorToolbarCatalog.menu(.more)` 减去 `EditorToolbarLayout` 当前显示在顶栏的命令，因此同一命令不会有两处入口；窄窗口交给系统 toolbar 溢出，没有另写「变窄就换 •••」的判定。目录侧同时把 概要 / 边界 / 关系线的菜单归属从 `insert` 移到 `more`（作为窄栏回退），`.more` 声明移到数组末尾，使 `defaultToolbarItems` 以 `•••` 结尾。单测：`EditorToolbarCatalogTests` 7/0、`EditorChromeContractTests` 7/0（含新增 `testMacTopBarGroupsHighFrequencyCommandsAndOverflowComesLast`）；`swift test` 全量 396 通过 / 1 skipped / 0 failures；macOS 未签名 build `** BUILD SUCCEEDED **`。
 - 未收口：窗口收窄到最小宽度时是否裁切、`•••` 是否仍可达，需要真机截图验收（本会话不启动 App）。XMind 顶栏的「备注」在本仓没有对应命令，未做。`•••` 帮助文案仍写「文档统计」，统计实际在胶囊里；改文案要新增本地化 key，本轮未动。
 - 参照：XMind 顶栏一排图标（撤销 / 关系线 / 边界 / 概要 / 标签 / 备注 / ＋插入），窗口变窄时由系统溢出（用户 2026-11-15 20:58 截图）。
@@ -137,7 +137,7 @@
 
 ### TD-007 检查器开关的玻璃胶囊样式
 
-- 状态：🚧 进行中(fix/td003)。
+- 状态：✅ 已交付（1.0 (21) TestFlight；提交 `3bc52dd`）
 - 本轮证据（2026-11-15，`fix/td003`）：提交 `3bc52dd`。`DocumentEditor.macInspectorToggle` 是独立 `ToolbarItem(id: "inspector.toggle", placement: .primaryAction)`，画在 `macToolbarItemsView` 末尾（右上角）。玻璃来自既有 `AppleGlassChrome` 的 `toolbarFloatingButton` 角色（`Capsule()` + 系统 glass / 材质回退），未手写渐变、blur 或阴影；标签区 `frame(width: 34, height: 28)` 满足 ≥ 28×28，图标 `sidebar.trailing`，字号与顶栏其它按钮一致（13pt medium）。标题与帮助文本复用 `样式` 目录项，未新增文案。单测：`EditorChromeContractTests.testMacInspectorToggleIsOneGlassCapsule` 通过（该批 7/0）。
 - 未收口：浅色 / 深色下的可读性与点按区域只在代码层保证，未做真机截图与 AX 实测（本会话不启动 App）。
 - 参照：XMind 右上角「笑脸 + 侧栏开关」的玻璃胶囊（用户 2026-11-15 20:56 截图）。

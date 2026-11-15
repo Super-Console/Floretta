@@ -18,6 +18,19 @@ struct InfiniteCanvas: View {
     @State private var regionDrag: RegionDrag?
     @State private var ignoreDrag = false
     @State private var panAnchor: CGPoint?
+    /// The marquee in flight. Non-nil while the user drags on blank paper in
+    /// pointer mode; the selection updates live and Escape puts it back.
+    @State private var marquee: CanvasMarqueeState?
+    /// Space borrows the hand. The tap / hold decision is made on key up.
+    @State private var spaceGesture = CanvasSpaceGesture()
+    @State private var spaceHeld = false
+    #if os(macOS)
+    /// True while the pointer is over the canvas, so a pushed cursor is only
+    /// ever on the stack where it belongs.
+    @State private var hoveringCanvas = false
+    /// The one cursor of ours on the stack. Nil when we have pushed nothing.
+    @State private var pushedCursor: CanvasCursorKind?
+    #endif
     @State private var pinchStartScale: CGFloat?
     @State private var interaction = CanvasInteraction.standard
     @Binding var keyboard: MindMapKeyboardSession
@@ -26,6 +39,10 @@ struct InfiniteCanvas: View {
     var fontMetrics: any FontMetricsPort = CoreTextFontMetrics()
     var focusNodeID: UUID? = nil
     var zenActive: Bool = false
+    /// Pointer (marquee on blank paper) or hand (pan on blank paper). The Mac
+    /// opens as a pointer; iPhone and iPad always run as the hand, so their
+    /// drags are the ones they already had.
+    var pointerMode: CanvasPointerMode = CanvasPointerMode.platformDefault
     var onEscape: () -> Bool = { false }
     var onConsumeBlankDoubleTap: () -> Bool = { false }
     var thumbnails: AttachmentThumbnailMemory? = nil
@@ -95,6 +112,7 @@ struct InfiniteCanvas: View {
         .overlay { editField }
         .overlay { nodeChromeProbe }
         .overlay { if !zenActive { stickyChrome } }
+        .overlay { marqueeRect }
         .overlay(alignment: .topLeading) { heldCanvasScaleLabel }
     }
 
@@ -112,6 +130,10 @@ struct InfiniteCanvas: View {
     private func canvasHoverSurface<V: View>(_ view: V) -> some View {
         view
         .canvasHover { location in
+            #if os(macOS)
+            hoveringCanvas = location != nil
+            syncPointerCursor()
+            #endif
             guard let location else {
                 interaction.hoveredNodeID = nil
                 return
@@ -176,10 +198,29 @@ struct InfiniteCanvas: View {
                 .accessibilityHidden(true)
                 #endif
             }
-            .onKeyPress { press in
+            .onKeyPress(phases: [.down, .repeat, .up]) { press in
+                // Escape with a marquee in flight puts back the selection the
+                // drag started from, and must not also leave zen mode.
+                if press.key == .escape, press.modifiers.isEmpty, marquee != nil {
+                    cancelMarquee()
+                    return .handled
+                }
                 if press.key == .escape, !keyboard.isComposing, onEscape() {
                     return .handled
                 }
+                #if os(macOS)
+                // Space is two gestures at once: a hold borrows the hand, a tap
+                // is still 编辑主题. The key down answers at once; the key up
+                // decides. Auto-repeat is the same press, never a second tap.
+                if press.key == .space, keyboard.mode == .command, !keyboard.isComposing {
+                    if press.phase == .up {
+                        return endSpaceHold() ? .handled : .ignored
+                    }
+                    guard press.modifiers.isEmpty else { return .ignored }
+                    return beginSpaceHold() ? .handled : .ignored
+                }
+                #endif
+                guard press.phase == .down else { return .ignored }
                 guard keyboard.mode == .command else { return .ignored }
                 guard let event = KeyEvent(press: press, mode: .command, isComposing: keyboard.isComposing) else {
                     return .ignored
@@ -261,10 +302,31 @@ struct InfiniteCanvas: View {
                     canvasFocused = true
                 } else {
                     canvasFocused = false
+                    // A Space hold belongs to the command mode. Entering the
+                    // editor drops it so the key goes back to typing spaces.
+                    spaceGesture.reset()
+                    spaceHeld = false
+                    #if os(macOS)
+                    syncPointerCursor()
+                    #endif
                 }
+            }
+            .onChange(of: pointerMode) { _, _ in
+                #if os(macOS)
+                syncPointerCursor()
+                #endif
             }
             .onChange(of: keyboard.selectedNodeID) { _, id in
                 interaction.selectedNodeID = id
+            }
+            .onDisappear {
+                #if os(macOS)
+                hoveringCanvas = false
+                syncPointerCursor()
+                #endif
+                spaceGesture.reset()
+                spaceHeld = false
+                marquee = nil
             }
             .simultaneousGesture(canvasTapGesture)
             .simultaneousGesture(canvasDoubleTapGesture)
@@ -1269,36 +1331,9 @@ struct InfiniteCanvas: View {
     private var dragGesture: some Gesture {
         DragGesture(minimumDistance: 2)
             .onChanged { value in
-                if drag == nil && panAnchor == nil && stickyDrag == nil && regionDrag == nil && !ignoreDrag {
-                    let start = camera.viewport.canvasPoint(fromView: value.startLocation)
-                    if keyboard.mode == .edit, let frame = editFieldFrame(), frame.contains(value.startLocation) {
-                        ignoreDrag = true
-                        return
-                    }
-                    let onEditedSticky = keyboard.mode == .edit
-                        && stickyHit(at: start) != nil
-                        && stickyHit(at: start) == keyboard.selectedStickyID
-                    let onEditedRegion = keyboard.mode == .edit
-                        && regionHit(at: start) != nil
-                        && regionHit(at: start) == keyboard.selectedRegionID
-                    if stickyChromeContains(value.startLocation) || regionToolbarContains(value.startLocation) || onEditedSticky || onEditedRegion {
-                        ignoreDrag = true
-                    } else if persistsPlacement, keyboard.mode != .edit, let claim = beginStickyDrag(at: start) {
-                        stickyDrag = claim
-                    } else if persistsPlacement, keyboard.mode != .edit, let claim = beginRegionDrag(at: start) {
-                        regionDrag = claim
-                    } else if persistsPlacement,
-                              let id = CanvasPlacement.draggableID(at: start, in: layoutSource()),
-                              document.parentID(of: id) == nil,
-                              let frame = placedFrames().first(where: { $0.id == id })?.frame {
-                        drag = RootDrag(
-                            id: id,
-                            grabX: start.x - frame.minX,
-                            grabY: start.y - frame.minY
-                        )
-                    } else {
-                        panAnchor = camera.viewport.offset
-                    }
+                if drag == nil && panAnchor == nil && stickyDrag == nil && regionDrag == nil
+                    && marquee == nil && !ignoreDrag {
+                    beginDrag(at: value.startLocation)
                 }
                 if let stickyDrag {
                     let point = camera.viewport.canvasPoint(fromView: value.location)
@@ -1310,6 +1345,8 @@ struct InfiniteCanvas: View {
                     let point = camera.viewport.canvasPoint(fromView: value.location)
                     let origin = CGPoint(x: point.x - drag.grabX, y: point.y - drag.grabY)
                     camera.liveNodeOrigin = (drag.id, origin)
+                } else if marquee != nil {
+                    updateMarquee(to: camera.viewport.canvasPoint(fromView: value.location))
                 } else if let panAnchor {
                     camera.viewport.offset = CGPoint(
                         x: panAnchor.x + value.translation.width,
@@ -1333,8 +1370,247 @@ struct InfiniteCanvas: View {
                 regionDrag = nil
                 panAnchor = nil
                 ignoreDrag = false
+                // The marquee ends where it let go; the selection it produced
+                // stays. Escape is the only way to put the old set back.
+                marquee = nil
+                #if os(macOS)
+                syncPointerCursor()
+                #endif
             }
     }
+
+    /// One press, one intent.
+    ///
+    /// Order matters and is the same one the canvas always had: chrome that runs
+    /// its own interaction, then a sticky, then a region, then a topic. Only
+    /// blank paper is left for the pointer mode to decide, and `CanvasPointerRouter`
+    /// makes that call so the rule is testable without a window.
+    private func beginDrag(at startLocation: CGPoint) {
+        let start = camera.viewport.canvasPoint(fromView: startLocation)
+        if keyboard.mode == .edit, let frame = editFieldFrame(), frame.contains(startLocation) {
+            ignoreDrag = true
+            return
+        }
+        let onEditedSticky = keyboard.mode == .edit
+            && stickyHit(at: start) != nil
+            && stickyHit(at: start) == keyboard.selectedStickyID
+        let onEditedRegion = keyboard.mode == .edit
+            && regionHit(at: start) != nil
+            && regionHit(at: start) == keyboard.selectedRegionID
+        let onChrome = stickyChromeContains(startLocation)
+            || regionToolbarContains(startLocation)
+            || onEditedSticky
+            || onEditedRegion
+        if !onChrome, persistsPlacement, keyboard.mode != .edit, let claim = beginStickyDrag(at: start) {
+            stickyDrag = claim
+            spaceGesture.noteDrag()
+            return
+        }
+        if !onChrome, persistsPlacement, keyboard.mode != .edit, let claim = beginRegionDrag(at: start) {
+            regionDrag = claim
+            spaceGesture.noteDrag()
+            return
+        }
+        let draggable = onChrome ? nil : draggableTopic(at: start)
+        let target: CanvasPressTarget = onChrome ? .chrome : (draggable == nil ? .blank : .draggableNode)
+        let intent = CanvasPointerRouter.intent(
+            target: target,
+            mode: pointerRoutingMode,
+            spaceHeld: spaceHeld,
+            isEditing: keyboard.mode == .edit,
+            allowsPlacement: persistsPlacement
+        )
+        // Any drag spends a Space hold: releasing the key afterwards must never
+        // fall through to 编辑主题.
+        if intent != .ignore {
+            spaceGesture.noteDrag()
+        }
+        switch intent {
+        case .ignore:
+            ignoreDrag = true
+        case .dragNode:
+            guard let draggable,
+                  let frame = placedFrames().first(where: { $0.id == draggable })?.frame else {
+                panAnchor = camera.viewport.offset
+                return
+            }
+            drag = RootDrag(
+                id: draggable,
+                grabX: start.x - frame.minX,
+                grabY: start.y - frame.minY
+            )
+        case .pan:
+            panAnchor = camera.viewport.offset
+        case .marquee:
+            marquee = CanvasMarqueeState(
+                start: start,
+                baseSelection: keyboard.selectedNodeIDs,
+                additive: shiftIsDown
+            )
+        }
+        #if os(macOS)
+        syncPointerCursor()
+        #endif
+    }
+
+    /// A hierarchy root or a free topic under the press. Tree children are not
+    /// draggable, so they read as blank paper and a marquee may sweep them.
+    private func draggableTopic(at canvasPoint: CGPoint) -> UUID? {
+        guard let id = CanvasPlacement.draggableID(at: canvasPoint, in: layoutSource()) else { return nil }
+        return document.parentID(of: id) == nil ? id : nil
+    }
+
+    /// The marquee as it grows and shrinks. Shift can go down or up mid-drag, so
+    /// the merge flag follows the keyboard instead of the press.
+    private func updateMarquee(to point: CGPoint) {
+        guard var state = marquee else { return }
+        state.extend(to: point)
+        state.additive = shiftIsDown
+        marquee = state
+        applyNodeSelection(state.selection(in: placedFrames()))
+        #if os(macOS)
+        syncPointerCursor()
+        #endif
+    }
+
+    /// Writes a set the marquee produced.
+    ///
+    /// The set goes in first and the primary topic is chosen from inside it:
+    /// assigning `selectedNodeID` a topic that is not in `selectedNodeIDs` would
+    /// replace the set, which is exactly what a marquee must not do.
+    private func applyNodeSelection(_ ids: Set<UUID>) {
+        guard ids != keyboard.selectedNodeIDs else { return }
+        let primary = keyboard.selectedNodeID.flatMap { ids.contains($0) ? $0 : nil } ?? ids.first
+        keyboard.selectedNodeIDs = ids
+        keyboard.selectedNodeID = primary
+        interaction.selectedNodeID = primary
+    }
+
+    /// Escape: drop the rectangle and put back the selection the drag started
+    /// from. `ignoreDrag` keeps the rest of the same drag from starting another.
+    private func cancelMarquee() {
+        guard let cancelled = marquee else { return }
+        marquee = nil
+        ignoreDrag = true
+        applyNodeSelection(cancelled.cancelledSelection)
+        #if os(macOS)
+        syncPointerCursor()
+        #endif
+    }
+
+    /// Space down: borrow the hand now. No threshold wait, so the cursor and the
+    /// drag change on the key press instead of a quarter second later.
+    private func beginSpaceHold() -> Bool {
+        switch spaceGesture.keyDown(at: Date().timeIntervalSinceReferenceDate) {
+        case .begin:
+            spaceHeld = true
+            #if os(macOS)
+            syncPointerCursor()
+            #endif
+            return true
+        case .repeatIgnored:
+            // Auto-repeat of the press already held: not a new tap, and the
+            // clock keeps running from the first key down.
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Space up: a quick tap that never dragged is still 编辑主题. A hold, or a
+    /// press spent panning, does nothing.
+    private func endSpaceHold() -> Bool {
+        let wasHeld = spaceHeld
+        spaceHeld = false
+        #if os(macOS)
+        syncPointerCursor()
+        #endif
+        switch spaceGesture.keyUp(at: Date().timeIntervalSinceReferenceDate) {
+        case .end(.edit):
+            guard wasHeld, keyboard.mode == .command, canvasFocused else { return true }
+            _ = handleKey(
+                KeyEvent(key: .space, modifiers: [], mode: .command, isComposing: keyboard.isComposing)
+            )
+            return true
+        case .end(.none), .begin, .repeatIgnored:
+            return true
+        case .strayUp:
+            return false
+        }
+    }
+
+    /// The marquee's own sketch: a 1 pt accent outline over an 8% wash. It takes
+    /// no hit, so the drag that draws it keeps running underneath.
+    @ViewBuilder
+    private var marqueeRect: some View {
+        if let marquee {
+            let rect = camera.viewport.viewRect(fromCanvas: marquee.rect)
+            Rectangle()
+                .fill(Color.accentColor.opacity(0.08))
+                .overlay {
+                    Rectangle().strokeBorder(Color.accentColor, lineWidth: 1)
+                }
+                .frame(width: rect.width, height: rect.height)
+                .position(x: rect.midX, y: rect.midY)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+                .accessibilityIdentifier("canvas.marquee")
+        }
+    }
+
+
+    // MARK: pointer mode
+
+    /// The mode the preference asks for. iPhone and iPad run as the hand
+    /// regardless, so their drags stay exactly the ones they shipped with.
+    private var pointerRoutingMode: CanvasPointerMode {
+        #if os(macOS)
+        return pointerMode
+        #else
+        return .pan
+        #endif
+    }
+
+    /// The mode in force right now, Space included. The only reader of the
+    /// borrowed hand is the cursor; the router takes the two parts separately.
+    private var effectivePointerMode: CanvasPointerMode {
+        pointerRoutingMode.effective(spaceHeld: spaceHeld)
+    }
+
+    /// Shift at this instant. `DragGesture.Value` carries no modifier flags, so
+    /// the window's flags are the truth; the marquee re-reads them on every
+    /// update, which is what makes Shift work when it goes down mid-drag.
+    private var shiftIsDown: Bool {
+        #if os(macOS)
+        return NSEvent.modifierFlags.contains(.shift)
+        #else
+        return false
+        #endif
+    }
+
+    #if os(macOS)
+    /// The cursor this moment wants, or nil for the system arrow.
+    private var wantedPointerCursor: CanvasCursorKind? {
+        guard effectivePointerMode == .pan else { return nil }
+        if panAnchor != nil { return .closedHand }
+        return hoveringCanvas ? .openHand : nil
+    }
+
+    /// At most one cursor of ours sits on the stack: a change pops before it
+    /// pushes, clearing pops and forgets, and leaving the canvas pops too. That
+    /// is what keeps the stack from growing as the pointer crosses the canvas.
+    private func syncPointerCursor() {
+        let wanted = wantedPointerCursor
+        guard wanted != pushedCursor else { return }
+        if pushedCursor != nil {
+            NSCursor.pop()
+            pushedCursor = nil
+        }
+        guard let wanted else { return }
+        wanted.nsCursor.push()
+        pushedCursor = wanted
+    }
+    #endif
 
     private func pinchGesture(in size: CGSize) -> some Gesture {
         MagnifyGesture()
@@ -2935,3 +3211,19 @@ private struct HeldCanvasScaleTick: View {
             }
     }
 }
+
+#if os(macOS)
+/// The cursors the two pointer modes use on the Mac canvas. Only these two ever
+/// go on the stack, and `syncPointerCursor` keeps at most one of them there.
+private enum CanvasCursorKind: Equatable {
+    case openHand
+    case closedHand
+
+    var nsCursor: NSCursor {
+        switch self {
+        case .openHand: return .openHand
+        case .closedHand: return .closedHand
+        }
+    }
+}
+#endif

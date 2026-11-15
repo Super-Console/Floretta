@@ -164,6 +164,15 @@ TD-003 → TD-002 → TD-007 → TD-006 → TD-004 → TD-005。前四条都是�
 - Pro 的 Xcode 未登录 Apple ID：签名、导出、上传全程走命令行 + ASC API Key，不使用图形界面登录，也不索取账号密码或验证码。若 provisioning 卡住则停下来等 Timmy。
 - Web 端（TD-008）不在本次 TestFlight 包内。
 
+### 交付记录：1.0 (21) → TestFlight（2026-11-15）
+
+- 分支：`release/1.0.21`，自 `5f0e82b` 起，合并 `fix/td003`（`0805e69`）、`fix/td005`（`cc59fae`）、`fix/td002`（`aa386e7`）、`fix/td004`（`3a76b20`），构建号 bump 在 `265da7a`。
+- 合并冲突仅一处：`FlorettaCore/Layout/LayoutEngine.swift`。td005 把该文件拆成「引擎 + LayoutGeometry + 每种布局一个实现」，td004 仍在旧位置改宽度规则（「适应」忽略存储 px）。处理方式为保留新架构，把该规则迁入 `FlorettaCore/Layout/LayoutGeometry.swift` 的尺寸计算处，不用 `--ours` 整体丢弃。
+- 闸门（合并后于集成分支实测）：`swift test` 429/1 skipped/0 failures；`FlorettaTests` 484/1 skipped/0 failures `** TEST SUCCEEDED **`；macOS Debug 与 iOS Debug 编译 exit 0；Release 配置 iOS/macOS 无签名编译 exit 0。
+- 归档与上传：iOS `** ARCHIVE SUCCEEDED **` → `Upload succeeded`；macOS 同。App Store Connect 回读（API `v1/builds?filter[preReleaseVersion.platform]`）：iOS build 21 `VALID`（2026-11-15T05:58:31-08:00）、macOS build 21 `VALID`（2026-11-15T06:02:41-08:00），均挂在 App `6832552931` 的 1.0 版本下。
+- 签名方式与环境事实：Pro 的 Xcode 未登录 Apple ID；`xcodebuild archive -allowProvisioningUpdates -authenticationKeyPath/KID/Issuer` 可自动取描述文件，但 **codesign 必须在 GUI 登录会话里执行**。SSH 会话直签、`launchctl asuser`、`osascript do shell script` 三种方式均报 `errSecInternalComponent`，因为都跑在 SSH 的安全会话里；最终通过在用户已打开的「终端」窗口执行 `nohup bash <script> &` 完成。钥匙串须由 Timmy 本人 `security unlock-keychain` 解锁，助手不接触密码。
+- 未完成（不得写成已交付）：① 真机/桌面视觉验收未做——上传时 Mac 处于锁屏状态，无法截图；② Web 端 TD-008 未开始；③ TD-005 只实现逻辑图与组织结构图，其余 7 种未做；④ 「备注」命令在仓库内不存在，「卡片视图」当前接的是查看模式。
+
 ## 功能矩阵
 
 | 功能 | macOS | iPad | iPhone | Web | 证据 |

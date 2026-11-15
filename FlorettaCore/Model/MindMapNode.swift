@@ -18,6 +18,9 @@ public struct MindMapNodeStyle: Equatable, Sendable {
     public var underline: Bool? = nil
     public var fillStyle: String? = nil
     public var borderStyle: String? = nil
+    /// Width follows the measured text (XMind「适应」) instead of `topicWidth`.
+    /// Nil means the stored px width wins, which is what every older file expects.
+    public var autoWidth: Bool? = nil
 
     public init(
         colorHex: String,
@@ -34,7 +37,8 @@ public struct MindMapNodeStyle: Equatable, Sendable {
         strikethrough: Bool? = nil,
         underline: Bool? = nil,
         fillStyle: String? = nil,
-        borderStyle: String? = nil
+        borderStyle: String? = nil,
+        autoWidth: Bool? = nil
     ) {
         self.colorHex = colorHex
         self.fillHex = fillHex
@@ -51,6 +55,7 @@ public struct MindMapNodeStyle: Equatable, Sendable {
         self.underline = underline
         self.fillStyle = fillStyle
         self.borderStyle = borderStyle
+        self.autoWidth = autoWidth
     }
 }
 
@@ -58,6 +63,7 @@ extension MindMapNodeStyle: Codable {
     private enum CodingKeys: String, CodingKey {
         case colorHex, fillHex, borderHex, textHex, fontSize, borderWidth, topicWidth
         case cornerRadius, fontDesign, bold, italic, strikethrough, underline, fillStyle, borderStyle
+        case autoWidth
     }
 
     public init(from decoder: Decoder) throws {
@@ -77,6 +83,7 @@ extension MindMapNodeStyle: Codable {
         underline = try container.decodeIfPresent(Bool.self, forKey: .underline)
         fillStyle = try container.decodeIfPresent(String.self, forKey: .fillStyle)
         borderStyle = try container.decodeIfPresent(String.self, forKey: .borderStyle)
+        autoWidth = try container.decodeIfPresent(Bool.self, forKey: .autoWidth)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -96,6 +103,7 @@ extension MindMapNodeStyle: Codable {
         try container.encodeIfPresent(underline, forKey: .underline)
         try container.encodeIfPresent(fillStyle, forKey: .fillStyle)
         try container.encodeIfPresent(borderStyle, forKey: .borderStyle)
+        try container.encodeIfPresent(autoWidth, forKey: .autoWidth)
     }
 }
 

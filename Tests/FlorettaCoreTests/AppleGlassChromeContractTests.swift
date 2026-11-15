@@ -174,11 +174,11 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertTrue(editor.contains(".appleGlassChrome(.segmentedContainer)"))
         XCTAssertTrue(editor.contains(".pickerStyle(.segmented)"))
         XCTAssertTrue(editor.contains("text(tab.titleKey)"))
-        XCTAssertTrue(editor.contains("text(\"演说\")"))
         XCTAssertTrue(editor.contains("accessibilityIdentifier(\"inspector.tabs\")"))
+        XCTAssertFalse(editor.contains("text(\"演说\")"), "no 演说 tab ships")
         let tabs = try repoFile("FlorettaCore/Shell/InspectorStyle.swift")
         XCTAssertTrue(tabs.contains("case .style: \"样式\""))
-        XCTAssertTrue(tabs.contains("case .presentation: \"演说\""))
+        XCTAssertFalse(tabs.contains("case .presentation: \"演说\""), "no 演说 tab ships")
         XCTAssertTrue(tabs.contains("case .map: \"导图\""))
 
         let empty = try slice(editor, from: "text(\"选择一个主题\")", until: "accessibilityIdentifier(\"inspector.empty\")")

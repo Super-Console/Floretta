@@ -7,7 +7,7 @@ import XCTest
 final class InspectorStyleTests: XCTestCase {
     func testAppearanceModeSectionDoesNotRepeatItsHeadingAsPickerLabel() throws {
         let panel = try repoFile("Floretta/Shared/Shell/AppearanceSettingsPanel.swift")
-        let section = try slice(panel, from: "Section(text(\"外观模式\"))", until: "Picker(text(\"字体族\")")
+        let section = try slice(panel, from: "Section(text(\"外观模式\"))", until: "if showsFamily {")
         XCTAssertTrue(section.contains("Picker(text(\"外观模式\"), selection: $settings.appearanceMode)"))
         XCTAssertTrue(section.contains(".labelsHidden()"), "the picker keeps its accessible label but hides its repeated visual label")
     }
@@ -186,10 +186,23 @@ final class InspectorStyleTests: XCTestCase {
         XCTAssertFalse(InspectorStyle.mapValue("文档大小", facts: stored).isEmpty)
     }
 
-    func testPresentationSectionHasNoControls() {
-        XCTAssertEqual(InspectorTab.allCases.map(\.titleKey), ["样式", "演说", "导图"])
-        XCTAssertTrue(InspectorStyle.presentationControlKeys.isEmpty)
-        XCTAssertEqual(InspectorStyle.sections.map(\.titleKey), ["主题", "边框", "文本", "连到"])
+    func testStyleGroupsFollowXMindOrderAndSkipStructure() {
+        XCTAssertEqual(InspectorTab.allCases.map(\.titleKey), ["样式", "导图"], "no 演说 tab ships")
+        XCTAssertEqual(
+            InspectorStyle.sections.map(\.titleKey),
+            ["形状", "填充", "边框", "宽度", "文本", "分支", "配色方案", "背景色", "全局字体", "连到"]
+        )
+        // 结构 belongs to the layout engine (TD-005). No row may exist before it does.
+        XCTAssertNil(InspectorStyle.sections.first { $0.rawValue == "structure" })
+        XCTAssertNil(InspectorStyle.sections.first { $0.titleKey == "结构" })
+        XCTAssertEqual(
+            InspectorStyle.sections.filter(\.isDocumentScope).map(\.titleKey),
+            ["分支", "配色方案", "背景色", "全局字体"],
+            "these four stay visible with nothing selected"
+        )
+        XCTAssertEqual(InspectorWidthMode.allCases.map(\.titleKey), ["PX", "适应"])
+        XCTAssertEqual(BranchLineStyle.allCases.map(\.titleKey), ["曲线", "直线"])
+        XCTAssertEqual(BranchEndMarker.allCases.map(\.titleKey), ["无", "箭头", "圆点"])
         XCTAssertEqual(InspectorTopicShape.allCases.map(\.titleKey), ["矩形", "圆角", "胶囊", "无边框"])
         XCTAssertEqual(InspectorFillStyle.allCases.map(\.rawValue), ["solid", "none"])
         XCTAssertEqual(InspectorBorderStyle.allCases.map(\.rawValue), ["solid", "none"])
@@ -258,7 +271,6 @@ final class InspectorStyleTests: XCTestCase {
     func testInspectorHostsExistingSectionsWithNativeControls() throws {
         let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         let inspector = try slice(source, from: "private var inspectorBody", until: "struct ExportFile")
-        let presentation = try slice(source, from: "private var presentationPage", until: "private var documentInfo")
 
         XCTAssertTrue(inspector.contains("Form"))
         XCTAssertTrue(inspector.contains("Section"))
@@ -270,10 +282,13 @@ final class InspectorStyleTests: XCTestCase {
         XCTAssertTrue(inspector.contains("ColorPicker"))
         XCTAssertTrue(inspector.contains("Slider"))
         XCTAssertTrue(inspector.contains("Toggle"))
-        XCTAssertTrue(inspector.contains("InspectorStyleSection.topic.titleKey"))
-        XCTAssertTrue(inspector.contains("InspectorStyleSection.border.titleKey"))
-        XCTAssertTrue(inspector.contains("InspectorStyleSection.text.titleKey"))
-        XCTAssertTrue(inspector.contains("InspectorStyleSection.links.titleKey"))
+        for section in ["shape", "fill", "border", "width", "text", "branch", "colorScheme", "links"] {
+            XCTAssertTrue(
+                inspector.contains("InspectorStyleSection.\(section).titleKey"),
+                "the \(section) group is a titled section"
+            )
+        }
+        XCTAssertFalse(inspector.contains("InspectorStyleSection.structure.titleKey"), "结构 is TD-005")
         XCTAssertTrue(inspector.contains("InspectorStyle.mapRowTitleKeys"))
         XCTAssertTrue(inspector.contains("InspectorStyle.mapFacts"))
         XCTAssertTrue(inspector.contains("InspectorStyle.apply"))
@@ -281,7 +296,7 @@ final class InspectorStyleTests: XCTestCase {
         XCTAssertTrue(inspector.contains("InspectorMarkField.text"))
         XCTAssertTrue(inspector.contains("InspectorMarkField.replace"))
         XCTAssertTrue(inspector.contains("InspectorMarkField.commit"))
-        for edit in [".shape(", ".fillStyle(", ".fillHex(", ".topicWidth(", ".borderStyle(", ".borderWidth(", ".borderHex(", ".fontDesign(", ".fontSize(", ".textHex(", ".flag("] {
+        for edit in [".shape(", ".fillStyle(", ".fillHex(", ".topicWidth(", ".widthMode(", ".borderStyle(", ".borderWidth(", ".borderHex(", ".fontDesign(", ".fontSize(", ".textHex(", ".flag("] {
             XCTAssertTrue(inspector.contains(edit), edit)
         }
         for identifier in [
@@ -301,8 +316,11 @@ final class InspectorStyleTests: XCTestCase {
             "inspector.style.underline",
             "inspector.style.fontSize",
             "inspector.style.textColor",
+            "inspector.style.widthMode",
+            "inspector.style.branchLine",
+            "inspector.style.branchEnd",
+            "inspector.style.colorScheme",
             "inspector.map",
-            "inspector.presentation",
             "relationship.label",
             "summary.text",
             "boundary.title",
@@ -310,15 +328,108 @@ final class InspectorStyleTests: XCTestCase {
             XCTAssertTrue(inspector.contains(identifier), identifier)
         }
 
-        XCTAssertTrue(presentation.contains("ContentUnavailableView"))
-        XCTAssertFalse(presentation.contains("Slider"))
-        XCTAssertFalse(presentation.contains("Toggle"))
-        XCTAssertFalse(presentation.contains("ColorPicker"))
-        XCTAssertFalse(presentation.contains("Picker"))
-
         for forbidden in ["glassEffect", "NSGlassEffectView", ".shadow(", "ultraThinMaterial", "RoundedRectangle", "TimelineView", "CADisplayLink", "Canvas("] {
             XCTAssertFalse(inspector.contains(forbidden), forbidden)
         }
+    }
+
+    func testWidthModeFitDropsTheStoredPixelWidth() throws {
+        var document = map()
+        XCTAssertEqual(InspectorStyle.widthMode(of: nil), .pixels)
+
+        XCTAssertTrue(apply(.topicWidth(240), to: &document))
+        XCTAssertEqual(InspectorStyle.widthMode(of: style(in: document)), .pixels)
+        let fixed = try XCTUnwrap(LayoutEngine().layout(document).first { $0.id == rootID })
+
+        XCTAssertTrue(apply(.widthMode(.fit), to: &document))
+        XCTAssertEqual(style(in: document)?.autoWidth, true)
+        XCTAssertEqual(InspectorStyle.widthMode(of: style(in: document)), .fit)
+        XCTAssertEqual(style(in: document)?.topicWidth, 240, "适应 keeps the px value for the switch back")
+        let fitted = try XCTUnwrap(LayoutEngine().layout(document).first { $0.id == rootID })
+
+        // 适应 equals the layout of the same map with no stored width at all.
+        var bare = document
+        _ = bare.mutateNode(rootID) { node in
+            node.style?.autoWidth = nil
+            node.style?.topicWidth = nil
+        }
+        let measured = try XCTUnwrap(LayoutEngine().layout(bare).first { $0.id == rootID })
+        XCTAssertEqual(fitted.rect.width, measured.rect.width, accuracy: 0.001)
+        XCTAssertLessThan(fitted.rect.width, fixed.rect.width, "适应 measures the text instead of pinning 240px")
+
+        let saved = try FlorettaCodec.decode(try FlorettaCodec.encode(document))
+        XCTAssertEqual(saved.node(rootID)?.style?.autoWidth, true)
+
+        XCTAssertTrue(apply(.topicWidth(183), to: &document))
+        XCTAssertEqual(style(in: document)?.autoWidth, false, "dragging the px slider leaves 适应")
+        XCTAssertEqual(style(in: document)?.topicWidth, 183)
+    }
+
+    func testBranchTokensAndColorSchemeWriteThrough() throws {
+        var document = map()
+        XCTAssertEqual(InspectorStyle.branchLineValue(of: document), .curve)
+        XCTAssertEqual(InspectorStyle.branchEndValue(of: document), .none)
+        XCTAssertEqual(InspectorStyle.colorSchemeValue(of: document), MapThemeCatalog.standardID)
+
+        XCTAssertTrue(InspectorStyle.applyDocument(.branchLine(.straight), document: &document, allowsAppearanceWrites: true))
+        XCTAssertEqual(document.branchLineStyle, "straight")
+        XCTAssertTrue(InspectorStyle.applyDocument(.branchEnd(.arrow), document: &document, allowsAppearanceWrites: true))
+        XCTAssertEqual(document.branchEndMarker, "arrow")
+        XCTAssertTrue(InspectorStyle.applyDocument(.colorScheme("sea"), document: &document, allowsAppearanceWrites: true))
+        XCTAssertEqual(document.themeID, "sea")
+
+        let saved = try FlorettaCodec.decode(try FlorettaCodec.encode(document))
+        XCTAssertEqual(InspectorStyle.branchLineValue(of: saved), .straight)
+        XCTAssertEqual(InspectorStyle.branchEndValue(of: saved), .arrow)
+        XCTAssertEqual(InspectorStyle.colorSchemeValue(of: saved), "sea")
+        // The tokens survive the per-sheet surface the editor writes through.
+        let isolated = saved.isolatedCanvas(at: 0)
+        XCTAssertEqual(InspectorStyle.branchLineValue(of: isolated), .straight)
+
+        // Defaults are omitted again, so an untouched map keeps its old JSON.
+        XCTAssertTrue(InspectorStyle.applyDocument(.branchLine(.curve), document: &document, allowsAppearanceWrites: true))
+        XCTAssertTrue(InspectorStyle.applyDocument(.branchEnd(.none), document: &document, allowsAppearanceWrites: true))
+        XCTAssertNil(document.branchLineStyle)
+        XCTAssertNil(document.branchEndMarker)
+        let json = try String(decoding: FlorettaCodec.encode(document), as: UTF8.self)
+        XCTAssertFalse(json.contains("branchLineStyle"))
+        XCTAssertFalse(json.contains("branchEndMarker"))
+
+        // Locked (Markdown) documents refuse the same edits.
+        var locked = map()
+        for edit in [
+            InspectorDocumentStyleEdit.branchLine(.straight),
+            .branchEnd(.dot),
+            .colorScheme("sea"),
+        ] {
+            XCTAssertFalse(InspectorStyle.applyDocument(edit, document: &locked, allowsAppearanceWrites: false))
+        }
+        // Timestamps differ per map() call, so compare what these edits could touch.
+        XCTAssertNil(locked.branchLineStyle)
+        XCTAssertNil(locked.branchEndMarker)
+        XCTAssertEqual(locked.roots, map().roots)
+    }
+
+    func testColorSchemeAndBranchChoicesCoverBothCatalogs() {
+        let ids = InspectorStyle.colorSchemeChoiceIDs
+        XCTAssertEqual(ids.count, MapColorPresetCatalog.all.count + MapThemeCatalog.all.count)
+        XCTAssertEqual(Set(ids).count, ids.count, "no id appears twice")
+        for id in ids {
+            XCTAssertNotNil(InspectorStyle.colorSchemeNameKey(id), id)
+        }
+        XCTAssertNil(InspectorStyle.colorSchemeNameKey("not-a-scheme"))
+        XCTAssertEqual(InspectorStyle.colorSchemeNameKey(MapThemeCatalog.standardID), "墨色")
+    }
+
+    func testBranchEndGeometryMatchesTheRelationshipArrow() {
+        let tip = CGPoint(x: 100, y: 40)
+        let from = CGPoint(x: 60, y: 40)
+        let head = BranchStyle.arrow(tip: tip, from: from)
+        let reference = RelationshipGeometry.arrow(tip: tip, from: from, length: BranchStyle.arrowLength)
+        XCTAssertEqual(head.left, reference.left)
+        XCTAssertEqual(head.right, reference.right)
+        XCTAssertLessThan(head.left.x, tip.x, "the base sits behind the tip")
+        XCTAssertGreaterThan(BranchStyle.dotRadius(lineWidth: 0.75), 0.75, "a dot still reads on a thin branch")
     }
 
     func testInspectorTabPagesKeepTheToolbarHostAtStableTopLeadingGeometry() throws {

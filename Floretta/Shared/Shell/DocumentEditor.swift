@@ -1575,7 +1575,7 @@ struct DocumentEditor: View {
 
     private var inspectorBody: some View {
         // The header is an inset, not a sibling of the page. Switching between
-        // 演说 / 样式 / 导图 rebuilds pages with different intrinsic heights. If
+        // 样式 / 导图 rebuilds pages with different intrinsic heights. If
         // that height drives the inspector host, AppKit can recenter its shared
         // toolbar controls over the canvas. Keep the native Picker in a stable,
         // top-anchored inset; only the page below is flexible and scrollable.
@@ -1599,7 +1599,7 @@ struct DocumentEditor: View {
             if showsSheetDismissHandle {
                 // Taller than the segmented control, so the header's center is this
                 // handle. A downward drag here dismisses the compact sheet. The same
-                // drag on the segments selects 演说 instead, because that control
+                // drag on the segments selects 导图 instead, because that control
                 // takes the touch on contact. A tap also dismisses, because a UI
                 // test swipeDown often misses the DragGesture.
                 Button {
@@ -1662,8 +1662,6 @@ struct DocumentEditor: View {
         switch inspectorTab {
         case .style:
             stylePage
-        case .presentation:
-            presentationPage
         case .map:
             documentInfo
         }
@@ -1673,16 +1671,107 @@ struct DocumentEditor: View {
     private var stylePage: some View {
         VStack(alignment: .leading, spacing: 0) {
             Form {
+                // Document-scope XMind groups. They stay readable with nothing
+                // selected, because a color scheme and a branch are map-wide.
+                inspectorColorSchemeSection
+                inspectorBranchSection
                 AppearanceSettingsPanel(
                     settings: settings,
                     identifierPrefix: "inspector.appearance",
-                    density: .inspector
+                    density: .inspector,
+                    fields: .mapScope
                 )
             }
             .formStyle(.grouped)
             .appleGlassInspectorFormPlate()
             inspectorDocumentStyle
         }
+    }
+
+    /// 配色方案. Writes the same `themeID` the 配色 sheet writes, so both entries
+    /// show one selected scheme.
+    private var inspectorColorSchemeSection: some View {
+        Section(text(InspectorStyleSection.colorScheme.titleKey)) {
+            Picker(text("配色方案"), selection: colorSchemeSelection) {
+                ForEach(InspectorStyle.colorSchemeChoiceIDs, id: \.self) { id in
+                    Text(verbatim: colorSchemeTitle(id)).tag(id)
+                }
+            }
+            .pickerStyle(.menu)
+            .accessibilityLabel(text("配色方案"))
+            .accessibilityIdentifier("inspector.style.colorScheme")
+        }
+        // A Markdown projection owns its colors; the write would be refused anyway.
+        .disabled(session.isMarkdownDocument)
+    }
+
+    /// 分支 · 线条 / 终点. One token each, stored on the document.
+    private var inspectorBranchSection: some View {
+        Section(text(InspectorStyleSection.branch.titleKey)) {
+            Picker(text("线条"), selection: branchLineSelection) {
+                ForEach(BranchLineStyle.allCases) { line in
+                    Text(verbatim: text(line.titleKey)).tag(line)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityLabel(text("线条"))
+            .accessibilityIdentifier("inspector.style.branchLine")
+
+            Picker(text("终点"), selection: branchEndSelection) {
+                ForEach(BranchEndMarker.allCases) { marker in
+                    Text(verbatim: text(marker.titleKey)).tag(marker)
+                }
+            }
+            .pickerStyle(.menu)
+            .accessibilityLabel(text("终点"))
+            .accessibilityIdentifier("inspector.style.branchEnd")
+        }
+        .disabled(session.isMarkdownDocument)
+    }
+
+    private var colorSchemeSelection: Binding<String> {
+        Binding(
+            get: { InspectorStyle.colorSchemeValue(of: session.editingDocument) },
+            set: { id in
+                guard !session.isMarkdownDocument else { return }
+                session.setBranchTheme(id)
+            }
+        )
+    }
+
+    private func colorSchemeTitle(_ id: String) -> String {
+        guard let key = InspectorStyle.colorSchemeNameKey(id) else { return id }
+        return text(key)
+    }
+
+    private var branchLineSelection: Binding<BranchLineStyle> {
+        Binding(
+            get: { InspectorStyle.branchLineValue(of: session.editingDocument) },
+            set: { line in
+                _ = session.editActive { document in
+                    InspectorStyle.applyDocument(
+                        .branchLine(line),
+                        document: &document,
+                        allowsAppearanceWrites: !session.isMarkdownDocument
+                    )
+                }
+            }
+        )
+    }
+
+    private var branchEndSelection: Binding<BranchEndMarker> {
+        Binding(
+            get: { InspectorStyle.branchEndValue(of: session.editingDocument) },
+            set: { marker in
+                _ = session.editActive { document in
+                    InspectorStyle.applyDocument(
+                        .branchEnd(marker),
+                        document: &document,
+                        allowsAppearanceWrites: !session.isMarkdownDocument
+                    )
+                }
+            }
+        )
     }
 
     @ViewBuilder
@@ -1707,16 +1796,6 @@ struct DocumentEditor: View {
                 }
             )
         }
-    }
-
-    private var presentationPage: some View {
-        ContentUnavailableView {
-            Label(text("尚未实现"), systemImage: "clock")
-        } description: {
-            Text(verbatim: text("演说"))
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityIdentifier("inspector.presentation")
     }
 
     private var documentInfo: some View {
@@ -2633,7 +2712,7 @@ private struct StyleInspector: View {
 
     private var appearanceForm: some View {
         Form {
-            Section(text(InspectorStyleSection.topic.titleKey)) {
+            Section(text(InspectorStyleSection.shape.titleKey)) {
                 Picker(text("形状"), selection: shape) {
                     ForEach(InspectorTopicShape.allCases) { item in
                         Text(verbatim: text(item.titleKey)).tag(item)
@@ -2641,6 +2720,8 @@ private struct StyleInspector: View {
                 }
                 .pickerStyle(.menu)
                 .accessibilityIdentifier("inspector.style.shape")
+            }
+            Section(text(InspectorStyleSection.fill.titleKey)) {
                 Picker(text("填充样式"), selection: fillStyle) {
                     ForEach(fillStyleTags, id: \.self) { tag in
                         Text(verbatim: fillStyleTitle(tag)).tag(tag)
@@ -2652,14 +2733,6 @@ private struct StyleInspector: View {
                     Text(verbatim: text("填充颜色"))
                 }
                 .accessibilityIdentifier("inspector.style.fillColor")
-                LabeledContent(text("长度")) {
-                    Text(verbatim: "\(Int(InspectorStyle.topicWidthValue(of: style)))px")
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                }
-                Slider(value: topicWidth, in: InspectorStyle.topicWidthRange)
-                    .accessibilityLabel(text("长度"))
-                    .accessibilityIdentifier("inspector.style.topicWidth")
             }
             Section(text(InspectorStyleSection.border.titleKey)) {
                 Picker(text("样式"), selection: borderStyle) {
@@ -2681,6 +2754,25 @@ private struct StyleInspector: View {
                     Text(verbatim: text("颜色"))
                 }
                 .accessibilityIdentifier("inspector.style.borderColor")
+            }
+            Section(text(InspectorStyleSection.width.titleKey)) {
+                Picker(text("宽度模式"), selection: widthMode) {
+                    ForEach(InspectorWidthMode.allCases) { mode in
+                        Text(verbatim: text(mode.titleKey)).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityLabel(text("宽度模式"))
+                .accessibilityIdentifier("inspector.style.widthMode")
+                LabeledContent(text("长度")) {
+                    Text(verbatim: widthReadout)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+                Slider(value: topicWidth, in: InspectorStyle.topicWidthRange)
+                    .accessibilityLabel(text("长度"))
+                    .disabled(InspectorStyle.widthMode(of: style) == .fit)
+                    .accessibilityIdentifier("inspector.style.topicWidth")
             }
             Section(text(InspectorStyleSection.text.titleKey)) {
                 TextField(text("副文本"), text: subtitle)
@@ -2864,6 +2956,22 @@ private struct StyleInspector: View {
             get: { InspectorStyle.topicWidthValue(of: style) },
             set: { apply(.topicWidth($0)) }
         )
+    }
+
+    private var widthMode: Binding<InspectorWidthMode> {
+        Binding(
+            get: { InspectorStyle.widthMode(of: style) },
+            set: { apply(.widthMode($0)) }
+        )
+    }
+
+    private var widthReadout: String {
+        switch InspectorStyle.widthMode(of: style) {
+        case .fit:
+            return text("适应")
+        case .pixels:
+            return "\(Int(InspectorStyle.topicWidthValue(of: style)))px"
+        }
     }
 
     private var borderStyle: Binding<String> {

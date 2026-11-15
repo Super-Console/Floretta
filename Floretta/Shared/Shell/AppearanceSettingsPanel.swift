@@ -29,6 +29,10 @@ struct AppearanceSettingsPanel: View {
     /// `settings.appearance` or `inspector.appearance`.
     var identifierPrefix: String
     var density: Density = .settings
+    /// Which rows this host renders. The settings window shows one 外观模式 section
+    /// with everything; the inspector splits the paper and the family into the
+    /// XMind 背景色 / 全局字体 groups and keeps the profile rows in 外观模式.
+    var fields: Fields = .all
     @Environment(\.colorScheme) private var colorScheme
 
     enum Density {
@@ -36,7 +40,51 @@ struct AppearanceSettingsPanel: View {
         case inspector
     }
 
+    enum Fields {
+        case all
+        case mapScope
+    }
+
+    @ViewBuilder
     var body: some View {
+        Group {
+            if fields == .mapScope {
+                backgroundSection
+                globalFontSection
+                appearanceSection(showsBackground: false, showsFamily: false)
+            } else {
+                appearanceSection(showsBackground: true, showsFamily: true)
+            }
+        }
+        // Controls stay on the system UI font even when the map uses a serif family.
+        .font(.body)
+        .themeTypography(language: settings.language)
+    }
+
+    /// 背景色 group: the paper the map is drawn on.
+    private var backgroundSection: some View {
+        Section(text(InspectorStyleSection.background.titleKey)) {
+            colorPicker("画布底色", key: "canvas", hex: colorHex(\.canvasHex) { $0.canvasHex = $1 })
+        }
+        .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "background"))
+    }
+
+    /// 全局字体 group: the family every topic falls back to.
+    private var globalFontSection: some View {
+        Section(text(InspectorStyleSection.globalFont.titleKey)) {
+            Picker(text("字体族"), selection: fontFamilyID) {
+                ForEach(AppearanceCatalog.families) { family in
+                    Text(verbatim: text(family.nameKey))
+                        .tag(family.id)
+                        .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "fontFamily.\(family.id)"))
+                }
+            }
+            .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "fontFamily"))
+        }
+        .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "globalFont"))
+    }
+
+    private func appearanceSection(showsBackground: Bool, showsFamily: Bool) -> some View {
         Section(text("外观模式")) {
             Picker(text("外观模式"), selection: $settings.appearanceMode) {
                 ForEach(AppearanceMode.allCases, id: \.self) { mode in
@@ -49,16 +97,20 @@ struct AppearanceSettingsPanel: View {
             .labelsHidden()
             .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "mode"))
 
-            Picker(text("字体族"), selection: fontFamilyID) {
-                ForEach(AppearanceCatalog.families) { family in
-                    Text(verbatim: text(family.nameKey))
-                        .tag(family.id)
-                        .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "fontFamily.\(family.id)"))
+            if showsFamily {
+                Picker(text("字体族"), selection: fontFamilyID) {
+                    ForEach(AppearanceCatalog.families) { family in
+                        Text(verbatim: text(family.nameKey))
+                            .tag(family.id)
+                            .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "fontFamily.\(family.id)"))
+                    }
                 }
+                .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "fontFamily"))
             }
-            .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "fontFamily"))
 
-            colorPicker("底色", key: "canvas", hex: colorHex(\.canvasHex) { $0.canvasHex = $1 })
+            if showsBackground {
+                colorPicker("底色", key: "canvas", hex: colorHex(\.canvasHex) { $0.canvasHex = $1 })
+            }
             colorPicker("文字色", key: "text", hex: colorHex(\.textHex) { $0.textHex = $1 })
             colorPicker("次级文字色", key: "secondaryText", hex: colorHex(\.secondaryTextHex) { $0.secondaryTextHex = $1 })
             colorPicker("节点底色", key: "nodeFill", hex: colorHex(\.nodeFillHex) { $0.nodeFillHex = $1 })
@@ -75,9 +127,6 @@ struct AppearanceSettingsPanel: View {
             }
             .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "restore"))
         }
-        // Controls stay on the system UI font even when the map uses a serif family.
-        .font(.body)
-        .themeTypography(language: settings.language)
     }
 
     private var preview: some View {

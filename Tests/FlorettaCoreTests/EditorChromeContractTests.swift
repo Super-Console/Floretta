@@ -169,6 +169,65 @@ final class EditorChromeContractTests: XCTestCase {
         XCTAssertTrue(source.contains("/// The ••• overflow. It stays a normal toolbar item"))
     }
 
+    /// TD-002 + TD-003 on one line: the sheet capsule and the status capsule are
+    /// siblings in one bottom row, share one plate height and one bottom inset,
+    /// and neither side adds a compensating padding. This is the regression guard
+    /// for the two capsules drifting onto two different lines.
+    func testBottomCapsulesShareOneRowHeightAndInset() throws {
+        let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let bar = try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift")
+        let core = try repoFile("FlorettaCore/Layout/EditorStatusBar.swift")
+
+        let row = try slice(
+            source,
+            from: "private var bottomBarRow",
+            until: "private func revealZenExitAffordance"
+        )
+        XCTAssertTrue(row.contains("HStack(alignment: .bottom"), "the two capsules are one row")
+        XCTAssertTrue(row.contains("canvasTabBar"))
+        XCTAssertTrue(row.contains("EditorStatusStrip("))
+        XCTAssertFalse(row.contains("VStack"), "a VStack puts the capsules on two lines; that is the bug")
+        XCTAssertTrue(row.contains(".padding(.horizontal, EditorStatusBarChrome.horizontalInset)"))
+        XCTAssertTrue(row.contains(".padding(.bottom, EditorStatusBarChrome.bottomInset)"))
+        XCTAssertTrue(row.contains(".safeAreaPadding(.bottom)"))
+        XCTAssertTrue(row.contains(".layoutPriority(1)"), "the status capsule is served first, never squeezed")
+
+        // Both plates are the same height, so `.bottom` alignment is enough.
+        let canvas = try slice(
+            source,
+            from: "private var canvasTabBar",
+            until: "private var currentCanvasIndex"
+        )
+        XCTAssertTrue(canvas.contains(".frame(minHeight: EditorStatusBarChrome.controlMinHeight)"))
+        XCTAssertTrue(bar.contains(".frame(minHeight: EditorStatusBarChrome.controlMinHeight)"))
+        XCTAssertFalse(bar.contains(".padding(.vertical, 6)"), "the strip's own bottom padding made the two plates hang from different lines")
+        XCTAssertFalse(bar.contains("Spacer("), "the row places the capsule; the strip owns no trailing gap")
+        XCTAssertTrue(bar.contains(".fixedSize(horizontal: true, vertical: false)"))
+
+        // The row owns the window inset; no capsule re-adds its own.
+        let canvasPlate = try slice(
+            canvas,
+            from: ".appleGlassChrome(.bottomBarCapsule)",
+            until: ".accessibilityElement"
+        )
+        XCTAssertFalse(canvasPlate.contains(".padding"), "a per-capsule window inset is the magic padding that must not come back")
+
+        // One copy of the numbers, in core, beside the chrome role.
+        XCTAssertTrue(core.contains("public static let controlMinHeight"))
+        XCTAssertTrue(core.contains("public static let horizontalInset"))
+        XCTAssertTrue(core.contains("public static let bottomInset"))
+        XCTAssertTrue(core.contains("public static let capsuleGap"))
+        XCTAssertTrue(core.contains("public static let canvasTitleMaxWidth"))
+
+        // Narrow windows: the name truncates, then the divider goes. Nothing
+        // overlaps and the status capsule is never pushed off screen.
+        XCTAssertTrue(canvas.contains(".truncationMode(.tail)"))
+        XCTAssertTrue(canvas.contains("EditorStatusBarChrome.canvasTitleMaxWidth"))
+        XCTAssertTrue(canvas.contains("if showsSheetDivider"))
+        XCTAssertTrue(source.contains("EditorBottomBarLayout.showsSheetDivider("))
+        XCTAssertTrue(canvas.contains("accessibilityIdentifier(\"canvas.tabs\")"))
+    }
+
     private func repoFile(_ relative: String) throws -> String {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

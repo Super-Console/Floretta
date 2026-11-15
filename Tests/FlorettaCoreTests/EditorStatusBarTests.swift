@@ -136,6 +136,24 @@ final class EditorStatusBarTests: XCTestCase {
         }
     }
 
+    /// One set of numbers for both bottom capsules, plus the give-way order on a
+    /// narrow window: the sheet name truncates, then its divider goes, and the
+    /// status capsule is never compressed.
+    func testBottomBarSharesOneInsetOneHeightAndOneFitRule() {
+        XCTAssertEqual(EditorStatusBarChrome.controlMinHeight, 44)
+        XCTAssertEqual(EditorStatusBarChrome.horizontalInset, 12)
+        XCTAssertEqual(EditorStatusBarChrome.bottomInset, 6)
+        XCTAssertEqual(EditorStatusBarChrome.capsuleGap, 8)
+        XCTAssertEqual(EditorStatusBarChrome.canvasTitleMaxWidth, 240)
+        XCTAssertEqual(EditorBottomBarLayout.minimumWidthWithDivider, 200)
+
+        XCTAssertTrue(EditorBottomBarLayout.showsSheetDivider(rowWidth: 1200, statusWidth: 320))
+        XCTAssertTrue(EditorBottomBarLayout.showsSheetDivider(rowWidth: 560, statusWidth: 320))
+        XCTAssertFalse(EditorBottomBarLayout.showsSheetDivider(rowWidth: 420, statusWidth: 320))
+        XCTAssertTrue(EditorBottomBarLayout.showsSheetDivider(rowWidth: 300, statusWidth: 0))
+        XCTAssertFalse(EditorBottomBarLayout.showsSheetDivider(rowWidth: 0, statusWidth: 0))
+    }
+
     private func repoFile(_ relative: String) throws -> String {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

@@ -13,6 +13,12 @@ import SwiftUI
 ///
 /// The plate is `AppleGlassChrome`'s `bottomBarCapsule` role: no hand-written
 /// gradient, no custom blur, no shadow.
+///
+/// The editor's bottom row places this capsule beside the canvas sheet capsule
+/// (TD-002). It draws at `EditorStatusBarChrome.controlMinHeight`, owns no spacer
+/// and no window inset, and is never compressed: on a narrow window the sheet
+/// name truncates first. Sharing the row and the plate height is what keeps the
+/// two capsules' bottom edges on one line.
 struct EditorStatusStrip: View {
     @Bindable var session: EditorSession
     var camera: CanvasCamera
@@ -27,21 +33,16 @@ struct EditorStatusStrip: View {
     @State private var censusDismissTask: Task<Void, Never>?
 
     var body: some View {
-        HStack(spacing: 8) {
-            Spacer(minLength: 8)
-            capsule
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .frame(minHeight: EditorStatusBarChrome.controlMinHeight)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("statusBar")
-        .themeTypography(language: language)
-        .onDisappear {
-            censusDismissTask?.cancel()
-            censusDismissTask = nil
-            showsCensus = false
-        }
+        capsule
+            .fixedSize(horizontal: true, vertical: false)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("statusBar")
+            .themeTypography(language: language)
+            .onDisappear {
+                censusDismissTask?.cancel()
+                censusDismissTask = nil
+                showsCensus = false
+            }
     }
 
     private var capsule: some View {
@@ -55,7 +56,7 @@ struct EditorStatusStrip: View {
             fullScreenToggle
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 4)
+        .frame(minHeight: EditorStatusBarChrome.controlMinHeight)
         .appleGlassChrome(.bottomBarCapsule)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("statusBar.capsule")

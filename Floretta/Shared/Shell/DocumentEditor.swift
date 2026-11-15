@@ -85,6 +85,11 @@ struct DocumentEditor: View {
     @State private var topicCensus = TopicCensusModel()
     @State private var isExitAffordanceRevealed = false
     @State private var exitAffordanceTask: Task<Void, Never>?
+    /// Measured widths for the bottom row. The status capsule is measured, not
+    /// guessed, so the sheet capsule's divider only goes when the row genuinely
+    /// cannot afford it.
+    @State private var bottomRowWidth: CGFloat = 0
+    @State private var statusCapsuleWidth: CGFloat = 0
 
     #if os(macOS)
     @ToolbarContentBuilder
@@ -666,21 +671,51 @@ struct DocumentEditor: View {
             }
         }
         .overlay(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 0) {
-                if showsCanvasTabs { canvasTabBar }
-                if session.zen.chrome.showsStatusBar {
-                    EditorStatusStrip(
-                        session: session,
-                        camera: camera,
-                        census: statusCensus,
-                        language: settings.language,
-                        showOutline: $showOutline
-                    )
-                }
-            }
-            .safeAreaPadding(.bottom)
-            .accessibilityIdentifier("editor.bottomBar")
+            bottomBarRow
         }
+    }
+
+    /// The two bottom capsules on one line: the sheet capsule (TD-002) on the
+    /// leading edge, the status capsule (TD-003) on the trailing edge. Both
+    /// plates draw at `EditorStatusBarChrome.controlMinHeight` and hang from the
+    /// one `bottomInset` applied here, so `alignment: .bottom` is the whole
+    /// alignment: neither side carries a compensating padding.
+    ///
+    /// The status capsule is fixed to its content and keeps a higher layout
+    /// priority, so it is never squeezed or pushed off screen. What gives way
+    /// first is the sheet name (truncated with an ellipsis), then the sheet
+    /// capsule's divider.
+    private var bottomBarRow: some View {
+        HStack(alignment: .bottom, spacing: EditorStatusBarChrome.capsuleGap) {
+            if showsCanvasTabs {
+                canvasTabBar
+            }
+            if session.zen.chrome.showsStatusBar {
+                Spacer(minLength: EditorStatusBarChrome.capsuleGap)
+                EditorStatusStrip(
+                    session: session,
+                    camera: camera,
+                    census: statusCensus,
+                    language: settings.language,
+                    showOutline: $showOutline
+                )
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.size.width
+                } action: { width in
+                    statusCapsuleWidth = width
+                }
+                .layoutPriority(1)
+            }
+        }
+        .padding(.horizontal, EditorStatusBarChrome.horizontalInset)
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.width
+        } action: { width in
+            bottomRowWidth = width
+        }
+        .padding(.bottom, EditorStatusBarChrome.bottomInset)
+        .safeAreaPadding(.bottom)
+        .accessibilityIdentifier("editor.bottomBar")
     }
 
     private func revealZenExitAffordance() {
@@ -706,12 +741,21 @@ struct DocumentEditor: View {
         !session.isMarkdownDocument && !session.zen.isActive
     }
 
+    /// Divider policy for the sheet capsule, from measured widths only.
+    private var showsSheetDivider: Bool {
+        EditorBottomBarLayout.showsSheetDivider(
+            rowWidth: bottomRowWidth,
+            statusWidth: statusCapsuleWidth
+        )
+    }
+
     /// XMind's sheet capsule: the current sheet name behind a `▾` menu, then `＋`.
     ///
     /// One capsule instead of a row of tabs. Switching sheets, rename, copy, paste,
     /// duplicate, delete, new sheet, and 画布另存为 all live in the menu, which is
     /// where XMind puts them too. The capsule is left-aligned and only as wide as
-    /// its content, so the bottom-right corner of the canvas stays clear.
+    /// its content, up to `EditorStatusBarChrome.canvasTitleMaxWidth`, and shares
+    /// the bottom row with the status capsule.
     private var canvasTabBar: some View {
         HStack(spacing: 2) {
             Menu {
@@ -720,6 +764,11 @@ struct DocumentEditor: View {
                 HStack(spacing: 4) {
                     Text(verbatim: currentCanvasTitle)
                         .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(
+                            maxWidth: EditorStatusBarChrome.canvasTitleMaxWidth,
+                            alignment: .leading
+                        )
                     Image(systemName: "chevron.down")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -732,14 +781,15 @@ struct DocumentEditor: View {
             .menuStyle(.button)
             .buttonStyle(.plain)
             .menuIndicator(.hidden)
-            .fixedSize()
             .help(Text(verbatim: text("切换、重命名或删除画布")))
             .accessibilityLabel(Text(verbatim: currentCanvasTitle))
             .accessibilityHint(text("切换、重命名或删除画布"))
             .accessibilityIdentifier("canvas.menu")
 
-            Divider()
-                .frame(height: 18)
+            if showsSheetDivider {
+                Divider()
+                    .frame(height: 18)
+            }
 
             Button {
                 session.addCanvas(viewport: camera.viewport.persisted)
@@ -756,7 +806,6 @@ struct DocumentEditor: View {
         .padding(.horizontal, 4)
         .frame(minHeight: EditorStatusBarChrome.controlMinHeight)
         .appleGlassChrome(.bottomBarCapsule)
-        .padding(.leading, 12)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("canvas.tabs")
         .alert(Text(verbatim: text("重新命名")), isPresented: $showCanvasRename) {

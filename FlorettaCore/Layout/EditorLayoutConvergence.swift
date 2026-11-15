@@ -70,6 +70,68 @@ public struct WindowChromeWrite: Equatable, Sendable {
     }
 }
 
+/// Everything one node-editor chrome write depends on.
+///
+/// Entering edit mode makes SwiftUI update the field about ten times for one
+/// key press. Each `updateNSView` used to rewrite the background colour, the
+/// text colour, the insertion point colour, the layer radius, the text
+/// container padding, and the paragraph style of the whole text storage. Every
+/// one of those dirties TextKit and asks AppKit for another layout pass, which
+/// comes back as another `updateNSView`: one keystroke kept the update loop
+/// alive for ~200 ms on an M2 Pro. The fields here are the complete input of
+/// that write, so a pass with an equal signature must not touch the view.
+public struct NodeEditChromeSignature: Equatable, Sendable {
+    public var fillRed: Double
+    public var fillGreen: Double
+    public var fillBlue: Double
+    public var fillAlpha: Double
+    public var inkRed: Double
+    public var inkGreen: Double
+    public var inkBlue: Double
+    public var drawsBackground: Bool
+    public var cornerRadius: Double
+    public var fontSize: Double
+    public var fontDesign: String
+    public var bold: Bool
+    public var italic: Bool
+    public var alignment: MindMapTextAlignment
+    public var ownsKeys: Bool
+
+    public init(
+        fillRed: Double,
+        fillGreen: Double,
+        fillBlue: Double,
+        fillAlpha: Double,
+        inkRed: Double,
+        inkGreen: Double,
+        inkBlue: Double,
+        drawsBackground: Bool,
+        cornerRadius: Double,
+        fontSize: Double,
+        fontDesign: String,
+        bold: Bool,
+        italic: Bool,
+        alignment: MindMapTextAlignment,
+        ownsKeys: Bool
+    ) {
+        self.fillRed = fillRed
+        self.fillGreen = fillGreen
+        self.fillBlue = fillBlue
+        self.fillAlpha = fillAlpha
+        self.inkRed = inkRed
+        self.inkGreen = inkGreen
+        self.inkBlue = inkBlue
+        self.drawsBackground = drawsBackground
+        self.cornerRadius = cornerRadius
+        self.fontSize = fontSize
+        self.fontDesign = fontDesign
+        self.bold = bold
+        self.italic = italic
+        self.alignment = alignment
+        self.ownsKeys = ownsKeys
+    }
+}
+
 /// Latches the first window-chrome correction. Later passes must not chase a
 /// title or toolbar mode that SwiftUI puts back during layout.
 public struct WindowChromePass: Equatable, Sendable {
@@ -105,6 +167,16 @@ public enum EditorLayoutConvergence {
         lastAssigned: EditingFontSignature?
     ) -> Bool {
         lastAssigned != requested
+    }
+
+    /// True only when the field's painted chrome actually differs from what the
+    /// last pass wrote. Shape, colours, font request, alignment, and key
+    /// ownership are the whole input; anything else must not re-enter layout.
+    public static func shouldApplyNodeChrome(
+        requested: NodeEditChromeSignature,
+        lastApplied: NodeEditChromeSignature?
+    ) -> Bool {
+        lastApplied != requested
     }
 
     /// Whole points. The caller supplies the font's default line height, which

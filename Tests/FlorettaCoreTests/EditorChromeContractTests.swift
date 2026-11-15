@@ -228,6 +228,43 @@ final class EditorChromeContractTests: XCTestCase {
         XCTAssertTrue(canvas.contains("accessibilityIdentifier(\"canvas.tabs\")"))
     }
 
+    /// Both bottom capsules draw at one platform-aware plate height, with one
+    /// padding, one spacing, and one icon box. The Mac plate is 28 pt — the
+    /// optical height of a native toolbar control — while iOS keeps the 44 pt
+    /// touch target.
+    func testBottomCapsulesUsePlatformPlateHeightAndOneSetOfSizes() throws {
+        let bar = try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift")
+        let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let core = try repoFile("FlorettaCore/Layout/EditorStatusBar.swift")
+
+        XCTAssertTrue(core.contains("#if os(macOS)"))
+        XCTAssertTrue(core.contains("public static let controlMinHeight: CGFloat = 28"))
+        XCTAssertTrue(core.contains("public static let controlMinHeight: CGFloat = 44"))
+
+        XCTAssertTrue(bar.contains("EditorStatusBarChrome.capsuleControlSpacing"))
+        XCTAssertTrue(bar.contains("EditorStatusBarChrome.capsuleHorizontalPadding"))
+        XCTAssertTrue(bar.contains("EditorStatusBarChrome.capsuleVerticalPadding"))
+        XCTAssertTrue(bar.contains("EditorStatusBarChrome.iconButtonSize"))
+        XCTAssertTrue(bar.contains(".controlSize(.small)"))
+        XCTAssertTrue(bar.contains(".frame(minHeight: EditorStatusBarChrome.controlMinHeight)"))
+        XCTAssertFalse(bar.contains(".padding(.horizontal, 12)"), "no per-capsule literal padding")
+        XCTAssertFalse(bar.contains(".padding(.vertical, 4)"), "no per-capsule literal padding")
+
+        let canvas = try slice(
+            source,
+            from: "private var canvasTabBar",
+            until: "private var currentCanvasIndex"
+        )
+        XCTAssertTrue(canvas.contains(".controlSize(.small)"))
+        XCTAssertTrue(canvas.contains(".frame(minHeight: EditorStatusBarChrome.controlMinHeight)"))
+        XCTAssertFalse(canvas.contains(".frame(minHeight: 44)"), "the plate height comes from the one constant, not a literal")
+
+        // This branch never sets a font family on the capsules; the theme face is
+        // handled by the chrome-typography branch.
+        XCTAssertFalse(bar.contains(".custom("))
+        XCTAssertFalse(bar.contains("Font.custom"))
+    }
+
     private func repoFile(_ relative: String) throws -> String {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

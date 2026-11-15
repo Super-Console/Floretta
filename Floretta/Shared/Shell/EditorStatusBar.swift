@@ -46,7 +46,7 @@ struct EditorStatusStrip: View {
     }
 
     private var capsule: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: EditorStatusBarChrome.capsuleControlSpacing) {
             censusTrigger
             separator
             zoomMenu
@@ -55,7 +55,9 @@ struct EditorStatusStrip: View {
             outlineToggle
             fullScreenToggle
         }
-        .padding(.horizontal, 12)
+        .controlSize(.small)
+        .padding(.horizontal, EditorStatusBarChrome.capsuleHorizontalPadding)
+        .padding(.vertical, EditorStatusBarChrome.capsuleVerticalPadding)
         .frame(minHeight: EditorStatusBarChrome.controlMinHeight)
         .appleGlassChrome(.bottomBarCapsule)
         .accessibilityElement(children: .contain)
@@ -76,7 +78,7 @@ struct EditorStatusStrip: View {
         Button(action: toggleCensus) {
             Text(verbatim: line("主题 %lld", census.topics))
                 .monospacedDigit()
-                .frame(minHeight: 26)
+                .frame(minHeight: EditorStatusBarChrome.iconButtonSize)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -225,8 +227,11 @@ struct EditorStatusStrip: View {
     private func statusSymbol(_ symbol: String, on: Bool = false) -> some View {
         Image(systemName: symbol)
             .symbolRenderingMode(.monochrome)
-            .font(.system(size: 13, weight: .medium))
-            .frame(width: 24, height: 24)
+            .font(.system(size: EditorStatusBarChrome.chromeFontSize, weight: .medium))
+            .frame(
+                width: EditorStatusBarChrome.iconButtonSize,
+                height: EditorStatusBarChrome.iconButtonSize
+            )
             .contentShape(Rectangle())
             .foregroundStyle(on ? Color.accentColor : Color.primary)
     }

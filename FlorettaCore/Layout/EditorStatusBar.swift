@@ -41,9 +41,26 @@ public enum EditorStatusZoomChoice: Hashable, Sendable {
 /// capsule keeps a private copy of these numbers: separate copies are exactly
 /// how the two plates drifted onto two different lines.
 public enum EditorStatusBarChrome: Sendable {
-    /// Plate height for both capsules. It is also the smallest touch target, so
-    /// the status capsule's controls keep 44 pt on iPhone.
+    /// Plate height for both capsules, matched to the platform's own control:
+    /// 28 pt on the Mac, the same optical height as a native toolbar control, and
+    /// the 44 pt touch target on iOS and iPadOS. Symbols stay 13 pt on both, so
+    /// the plates sit level with the toolbar instead of a head taller.
+    #if os(macOS)
+    public static let controlMinHeight: CGFloat = 28
+    #else
     public static let controlMinHeight: CGFloat = 44
+    #endif
+    /// Size of the SF Symbols the bottom capsules draw. Vector glyphs scale with
+    /// this number, so every chrome icon has one weight and one size.
+    public static let chromeFontSize: CGFloat = 13
+    /// Square size of one icon button inside the bottom capsules.
+    public static let iconButtonSize: CGFloat = 22
+    /// Horizontal padding inside the status capsule.
+    public static let capsuleHorizontalPadding: CGFloat = 10
+    /// Vertical padding inside the status capsule.
+    public static let capsuleVerticalPadding: CGFloat = 3
+    /// Spacing between the controls inside the status capsule.
+    public static let capsuleControlSpacing: CGFloat = 8
     /// Window edge to the outer edge of either capsule.
     public static let horizontalInset: CGFloat = 12
     /// Bottom safe area to the capsules' bottom edge. Applied once, to the shared

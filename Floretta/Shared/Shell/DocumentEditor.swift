@@ -803,6 +803,7 @@ struct DocumentEditor: View {
             .accessibilityLabel(text("新建画布"))
             .accessibilityIdentifier("canvas.add")
         }
+        .controlSize(.small)
         .padding(.horizontal, 4)
         .frame(minHeight: EditorStatusBarChrome.controlMinHeight)
         .appleGlassChrome(.bottomBarCapsule)

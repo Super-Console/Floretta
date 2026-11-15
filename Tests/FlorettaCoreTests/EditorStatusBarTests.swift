@@ -7,7 +7,11 @@ final class EditorStatusBarTests: XCTestCase {
             EditorStatusBarModel.controls,
             [.topics, .zoomMenu, .viewMode, .outline, .immersive]
         )
+        #if os(macOS)
+        XCTAssertEqual(EditorStatusBarChrome.controlMinHeight, 28)
+        #else
         XCTAssertEqual(EditorStatusBarChrome.controlMinHeight, 44)
+        #endif
         let bar = try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift")
         let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         // TD-003: the capsule is the one zoom entry, so no bar draws a second.
@@ -140,7 +144,16 @@ final class EditorStatusBarTests: XCTestCase {
     /// narrow window: the sheet name truncates, then its divider goes, and the
     /// status capsule is never compressed.
     func testBottomBarSharesOneInsetOneHeightAndOneFitRule() {
+        #if os(macOS)
+        XCTAssertEqual(EditorStatusBarChrome.controlMinHeight, 28)
+        #else
         XCTAssertEqual(EditorStatusBarChrome.controlMinHeight, 44)
+        #endif
+        XCTAssertEqual(EditorStatusBarChrome.chromeFontSize, 13)
+        XCTAssertEqual(EditorStatusBarChrome.iconButtonSize, 22)
+        XCTAssertEqual(EditorStatusBarChrome.capsuleHorizontalPadding, 10)
+        XCTAssertEqual(EditorStatusBarChrome.capsuleVerticalPadding, 3)
+        XCTAssertEqual(EditorStatusBarChrome.capsuleControlSpacing, 8)
         XCTAssertEqual(EditorStatusBarChrome.horizontalInset, 12)
         XCTAssertEqual(EditorStatusBarChrome.bottomInset, 6)
         XCTAssertEqual(EditorStatusBarChrome.capsuleGap, 8)

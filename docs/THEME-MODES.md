@@ -179,3 +179,20 @@ macOS 上 `ThemeFontCascadeTests` 在本轮补了一项 `testSystemSansAndSystem
 - `swift test --package-path FlorettaCore --filter AppearanceModeTests`：4/0，2026-11-12 21:35:54 CST。
 - `xcodebuild test`（Floretta-macOS）：`AppearanceSettingsTests` 4/0（含共享状态与立即同步、三模式切换、经典+非衬线跨重启持久化、标识前缀）。`ThemeFontCascadeTests` 在干净产品 tip `44723d0246b31722acf988adb7ee0b8dfd145372` 上是 14/0（2026-11-13 02:38:31–02:39:04 CST，日志 `/tmp/theme-modes-font-mac-44723d0.log`，`FONT_MAC_OFFICIAL_EXIT 0`，`** TEST SUCCEEDED **`，14 passed / 0 failed，`HEAD=44723d0246b31722acf988adb7ee0b8dfd145372`，`GIT_STATUS_PORCELAIN` 为空）。本轮新增 `testFontCacheCountsForFiftyToFourHundredPercentRoundTrip`、`testFontCacheCountsForMultiDesignScenario`、`testGlyphSampleTitleWidthAtSeventyPercentFitsPaintedCascade`，并保留相对步长量化与 LRU 用例。`eb-garamond` 的 “Hello” 仍是 `EBGaramond-Regular`，汉字仍是 `STSongti-SC-Regular`；`system-serif` 汉字同样仍是宋体。不得用 `ebe0874` / `30e2e91` 的 11/0 代替本 SHA 的 14/0。
 - iOS `generic/platform=iOS` 跑在干净产品 tip `44723d0246b31722acf988adb7ee0b8dfd145372`：命令 `xcodebuild -project Floretta.xcodeproj -scheme Floretta-iOS -destination 'generic/platform=iOS' -configuration Debug CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/theme-modes-ios-44723d0-dd build`，日志 `/tmp/theme-modes-ios-44723d0.log`，START 2026-11-13 02:39:59 CST，END 02:40:24 CST，`IOS_GENERIC_EXIT 0`，`** BUILD SUCCEEDED **`，HEAD 即 `44723d0…`，`git status` 干净。不得用 `ebe0874`、`30e2e91` 或更早 tip 的 EXIT 0 代替。
+
+
+## Chrome 与内容：两层字体
+
+规则：**内容层可以用衬线（主题字体）；Chrome 层永远用系统无衬线。** 这是苹果自己的做法（Books / Pages / Notes 都是正文可衬线、工具栏与按钮用系统 SF），用户拍板直接按这套设计语言走。
+
+- **Chrome（系统字体）**：顶部工具栏的标题与控件标签、底栏状态胶囊、画布标签胶囊、侧栏（首页 / 最近列表）、设置面板、检查器面板的标签与分组标题、菜单 / 弹出框里的静态文字、空状态与提示条。
+- **内容（主题字体）**：画布节点文字、Markdown 正文、卡片 / 节点内部的标题，以及任何用户输入的正文字。设置面板里的「中英混排 Abc 汉字 日本語 한국어」预览也算内容，继续用当前 profile 的字体族。
+
+实现位置：
+
+- `Floretta/Shared/ThemeSettings.swift` 新增 `chromeTypography(language:role:)` → `ChromeTypographyModifier`。它只把字体设成系统文本样式：`ChromeTextRole.body` = `.body`（macOS 13 pt、iOS 17 pt），`.compact` = `.callout`（胶囊 / 状态条这类紧凑 chrome）。内部不调用 `ThemeFontResolver`、不读 `familyCandidates`、不落地 `.custom(`，所以主题字族永远进不来。`language` 参数只为与 `themeTypography(language:)` 对称；SF 与 PingFang 在同一文本样式下光学尺寸一致，不需要按语言改字号。
+- `themeTypography(language:)` 原样保留给内容层：画布节点走 `ThemeTypography.font(mode:language:locale:size:)` 与 `NodeTextTypography.canvasText`，画布内联编辑走 `ThemeFontCascade.platformFont(familyID:nodeDesign:size:)`，设置预览走 `FlorettaTitleFont.font`。
+- 已改用的 chrome 面：`AppearanceSettingsPanel.swift`（设置 / 检查器表单）、`DocumentEditor.swift`（编辑器外壳根，覆盖工具栏、菜单、弹窗）、`LibraryHome.swift`（最近列表、首页侧栏、设置窗口）、`EditorStatusBar.swift`（底栏状态胶囊，字体用 `.compact`）。
+- 底栏胶囊与画布标签胶囊的高度、内边距、图标不在本规则内，属于 `fix/bottom-bar-alignment`；本规则只管字体那一行（`EditorStatusBar.swift` 的 `.chromeTypography(language: language, role: .compact)`）。
+
+新界面怎么选：先问「这是文档内容，还是包住文档的界面？」——内容用 `themeTypography`，界面用 `chromeTypography`。防回归见 `Tests/FlorettaCoreTests/TypographyLayerContractTests.swift`：四个 chrome 文件不得再出现 `themeTypography(`，`ChromeTypographyModifier` 内不得出现主题字体解析，画布与内联编辑仍必须出现主题字体解析。

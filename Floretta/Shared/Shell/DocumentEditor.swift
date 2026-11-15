@@ -212,7 +212,7 @@ struct DocumentEditor: View {
 
     var body: some View {
         editorPresentations
-            .themeTypography(language: settings.language)
+            .chromeTypography(language: settings.language)
     }
 
     private var editorCore: some View {

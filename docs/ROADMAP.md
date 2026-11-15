@@ -107,7 +107,7 @@
 
 ### TD-005 结构布局引擎（9 种图，第一版只做 2 种）
 
-- 状态：🚧 进行中（1.0 (21) 已交付逻辑图与组织结构图；其余 7 种未做，入口 UI 随 TD-004 预留在模型层）
+- 状态：🚧 进行中（1.0 (21) 已交付逻辑图与组织结构图；其余 6 种未做（括号图 / 树形图 / 时间轴 / 鱼骨图 / 树型表格 / 矩阵图），入口 UI 随 TD-004 预留在模型层）
 - 参照：XMind「结构」下拉九项——思维导图 / 逻辑图 / 括号图 / 组织结构图 / 树形图 / 时间轴 / 鱼骨图 / 树型表格 / 矩阵图（用户 2026-11-15 20:56 截图）。
 - 现状证据（2026-11-15，分支 `fix/td005`）：`LayoutKind` 已从单 case 扩成 `.bilateral` / `.logicChart` / `.orgChart`（`FlorettaCore/Layout/LayoutEngine.swift`），每个 case 背后是 `StructureLayout` 的一个实现（`BilateralLayout.swift` / `LogicChartLayout.swift` / `OrgChartLayout.swift`）；量尺寸、配色与连线统一收在 `LayoutGeometry.swift`，布局不许另写测量公式；`MindMapDocument.layoutKind` 存结构（`.bilateral` 不写进 JSON，旧文件照旧打开为思维导图），`LayoutEngine.forDocument(_:)` 让画布与导出取同一结构。
 - 差距（本项是全批里唯一的工程级投入）：其余 8 种各需一套布局算法 + 连线规则 + 折行 + 导出渲染一致性，`Floretta/Shared/Canvas/InfiniteCanvas.swift` 与 `Floretta/Shared/Canvas/MapExport.swift` 都要跟着支持；同时影响 XMind 导入时 layout 字段的映射。
@@ -120,7 +120,7 @@
   5. 画布与导出一致：`CanvasPlacement.nodes` 改为 `LayoutEngine.forDocument`，`MapExport` 的 PNG/PDF 与图片槽都复用 `CanvasPlacement.nodes`，因此位置、父子连线、命中测试、选中、拖拽、插入子节点读的是同一批 `NodeFrame`。
   6. 验证（真实输出）：`swift test` → `Executed 411 tests, with 1 test skipped and 0 failures`；macOS Debug ad-hoc `xcodebuild` → `** BUILD SUCCEEDED **`（未跑 iOS 编译脚本）。
 - 新增一种布局要改的地方（本次实测清单）：1) `LayoutKind` 加 case；2) `displayNameKey` 加一行；3) `makeLayout` 加一行；4) 新文件实现 `StructureLayout`（只用 `LayoutGeometry` 的 `size` / `frame` / `link`）；5) `StructureLayoutTests` 加该布局的几何测试；6) 连线若不走左右出，只在 `LinkAnchor` 加一个锚点。
-- 仍未收口：其余 7 种结构；XMind `structureClass` 映射（`XMindFieldCatalog` 仍是 passthrough「不解释」）；九种结构的入口 UI 属 TD-004；入库截图与视觉回归夹具未做（本任务禁止启动 App 截图）。
+- 仍未收口：其余 6 种结构（括号图 / 树形图 / 时间轴 / 鱼骨图 / 树型表格 / 矩阵图）；XMind `structureClass` 映射（`XMindFieldCatalog` 仍是 passthrough「不解释」）；九种结构的入口 UI 属 TD-004；入库截图与视觉回归夹具未做（本任务禁止启动 App 截图）。
 - 难度：高（每种 1–3 天，全量约 3–4 周）。
 - 验收：切换结构后节点位置、连线、导出 PNG 与屏幕一致；导入的 `.xmind` layout 字段能映射到对应结构；每种布局有独立单测与一张入库截图。
 
@@ -171,7 +171,7 @@ TD-003 → TD-002 → TD-007 → TD-006 → TD-004 → TD-005。前四条都是�
 - 闸门（合并后于集成分支实测）：`swift test` 429/1 skipped/0 failures；`FlorettaTests` 484/1 skipped/0 failures `** TEST SUCCEEDED **`；macOS Debug 与 iOS Debug 编译 exit 0；Release 配置 iOS/macOS 无签名编译 exit 0。
 - 归档与上传：iOS `** ARCHIVE SUCCEEDED **` → `Upload succeeded`；macOS 同。App Store Connect 回读（API `v1/builds?filter[preReleaseVersion.platform]`）：iOS build 21 `VALID`（2026-11-15T05:58:31-08:00）、macOS build 21 `VALID`（2026-11-15T06:02:41-08:00），均挂在 App `6832552931` 的 1.0 版本下。
 - 签名方式与环境事实：Pro 的 Xcode 未登录 Apple ID；`xcodebuild archive -allowProvisioningUpdates -authenticationKeyPath/KID/Issuer` 可自动取描述文件，但 **codesign 必须在 GUI 登录会话里执行**。SSH 会话直签、`launchctl asuser`、`osascript do shell script` 三种方式均报 `errSecInternalComponent`，因为都跑在 SSH 的安全会话里；最终通过在用户已打开的「终端」窗口执行 `nohup bash <script> &` 完成。钥匙串须由 Timmy 本人 `security unlock-keychain` 解锁，助手不接触密码。
-- 未完成（不得写成已交付）：① 真机/桌面视觉验收未做——上传时 Mac 处于锁屏状态，无法截图；② Web 端 TD-008 未开始；③ TD-005 只实现逻辑图与组织结构图，其余 7 种未做；④ 「备注」命令在仓库内不存在，「卡片视图」当前接的是查看模式。
+- 未完成（不得写成已交付）：① 真机/桌面视觉验收未做——上传时 Mac 处于锁屏状态，无法截图；② Web 端 TD-008 未开始；③ TD-005 只实现逻辑图与组织结构图，其余 6 种未做（括号图 / 树形图 / 时间轴 / 鱼骨图 / 树型表格 / 矩阵图）；④ 「备注」命令在仓库内不存在，「卡片视图」当前接的是查看模式。
 
 ## 功能矩阵
 

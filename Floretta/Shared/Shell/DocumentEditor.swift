@@ -644,6 +644,13 @@ struct DocumentEditor: View {
                     revealZenExitAffordance()
                 }
             )
+            // The outline is a panel, not a column of the window: it sits in
+            // this ZStack above `InfiniteCanvas`, so what it covers is canvas
+            // pixels. `sidebarColumn` samples window content (`.withinWindow`)
+            // for exactly that reason; sampling the window backdrop here is
+            // what made it read as a solid grey plate. One plate only: this
+            // modifier, plus `OutlineView` hiding its list's scroll
+            // background, so no second material is stacked on the glass.
             if showOutline, session.zen.chrome.showsSidebar {
                 outlinePanel
                     .frame(width: outlineWide ? nil : 300)

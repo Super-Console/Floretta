@@ -3,8 +3,32 @@ import Foundation
 import CoreGraphics
 #endif
 
-public enum LayoutKind: Equatable, Sendable {
+public enum LayoutKind: String, CaseIterable, Codable, Equatable, Sendable {
+    /// Root centered, children split left and right. The shipped mind map.
     case bilateral
+    /// Root at the left, every branch grows right (XMind 逻辑图).
+    case logicChart
+    /// Root at the top, every branch grows down (XMind 组织结构图).
+    case orgChart
+
+    /// Localization key for a structure picker. The app resolves it; Core stays string-free.
+    public var displayNameKey: String {
+        switch self {
+        case .bilateral: return "layout.bilateral"
+        case .logicChart: return "layout.logicChart"
+        case .orgChart: return "layout.orgChart"
+        }
+    }
+
+    /// The one place a structure joins the engine. Adding a kind is one case
+    /// above, one `StructureLayout` file, one line below, and one geometry test.
+    public func makeLayout(geometry: LayoutGeometry) -> any StructureLayout {
+        switch self {
+        case .bilateral: return BilateralLayout(geometry: geometry)
+        case .logicChart: return LogicChartLayout(geometry: geometry)
+        case .orgChart: return OrgChartLayout(geometry: geometry)
+        }
+    }
 }
 
 public struct BranchColor: Equatable, Sendable {
@@ -456,6 +480,7 @@ public enum CanvasCommands {
 }
 
 public struct LayoutEngine: Sendable {
+    /// Structure to place. `LayoutEngine.forDocument` follows the document.
     public var kind: LayoutKind
     public var cache: TextMeasurementCache
     public var metrics: LayoutMetrics
@@ -482,6 +507,27 @@ public struct LayoutEngine: Sendable {
         self.fontFamilyID = fontFamilyID
     }
 
+    /// Engine that follows the structure stored on the document.
+    /// The canvas and the PNG/PDF exporter both build their engine this way, so a
+    /// map cannot be drawn as one structure and exported as another.
+    public static func forDocument(
+        _ document: MindMapDocument,
+        cache: TextMeasurementCache = TextMeasurementCache(),
+        metrics: LayoutMetrics = LayoutMetrics(),
+        appearance: LayoutAppearance = .standard,
+        fontSizeScale: CGFloat = 1,
+        fontFamilyID: String = ""
+    ) -> LayoutEngine {
+        LayoutEngine(
+            kind: document.layoutKind,
+            cache: cache,
+            metrics: metrics,
+            appearance: appearance,
+            fontSizeScale: fontSizeScale,
+            fontFamilyID: fontFamilyID
+        )
+    }
+
     public func fontSize(depth: Int) -> CGFloat {
         metrics.fontSize(depth: depth) * max(fontSizeScale, 0.01)
     }
@@ -504,495 +550,13 @@ public struct LayoutEngine: Sendable {
         }
         let scale = CGFloat(profile?.clampedFontSizeScale ?? Double(fontSizeScale))
         let familyID = profile?.fontFamilyID ?? fontFamilyID
-        if resolved == appearance, scale == fontSizeScale, familyID == fontFamilyID {
-            return placed(document)
-        }
-        var themed = self
-        themed.appearance = resolved
-        themed.fontSizeScale = scale
-        themed.fontFamilyID = familyID
-        return themed.placed(document)
-    }
-
-    private func placed(_ document: MindMapDocument) -> [NodeFrame] {
-        switch kind {
-        case .bilateral:
-            return bilateral(document)
-        }
-    }
-
-    private struct Measured {
-        var node: MindMapNode
-        var size: CGSize
-        var children: [Measured]
-        var blockHeight: CGFloat
-        var depth: Int
-        var branch: BranchColor
-    }
-
-    private enum Side {
-        case left
-        case right
-    }
-
-    private func bilateral(_ document: MindMapDocument) -> [NodeFrame] {
-        var levelHeights: [Int: CGFloat] = [:]
-        for root in document.roots {
-            collectHeights(root, depth: 0, into: &levelHeights)
-        }
-        var frames: [NodeFrame] = []
-        var nextTop: CGFloat = 0
-        var placedAutoRoot = false
-        for root in document.roots {
-            if root.position != nil {
-                appendManual(root, depth: 0, parentID: nil, isRoot: true, parentRect: nil, branch: .black, heights: levelHeights, into: &frames)
-                continue
-            }
-            let autos = root.isCollapsed ? [] : root.children.filter { $0.position == nil }
-            let sides = split(autos, parent: root, depth: 1, heights: levelHeights)
-            let rootSize = nodeSize(root, depth: 0, heights: levelHeights)
-            let blockHeight = max(rootSize.height, stackHeight(sides.right), stackHeight(sides.left))
-            let centerY = placedAutoRoot ? nextTop + blockHeight / 2 : 0
-            let origin = CGPoint(x: -rootSize.width / 2, y: centerY - rootSize.height / 2)
-            let rootFrame = makeFrame(
-                node: root,
-                origin: origin,
-                size: rootSize,
-                depth: 0,
-                isRoot: true,
-                parentID: nil,
-                branch: .black,
-                link: nil
-            )
-            frames.append(rootFrame)
-            place(sides.right, side: .right, parent: rootFrame, centerY: centerY, heights: levelHeights, into: &frames)
-            place(sides.left, side: .left, parent: rootFrame, centerY: centerY, heights: levelHeights, into: &frames)
-            if !root.isCollapsed {
-                for child in root.children where child.position != nil {
-                    let color = appearance.palette.color(at: childIndex(of: child, in: root))
-                    appendManual(child, depth: 1, parentID: root.id, isRoot: false, parentRect: rootFrame.rect, branch: color, heights: levelHeights, into: &frames)
-                }
-            }
-            nextTop = centerY + blockHeight / 2 + metrics.siblingGap * 2
-            placedAutoRoot = true
-        }
-        // Free nodes are not measured into `levelHeights` and are not passed to `split`.
-        // Their origin is the stored point, including while that point is being dragged.
-        for node in document.freeNodes {
-            appendFree(node, into: &frames)
-        }
-        return frames
-    }
-
-    private func appendFree(_ node: MindMapNode, into frames: inout [NodeFrame]) {
-        let font = resolvedFontSize(node, depth: 1)
-        let face = typography(for: node, depth: 1)
-        let raw = cache.size(
-            text: layoutText(node),
-            fontSize: font,
-            maxWidth: metrics.maxTextWidth,
-            fontFamilyID: face.familyID,
-            nodeDesign: face.nodeDesign
+        let geometry = LayoutGeometry(
+            cache: cache,
+            metrics: metrics,
+            appearance: resolved,
+            fontSizeScale: scale,
+            fontFamilyID: familyID
         )
-        let size = nodeSize(node, depth: 1, heights: [1: raw.height + subtitleMetrics(node, fontSize: font, face: face).height], reservesChildBadge: false)
-        let origin = CGPoint(x: node.position?.x ?? 0, y: node.position?.y ?? 0)
-        frames.append(
-            makeFrame(
-                node: node,
-                origin: origin,
-                size: size,
-                depth: 1,
-                isRoot: false,
-                parentID: nil,
-                branch: appearance.palette.color(at: 0),
-                link: nil,
-                isFree: true
-            )
-        )
-    }
-
-    private func layoutText(_ node: MindMapNode) -> String {
-        NodeAttachmentDrawing.measuredText(node)
-    }
-
-    private func collectHeights(_ node: MindMapNode, depth: Int, into heights: inout [Int: CGFloat]) {
-        let face = typography(for: node, depth: depth)
-        let raw = cache.size(
-            text: layoutText(node),
-            fontSize: resolvedFontSize(node, depth: depth),
-            maxWidth: metrics.maxTextWidth,
-            fontFamilyID: face.familyID,
-            nodeDesign: face.nodeDesign
-        )
-        heights[depth] = max(heights[depth] ?? 0, raw.height + subtitleMetrics(node, fontSize: resolvedFontSize(node, depth: depth), face: face).height)
-        if node.position != nil || node.isCollapsed { return }
-        for child in node.children {
-            collectHeights(child, depth: depth + 1, into: &heights)
-        }
-    }
-
-    private func nodeSize(
-        _ node: MindMapNode,
-        depth: Int,
-        heights: [Int: CGFloat],
-        reservesChildBadge: Bool = false
-    ) -> CGSize {
-        let font = resolvedFontSize(node, depth: depth)
-        let face = typography(for: node, depth: depth)
-        let raw = cache.size(
-            text: layoutText(node),
-            fontSize: font,
-            maxWidth: metrics.maxTextWidth,
-            fontFamilyID: face.familyID,
-            nodeDesign: face.nodeDesign
-        )
-        let band = thumbnailBand(node)
-        let files = FileBadgeLayout.fileAttachments(in: node)
-        let fileBand = CGFloat(FileBadgeMetrics.bandHeight(count: files.count))
-        let tagBand = CGFloat(TopicTagLayout.bandHeight(labelCount: node.labels.count, markerCount: node.markers.count))
-        let imageWidth = band > 0 ? CGFloat(ImageSlot.maxWidth + ImageSlot.horizontalInset * 2) : 0
-        var fileWidth: CGFloat = 0
-        if !files.isEmpty {
-            let label = files.map { "\($0.filename) \(AttachmentByteFormat.label($0.byteCount))" }.joined(separator: "\n")
-            let measured = cache.size(
-                text: label,
-                fontSize: font,
-                maxWidth: metrics.maxTextWidth,
-                fontFamilyID: face.familyID,
-                nodeDesign: face.nodeDesign
-            )
-            fileWidth = measured.width + CGFloat(FileBadgeMetrics.iconSide + FileBadgeMetrics.gap + FileBadgeMetrics.horizontalInset * 2)
-        }
-        let subtitle = subtitleMetrics(node, fontSize: font, face: face)
-        let width = max(raw.width, subtitle.width, CGFloat(node.style?.topicWidth ?? 0), imageWidth, fileWidth)
-        let badge: CGFloat = reservesChildBadge ? appearance.childCountBadgeInset : 0
-        return CGSize(width: width + badge, height: (heights[depth] ?? raw.height + subtitle.height) + band + fileBand + tagBand)
-    }
-
-    private func subtitleMetrics(
-        _ node: MindMapNode,
-        fontSize: CGFloat,
-        face: (familyID: String, nodeDesign: String)
-    ) -> CGSize {
-        guard !node.subtitle.isEmpty else { return .zero }
-        return cache.size(
-            text: node.subtitle,
-            fontSize: max(1, fontSize * 0.72),
-            maxWidth: metrics.maxTextWidth,
-            fontFamilyID: face.familyID,
-            nodeDesign: face.nodeDesign
-        )
-    }
-
-    private func thumbnailBand(_ node: MindMapNode) -> CGFloat {
-        let hasImage = node.attachments.contains { AttachmentKind.isImageExtension($0.fileExtension) }
-        return CGFloat(ImageSlot.bandHeight(hasImage: hasImage))
-    }
-
-    /// Same family + design the canvas will paint, so measured width matches glyphs.
-    private func typography(for node: MindMapNode, depth: Int) -> (familyID: String, nodeDesign: String) {
-        let design = node.style?.fontDesign
-            ?? (depth == 0 ? appearance.rootFontDesign : appearance.bodyFontDesign)
-        return (fontFamilyID, design)
-    }
-
-    private func resolvedFontSize(_ node: MindMapNode, depth: Int) -> CGFloat {
-        let base: CGFloat
-        if let size = node.style?.fontSize, size > 0 {
-            base = CGFloat(size)
-        } else {
-            base = metrics.fontSize(depth: depth)
-        }
-        return base * max(fontSizeScale, 0.01)
-    }
-
-    private func split(
-        _ children: [MindMapNode],
-        parent: MindMapNode,
-        depth: Int,
-        heights: [Int: CGFloat]
-    ) -> (left: [Measured], right: [Measured]) {
-        var left: [Measured] = []
-        var right: [Measured] = []
-        var leftHeight: CGFloat = 0
-        var rightHeight: CGFloat = 0
-        for child in children {
-            let color = appearance.palette.color(at: childIndex(of: child, in: parent))
-            let block = measure(child, depth: depth, branch: color, heights: heights)
-            let rightNext = right.isEmpty ? block.blockHeight : rightHeight + metrics.siblingGap + block.blockHeight
-            let leftNext = left.isEmpty ? block.blockHeight : leftHeight + metrics.siblingGap + block.blockHeight
-            if rightNext < leftNext || (rightNext == leftNext && right.count <= left.count) {
-                right.append(block)
-                rightHeight = rightNext
-            } else {
-                left.append(block)
-                leftHeight = leftNext
-            }
-        }
-        return (left, right)
-    }
-
-    private func measure(
-        _ node: MindMapNode,
-        depth: Int,
-        branch: BranchColor,
-        heights: [Int: CGFloat]
-    ) -> Measured {
-        let size = nodeSize(
-            node,
-            depth: depth,
-            heights: heights,
-            reservesChildBadge: depth > 0 && appearance.childCountBadgeInset > 0
-        )
-        let kids = node.isCollapsed ? [] : node.children.filter { $0.position == nil }
-        let children = kids.map { measure($0, depth: depth + 1, branch: branch, heights: heights) }
-        return Measured(
-            node: node,
-            size: size,
-            children: children,
-            blockHeight: stacked(children, minimum: size.height),
-            depth: depth,
-            branch: branch
-        )
-    }
-
-    private func stackHeight(_ blocks: [Measured]) -> CGFloat {
-        stacked(blocks, minimum: 0)
-    }
-
-    private func stacked(_ blocks: [Measured], minimum: CGFloat) -> CGFloat {
-        guard !blocks.isEmpty else { return minimum }
-        let gaps = metrics.siblingGap * CGFloat(blocks.count - 1)
-        return max(minimum, blocks.reduce(CGFloat(0)) { $0 + $1.blockHeight } + gaps)
-    }
-
-    private func place(
-        _ blocks: [Measured],
-        side: Side,
-        parent: NodeFrame,
-        centerY: CGFloat,
-        heights: [Int: CGFloat],
-        into frames: inout [NodeFrame]
-    ) {
-        let height = stackHeight(blocks)
-        var top = centerY - height / 2
-        for block in blocks {
-            let y = top + (block.blockHeight - block.size.height) / 2
-            let x = side == .right
-                ? parent.rect.maxX + metrics.horizontalGap
-                : parent.rect.minX - metrics.horizontalGap - block.size.width
-            let origin = CGPoint(x: x, y: y)
-            let rect = CGRect(origin: origin, size: block.size)
-            let frame = makeFrame(
-                node: block.node,
-                origin: origin,
-                size: block.size,
-                depth: block.depth,
-                isRoot: false,
-                parentID: parent.id,
-                branch: block.branch,
-                link: curve(from: parent.rect, to: rect, side: side, depth: block.depth, color: block.branch),
-                childBadgeInset: appearance.childCountBadgeInset,
-                childBadgeOnMinX: side == .left
-            )
-            frames.append(frame)
-            place(block.children, side: side, parent: frame, centerY: rect.midY, heights: heights, into: &frames)
-            if !block.node.isCollapsed {
-                for child in block.node.children where child.position != nil {
-                    appendManual(
-                        child,
-                        depth: block.depth + 1,
-                        parentID: block.node.id,
-                        isRoot: false,
-                        parentRect: rect,
-                        branch: block.branch,
-                        heights: heights,
-                        into: &frames
-                    )
-                }
-            }
-            top += block.blockHeight + metrics.siblingGap
-        }
-    }
-
-    private func appendManual(
-        _ node: MindMapNode,
-        depth: Int,
-        parentID: UUID?,
-        isRoot: Bool,
-        parentRect: CGRect?,
-        branch: BranchColor,
-        heights: [Int: CGFloat],
-        into frames: inout [NodeFrame]
-    ) {
-        guard let position = node.position else { return }
-        let reserveBadge = !isRoot && appearance.childCountBadgeInset > 0
-        let size = nodeSize(node, depth: depth, heights: heights, reservesChildBadge: reserveBadge)
-        let origin = CGPoint(x: position.x, y: position.y)
-        let rect = CGRect(origin: origin, size: size)
-        let side: Side = rect.midX >= (parentRect?.midX ?? rect.midX) ? .right : .left
-        let link = parentRect.map {
-            curve(from: $0, to: rect, side: side, depth: depth, color: branch)
-        }
-        frames.append(
-            makeFrame(
-                node: node,
-                origin: origin,
-                size: size,
-                depth: depth,
-                isRoot: isRoot,
-                parentID: parentID,
-                branch: branch,
-                link: link,
-                childBadgeInset: reserveBadge ? appearance.childCountBadgeInset : 0,
-                childBadgeOnMinX: side == .left
-            )
-        )
-    }
-
-    private func makeFrame(
-        node: MindMapNode,
-        origin: CGPoint,
-        size: CGSize,
-        depth: Int,
-        isRoot: Bool,
-        parentID: UUID?,
-        branch: BranchColor,
-        link: LinkCurve?,
-        isFree: Bool = false,
-        childBadgeInset: CGFloat = 0,
-        childBadgeOnMinX: Bool = false
-    ) -> NodeFrame {
-        let palette = colors(depth: depth, branch: branch)
-        let stored = node.style
-        let fill = stored?.fillHex.flatMap(BranchColor.init(hex:)) ?? palette.fill
-        let border = stored?.borderHex.flatMap(BranchColor.init(hex:)) ?? palette.border
-        let text = stored?.textHex.flatMap(BranchColor.init(hex:)) ?? palette.text
-        return NodeFrame(
-            id: node.id,
-            text: node.text,
-            origin: origin,
-            size: size,
-            depth: depth,
-            fontSize: resolvedFontSize(node, depth: depth),
-            isRoot: isRoot,
-            parentID: parentID,
-            fill: fill,
-            border: border,
-            textColor: text,
-            cornerRadius: CGFloat(stored?.cornerRadius ?? Double(appearance.cornerRadius)),
-            borderWidth: CGFloat(stored?.borderWidth ?? Double(appearance.uniformStrokeWidth ?? appearance.linkStroke ?? 1.5)),
-            hidesFill: stored?.fillStyle == "none",
-            bold: stored?.bold ?? false,
-            italic: stored?.italic ?? false,
-            strikethrough: stored?.strikethrough ?? false,
-            underline: stored?.underline ?? false,
-            fontDesign: stored?.fontDesign ?? (isRoot ? appearance.rootFontDesign : appearance.bodyFontDesign),
-            link: link,
-            caption: node.attachmentSizeLabel ?? "",
-            isFree: isFree,
-            thumbnailHashes: node.attachments.compactMap { attachment in
-                AttachmentKind.isImageExtension(attachment.fileExtension)
-                    || NodeMediaKind.classify(filename: attachment.filename) == .video
-                    ? attachment.sha256 : nil
-            },
-            audioWaveformHashes: node.attachments.compactMap { attachment in
-                NodeMediaKind.classify(filename: attachment.filename) == .audio ? attachment.sha256 : nil
-            },
-            fileBadges: FileBadgeLayout.badges(
-                attachments: node.attachments,
-                nodeWidth: Double(size.width),
-                nodeHeight: Double(size.height)
-            ),
-            labels: node.labels,
-            markerIDs: node.markers.map(\.markerId),
-            tagBandHeight: CGFloat(TopicTagLayout.bandHeight(
-                labelCount: node.labels.count,
-                markerCount: node.markers.count
-            )),
-            childBadgeInset: childBadgeInset,
-            childBadgeOnMinX: childBadgeOnMinX,
-            textAlignment: node.textAlignment,
-            subtitle: node.subtitle,
-            subtitleFontSize: resolvedFontSize(node, depth: depth) * 0.72,
-            subtitleHeight: subtitleMetrics(
-                node,
-                fontSize: resolvedFontSize(node, depth: depth),
-                face: typography(for: node, depth: depth)
-            ).height
-        )
-    }
-
-    private func colors(depth: Int, branch: BranchColor) -> (fill: BranchColor, border: BranchColor, text: BranchColor) {
-        let text: BranchColor
-        if depth == 0 {
-            text = appearance.centerText
-        } else if depth == 1 {
-            text = appearance.level1Text
-        } else {
-            text = appearance.deeperText
-        }
-        if appearance.uniformFill == nil, appearance.uniformStroke == nil {
-            if depth == 0 {
-                return (appearance.centerFill, appearance.centerBorder, text)
-            }
-            if depth == 1 {
-                return (branch, branch, text)
-            }
-            return (branch.lightened(by: appearance.deeperFillMix), branch, text)
-        }
-        let fill: BranchColor
-        if let uniform = appearance.uniformFill {
-            fill = uniform
-        } else if depth == 0 {
-            fill = appearance.centerFill
-        } else if depth == 1 {
-            fill = branch
-        } else {
-            fill = branch.lightened(by: appearance.deeperFillMix)
-        }
-        let border: BranchColor
-        if let uniform = appearance.uniformStroke {
-            border = uniform
-        } else if depth == 0 {
-            border = appearance.centerBorder
-        } else {
-            border = branch
-        }
-        return (fill, border, text)
-    }
-
-    private func curve(
-        from parent: CGRect,
-        to child: CGRect,
-        side: Side,
-        depth: Int,
-        color: BranchColor
-    ) -> LinkCurve {
-        let start: CGPoint
-        let end: CGPoint
-        if side == .right {
-            start = CGPoint(x: parent.maxX, y: parent.midY)
-            end = CGPoint(x: child.minX, y: child.midY)
-        } else {
-            start = CGPoint(x: parent.minX, y: parent.midY)
-            end = CGPoint(x: child.maxX, y: child.midY)
-        }
-        let dx = end.x - start.x
-        let startWidth = appearance.edgeStartWidth ?? appearance.linkStroke ?? metrics.linkWidth(depth: depth)
-        let endWidth = appearance.edgeEndWidth ?? startWidth
-        return LinkCurve(
-            start: start,
-            control1: CGPoint(x: start.x + dx * 0.5, y: start.y),
-            control2: CGPoint(x: end.x - dx * 0.5, y: end.y),
-            end: end,
-            lineWidth: startWidth,
-            endWidth: endWidth,
-            color: appearance.edgeColor ?? color
-        )
-    }
-
-    private func childIndex(of child: MindMapNode, in parent: MindMapNode) -> Int {
-        parent.children.firstIndex(where: { $0.id == child.id }) ?? 0
+        return kind.makeLayout(geometry: geometry).place(document)
     }
 }

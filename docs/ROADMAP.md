@@ -55,12 +55,19 @@
 
 ### TD-002 画布标签栏（多画布切换 UI）
 
-- 状态：❌ 未开工。
+- 状态：🚧 进行中(fix/td002)。
 - 参照：XMind 画布左下角一条胶囊：「结构版 | 画布 2 ▾ | ＋」，`▾` 弹出 重命名 / 拷贝 / 粘贴 / 复制 / 删除 / 新画布 / 画布另存为…（用户 2026-11-15 20:54 截图）。
-- 现状证据：多画布**模型层已存在**——`Floretta/Shared/Shell/DocumentSession.swift:541`（sheets 不进当前值，避免测量时遍历其它画布）、`:579`（切画布前记住本画布 camera，撤销不跨画布）；`EditorToolbarCommandID.newCanvas` 已在 `FlorettaCore/Editor/EditorToolbarCatalog.swift`。但仓库内**没有任何画布切换栏 UI**（`grep -rn 'sheetBar|canvasTabs' Floretta/Shared` 无命中）。
-- 差距：纯 UI 层 + 右键菜单；重命名、删除、另存为属于文档级操作，删除画布须可撤销。
-- 修法：底部左侧玻璃胶囊 + `＋`；切换复用现有 activeSheet / camera 逻辑；菜单项对齐 XMind 七项，暂无能力的项不出现（不要放灰的死按钮）。
+- 现状证据（2026-11-15 复核，修正下面「没有任何切换栏 UI」一句）：多画布**模型层**在 `FlorettaCore/Model/CanvasSheets.swift`（`canvasCount` / `addCanvas` / `removeCanvas` / `renameCanvas` / `viewport(forCanvas:)`），会话层在 `Floretta/Shared/Shell/DocumentSession.swift` 的 `editingDocument` / `activateCanvas` / `addCanvas` / `removeCanvas`；`EditorToolbarCommandID.newCanvas` 在 `FlorettaCore/Editor/EditorToolbarCatalog.swift`。UI 层**当时确实已有一条横向标签栏**（`DocumentEditor.swift` 旧 `canvasTabBar` + `canvasTab(_:)`，AX 标识 `canvas.tabs` / `canvas.tab.N`，单画布时隐藏，改名靠双击、删除靠右键菜单）——原文「无命中」是因为只 grep 了 `sheetBar|canvasTabs` 两个词，漏掉了 `canvasTabBar`；本次把它整体替换成 XMind 式胶囊。
+- 差距（开工时）：缺 `▾` 菜单、删除不可撤销、没有拷贝 / 粘贴 / 复制画布 / 画布另存为。
+- 修法：底部左侧玻璃胶囊（`appleGlassChrome(.bottomBarCapsule)`）+ 当前画布名 `▾` 菜单 + `＋`；切换复用现有 `activateCanvas` / 每画布 camera；菜单七项对齐 XMind，无能力的项不出现（单画布不出「删除」，没拷贝过不出「粘贴」）。
+- 本轮实现（2026-11-15，分支 `fix/td002`）：
+  - 模型：`CanvasSheets.swift` 新增 `canvasSnapshot(at:)`、`insertCanvas(_:at:)`（`removeCanvas(at: 0)` 的逆操作，把当前首画布下推回 `additionalCanvases[0]`）、`duplicateCanvas(at:title:)`、`uniqueCanvasTitle(basedOn:suffix:)`、`MindMapCanvas.copyWithFreshIDs()`（节点 / 概要 / 边界 / 关系线 / 便签 / 专区全部换新 id，跨画布关系线丢弃）；新文件 `FlorettaCore/Model/CanvasSheetHistory.swift` 存删除记录与一条时钟，用来排序「⌘Z 该撤销内容编辑还是删除画布」。
+  - 会话：`DocumentSession` 的 `removeCanvas` 记下被删画布（含实时 camera），`undoCanvasRemoval` / `redoCanvasRemoval` / `restoreRemovedCanvas` 复活；`undo()` / `redo()` 先问画布历史；`copyActiveCanvas` / `pasteCanvas` / `duplicateCanvas` 走进程内一格画布剪贴板 `CanvasSheetBoard`；`editActive` 只在内容真的变了才打时钟标记。
+  - UI：`DocumentEditor.canvasTabBar` 改成胶囊（当前画布名 + `▾` Menu + `＋`），单画布也显示（XMind 如此，`＋` 才有常驻入口）；菜单项 AX 标识 `canvas.menu` / `canvas.add` / `canvas.menu.rename|copy|paste|duplicate|delete|undoDelete|add|saveAs` / 画布行 `canvas.tab.N`；「画布另存为…」写单独一页 `.floretta`，不改当前文档 URL（`exportKind = "canvas"`）。新增 7 条界面文案进 `FlorettaL10n.english` 与 `Localizable.xcstrings`（两份 key 必须一致）。
+  - 测试：`Tests/FlorettaCoreTests/CanvasSheetMenuTests.swift` 12 条（快照 / 首画布插入 / 中段插入 / 末尾插入 / 复制换 id / 跨画布关系线丢弃 / 附件引用保留 / 复制标题编号 / 删除是 ⌘Z 最新步 / undo-redo 栈 / redo 清空与上限 / 删除后带 camera 复活）。
+  - 验证（SSH，临时 DerivedData `.build/wt`）：`swift test` 407 tests / 1 skipped / 0 failures（exit 0）；macOS `FlorettaTests` 476 tests / 1 skipped / 0 failures（exit 0）；macOS `Floretta-macOS` ad-hoc 签名构建 BUILD SUCCEEDED；iOS 模拟器目标构建 BUILD SUCCEEDED。
 - 难度：低（0.5–1 天）。
+- 剩余：PR 与 Censor 审查未做；iPad / iPhone 真机与 UI 自动化未跑（`FlorettaUITests/HomeSmokeTests.swift` 已按新胶囊改写「单画布也显示 / 经 `▾` 菜单切画布」两处断言，需 GUI 会话复验）；胶囊的浅色 / 深色观感未截图。
 - 验收：新建 / 切换 / 重命名 / 删除画布后，节点内容与 camera 均正确恢复；删除画布可撤销；macOS 与 iPad 行为一致；胶囊不遮挡画布右下角操作。
 
 ### TD-003 右下角状态胶囊与主题统计 popover

@@ -700,24 +700,61 @@ struct DocumentEditor: View {
         isExitAffordanceRevealed = false
     }
 
-    /// One row of sheet titles. Only the visible canvas is mounted, so switching
-    /// sheets lays that sheet out once and leaves the others off the frame path.
+    /// The sheet capsule stays visible with a single sheet, so 新建画布 always has a
+    /// permanent entry point. Markdown documents and Zen hide the bottom chrome.
     private var showsCanvasTabs: Bool {
-        !session.isMarkdownDocument && !session.zen.isActive && session.document.canvasCount > 1
+        !session.isMarkdownDocument && !session.zen.isActive
     }
 
+    /// XMind's sheet capsule: the current sheet name behind a `▾` menu, then `＋`.
+    ///
+    /// One capsule instead of a row of tabs. Switching sheets, rename, copy, paste,
+    /// duplicate, delete, new sheet, and 画布另存为 all live in the menu, which is
+    /// where XMind puts them too. The capsule is left-aligned and only as wide as
+    /// its content, so the bottom-right corner of the canvas stays clear.
     private var canvasTabBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(0..<session.document.canvasCount, id: \.self) { index in
-                    canvasTab(index)
+        HStack(spacing: 2) {
+            Menu {
+                canvasSheetMenu
+            } label: {
+                HStack(spacing: 4) {
+                    Text(verbatim: currentCanvasTitle)
+                        .lineLimit(1)
+                    Image(systemName: "chevron.down")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
+                .padding(.leading, 12)
+                .padding(.trailing, 10)
+                .frame(minHeight: EditorStatusBarChrome.controlMinHeight)
+                .contentShape(Rectangle())
             }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help(Text(verbatim: text("切换、重命名或删除画布")))
+            .accessibilityLabel(Text(verbatim: currentCanvasTitle))
+            .accessibilityHint(text("切换、重命名或删除画布"))
+            .accessibilityIdentifier("canvas.menu")
+
+            Divider()
+                .frame(height: 18)
+
+            Button {
+                session.addCanvas(viewport: camera.viewport.persisted)
+            } label: {
+                Image(systemName: "plus")
+                    .frame(width: 34, height: EditorStatusBarChrome.controlMinHeight)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(Text(verbatim: text("新建画布")))
+            .accessibilityLabel(text("新建画布"))
+            .accessibilityIdentifier("canvas.add")
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .frame(maxWidth: 320, alignment: .leading)
-        .frame(minHeight: EditorStatusBarChrome.controlMinHeight, alignment: .leading)
+        .padding(.horizontal, 4)
+        .frame(minHeight: EditorStatusBarChrome.controlMinHeight)
         .appleGlassChrome(.bottomBarCapsule)
         .padding(.leading, 12)
         .accessibilityElement(children: .contain)
@@ -731,44 +768,147 @@ struct DocumentEditor: View {
         }
     }
 
-    private func canvasTab(_ index: Int) -> some View {
-        let selected = index == session.document.clampedCanvasIndex
-        return Button {
-            session.activateCanvas(index, viewport: camera.viewport.persisted)
-        } label: {
-            Text(verbatim: session.document.canvasTitle(at: index))
-                .lineLimit(1)
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .frame(minHeight: EditorStatusBarChrome.controlMinHeight)
-        .contentShape(Rectangle())
-        .tint(selected ? Color.accentColor : Color.secondary)
-        .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityIdentifier("canvas.tab.\(index)")
-        .simultaneousGesture(TapGesture(count: 2).onEnded {
-            canvasRenameIndex = index
-            canvasRenameText = session.document.canvasTitle(at: index)
-            showCanvasRename = true
-        })
-        .contextMenu {
+    private var currentCanvasIndex: Int { session.document.clampedCanvasIndex }
+
+    /// Sheet names are user text, so they never go through the string table.
+    private func sheetTitle(at index: Int) -> String {
+        let title = session.document.canvasTitle(at: index)
+        return title.isEmpty ? "未命名" : title
+    }
+
+    private var currentCanvasTitle: String { sheetTitle(at: currentCanvasIndex) }
+
+    /// 「<当前画布> 副本」, numbered when that name is taken.
+    private func copyCanvasTitle(suffix: String) -> String {
+        session.document.uniqueCanvasTitle(basedOn: currentCanvasTitle, suffix: suffix)
+    }
+
+    /// The `▾` menu. A capability that does not exist is not drawn as a dead row:
+    /// 删除 needs a second sheet, 粘贴 needs a copied one.
+    @ViewBuilder
+    private var canvasSheetMenu: some View {
+        ForEach(0..<session.document.canvasCount, id: \.self) { index in
             Button {
-                canvasRenameIndex = index
-                canvasRenameText = session.document.canvasTitle(at: index)
-                showCanvasRename = true
+                session.activateCanvas(index, viewport: camera.viewport.persisted)
             } label: {
-                Label(text("重新命名画布"), systemImage: "pencil")
-            }
-            if session.document.canvasCount > 1 {
-                Button(role: .destructive) {
-                    session.removeCanvas(at: index, viewport: camera.viewport.persisted)
-                } label: {
-                    Label(text("删除画布"), systemImage: "trash")
+                if index == currentCanvasIndex {
+                    Label(sheetTitle(at: index), systemImage: "checkmark")
+                } else {
+                    Text(verbatim: sheetTitle(at: index))
                 }
             }
+            .accessibilityIdentifier("canvas.tab.\(index)")
+        }
+
+        Divider()
+
+        Button {
+            beginCanvasRename()
+        } label: {
+            Label(text("重新命名画布"), systemImage: "pencil")
+        }
+        .accessibilityIdentifier("canvas.menu.rename")
+
+        Button {
+            session.copyActiveCanvas(viewport: camera.viewport.persisted)
+        } label: {
+            Label(text("拷贝画布"), systemImage: "doc.on.doc")
+        }
+        .accessibilityIdentifier("canvas.menu.copy")
+
+        if session.hasStagedCanvas {
+            Button {
+                session.pasteCanvas(
+                    viewport: camera.viewport.persisted,
+                    title: copyCanvasTitle(suffix: text("副本"))
+                )
+            } label: {
+                Label(text("粘贴画布"), systemImage: "doc.on.clipboard")
+            }
+            .accessibilityIdentifier("canvas.menu.paste")
+        }
+
+        Button {
+            session.duplicateCanvas(
+                viewport: camera.viewport.persisted,
+                title: copyCanvasTitle(suffix: text("副本"))
+            )
+        } label: {
+            Label(text("复制画布"), systemImage: "plus.square.on.square")
+        }
+        .accessibilityIdentifier("canvas.menu.duplicate")
+
+        if session.document.canvasCount > 1 {
+            Button(role: .destructive) {
+                session.removeCanvas(at: currentCanvasIndex, viewport: camera.viewport.persisted)
+            } label: {
+                Label(text("删除画布"), systemImage: "trash")
+            }
+            .accessibilityIdentifier("canvas.menu.delete")
+        }
+
+        if session.restorableCanvasRemoval != nil {
+            Button {
+                session.restoreRemovedCanvas()
+            } label: {
+                Label(text("撤销删除画布"), systemImage: "arrow.uturn.backward")
+            }
+            .accessibilityIdentifier("canvas.menu.undoDelete")
+        }
+
+        Button {
+            session.addCanvas(viewport: camera.viewport.persisted)
+        } label: {
+            Label(text("新建画布"), systemImage: "plus.rectangle.on.rectangle")
+        }
+        .accessibilityIdentifier("canvas.menu.add")
+
+        Button {
+            saveActiveCanvasAs()
+        } label: {
+            Label(text("画布另存为…"), systemImage: "square.and.arrow.down.on.square")
+        }
+        .accessibilityIdentifier("canvas.menu.saveAs")
+    }
+
+    private func beginCanvasRename() {
+        canvasRenameIndex = currentCanvasIndex
+        canvasRenameText = session.document.canvasTitle(at: currentCanvasIndex)
+        showCanvasRename = true
+    }
+
+    /// 画布另存为…: writes this sheet alone as a new `.floretta` file.
+    /// The open document keeps its own URL — this is a copy, not 另存为 for the map,
+    /// so the export kind is not "floretta" and the save callback is not run.
+    private func saveActiveCanvasAs() {
+        session.prepareToSave()
+        let index = currentCanvasIndex
+        let title = currentCanvasTitle
+        var canvas = session.document.isolatedCanvas(at: index)
+        canvas.title = title
+        do {
+            exportKind = "canvas"
+            exportType = FlorettaFileTypes.contentType(forExport: "floretta")
+            exportName = exportFilename(title: title, kind: "floretta")
+            if !AttachmentReferences.hashes(in: canvas).isEmpty, let archive = session.url {
+                let destination = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("\(UUID().uuidString).floretta")
+                _ = try FlorettaStreamingDocument.save(
+                    document: canvas,
+                    to: destination,
+                    files: FoundationStreamingFiles(),
+                    copyingAssetsFrom: archive
+                )
+                exportFile = ExportFile(data: Data(), fileURL: destination)
+            } else {
+                exportFile = ExportFile(data: try SharePayload.bytes(for: "floretta", document: canvas))
+            }
+            presentPreparedExport()
+        } catch {
+            exportError = error.localizedDescription
         }
     }
+
 
     private var tagFilterBanner: some View {
         HStack(spacing: 8) {

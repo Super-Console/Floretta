@@ -13,6 +13,7 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertTrue(body.contains(".frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)"))
         XCTAssertTrue(header.contains("inspectorTabPicker"))
         XCTAssertTrue(header.contains(".fixedSize(horizontal: false, vertical: true)"))
+        XCTAssertTrue(header.contains(".frame(minHeight: 64)"), "the shared inspector header reserves height even when the selected page is empty")
         XCTAssertTrue(picker.contains("Picker(text(\"检查器\"), selection: $inspectorTab)"))
         XCTAssertTrue(picker.contains(".pickerStyle(.segmented)"))
         XCTAssertFalse(header.contains("GlassEffectContainer"), "mode changes must not replace the native picker with positioned custom content")
@@ -73,6 +74,15 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertFalse(try slice(fadeRoles, from: "case .floatingPanel", until: "case .inspectorPanel").contains("toolbarFloatingButton"), "the titlebar glass is excluded from the content-band bottom mask")
         XCTAssertTrue(fadeRoles.contains("case .inspectorPanel, .sidebarColumn, .iconButton, .toolbarFloatingButton"))
         XCTAssertEqual(editor.components(separatedBy: ".toolbarBackground(.hidden, for: .windowToolbar)").count - 1, 1, "the editor hides the system background once; no second material is installed there")
+    }
+
+    func testSettingsUsesSystemNavigationAndFormWithoutGlassHeaderBand() throws {
+        let home = try repoFile("Floretta/Shared/Shell/LibraryHome.swift")
+        let settings = try slice(home, from: "struct SettingsView: View", until: "private func text")
+
+        XCTAssertTrue(settings.contains("NavigationStack"))
+        XCTAssertTrue(settings.contains("Form {"))
+        XCTAssertFalse(settings.contains("appleGlassChrome"), "Settings uses the system navigation/form header, not a custom glass band sampling content underneath")
     }
 
     func testSidebarSelectionUsesOnlyTheNativeListSelection() throws {
@@ -173,6 +183,7 @@ final class AppleGlassChromeContractTests: XCTestCase {
         let empty = try slice(editor, from: "text(\"选择一个主题\")", until: "accessibilityIdentifier(\"inspector.empty\")")
         XCTAssertTrue(empty.contains(".appleGlassChrome(.iconButton)"))
         XCTAssertTrue(empty.contains("inspector.empty.brush"))
+        XCTAssertTrue(empty.contains(".frame(maxWidth: .infinity, maxHeight: .infinity)"), "empty content fills the shared page area instead of constraining the header")
 
         // Zen exit is hidden by default and floats out only after a canvas tap;
         // the immersive canvas must not have a persistent chrome button.

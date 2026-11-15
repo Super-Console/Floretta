@@ -1609,6 +1609,7 @@ struct DocumentEditor: View {
         }
         .padding(.top, 12)
         .fixedSize(horizontal: false, vertical: true)
+        .frame(minHeight: 64)
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("inspector.header")

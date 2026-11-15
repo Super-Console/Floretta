@@ -31,8 +31,15 @@ import UIKit
 ///    `Glass.tint(_:)`; no semi-transparent colour is painted by hand.
 /// 2. The runtime-discovered AppKit glass view when a host cannot apply the
 ///    SwiftUI modifier. `AppleGlassChromePlates` builds it when available.
-/// 3. `NSVisualEffectView`, `blendingMode: .behindWindow` as the older-OS
-///    fallback. Bars and the inspector plate use material `.sidebar`.
+/// 3. `NSVisualEffectView` as the older-OS fallback. The blending mode is the
+///    sample source, and it follows the role, not habit: chrome that floats
+///    over the canvas (`bottomBarCapsule`, `floatingPanel`) blurs the window's
+///    own content (`blendingMode: .withinWindow`, material `.hudWindow` /
+///    `.popover`), so a node passing under a plate is diffused instead of
+///    showing through with a sharp edge that reads as a cut-off bar.
+///    Columns (`sidebarColumn`, `inspectorPanel`) keep
+///    `blendingMode: .behindWindow` with material `.sidebar`: they own a
+///    column of the window and are supposed to sample the window backdrop.
 ///    Segmented controls, icon buttons, and toolbar buttons use
 ///    `.underWindowBackground`.
 /// 4. On iOS before Liquid Glass, the system control stays as it is. This
@@ -134,6 +141,27 @@ enum AppleGlassChromeMetrics {
 }
 
 extension AppleGlassChromeRole {
+    /// Chrome that floats over canvas content instead of owning a column of
+    /// the window: the two bottom capsules, the in-canvas banners and audio
+    /// bar. A plate over content has to blur that content; a plate over the
+    /// window backdrop has to blur the backdrop. One property answers which,
+    /// so no plate re-decides it on its own.
+    var floatsOverContent: Bool {
+        switch self {
+        case .bottomBarCapsule, .floatingPanel:
+            return true
+        case .inspectorPanel, .sidebarColumn, .segmentedContainer, .iconButton, .toolbarFloatingButton:
+            return false
+        }
+    }
+
+    /// Underlay material for the `.light` path. A plate over the canvas gets
+    /// the thicker material, so a node under it stops reading as a sharp
+    /// shape; the columns and in-bar controls keep the thin one.
+    var lightUnderlayMaterial: Material {
+        floatsOverContent ? .thickMaterial : .thinMaterial
+    }
+
     /// Chrome that reads as a horizontal band over the canvas; its bottom
     /// edge fades out instead of ending in a hard cut.
     var fadesBottomEdge: Bool {
@@ -304,7 +332,7 @@ private struct AppleGlassChromePlate<Content: View>: View {
             if #available(iOS 26.0, macOS 26.0, *) {
                 GlassEffectContainer(spacing: CGFloat(0)) {
                     view
-                        .background(.thinMaterial, in: shape)
+                        .background(role.lightUnderlayMaterial, in: shape)
                         .glassEffect(
                             .regular.tint(AppleGlassChromeMetrics.lightTint),
                             in: shape
@@ -349,13 +377,29 @@ private struct AppleGlassChromePlate<Content: View>: View {
 
 #if os(macOS)
 extension AppleGlassChromeRole {
+    /// Fallback material. Plates over the canvas are raised to the stronger
+    /// material Apple ships for floating surfaces (`.hudWindow`, `.popover`),
+    /// so text on the plate stays readable while a node passes underneath.
+    /// The columns keep `.sidebar`; in-bar controls keep the window background.
     var fallbackMaterial: NSVisualEffectView.Material {
         switch self {
-        case .bottomBarCapsule, .inspectorPanel, .sidebarColumn, .floatingPanel:
+        case .bottomBarCapsule:
+            .hudWindow
+        case .floatingPanel:
+            .popover
+        case .inspectorPanel, .sidebarColumn:
             .sidebar
         case .segmentedContainer, .iconButton, .toolbarFloatingButton:
             .underWindowBackground
         }
+    }
+
+    /// What the plate samples. `behindWindow` reads the desktop behind the
+    /// window, which is why a capsule sitting on canvas nodes looked cut off:
+    /// it neither diffused nor covered them. Only chrome that floats over the
+    /// canvas switches to `.withinWindow`; the columns stay on `.behindWindow`.
+    var fallbackBlendingMode: NSVisualEffectView.BlendingMode {
+        floatsOverContent ? .withinWindow : .behindWindow
     }
 
     /// `.native` scene -> Apple system material.
@@ -431,7 +475,7 @@ enum AppleGlassChromePlates {
 
     static func updateVisualEffectView(_ view: NSVisualEffectView, role: AppleGlassChromeRole, cornerRadius: CGFloat) {
         view.material = role.fallbackMaterial
-        view.blendingMode = .behindWindow
+        view.blendingMode = role.fallbackBlendingMode
         view.state = .followsWindowActiveState
         view.wantsLayer = true
         view.layer?.backgroundColor = nil
@@ -470,7 +514,7 @@ private struct AppleGlassChromeVisualPlate: NSViewRepresentable {
 
     func updateNSView(_ view: NSVisualEffectView, context: Context) {
         view.material = role.fallbackMaterial
-        view.blendingMode = .behindWindow
+        view.blendingMode = role.fallbackBlendingMode
         view.layer?.cornerRadius = role.plateCornerRadius
         view.layer?.cornerCurve = .continuous
         view.layer?.backgroundColor = nil

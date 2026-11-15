@@ -66,9 +66,9 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertEqual(recents.components(separatedBy: "LazyVGrid").count - 1, 1, "the recents grid must have one rendered instance")
         XCTAssertFalse(recents.contains("appleGlassChrome"), "the grid is rendered once as content, never supplied as a chrome background")
         XCTAssertTrue(activeLightBackend.contains("= .light"))
-        XCTAssertTrue(glass.contains(".background(.thinMaterial, in: shape)"))
+        XCTAssertTrue(glass.contains(".background(role.lightUnderlayMaterial, in: shape)"))
         XCTAssertTrue(glass.contains(".regular.tint(AppleGlassChromeMetrics.lightTint)"))
-        XCTAssertTrue(fallbackPlate.contains("view.blendingMode = .behindWindow"))
+        XCTAssertTrue(fallbackPlate.contains("view.blendingMode = role.fallbackBlendingMode"))
         XCTAssertTrue(nativePlate.contains("view.blendingMode = role.nativeBlendingMode"))
         XCTAssertTrue(glass.contains("case .header, .hud: .withinWindow"), "withinWindow exists only on the explicitly selected native header/HUD path")
         XCTAssertTrue(fadeRoles.contains(".toolbarFloatingButton"))
@@ -109,7 +109,9 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertTrue(glass.contains("NSVisualEffectView"))
         XCTAssertTrue(glass.contains(".underWindowBackground"))
         XCTAssertTrue(glass.contains(".sidebar"))
-        XCTAssertTrue(glass.contains("blendingMode = .behindWindow"))
+        XCTAssertTrue(glass.contains("var fallbackBlendingMode"))
+        XCTAssertTrue(glass.contains("floatsOverContent ? .withinWindow : .behindWindow"))
+        XCTAssertTrue(glass.contains("case .header, .hud: .withinWindow"))
         XCTAssertTrue(glass.contains("case swiftUIGlassEffect"))
         XCTAssertTrue(glass.contains("case nsGlassEffectView"))
         XCTAssertTrue(glass.contains("case nsVisualEffectView"))
@@ -146,6 +148,33 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertFalse(glassPainting.contains(".background(Color.black"))
         XCTAssertFalse(glassPainting.contains("Color.white.opacity("))
         XCTAssertFalse(glassPainting.contains("Color.black.opacity("))
+    }
+
+    /// A plate over the canvas must blur the canvas; a plate that owns a
+    /// column must blur the window backdrop. The split is one role property,
+    /// and `.behindWindow` on a floating capsule is the cut-off-bar bug.
+    func testFloatingChromeSamplesWindowContentWhileColumnsKeepTheBackdrop() throws {
+        let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
+        let floats = try slice(glass, from: "var floatsOverContent: Bool", until: "var lightUnderlayMaterial")
+        XCTAssertTrue(floats.contains("case .bottomBarCapsule, .floatingPanel:\n            return true"))
+        for column in [".inspectorPanel", ".sidebarColumn"] {
+            XCTAssertTrue(floats.contains(column), column)
+        }
+        XCTAssertTrue(floats.contains("return false"))
+        XCTAssertTrue(glass.contains("floatsOverContent ? .thickMaterial : .thinMaterial"))
+        XCTAssertTrue(glass.contains("floatsOverContent ? .withinWindow : .behindWindow"))
+
+        // Material level: floating plates are raised, columns are not.
+        let materials = try slice(glass, from: "var fallbackMaterial: NSVisualEffectView.Material", until: "var fallbackBlendingMode")
+        XCTAssertTrue(materials.contains("case .bottomBarCapsule:\n            .hudWindow"))
+        XCTAssertTrue(materials.contains("case .floatingPanel:\n            .popover"))
+        XCTAssertTrue(materials.contains("case .inspectorPanel, .sidebarColumn:\n            .sidebar"))
+
+        // Both AppKit plates read the mode from the role, never a literal.
+        XCTAssertEqual(glass.components(separatedBy: "blendingMode = role.fallbackBlendingMode").count - 1, 2)
+        XCTAssertFalse(glass.contains("blendingMode = .behindWindow"))
+        XCTAssertFalse(glass.contains("blendingMode = .withinWindow"))
+        XCTAssertTrue(try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift").contains(".appleGlassChrome(.bottomBarCapsule)"))
     }
 
     func testLabelsOnGlassStayLegibleInLightAndDark() throws {

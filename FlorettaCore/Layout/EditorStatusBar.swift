@@ -97,9 +97,11 @@ public enum EditorBottomBarLayout {
 /// Controls on the one bottom bar capsule, leading to trailing (TD-003).
 /// The topic count opens the 主题 / 字数 / 字符数 breakdown; the numbers come from
 /// `TopicTitleCensus`, so this list counts nothing. The presentation tab is
-/// deliberately absent.
+/// deliberately absent. `.pointerMode` is the Mac's 指针 / 手掌 tool; touch
+/// platforms keep the pan drag they shipped with, so it is not drawn there.
 public enum EditorStatusControl: String, Equatable, Sendable {
     case topics
+    case pointerMode
     case zoomMenu
     case viewMode
     case outline
@@ -127,13 +129,28 @@ public enum EditorToolbarLayout {
 }
 
 public enum EditorStatusBarModel {
-    public static let controls: [EditorStatusControl] = [
-        .topics,
-        .zoomMenu,
-        .viewMode,
-        .outline,
-        .immersive,
-    ]
+    /// The capsule's controls, leading to trailing. The Mac adds the pointer /
+    /// hand tool beside the view mode; iPhone and iPad draw the five they had.
+    public static var controls: [EditorStatusControl] {
+        #if os(macOS)
+        return [
+            .topics,
+            .zoomMenu,
+            .pointerMode,
+            .viewMode,
+            .outline,
+            .immersive,
+        ]
+        #else
+        return [
+            .topics,
+            .zoomMenu,
+            .viewMode,
+            .outline,
+            .immersive,
+        ]
+        #endif
+    }
 
     /// Writes a menu stop into the chrome percent the editor already displays.
     /// `CanvasCamera.zoom(to:)` does this after it changes the viewport scale.

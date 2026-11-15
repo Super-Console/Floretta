@@ -3,10 +3,18 @@ import FlorettaCore
 
 final class EditorStatusBarTests: XCTestCase {
     func testStatusCapsuleOwnsTheZoomControl() throws {
+        #if os(macOS)
+        XCTAssertEqual(
+            EditorStatusBarModel.controls,
+            [.topics, .zoomMenu, .pointerMode, .viewMode, .outline, .immersive],
+            "the Mac capsule adds the pointer / hand tool beside the view mode"
+        )
+        #else
         XCTAssertEqual(
             EditorStatusBarModel.controls,
             [.topics, .zoomMenu, .viewMode, .outline, .immersive]
         )
+        #endif
         #if os(macOS)
         XCTAssertEqual(EditorStatusBarChrome.controlMinHeight, 28)
         #else

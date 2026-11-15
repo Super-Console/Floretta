@@ -70,7 +70,7 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertTrue(glass.contains(".regular.tint(AppleGlassChromeMetrics.lightTint)"))
         XCTAssertTrue(fallbackPlate.contains("view.blendingMode = role.fallbackBlendingMode"))
         XCTAssertTrue(nativePlate.contains("view.blendingMode = role.nativeBlendingMode"))
-        XCTAssertTrue(glass.contains("case .header, .hud: .withinWindow"), "withinWindow exists only on the explicitly selected native header/HUD path")
+        XCTAssertTrue(glass.contains("sampleSource == .windowContent ? .withinWindow : .behindWindow"), "the sample layer is decided in one place")
         XCTAssertTrue(fadeRoles.contains(".toolbarFloatingButton"))
         XCTAssertFalse(try slice(fadeRoles, from: "case .floatingPanel", until: "case .inspectorPanel").contains("toolbarFloatingButton"), "the titlebar glass is excluded from the content-band bottom mask")
         XCTAssertTrue(fadeRoles.contains("case .inspectorPanel, .sidebarColumn, .iconButton, .toolbarFloatingButton"))
@@ -110,8 +110,9 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertTrue(glass.contains(".underWindowBackground"))
         XCTAssertTrue(glass.contains(".sidebar"))
         XCTAssertTrue(glass.contains("var fallbackBlendingMode"))
-        XCTAssertTrue(glass.contains("floatsOverContent ? .withinWindow : .behindWindow"))
-        XCTAssertTrue(glass.contains("case .header, .hud: .withinWindow"))
+        XCTAssertTrue(glass.contains("sampleSource == .windowContent ? .withinWindow : .behindWindow"))
+        XCTAssertTrue(glass.contains("case windowContent"))
+        XCTAssertTrue(glass.contains("case windowBackdrop"))
         XCTAssertTrue(glass.contains("case swiftUIGlassEffect"))
         XCTAssertTrue(glass.contains("case nsGlassEffectView"))
         XCTAssertTrue(glass.contains("case nsVisualEffectView"))
@@ -124,7 +125,11 @@ final class AppleGlassChromeContractTests: XCTestCase {
         let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
         XCTAssertFalse(glass.contains(".blur("))
         XCTAssertFalse(glass.contains("ultraThinMaterial"))
-        XCTAssertFalse(glass.contains("regularMaterial"))
+        // The system material underlay is chosen once, in the role table
+        // (`lightUnderlayMaterial`): thin for in-bar controls, regular for a
+        // text column over the canvas, thick for a one-line capsule. A second
+        // inline material would be a hand-rolled wash.
+        XCTAssertEqual(glass.components(separatedBy: "return .regularMaterial").count - 1, 1)
         XCTAssertFalse(glass.contains(".shadow("))
         XCTAssertFalse(glass.contains("colorScheme"))
 
@@ -150,31 +155,94 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertFalse(glassPainting.contains("Color.black.opacity("))
     }
 
-    /// A plate over the canvas must blur the canvas; a plate that owns a
-    /// column must blur the window backdrop. The split is one role property,
-    /// and `.behindWindow` on a floating capsule is the cut-off-bar bug.
-    func testFloatingChromeSamplesWindowContentWhileColumnsKeepTheBackdrop() throws {
+    /// **The rule: a plate samples the layer it actually covers.** A panel that
+    /// floats beside or over the canvas covers canvas pixels, so it blurs
+    /// those. Only a surface that owns the window edge covers nothing but the
+    /// window backdrop. `.behindWindow` on a panel sitting on canvas pixels is
+    /// the "solid grey plate" bug: it blurs the desktop while the canvas it
+    /// covers stays sharp.
+    func testEveryPlateSamplesTheLayerItCovers() throws {
         let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
-        let floats = try slice(glass, from: "var floatsOverContent: Bool", until: "var lightUnderlayMaterial")
-        XCTAssertTrue(floats.contains("case .bottomBarCapsule, .floatingPanel, .canvasFloatingButton:\n            return true"))
-        for column in [".inspectorPanel", ".sidebarColumn"] {
-            XCTAssertTrue(floats.contains(column), column)
-        }
-        XCTAssertTrue(floats.contains("return false"))
-        XCTAssertTrue(glass.contains("floatsOverContent ? .thickMaterial : .thinMaterial"))
-        XCTAssertTrue(glass.contains("floatsOverContent ? .withinWindow : .behindWindow"))
+        let sources = try slice(glass, from: "var sampleSource: GlassChromeSampleSource", until: "var lightUnderlayMaterial: Material")
 
-        // Material level: floating plates are raised, columns are not.
-        let materials = try slice(glass, from: "var fallbackMaterial: NSVisualEffectView.Material", until: "var fallbackBlendingMode")
+        // Panels and capsules that sit on canvas pixels: the outline column is
+        // in this list, because it is a panel over the canvas and not a column
+        // of the window.
+        XCTAssertTrue(sources.contains("case .bottomBarCapsule, .floatingPanel, .canvasFloatingButton, .sidebarColumn:\n            return .windowContent"))
+        // The macOS inspector owns the trailing window edge; on iOS the same
+        // inspector is presented over the canvas, so the answer is split.
+        XCTAssertTrue(sources.contains("case .inspectorPanel:\n            #if os(macOS)\n            return .windowBackdrop"))
+        XCTAssertTrue(sources.contains("#else\n            return .windowContent\n            #endif"))
+        XCTAssertTrue(sources.contains("case .segmentedContainer, .iconButton, .toolbarFloatingButton:\n            return .windowBackdrop"))
+
+        // One mapping, read by all three styles, so the `.light` A/B style and
+        // the `.native` style cannot blur different layers for the same role.
+        XCTAssertEqual(
+            glass.components(separatedBy: "? .withinWindow : .behindWindow").count - 1,
+            1,
+            "the blending mode is derived in one place"
+        )
+        XCTAssertTrue(glass.contains("var fallbackBlendingMode: NSVisualEffectView.BlendingMode { blendingMode }"))
+        XCTAssertTrue(glass.contains("var nativeBlendingMode: NSVisualEffectView.BlendingMode { blendingMode }"))
+        XCTAssertFalse(glass.contains("case .sidebar: .behindWindow"), "the native scene picks material, not sample layer")
+
+        // Material level follows the same rule: a text column over the canvas
+        // gets sidebar-weight diffusion, a one-line capsule the thick one.
+        let materials = try slice(glass, from: "var fallbackMaterial: NSVisualEffectView.Material", until: "var blendingMode")
         XCTAssertTrue(materials.contains("case .bottomBarCapsule, .canvasFloatingButton:\n            .hudWindow"))
         XCTAssertTrue(materials.contains("case .floatingPanel:\n            .popover"))
         XCTAssertTrue(materials.contains("case .inspectorPanel, .sidebarColumn:\n            .sidebar"))
+        XCTAssertTrue(glass.contains("case .sidebarColumn, .inspectorPanel:\n            return .regularMaterial"))
+        XCTAssertFalse(glass.contains("floatsOverContent"), "the old boolean shortcut is gone; `sampleSource` is the only answer")
 
         // Both AppKit plates read the mode from the role, never a literal.
         XCTAssertEqual(glass.components(separatedBy: "blendingMode = role.fallbackBlendingMode").count - 1, 2)
         XCTAssertFalse(glass.contains("blendingMode = .behindWindow"))
         XCTAssertFalse(glass.contains("blendingMode = .withinWindow"))
         XCTAssertTrue(try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift").contains(".appleGlassChrome(.bottomBarCapsule)"))
+    }
+
+    /// The editor outline is the only `sidebarColumn` call site, it is one
+    /// plate over the canvas, and the list under it hides its own background so
+    /// the plate is what the reader sees.
+    func testOutlinePanelIsOneGlassPlateOverTheCanvas() throws {
+        let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let outline = try repoFile("Floretta/Shared/Outline/OutlineView.swift")
+        let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
+
+        let stack = try slice(editor, from: "private var canvasStack", until: "private var bottomBarRow")
+        let canvasPosition = try XCTUnwrap(stack.range(of: "InfiniteCanvas(")).lowerBound
+        let panelPosition = try XCTUnwrap(stack.range(of: "if showOutline")).lowerBound
+        XCTAssertLessThan(canvasPosition, panelPosition, "the outline is drawn above the canvas it covers")
+
+        let panel = try slice(editor, from: "if showOutline, session.zen.chrome.showsSidebar", until: ".overlay(alignment: .top)")
+        XCTAssertTrue(panel.contains(".appleGlassChrome(.sidebarColumn)"))
+        XCTAssertEqual(
+            panel.components(separatedBy: ".appleGlassChrome(").count - 1,
+            1,
+            "the outline is one plate; a second one on the panel is double glass"
+        )
+        XCTAssertFalse(panel.contains("glassEffect"), "no second glass layer inside the plate")
+        XCTAssertFalse(panel.contains("Material"), "no hand-rolled material beside the plate")
+
+        // Content, not chrome: the list must not paint over the glass, and it
+        // must not carry a plate of its own.
+        XCTAssertTrue(outline.contains(".listStyle(.sidebar)"))
+        XCTAssertTrue(outline.contains(".scrollContentBackground(.hidden)"))
+        XCTAssertFalse(outline.contains("appleGlassChrome"))
+        XCTAssertTrue(
+            glass.contains("case .sidebarColumn:\n            plated(inked(view), shape: RoundedRectangle(cornerRadius: AppleGlassChromeMetrics.sidebarCornerRadius"),
+            "the column-shaped panel keeps its rounded continuous plate"
+        )
+
+        // The macOS inspector keeps the system column and its opaque rows: this
+        // role draws no plate, and the row blocks are untouched by the change.
+        XCTAssertTrue(glass.contains("case .inspectorPanel:\n            #if os(macOS)\n            return false"))
+        XCTAssertGreaterThanOrEqual(
+            editor.components(separatedBy: ".inspectorRowBlock(").count - 1,
+            10,
+            "the inspector rows stay opaque blocks on top of the panel glass"
+        )
     }
 
     /// A system toolbar item is already glass. A plate inside it is the
@@ -184,7 +252,7 @@ final class AppleGlassChromeContractTests: XCTestCase {
         let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
         let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
 
-        let draws = try slice(glass, from: "var drawsPlate: Bool", until: "var floatsOverContent: Bool")
+        let draws = try slice(glass, from: "var drawsPlate: Bool", until: "var sampleSource: GlassChromeSampleSource")
         XCTAssertTrue(
             draws.contains("case .toolbarFloatingButton:\n            return false"),
             "the toolbar item keeps the system capsule, on both platforms"

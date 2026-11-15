@@ -10,9 +10,10 @@ import UIKit
 ///
 /// On macOS `inspectorPanel` is a no-op so a second plate is not stacked on
 /// the system inspector column, which already provides Liquid Glass. The
-/// iOS inspector, both platforms' sidebars, and the editor outline column
-/// use the path below. `sidebarColumn` is the shared token for the iPad
-/// home sidebar, the Mac home sidebar, and the editor outline.
+/// iOS inspector and the editor outline column (both platforms) use the path
+/// below. `sidebarColumn` is the token for the editor outline column; the
+/// `NavigationSplitView` sidebar it was first written for is gone, so the
+/// macOS inspector is the only surface here that really owns a window edge.
 ///
 /// Two official implementations are kept side by side and selected by
 /// `GlassChromeConfiguration.renderingStyle` (default `.light`):
@@ -31,17 +32,25 @@ import UIKit
 ///    `Glass.tint(_:)`; no semi-transparent colour is painted by hand.
 /// 2. The runtime-discovered AppKit glass view when a host cannot apply the
 ///    SwiftUI modifier. `AppleGlassChromePlates` builds it when available.
-/// 3. `NSVisualEffectView` as the older-OS fallback. The blending mode is the
-///    sample source, and it follows the role, not habit: chrome that floats
-///    over the canvas (`bottomBarCapsule`, `floatingPanel`) blurs the window's
-///    own content (`blendingMode: .withinWindow`, material `.hudWindow` /
-///    `.popover`), so a node passing under a plate is diffused instead of
-///    showing through with a sharp edge that reads as a cut-off bar.
-///    Columns (`sidebarColumn`, `inspectorPanel`) keep
-///    `blendingMode: .behindWindow` with material `.sidebar`: they own a
-///    column of the window and are supposed to sample the window backdrop.
-///    Segmented controls, icon buttons, and toolbar buttons use
-///    `.underWindowBackground`.
+/// 3. `NSVisualEffectView` as the older-OS fallback. `sampleSource` is the one
+///    rule that decides what a plate blurs — **the layer it actually covers**
+///    (采样对象是它身后真正被它遮住的那层东西), never a habit or a shape:
+///    - Chrome that covers canvas pixels blurs the window's own content
+///      (`blendingMode: .withinWindow`). That is the two bottom capsules and
+///      the banners (material `.hudWindow` / `.popover`), and the editor
+///      outline column (material `.sidebar`), which is a panel floating over
+///      the canvas rather than a column of the window. A node passing under
+///      such a plate is diffused instead of showing through with a sharp edge
+///      that reads as a cut-off bar, and its text stays readable.
+///    - A column that owns the window's edge covers nothing but the window
+///      backdrop, so it samples it (`blendingMode: .behindWindow`). The macOS
+///      inspector is that column, and it draws no plate here at all because
+///      the system `.inspector` column already supplies the glass. Sampling
+///      `.behindWindow` for a panel that sits on canvas pixels is the
+///      "solid grey plate" bug: it blurs the desktop behind the window while
+///      the canvas it covers stays sharp underneath.
+///    - Segmented controls, icon buttons, and toolbar buttons inherit the bar
+///      they sit in and use `.underWindowBackground`.
 /// 4. On iOS before Liquid Glass, the system control stays as it is. This
 ///    file does not invent a blur, a frosted fill, or a shadow.
 ///
@@ -63,6 +72,13 @@ import UIKit
 /// a later Mac pass. This environment cannot render the app.
 enum AppleGlassChromeRole: String, Equatable {
     /// iOS inspector column. macOS returns the content unchanged.
+    ///
+    /// The sample source is platform-split because the surface is: on macOS
+    /// this is the system `.inspector` column that owns the window's trailing
+    /// edge (`windowBackdrop`, and no plate is drawn here); on iOS the
+    /// inspector is presented over the canvas — a trailing column at regular
+    /// width, a sheet at compact width — so it covers canvas pixels and
+    /// samples `windowContent`.
     case inspectorPanel
     /// The 样式 / 导图 segmented control.
     case segmentedContainer
@@ -81,10 +97,36 @@ enum AppleGlassChromeRole: String, Equatable {
     /// Zen exit. It needs its own plate, because nothing else supplies glass
     /// there.
     case canvasFloatingButton
-    /// NavigationSplitView sidebar and the editor outline column.
+    /// The editor outline column, on both platforms.
+    ///
+    /// It is a 300pt-wide panel inside the canvas `ZStack`, so it floats over
+    /// the canvas and covers canvas pixels: it samples `windowContent`. The
+    /// `NavigationSplitView` sidebar this token was first written for no
+    /// longer exists — the home page is one column — so no call site of this
+    /// role owns a window edge.
     case sidebarColumn
     /// Floating banners, status strips, and the in-canvas audio bar.
     case floatingPanel
+}
+
+/// What a glass plate samples: **the layer it actually covers**, not the shape
+/// it is drawn in and not the role's name.
+///
+/// 采样对象是它身后真正被它遮住的那层东西。A panel that floats beside or over
+/// the canvas covers canvas pixels, so it has to blur those pixels. Only a
+/// surface that owns the window's edge covers nothing but the window backdrop,
+/// and only that surface may sample behind the window.
+///
+/// This is the single place the question is answered. `fallbackBlendingMode`
+/// and `nativeBlendingMode` both read it, so the `.light` A/B style and the
+/// `.native` style cannot drift apart.
+enum GlassChromeSampleSource: String, Equatable {
+    /// The window's own content: canvas pixels, and the app content under a
+    /// sheet. Maps to `NSVisualEffectView.BlendingMode.withinWindow`.
+    case windowContent
+    /// The backdrop behind the window, which is only visible through an
+    /// otherwise empty column. Maps to `.behindWindow`.
+    case windowBackdrop
 }
 
 enum AppleGlassChromeBackend: String, Equatable {
@@ -173,25 +215,47 @@ extension AppleGlassChromeRole {
         }
     }
 
-    /// Chrome that floats over canvas content instead of owning a column of
-    /// the window: the two bottom capsules, the in-canvas banners and audio
-    /// bar. A plate over content has to blur that content; a plate over the
-    /// window backdrop has to blur the backdrop. One property answers which,
-    /// so no plate re-decides it on its own.
-    var floatsOverContent: Bool {
+    /// What this plate samples. The rule lives here once, so every style — the
+    /// SwiftUI `.light` underlay, the AppKit fallback, and the `.native`
+    /// vibrancy view — blurs the same layer for the same role.
+    ///
+    /// - Canvas pixels (`windowContent`): the bottom capsules, the banners, the
+    ///   audio bar, the Zen exit, and the editor outline column — a panel that
+    ///   floats beside the canvas covers canvas pixels like any other floater.
+    /// - Window backdrop (`windowBackdrop`): only the macOS inspector, whose
+    ///   column is the window's trailing edge and whose glass the system
+    ///   draws. On iOS that same inspector covers canvas pixels instead.
+    /// - In-bar controls inherit their bar, which owns the window edge.
+    var sampleSource: GlassChromeSampleSource {
         switch self {
-        case .bottomBarCapsule, .floatingPanel, .canvasFloatingButton:
-            return true
-        case .inspectorPanel, .sidebarColumn, .segmentedContainer, .iconButton, .toolbarFloatingButton:
-            return false
+        case .bottomBarCapsule, .floatingPanel, .canvasFloatingButton, .sidebarColumn:
+            return .windowContent
+        case .inspectorPanel:
+            #if os(macOS)
+            return .windowBackdrop
+            #else
+            return .windowContent
+            #endif
+        case .segmentedContainer, .iconButton, .toolbarFloatingButton:
+            return .windowBackdrop
         }
     }
 
-    /// Underlay material for the `.light` path. A plate over the canvas gets
-    /// the thicker material, so a node under it stops reading as a sharp
-    /// shape; the columns and in-bar controls keep the thin one.
+    /// Underlay material for the `.light` path. It follows what the plate
+    /// covers: a small plate with one label takes the thick material, a tall
+    /// text column takes `.regularMaterial` — SwiftUI's counterpart of the
+    /// `.sidebar` vibrancy the native path uses, so rows stay legible over a
+    /// busy canvas without turning the plate into a solid slab — and the
+    /// in-bar controls keep the thin one they sit on.
     var lightUnderlayMaterial: Material {
-        floatsOverContent ? .thickMaterial : .thinMaterial
+        switch self {
+        case .bottomBarCapsule, .floatingPanel, .canvasFloatingButton:
+            return .thickMaterial
+        case .sidebarColumn, .inspectorPanel:
+            return .regularMaterial
+        case .segmentedContainer, .iconButton, .toolbarFloatingButton:
+            return .thinMaterial
+        }
     }
 
     /// Chrome that reads as a horizontal band over the canvas; its bottom
@@ -346,8 +410,15 @@ private struct AppleGlassChromePlate<Content: View>: View {
     }
 
     /// `.light` (default): the refined frosted Liquid Glass.
+    /// - `glassEffect` samples the window's own content by construction, so a
+    ///   plate over the canvas refracts the canvas. It is the reason a panel
+    ///   here needs no blending mode; the material underlay is what decides how
+    ///   much of that content survives.
     /// - A system `Material` underlay raises the effective blur so the
     ///   background turns into colour blocks and shapes are unrecognisable.
+    ///   `lightUnderlayMaterial` follows the same sample-source rule as the
+    ///   AppKit plates: a text column over the canvas takes `.regularMaterial`,
+    ///   a one-line capsule takes `.thickMaterial`.
     /// - `Glass.tint(_:)` is the thin tint layer that lowers background
     ///   contrast, stopping dark text / borders reading as a reflection.
     @ViewBuilder
@@ -382,8 +453,8 @@ private struct AppleGlassChromePlate<Content: View>: View {
         }
     }
 
-    /// `.native`: system vibrancy material, selected by scene, with a
-    /// matching blending mode. Kept alongside `.light`, never deleted.
+    /// `.native`: system vibrancy material, selected by scene, with the
+    /// sample-source blending mode. Kept alongside `.light`, never deleted.
     @ViewBuilder
     private func nativePlated<V: View, S: Shape>(_ view: V, shape: S) -> some View {
         view.background { AppleGlassChromeNativePlate(role: role) }
@@ -406,7 +477,10 @@ extension AppleGlassChromeRole {
     /// Fallback material. Plates over the canvas are raised to the stronger
     /// material Apple ships for floating surfaces (`.hudWindow`, `.popover`),
     /// so text on the plate stays readable while a node passes underneath.
-    /// The columns keep `.sidebar`; in-bar controls keep the window background.
+    /// The outline panel keeps `.sidebar` — the material Apple documents for a
+    /// text column — and it is paired with `.withinWindow` here, so that
+    /// material now diffuses the canvas the panel covers instead of the
+    /// desktop behind the window. In-bar controls keep the window background.
     var fallbackMaterial: NSVisualEffectView.Material {
         switch self {
         case .bottomBarCapsule, .canvasFloatingButton:
@@ -420,13 +494,18 @@ extension AppleGlassChromeRole {
         }
     }
 
-    /// What the plate samples. `behindWindow` reads the desktop behind the
-    /// window, which is why a capsule sitting on canvas nodes looked cut off:
-    /// it neither diffused nor covered them. Only chrome that floats over the
-    /// canvas switches to `.withinWindow`; the columns stay on `.behindWindow`.
-    var fallbackBlendingMode: NSVisualEffectView.BlendingMode {
-        floatsOverContent ? .withinWindow : .behindWindow
+    /// What the plate samples, spelled once. `.behindWindow` reads the desktop
+    /// behind the window: correct only for a surface that owns the window edge
+    /// and covers nothing else, wrong for anything that sits on canvas pixels
+    /// (it blurs the desktop while the canvas underneath stays sharp, which is
+    /// the solid grey panel). `.withinWindow` reads the window's own content,
+    /// which is exactly what a panel floating over the canvas covers.
+    var blendingMode: NSVisualEffectView.BlendingMode {
+        sampleSource == .windowContent ? .withinWindow : .behindWindow
     }
+
+    /// Fallback plate. Same mode as the role: one answer, two callers.
+    var fallbackBlendingMode: NSVisualEffectView.BlendingMode { blendingMode }
 
     /// `.native` scene -> Apple system material.
     var nativeMaterial: NSVisualEffectView.Material {
@@ -437,13 +516,10 @@ extension AppleGlassChromeRole {
         }
     }
 
-    /// `.native` scene -> Apple blending mode.
-    var nativeBlendingMode: NSVisualEffectView.BlendingMode {
-        switch nativeScene {
-        case .sidebar: .behindWindow
-        case .header, .hud: .withinWindow
-        }
-    }
+    /// `.native` plate blending mode. The scene picks the material; the sample
+    /// source picks what is blurred, so the `.native` A/B style cannot sample a
+    /// different layer than the `.light` one.
+    var nativeBlendingMode: NSVisualEffectView.BlendingMode { blendingMode }
 
     var plateCornerRadius: CGFloat {
         switch self {

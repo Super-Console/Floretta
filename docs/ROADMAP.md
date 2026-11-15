@@ -114,6 +114,20 @@
 
 TD-003 → TD-002 → TD-007 → TD-006 → TD-004 → TD-005。前四条都是「已有零件 + 入口/样式」，一天内可见；TD-004 需要设计确认；TD-005 单独立项，先做两种验证架构。
 
+### TD-008 Web 端对标（FlorettaWeb 仓库，排在原生 TestFlight 之后）
+
+- 状态：❌ 未开工（Timmy 2026-11-15 决定：排在原生 `1.0 (21)` 上 TestFlight 之后单独一轮）。
+- 仓库：独立仓库，与原生不共享代码。Pro 上有本地副本 `/Users/TimmySheep/AWS/floretta/.web/FlorettaWeb`（origin `Super-Console/FlorettaWeb`，tip `ff80e2c`；2026-11-15 已合 PR #13 `feat/web-mac-parity` 并部署）。
+- 范围：把本批原生已落地的项在 Web 上等价实现——TD-002 画布标签栏、TD-003 状态胶囊与主题统计、TD-004 检查器分组、TD-006 顶栏分组。TD-001（节点文字居中）先查 Web 画布自己的文本渲染方式再决定是 `text-align` 还是逐行绘制。
+- 硬边界：Web 拿不到系统 Liquid Glass，只能用 `backdrop-filter` 近似，不得写成「已实现系统玻璃」；改动前先更新 `docs/WEB-PARITY.md` 的状态词，不用 ✅ 掩盖近似。
+- 验收：与原生同场景对照截图；仓库自带 `gate.js` 与既有测试通过。
+
+### 交付方式（2026-11-15 确认）
+
+- 原生三端（macOS / iPad / iPhone）共用同一份 Swift 代码，本批完成后合并为一个集成分支，版本 `1.0 (21)`，Timmy 验收后直接上传 TestFlight。验收由 Timmy 本人做，助手只负责积分构建与上传。
+- Pro 的 Xcode 未登录 Apple ID：签名、导出、上传全程走命令行 + ASC API Key，不使用图形界面登录，也不索取账号密码或验证码。若 provisioning 卡住则停下来等 Timmy。
+- Web 端（TD-008）不在本次 TestFlight 包内。
+
 ## 功能矩阵
 
 | 功能 | macOS | iPad | iPhone | Web | 证据 |

@@ -90,13 +90,16 @@ struct AppearanceSettingsPanel: View {
     /// stored paper shows the appearance default and starts overriding it on edit.
     private var backgroundSection: some View {
         Section(text(InspectorStyleSection.background.titleKey)) {
-            colorPicker("画布底色", key: "canvas", hex: documentPaperHex)
-            if documentBackground?.wrappedValue != nil {
-                Button(text("跟随外观默认")) {
-                    documentBackground?.wrappedValue = nil
+            Group {
+                colorPicker("画布底色", key: "canvas", hex: documentPaperHex)
+                if documentBackground?.wrappedValue != nil {
+                    Button(text("跟随外观默认")) {
+                        documentBackground?.wrappedValue = nil
+                    }
+                    .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "canvasReset"))
                 }
-                .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "canvasReset"))
             }
+            .inspectorRowBlock(enabled: density == .inspector)
         }
         .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "background"))
     }
@@ -105,14 +108,17 @@ struct AppearanceSettingsPanel: View {
     /// place a serif is chosen.
     private var globalFontSection: some View {
         Section(text(InspectorStyleSection.globalFont.titleKey)) {
-            Picker(text("字体族"), selection: fontFamilyID) {
-                ForEach(AppearanceCatalog.families) { family in
-                    Text(verbatim: text(family.nameKey))
-                        .tag(family.id)
-                        .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "fontFamily.\(family.id)"))
+            Group {
+                Picker(text("字体族"), selection: fontFamilyID) {
+                    ForEach(AppearanceCatalog.families) { family in
+                        Text(verbatim: text(family.nameKey))
+                            .tag(family.id)
+                            .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "fontFamily.\(family.id)"))
+                    }
                 }
+                .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "fontFamily"))
             }
-            .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "fontFamily"))
+            .inspectorRowBlock(enabled: density == .inspector)
         }
         .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "globalFont"))
     }
@@ -121,21 +127,24 @@ struct AppearanceSettingsPanel: View {
     /// keeps the system face.
     private var contentSection: some View {
         Section(text("内容外观")) {
-            colorPicker("文字色", key: "text", hex: colorHex(\.textHex) { $0.textHex = $1 })
-            colorPicker("次级文字色", key: "secondaryText", hex: colorHex(\.secondaryTextHex) { $0.secondaryTextHex = $1 })
-            colorPicker("节点底色", key: "nodeFill", hex: colorHex(\.nodeFillHex) { $0.nodeFillHex = $1 })
+            Group {
+                colorPicker("文字色", key: "text", hex: colorHex(\.textHex) { $0.textHex = $1 })
+                colorPicker("次级文字色", key: "secondaryText", hex: colorHex(\.secondaryTextHex) { $0.secondaryTextHex = $1 })
+                colorPicker("节点底色", key: "nodeFill", hex: colorHex(\.nodeFillHex) { $0.nodeFillHex = $1 })
 
-            sliderRow("字号缩放", key: "fontSizeScale", value: scaleBinding, range: 0.5...2.0, step: 0.05)
-            sliderRow("行高", key: "lineHeight", value: lineHeightBinding, range: 1.0...2.0, step: 0.05)
-            sliderRow("圆角半径", key: "cornerRadius", value: cornerBinding, range: 0...24, step: 1)
+                sliderRow("字号缩放", key: "fontSizeScale", value: scaleBinding, range: 0.5...2.0, step: 0.05)
+                sliderRow("行高", key: "lineHeight", value: lineHeightBinding, range: 1.0...2.0, step: 0.05)
+                sliderRow("圆角半径", key: "cornerRadius", value: cornerBinding, range: 0...24, step: 1)
 
-            preview
-                .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "preview"))
+                preview
+                    .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "preview"))
 
-            Button(text("恢复内容外观默认值")) {
-                settings.restoreContentAppearanceDefaults()
+                Button(text("恢复内容外观默认值")) {
+                    settings.restoreContentAppearanceDefaults()
+                }
+                .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "restore"))
             }
-            .accessibilityIdentifier(AppearanceIdentifier.id(identifierPrefix, "restore"))
+            .inspectorRowBlock(enabled: density == .inspector)
         }
     }
 

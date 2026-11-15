@@ -164,16 +164,18 @@ extension View {
         AppleGlassChromePlate(role: role) { self }
     }
 
-    /// Lets the iOS inspector glass show through the form. Does not restyle
-    /// the form's pickers, sliders, or toggles. macOS is unchanged here; the
-    /// Mac panel plate is not this modifier.
+    /// Lets the panel's glass show through the form instead of a form-painted
+    /// background. Does not restyle the form's pickers, sliders, or toggles.
+    ///
+    /// Both platforms: the Mac panel is the system inspector column's own Liquid
+    /// Glass, so the grouped form has to stop painting its scroll background for
+    /// that glass to be visible at all. On macOS the same layer is where the
+    /// grouped section plates are drawn, which is why the inspector's rows carry
+    /// `inspectorRowBlock(enabled:)` plates of their own; iOS keeps its
+    /// inset-grouped cards and adds nothing.
     @ViewBuilder
     func appleGlassInspectorFormPlate() -> some View {
-        #if os(iOS)
         self.scrollContentBackground(.hidden)
-        #else
-        self
-        #endif
     }
 
     /// Soft bottom-edge fade for a glass band. Uses only an alpha gradient

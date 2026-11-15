@@ -113,6 +113,9 @@
 		CA8A00000000000000000001 /* AppearanceSettingsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8A00000000000000000001 /* AppearanceSettingsPanel.swift */; };
 		CA8A00000000000000000002 /* AppearanceSettingsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8A00000000000000000001 /* AppearanceSettingsPanel.swift */; };
 		CA8A00000000000000000003 /* AppearanceSettingsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8A00000000000000000001 /* AppearanceSettingsPanel.swift */; };
+		CA9A00000000000000000001 /* InspectorPanelRowBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA9A00000000000000000001 /* InspectorPanelRowBlock.swift */; };
+		CA9A00000000000000000002 /* InspectorPanelRowBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA9A00000000000000000001 /* InspectorPanelRowBlock.swift */; };
+		CA9A00000000000000000003 /* InspectorPanelRowBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA9A00000000000000000001 /* InspectorPanelRowBlock.swift */; };
 		C8F20010000000000000000 /* CrimsonPro-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10010000000000000000 /* CrimsonPro-Regular.otf */; };
 		C8F21010000000000000000 /* CrimsonPro-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10010000000000000000 /* CrimsonPro-Regular.otf */; };
 		C8F22010000000000000000 /* CrimsonPro-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F8F10010000000000000000 /* CrimsonPro-Regular.otf */; };
@@ -328,6 +331,7 @@
 		F90000000000000000000003 /* OutlineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OutlineTests.swift; path = Tests/FlorettaCoreTests/OutlineTests.swift; sourceTree = SOURCE_ROOT; };
 		FA1100000000000000000001 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		FA8A00000000000000000001 /* AppearanceSettingsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettingsPanel.swift; sourceTree = "<group>"; };
+		FA9A00000000000000000001 /* InspectorPanelRowBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorPanelRowBlock.swift; sourceTree = "<group>"; };
 		F8F10010000000000000000 /* CrimsonPro-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = CrimsonPro-Regular.otf; sourceTree = "<group>"; };
 		F8F10020000000000000000 /* EBGaramond-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = EBGaramond-Regular.otf; sourceTree = "<group>"; };
 		F8F10030000000000000000 /* IBMPlexSans-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = IBMPlexSans-Regular.otf; sourceTree = "<group>"; };
@@ -632,6 +636,7 @@
 			children = (
 				FA1100000000000000000001 /* AppSettings.swift */,
 				FA8A00000000000000000001 /* AppearanceSettingsPanel.swift */,
+				FA9A00000000000000000001 /* InspectorPanelRowBlock.swift */,
 				F8F1200000000000000000 /* ThemeFontCascade.swift */,
 				F8F4070000000000000000 /* ThemeSettings.swift */,
 				FA5100000000000000000001 /* DocumentEditor.swift */,
@@ -1260,6 +1265,7 @@
 				C90000000000000000000002 /* OutlineView.swift in Sources */,
 				CA1100000000000000000001 /* AppSettings.swift in Sources */,
 				CA8A00000000000000000001 /* AppearanceSettingsPanel.swift in Sources */,
+				CA9A00000000000000000001 /* InspectorPanelRowBlock.swift in Sources */,
 				C8F4010000000000000000 /* ThemeFontCascade.swift in Sources */,
 				C8F4070000000000000000 /* ThemeSettings.swift in Sources */,
 				CA2100000000000000000001 /* RecentMapsStore.swift in Sources */,
@@ -1304,6 +1310,7 @@
 				C90000000000000000000004 /* OutlineView.swift in Sources */,
 				CA1100000000000000000002 /* AppSettings.swift in Sources */,
 				CA8A00000000000000000002 /* AppearanceSettingsPanel.swift in Sources */,
+				CA9A00000000000000000002 /* InspectorPanelRowBlock.swift in Sources */,
 				C8F4020000000000000000 /* ThemeFontCascade.swift in Sources */,
 				C8F4080000000000000000 /* ThemeSettings.swift in Sources */,
 				CA2100000000000000000002 /* RecentMapsStore.swift in Sources */,
@@ -1388,6 +1395,7 @@
 				C90000000000000000000007 /* OutlineTests.swift in Sources */,
 				CA1100000000000000000003 /* AppSettings.swift in Sources */,
 				CA8A00000000000000000003 /* AppearanceSettingsPanel.swift in Sources */,
+				CA9A00000000000000000003 /* InspectorPanelRowBlock.swift in Sources */,
 				C8F4030000000000000000 /* ThemeFontCascade.swift in Sources */,
 				C8F4090000000000000000 /* ThemeSettings.swift in Sources */,
 				C8F4040000000000000000 /* ThemeFontCascadeTests.swift in Sources */,

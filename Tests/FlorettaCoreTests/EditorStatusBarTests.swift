@@ -152,10 +152,10 @@ final class EditorStatusBarTests: XCTestCase {
         XCTAssertEqual(EditorStatusBarChrome.controlMinHeight, 44)
         #endif
         XCTAssertEqual(EditorStatusBarChrome.chromeFontSize, 13)
-        XCTAssertEqual(EditorStatusBarChrome.iconButtonSize, 22)
+        XCTAssertEqual(EditorStatusBarChrome.iconButtonSize, 28)
         XCTAssertEqual(EditorStatusBarChrome.capsuleHorizontalPadding, 10)
         XCTAssertEqual(EditorStatusBarChrome.capsuleVerticalPadding, 3)
-        XCTAssertEqual(EditorStatusBarChrome.capsuleControlSpacing, 8)
+        XCTAssertEqual(EditorStatusBarChrome.capsuleControlSpacing, 10)
         XCTAssertEqual(EditorStatusBarChrome.horizontalInset, 12)
         XCTAssertEqual(EditorStatusBarChrome.bottomInset, 6)
         XCTAssertEqual(EditorStatusBarChrome.capsuleGap, 8)
@@ -211,6 +211,56 @@ final class EditorStatusBarTests: XCTestCase {
             XCTAssertGreaterThanOrEqual(limit, EditorStatusBarChrome.canvasTitleMinWidth)
             XCTAssertLessThanOrEqual(limit, rowWidth * EditorStatusBarChrome.canvasTitleWidthFraction + 0.001)
         }
+    }
+
+    /// Spacing and hit targets of the status capsule, from the one set of
+    /// constants: 10 pt between controls, 16 pt between groups measured across
+    /// the hairline, and an icon hit target that never drops below 28x28.
+    func testStatusCapsuleSpacingAndIconHitTargets() throws {
+        let bar = try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift")
+        let core = try repoFile("FlorettaCore/Layout/EditorStatusBar.swift")
+
+        XCTAssertEqual(EditorStatusBarChrome.capsuleControlSpacing, 10)
+        XCTAssertEqual(EditorStatusBarChrome.capsuleGroupSpacing, 16)
+        XCTAssertEqual(EditorStatusBarChrome.capsuleSeparatorWidth, 1)
+        XCTAssertEqual(EditorStatusBarChrome.capsuleSeparatorHeight, 16)
+        XCTAssertEqual(EditorStatusBarChrome.capsuleSeparatorInset, 7.5, accuracy: 0.001)
+
+        // Hit target: the frame the symbols draw in, floored at 28x28, while
+        // the glyph keeps its 13 pt optical size.
+        XCTAssertEqual(EditorStatusBarChrome.iconButtonHitMinSize, 28)
+        XCTAssertGreaterThanOrEqual(
+            EditorStatusBarChrome.iconButtonSize,
+            EditorStatusBarChrome.iconButtonHitMinSize
+        )
+        let symbol = try slice(bar, from: "private func statusSymbol", until: "// MARK: text")
+        XCTAssertTrue(symbol.contains("width: EditorStatusBarChrome.iconButtonSize"))
+        XCTAssertTrue(symbol.contains("height: EditorStatusBarChrome.iconButtonSize"))
+        XCTAssertTrue(symbol.contains("size: EditorStatusBarChrome.chromeFontSize"))
+        XCTAssertTrue(symbol.contains(".contentShape(Rectangle())"))
+
+        // The row keeps no spacing of its own: the hairline carries the group
+        // gap, and the icon group carries the control spacing.
+        let capsule = try slice(bar, from: "private var capsule", until: "// MARK: counts")
+        XCTAssertTrue(capsule.contains("HStack(spacing: 0)"))
+        XCTAssertTrue(capsule.contains("EditorStatusBarChrome.capsuleSeparatorInset"))
+        XCTAssertTrue(capsule.contains("EditorStatusBarChrome.capsuleSeparatorWidth"))
+        XCTAssertTrue(capsule.contains("EditorStatusBarChrome.capsuleSeparatorHeight"))
+        let group = try slice(bar, from: "private var viewControls", until: "/// A hairline")
+        XCTAssertTrue(group.contains("HStack(spacing: EditorStatusBarChrome.capsuleControlSpacing)"))
+        for control in ["viewModeToggle", "outlineToggle", "fullScreenToggle"] {
+            XCTAssertTrue(group.contains(control), control)
+        }
+
+        // Every number lives in core; no literal spacing or icon box is left in
+        // the bar, which is how the old 8 / 14 drift came back.
+        XCTAssertTrue(core.contains("public static let capsuleGroupSpacing: CGFloat = 16"))
+        XCTAssertTrue(core.contains("public static let iconButtonHitMinSize: CGFloat = 28"))
+        XCTAssertFalse(bar.contains("spacing: 8"))
+        XCTAssertFalse(bar.contains("spacing: 14"))
+        XCTAssertFalse(bar.contains("width: 22"))
+        XCTAssertFalse(bar.contains("height: 22"))
+        XCTAssertFalse(bar.contains(".frame(width: 1, height: 16)"), "the hairline uses the constants")
     }
 
     private func repoFile(_ relative: String) throws -> String {

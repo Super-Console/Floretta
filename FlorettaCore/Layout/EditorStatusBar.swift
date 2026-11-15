@@ -53,14 +53,33 @@ public enum EditorStatusBarChrome: Sendable {
     /// Size of the SF Symbols the bottom capsules draw. Vector glyphs scale with
     /// this number, so every chrome icon has one weight and one size.
     public static let chromeFontSize: CGFloat = 13
-    /// Square size of one icon button inside the bottom capsules.
-    public static let iconButtonSize: CGFloat = 22
+    /// Square frame of one icon button inside the bottom capsules. The frame is
+    /// also the hit target, so it never drops below `iconButtonHitMinSize`; the
+    /// glyph inside keeps its `chromeFontSize` optical size, so a larger target
+    /// does not draw a larger icon.
+    public static let iconButtonSize: CGFloat = 28
+    /// Floor for a chrome icon button's hit target, in points.
+    public static let iconButtonHitMinSize: CGFloat = 28
     /// Horizontal padding inside the status capsule.
     public static let capsuleHorizontalPadding: CGFloat = 10
     /// Vertical padding inside the status capsule.
     public static let capsuleVerticalPadding: CGFloat = 3
-    /// Spacing between the controls inside the status capsule.
-    public static let capsuleControlSpacing: CGFloat = 8
+    /// Spacing between the controls inside one group of the status capsule.
+    public static let capsuleControlSpacing: CGFloat = 10
+    /// Spacing between two groups of the status capsule. The hairline sits in
+    /// the middle of this gap, so the gap is measured across the divider.
+    public static let capsuleGroupSpacing: CGFloat = 16
+    /// Width of the hairline that separates two groups.
+    public static let capsuleSeparatorWidth: CGFloat = 1
+    /// Height of that hairline: shorter than the plate, so it reads as a
+    /// divider and not as a wall.
+    public static let capsuleSeparatorHeight: CGFloat = 16
+    /// Space each side of the hairline. Derived from the group gap and the
+    /// hairline width, so the two groups sit exactly `capsuleGroupSpacing`
+    /// apart without a second copy of that number.
+    public static var capsuleSeparatorInset: CGFloat {
+        (capsuleGroupSpacing - capsuleSeparatorWidth) / 2
+    }
     /// Window edge to the outer edge of either capsule.
     public static let horizontalInset: CGFloat = 12
     /// Bottom safe area to the capsules' bottom edge. Applied once, to the shared

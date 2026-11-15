@@ -45,15 +45,18 @@ struct EditorStatusStrip: View {
             }
     }
 
+    /// Three groups, separated by a hairline that owns the gap on both sides.
+    /// The row itself keeps no spacing: `capsuleControlSpacing` is inside a
+    /// group and `capsuleGroupSpacing` is across a divider, and mixing them in
+    /// one `HStack(spacing:)` is what made the groups read as one undivided
+    /// run of icons.
     private var capsule: some View {
-        HStack(spacing: EditorStatusBarChrome.capsuleControlSpacing) {
+        HStack(spacing: 0) {
             censusTrigger
             separator
             zoomMenu
             separator
-            viewModeToggle
-            outlineToggle
-            fullScreenToggle
+            viewControls
         }
         .controlSize(.small)
         .padding(.horizontal, EditorStatusBarChrome.capsuleHorizontalPadding)
@@ -64,11 +67,25 @@ struct EditorStatusStrip: View {
         .accessibilityIdentifier("statusBar.capsule")
     }
 
+    /// The three icon controls, `capsuleControlSpacing` apart.
+    private var viewControls: some View {
+        HStack(spacing: EditorStatusBarChrome.capsuleControlSpacing) {
+            viewModeToggle
+            outlineToggle
+            fullScreenToggle
+        }
+    }
+
     /// A hairline, not a surface: the capsule stays the only glass on the row.
+    /// Its inset is the group gap, so the divider sits in the middle of it.
     private var separator: some View {
         Rectangle()
             .fill(.quaternary)
-            .frame(width: 1, height: 16)
+            .frame(
+                width: EditorStatusBarChrome.capsuleSeparatorWidth,
+                height: EditorStatusBarChrome.capsuleSeparatorHeight
+            )
+            .padding(.horizontal, EditorStatusBarChrome.capsuleSeparatorInset)
             .accessibilityHidden(true)
     }
 

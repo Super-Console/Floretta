@@ -29,3 +29,11 @@
 在 macOS 且已安装项目所需 Xcode 后，从仓库根目录执行 `bash scripts/check-size.sh`。脚本分别构建 Release 的 iOS（`generic/platform=iOS`）与 macOS 主 App，读取 Xcode 的 `BUILT_PRODUCTS_DIR`，对包内 Mach-O 执行 `strip`（调试符号留在旁路 `.dSYM`，不计入），再统计 `.app` 内普通文件总字节数（资源、主程序与嵌入的 appex 均计入），并输出一位小数的 MB 实测值（按 1024²）。CI 的 `Packaged app size` workflow（`.github/workflows/size-gate.yml`）执行同一脚本；iOS 必须严格小于 15 MB，macOS 严格小于 25 MB，超限会打印实测值/阈值并令 job 失败。
 
 超限时先查看具体包内文件体积，确认新增资源或二进制是否必要；优先移除重复/未使用资源、优化资源格式和裁剪无用代码，不得压缩或转码用户附件。重新运行脚本确认两个平台均低于门槛，并在 PR 的性能影响三行中报告实测包体；如确需突破硬门槛，必须在 PR 显式说明并由审查方决定。
+
+## 实测记录
+
+| 日期 | 机器 | 指标 | 实测 | 方法 | 结论 |
+|---|---|---|---|---|---|
+| 2026-11-15 | Mac14,10（Apple silicon） | 500 节点单帧 CPU 布局耗时换算 FPS | 平均 10.582 ms；约 94.50 FPS（CPU 换算值，非屏幕实测 FPS） | `canvas-perf-500.floretta`；20 次 Core 布局 + 命中查询，`ContinuousClock` 平均 | 达标 |
+| 2026-11-15 | Mac14,10（Apple silicon） | 1000 节点文档打开（解码 + 布局准备，不含 UI 首帧） | 平均 21.602 ms；文档 1000 节点、布局 1000 frames | 由 500 节点 fixture 复制并重建节点 ID；5 次 `FlorettaCodec.decode` + `LayoutEngine.layout`，`ContinuousClock` 平均 | 达标 |
+| 2026-11-15 | Mac14,10（Apple silicon） | 冷启动到首帧 | 未测 | 需要 GUI 会话与 Instruments；本次仅运行命令行测试，未启动应用或模拟器 | 未测 |

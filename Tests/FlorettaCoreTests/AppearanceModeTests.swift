@@ -3,31 +3,36 @@ import XCTest
 @testable import FlorettaCore
 
 final class AppearanceModeTests: XCTestCase {
-    func testDefaultModeIsClassicAndCustomStartsFromClassic() {
-        XCTAssertEqual(AppearanceCatalog.defaultMode, .classic)
-        let classic = AppearanceCatalog.defaultProfile(for: .classic)
-        let custom = AppearanceCatalog.defaultProfile(for: .custom)
-        let modern = AppearanceCatalog.defaultProfile(for: .modern)
-        XCTAssertEqual(classic.fontFamilyID, "system-serif")
-        XCTAssertEqual(custom, classic)
-        XCTAssertEqual(modern.fontFamilyID, "system-sans")
-        XCTAssertNotEqual(classic.light.canvasHex, modern.light.canvasHex)
+    func testOneDefaultProfileIsSansOnThePaperHome() {
+        let profile = AppearanceCatalog.defaultProfile()
+
+        XCTAssertEqual(profile.fontFamilyID, "system-sans")
+        XCTAssertEqual(profile.fontFamilyID, AppearanceCatalog.defaultFontFamilyID)
+        XCTAssertFalse(profile.fontIsSerif, "content defaults to sans; serif is one pick away")
+        XCTAssertEqual(profile.light.canvasHex, HomeBackground.paper.pageHex(for: .light))
+        XCTAssertEqual(profile.dark.canvasHex, HomeBackground.paper.pageHex(for: .dark))
+        XCTAssertEqual(profile.fontSizeScale, 1)
+        XCTAssertEqual(profile.cornerRadius, 12)
     }
 
-    func testClassicProfileCanStoreSansAndRoundTrip() throws {
-        var profiles: [AppearanceMode: AppearanceProfile] = [:]
-        for mode in AppearanceMode.allCases {
-            profiles[mode] = AppearanceCatalog.defaultProfile(for: mode)
-        }
-        var classic = profiles[.classic]!
-        classic.fontFamilyID = "system-sans"
-        profiles[.classic] = classic
+    func testWhiteHomeBackgroundSeedsTheProfilePaper() {
+        let profile = AppearanceCatalog.defaultProfile(homeBackground: .white)
+        XCTAssertEqual(profile.light.canvasHex, "#FFFFFF")
+        XCTAssertEqual(profile.dark.canvasHex, "#121212")
+    }
 
-        let data = try AppearanceCatalog.encodeProfiles(profiles)
-        let decoded = AppearanceCatalog.profiles(from: data)
-        XCTAssertEqual(decoded[.classic]?.fontFamilyID, "system-sans")
-        XCTAssertEqual(decoded[.modern]?.fontFamilyID, "system-sans")
-        XCTAssertEqual(decoded[.custom]?.fontFamilyID, "system-serif")
+    func testLegacyThreeModeProfilePayloadStillDecodes() throws {
+        // The migration is the only reader; it must still understand the old blob.
+        let classic = AppearanceCatalog.defaultProfile()
+        var modern = classic
+        modern.fontFamilyID = "inter"
+        let data = try AppearanceCatalog.encodeLegacyProfiles(["classic": classic, "modern": modern])
+
+        let decoded = AppearanceCatalog.legacyProfiles(from: data)
+        XCTAssertEqual(decoded["classic"]?.fontFamilyID, "system-sans")
+        XCTAssertEqual(decoded["modern"]?.fontFamilyID, "inter")
+        XCTAssertEqual(decoded["custom"], nil)
+        XCTAssertTrue(AppearanceCatalog.legacyProfiles(from: nil).isEmpty)
     }
 
     func testCatalogIncludesBundledLatinFamiliesAndFollowsSystemName() {
@@ -47,10 +52,12 @@ final class AppearanceModeTests: XCTestCase {
         XCTAssertNil(AppearanceCatalog.family(id: "source-han-serif"))
         XCTAssertEqual(AppearanceCatalog.family(id: "ibm-plex-sans")?.postScriptName, "IBMPlexSans")
         XCTAssertEqual(AppearanceCatalog.families.filter { $0.resourceFileName != nil }.count, 7)
+        // Every family the inspector lists is a face, not a mode.
+        XCTAssertEqual(AppearanceCatalog.families.filter { $0.kind == .serif }.count, 5)
     }
 
     func testProfileAppliesPaperFillInkAndCornerToLayoutAppearance() {
-        var profile = AppearanceCatalog.defaultProfile(for: .classic)
+        var profile = AppearanceCatalog.defaultProfile()
         profile.cornerRadius = 20
         profile.light.canvasHex = "#ABCDEF"
         profile.light.nodeFillHex = "#123456"

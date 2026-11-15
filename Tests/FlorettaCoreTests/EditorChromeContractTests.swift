@@ -122,6 +122,53 @@ final class EditorChromeContractTests: XCTestCase {
         XCTAssertFalse(editor.contains("EditorOverflowCensus"))
     }
 
+    /// TD-006: the Mac top bar is three groups — 撤销/重做/删除 | ＋插入 |
+    /// 关系线/概要/边界/标签 — with the ••• last, and the ••• menu never repeats
+    /// a command the bar already draws.
+    func testMacTopBarGroupsHighFrequencyCommandsAndOverflowComesLast() throws {
+        let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let primary = try slice(source, from: "private var macToolbarItemsPrimary", until: "private var macToolbarItemsInsert")
+        XCTAssertTrue(primary.contains("macItem(.undo)"))
+        XCTAssertTrue(primary.contains("macItem(.redo)"))
+        XCTAssertFalse(primary.contains("macItem(.share)"), "import/export is low frequency")
+
+        let insert = try slice(source, from: "private var macToolbarItemsInsert", until: "private var macToolbarItemsRelations")
+        XCTAssertTrue(insert.contains("macItem(.insert)"), "＋ 插入 is a bar item")
+        XCTAssertTrue(insert.contains("macItem(.freeNode)"))
+        XCTAssertTrue(insert.contains("macItem(.sticky)"))
+        XCTAssertTrue(insert.contains("macItem(.image)"))
+        XCTAssertTrue(insert.contains("macItem(.attachment)"))
+        XCTAssertFalse(insert.contains("macItem(.link)"), "关系线 is its own group now")
+        XCTAssertFalse(insert.contains("macItem(.summary)"))
+        XCTAssertFalse(insert.contains("macItem(.boundary)"))
+
+        let relations = try slice(source, from: "private var macToolbarItemsRelations", until: "private var macToolbarItemsOverflow")
+        for id in ["link", "summary", "boundary", "tagFilter"] {
+            XCTAssertTrue(relations.contains("macItem(.\(id))"), id)
+        }
+
+        let groups = try slice(source, from: ".toolbar(id: \"floretta.editor\")", until: ".toolbarBackground(.hidden, for: .windowToolbar)")
+        var cursor = groups.startIndex
+        for name in ["macToolbarItemsPrimary", "macToolbarItemsInsert", "macToolbarItemsRelations", "macToolbarItemsOverflow"] {
+            let range = try XCTUnwrap(groups.range(of: name, range: cursor..<groups.endIndex), name)
+            cursor = range.upperBound
+        }
+        let overflow = try XCTUnwrap(groups.range(of: "macToolbarItemsView"))
+        XCTAssertLessThan(cursor, overflow.lowerBound, "the ••• comes before the trailing inspector capsule")
+
+        // One de-duplication rule, no per-platform list.
+        let more = try slice(source, from: "private var moreMenu", until: "private var overflowMenuCommands")
+        XCTAssertFalse(more.contains("#if os(macOS)\n            insertOverflowSubmenu"))
+        for guarded in [".insert", ".share", ".undo", ".redo", ".delete", ".immersive"] {
+            XCTAssertTrue(more.contains("toolbarVisibleItems.contains(\(guarded))"), guarded)
+        }
+        XCTAssertTrue(source.contains("EditorToolbarCatalog.menu(.more).filter { !onBar.contains($0) }"))
+        XCTAssertTrue(source.contains("ForEach(overflowMenuCommands"))
+
+        // Narrow windows are the system toolbar's job, not a "swap to •••" rule.
+        XCTAssertTrue(source.contains("/// The ••• overflow. It stays a normal toolbar item"))
+    }
+
     private func repoFile(_ relative: String) throws -> String {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

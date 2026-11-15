@@ -243,8 +243,10 @@ final class AppleGlassChromeContractTests: XCTestCase {
         )
         XCTAssertTrue(primary.contains(".appleGlassChrome(.toolbarFloatingButton)"))
         XCTAssertTrue(primary.contains("toolbarControl(.insert)"))
-        XCTAssertTrue(primary.contains("toolbarControl(.immersive)"))
+        XCTAssertTrue(primary.contains("accessibilityIdentifier(\"inspector.open\")"))
         XCTAssertFalse(primary.contains("toolbarControl(.zoom)"), "the status capsule owns zoom (TD-003)")
+        XCTAssertFalse(primary.contains("toolbarControl(.immersive)"), "full screen lives in the status capsule (TD-003)")
+        XCTAssertFalse(primary.contains("toolbarControl(.share)"), "import/export is low frequency; it is in ••• (TD-006)")
 
         XCTAssertFalse(home.contains("appleGlassChrome"))
         XCTAssertTrue(home.contains("scrollContentBackground(.hidden)"))

@@ -111,43 +111,66 @@ struct DocumentEditor: View {
         }
     }
 
+    /// Group 1 (TD-006): the two commands everyone reaches for, plus delete.
     @ToolbarContentBuilder
     private var macToolbarItemsPrimary: some CustomizableToolbarContent {
         macItem(.undo)
         macItem(.redo)
         macItem(.delete)
-        macItem(.share)
-        macItem(.immersive)
-        macItem(.more)
-        macItem(.child)
-        macItem(.sibling)
     }
 
+    /// Group 2 (TD-006): one ＋ 插入 pulldown. 子节点 / 同级 / 自由节点 / 便签 /
+    /// 专区 / 图片 / 附件 / 语音输入 are rows of that menu, not bar items; they
+    /// stay declared here so the customization palette can still surface them.
     @ToolbarContentBuilder
     private var macToolbarItemsInsert: some CustomizableToolbarContent {
+        macItem(.insert)
+        macItem(.child)
+        macItem(.sibling)
         macItem(.dictation)
         macItem(.freeNode)
         macItem(.sticky)
-        macItem(.link)
-        macItem(.summary)
-        macItem(.boundary)
         macItem(.region)
         macItem(.image)
         macItem(.attachment)
         macItem(.importFile)
     }
 
+    /// Group 3 (TD-006): the commands that act on the current selection —
+    /// 关系线 / 概要 / 边界 / 标签.
     @ToolbarContentBuilder
-    private var macToolbarItemsNavigation: some CustomizableToolbarContent {
+    private var macToolbarItemsRelations: some CustomizableToolbarContent {
+        macItem(.link)
+        macItem(.summary)
+        macItem(.boundary)
+        macItem(.tagFilter)
+    }
+
+    /// The ••• overflow. It stays a normal toolbar item, so a narrow window lets
+    /// the system toolbar push it into its own overflow instead of this file
+    /// inventing a "collapse to •••" rule.
+    @ToolbarContentBuilder
+    private var macToolbarItemsOverflow: some CustomizableToolbarContent {
+        macItem(.more)
+    }
+
+    /// Low-frequency commands (import/export, full screen, history, theme, find,
+    /// paste, outline, style). Off the bar by default, reachable from ••• and
+    /// addable again from the toolbar customization palette.
+    @ToolbarContentBuilder
+    private var macToolbarItemsLowFrequency: some CustomizableToolbarContent {
+        macItem(.share)
+        macItem(.immersive)
         macItem(.outline)
         macItem(.style)
         macItem(.theme)
         macItem(.find)
-        macItem(.tagFilter)
         macItem(.history)
         macItem(.paste)
     }
 
+    /// Trailing pair: 适应窗口 (addable) and the inspector capsule, which stays
+    /// at the far right like the XMind sidebar switch.
     @ToolbarContentBuilder
     private var macToolbarItemsView: some CustomizableToolbarContent {
         macItem(.fit)
@@ -285,14 +308,6 @@ struct DocumentEditor: View {
                             toolbarControl(.insert)
                                 .appleGlassChrome(.toolbarFloatingButton)
                         }
-                        if toolbarVisibleItems.contains(.share) {
-                            toolbarControl(.share)
-                                .appleGlassChrome(.toolbarFloatingButton)
-                        }
-                        if toolbarVisibleItems.contains(.immersive) {
-                            toolbarControl(.immersive)
-                                .appleGlassChrome(.toolbarFloatingButton)
-                        }
                         #if os(iOS)
                         // Keep the inspector entry and the overflow as trailing
                         // siblings in this group so `editor.more` stays rightmost.
@@ -323,7 +338,9 @@ struct DocumentEditor: View {
                 if session.zen.chrome.showsToolbar {
                     macToolbarItemsPrimary
                     macToolbarItemsInsert
-                    macToolbarItemsNavigation
+                    macToolbarItemsRelations
+                    macToolbarItemsOverflow
+                    macToolbarItemsLowFrequency
                     macToolbarItemsView
                 }
             }
@@ -1227,24 +1244,32 @@ struct DocumentEditor: View {
         .appleGlassChrome(.toolbarFloatingButton)
         #else
         Menu {
-            #if os(macOS)
-            insertOverflowSubmenu
-            #else
+            // TD-006: the ••• menu never repeats a command the bar already
+            // shows. Every row below falls back into this menu exactly when
+            // `EditorToolbarLayout` keeps that command off the bar, so compact
+            // widths still reach everything.
             if !toolbarVisibleItems.contains(.insert) {
                 insertOverflowSubmenu
             }
-            #endif
             if !toolbarVisibleItems.contains(.share) {
                 shareOverflowSubmenu
             }
-            commandMenuButton(.undo) { perform(.undo) }
-            commandMenuButton(.redo) { perform(.redo) }
-            commandMenuButton(.delete) { perform(.delete) }
-            commandMenuButton(.immersive) { perform(.immersive) }
+            if !toolbarVisibleItems.contains(.undo) {
+                commandMenuButton(.undo) { perform(.undo) }
+            }
+            if !toolbarVisibleItems.contains(.redo) {
+                commandMenuButton(.redo) { perform(.redo) }
+            }
+            if !toolbarVisibleItems.contains(.delete) {
+                commandMenuButton(.delete) { perform(.delete) }
+            }
+            if !toolbarVisibleItems.contains(.immersive) {
+                commandMenuButton(.immersive) { perform(.immersive) }
+            }
             overflowAlwaysCommandButton(.mapMode)
             overflowAlwaysCommandButton(.focusMode)
             overflowAlwaysCommandButton(.newCanvas)
-            ForEach(EditorToolbarCatalog.menu(.more), id: \.self) { id in
+            ForEach(overflowMenuCommands, id: \.self) { id in
                 moreRow(id)
             }
         } label: {
@@ -1256,6 +1281,13 @@ struct DocumentEditor: View {
         .help(Text(verbatim: text(EditorToolbarCatalog.command(.more).help)))
         .appleGlassChrome(.toolbarFloatingButton)
         #endif
+    }
+
+    /// `menu(.more)` minus whatever the bar already shows. This is the whole
+    /// de-duplication rule; no platform-specific list is kept here.
+    private var overflowMenuCommands: [EditorToolbarCommandID] {
+        let onBar = Set(toolbarVisibleItems)
+        return EditorToolbarCatalog.menu(.more).filter { !onBar.contains($0) }
     }
 
     private var insertOverflowSubmenu: some View {
@@ -1307,13 +1339,13 @@ struct DocumentEditor: View {
         if !toolbarVisibleItems.contains(.share) {
             children.append(makeShareUIMenu())
         }
-        for id in [EditorToolbarCommandID.undo, .redo, .delete, .immersive] {
+        for id in [EditorToolbarCommandID.undo, .redo, .delete, .immersive] where !toolbarVisibleItems.contains(id) {
             children.append(commandUIAction(id))
         }
         children.append(overflowAlwaysCommandUIAction(.mapMode))
         children.append(overflowAlwaysCommandUIAction(.focusMode))
         children.append(overflowAlwaysCommandUIAction(.newCanvas))
-        for id in EditorToolbarCatalog.menu(.more) {
+        for id in overflowMenuCommands {
             children.append(commandUIAction(id))
         }
         return UIMenu(children: children)

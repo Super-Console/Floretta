@@ -191,7 +191,7 @@ final class EditorStatusBarTests: XCTestCase {
         // Centred, middle-truncated name inside the capped slot.
         XCTAssertTrue(canvas.contains(".multilineTextAlignment(.center)"))
         XCTAssertTrue(canvas.contains(".truncationMode(.middle)"))
-        XCTAssertTrue(canvas.contains("CappedWidthLayout(maxWidth: canvasTitleWidthLimit)"))
+        XCTAssertTrue(canvas.contains("CappedWidthLayout(maxWidth: titleWidthLimit)"))
         XCTAssertFalse(canvas.contains("alignment: .leading"), "a leading frame left the name off-centre in a wide box")
         XCTAssertFalse(canvas.contains(".frame(maxWidth:"), "a flexible frame fills its cap and stretches the capsule")
         XCTAssertTrue(bar.contains("struct CappedWidthLayout: Layout"))

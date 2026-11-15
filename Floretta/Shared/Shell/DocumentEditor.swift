@@ -182,12 +182,14 @@ struct DocumentEditor: View {
         macInspectorToggle
     }
 
-    /// Right-top inspector switch (TD-007). One glass capsule, drawn by the
-    /// official role `toolbarFloatingButton` (`AppleGlassChrome` -> `Capsule()`);
-    /// nothing here paints a gradient, a blur, or a shadow. The 34x28 label
-    /// frame is the hit target the road map requires (>= 28x28) and keeps the
-    /// glyph on the same baseline as the other bar items. It reuses the 样式
-    /// command for title and help, so no new strings or menu entries appear.
+    /// Right-top inspector switch (TD-007). One system toolbar item: the
+    /// system paints its glass capsule and its pressed state, and
+    /// `toolbarFloatingButton` draws nothing on top of it, so the item carries
+    /// exactly one platter. Nothing here paints a gradient, a blur, or a
+    /// shadow. The 34x28 label frame is the hit target the road map requires
+    /// (>= 28x28) and keeps the glyph on the same baseline as the other bar
+    /// items. It reuses the 样式 command for title and help, so no new strings
+    /// or menu entries appear.
     private var macInspectorToggle: some CustomizableToolbarContent {
         ToolbarItem(id: "inspector.toggle", placement: .primaryAction) {
             Button {
@@ -235,7 +237,7 @@ struct DocumentEditor: View {
                 } label: {
                     Label("退出全屏沉浸", systemImage: "xmark")
                 }
-                .appleGlassChrome(.toolbarFloatingButton)
+                .appleGlassChrome(.canvasFloatingButton)
                 .accessibilityIdentifier("zen.exit")
                 .padding(.top, 8)
                 .padding(.trailing, 12)

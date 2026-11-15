@@ -156,7 +156,7 @@ final class AppleGlassChromeContractTests: XCTestCase {
     func testFloatingChromeSamplesWindowContentWhileColumnsKeepTheBackdrop() throws {
         let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
         let floats = try slice(glass, from: "var floatsOverContent: Bool", until: "var lightUnderlayMaterial")
-        XCTAssertTrue(floats.contains("case .bottomBarCapsule, .floatingPanel:\n            return true"))
+        XCTAssertTrue(floats.contains("case .bottomBarCapsule, .floatingPanel, .canvasFloatingButton:\n            return true"))
         for column in [".inspectorPanel", ".sidebarColumn"] {
             XCTAssertTrue(floats.contains(column), column)
         }
@@ -166,7 +166,7 @@ final class AppleGlassChromeContractTests: XCTestCase {
 
         // Material level: floating plates are raised, columns are not.
         let materials = try slice(glass, from: "var fallbackMaterial: NSVisualEffectView.Material", until: "var fallbackBlendingMode")
-        XCTAssertTrue(materials.contains("case .bottomBarCapsule:\n            .hudWindow"))
+        XCTAssertTrue(materials.contains("case .bottomBarCapsule, .canvasFloatingButton:\n            .hudWindow"))
         XCTAssertTrue(materials.contains("case .floatingPanel:\n            .popover"))
         XCTAssertTrue(materials.contains("case .inspectorPanel, .sidebarColumn:\n            .sidebar"))
 
@@ -175,6 +175,50 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertFalse(glass.contains("blendingMode = .behindWindow"))
         XCTAssertFalse(glass.contains("blendingMode = .withinWindow"))
         XCTAssertTrue(try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift").contains(".appleGlassChrome(.bottomBarCapsule)"))
+    }
+
+    /// A system toolbar item is already glass. A plate inside it is the
+    /// double-capsule bug, so `toolbarFloatingButton` draws nothing on macOS —
+    /// it was only a no-op on iOS — and keeps drawing nothing on iOS.
+    func testToolbarItemsDrawNoSecondPlateOnEitherPlatform() throws {
+        let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
+        let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+
+        let draws = try slice(glass, from: "var drawsPlate: Bool", until: "var floatsOverContent: Bool")
+        XCTAssertTrue(
+            draws.contains("case .toolbarFloatingButton:\n            return false"),
+            "the toolbar item keeps the system capsule, on both platforms"
+        )
+        XCTAssertFalse(
+            draws.contains("case .toolbarFloatingButton:\n            return true"),
+            "no platform may paint a second capsule inside a toolbar item"
+        )
+        XCTAssertTrue(draws.contains("case .inspectorPanel:\n            #if os(macOS)\n            return false"))
+        XCTAssertTrue(draws.contains("case .segmentedContainer, .iconButton, .bottomBarCapsule, .sidebarColumn, .floatingPanel, .canvasFloatingButton:\n            return true"))
+
+        // One gate in the plate: no platform branch that can drift apart again.
+        let plate = try slice(glass, from: "var body: some View", until: "private func hosted")
+        XCTAssertTrue(plate.contains("if role.drawsPlate {"))
+        XCTAssertFalse(plate.contains("#if os(macOS)"))
+        XCTAssertFalse(plate.contains("role == .toolbarFloatingButton"))
+        XCTAssertFalse(plate.contains("role == .inspectorPanel"))
+
+        // The toolbars keep calling the role: the fix is the role, not twelve
+        // deleted call sites that would come back one at a time.
+        let macItem = try slice(editor, from: "private func macItem(", until: "private var insertMenu")
+        XCTAssertTrue(macItem.contains(".appleGlassChrome(.toolbarFloatingButton)"))
+        for item in ["private var insertMenu", "private var shareMenu", "private var moreMenu"] {
+            let menu = try slice(editor, from: item, until: "\n    }\n")
+            XCTAssertTrue(menu.contains(".appleGlassChrome(.toolbarFloatingButton)"), item)
+        }
+
+        // A button over the canvas is not a toolbar item: the Zen exit keeps a
+        // plate, and the bottom capsules keep theirs.
+        let zenExit = try slice(editor, from: ".overlay(alignment: .topTrailing)", until: ".onChange(of: regionDraftToken)")
+        XCTAssertTrue(zenExit.contains(".appleGlassChrome(.canvasFloatingButton)"))
+        XCTAssertFalse(zenExit.contains(".appleGlassChrome(.toolbarFloatingButton)"))
+        XCTAssertTrue(try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift").contains(".appleGlassChrome(.bottomBarCapsule)"))
+        XCTAssertTrue(draws.contains(".canvasFloatingButton"))
     }
 
     func testLabelsOnGlassStayLegibleInLightAndDark() throws {
@@ -188,8 +232,7 @@ final class AppleGlassChromeContractTests: XCTestCase {
     func testMacInspectorPanelIsNotReimplementedHere() throws {
         let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
         let plate = try slice(glass, from: "var body: some View", until: "private func hosted")
-        XCTAssertTrue(plate.contains("role == .inspectorPanel"))
-        XCTAssertTrue(plate.contains("role == .toolbarFloatingButton"))
+        XCTAssertTrue(plate.contains("role.drawsPlate"))
         XCTAssertTrue(plate.contains("content"))
         XCTAssertTrue(glass.contains("inspector.panel.glass"))
         XCTAssertFalse(glass.contains("struct AppleGlassPanel"))
@@ -229,7 +272,7 @@ final class AppleGlassChromeContractTests: XCTestCase {
         )
         XCTAssertTrue(zenExit.contains("if session.zen.isActive && isExitAffordanceRevealed"))
         XCTAssertTrue(zenExit.contains("accessibilityIdentifier(\"zen.exit\")"))
-        XCTAssertTrue(zenExit.contains(".appleGlassChrome(.toolbarFloatingButton)"))
+        XCTAssertTrue(zenExit.contains(".appleGlassChrome(.canvasFloatingButton)"))
 
         XCTAssertTrue(editor.contains(".appleGlassChrome(.bottomBarCapsule)"))
         XCTAssertTrue(editor.contains("editor.bottomBar"))

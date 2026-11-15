@@ -38,8 +38,9 @@ final class AppleGlassChromeContractTests: XCTestCase {
 
         XCTAssertTrue(leading.contains("placement: .navigation"), "the independent back button uses the leading navigation slot")
         XCTAssertTrue(leading.contains("Button(action: onClose)"))
-        XCTAssertFalse(leading.contains("HStack"), "the native window title and back button must not share a custom container")
-        XCTAssertFalse(leading.contains("document.title"))
+        XCTAssertFalse(leading.contains("HStack"), "the back button and title remain distinct toolbar items")
+        XCTAssertTrue(leading.contains("document.title"))
+        XCTAssertTrue(leading.contains(".appleGlassChrome(.floatingPanel)"), "the persistent leading title uses the project's Apple Liquid Glass role")
         XCTAssertTrue(sharedToolbar.contains("#if os(iOS)"))
         XCTAssertFalse(sharedToolbar.contains("leadingDocumentChrome"), "the old cancellationAction title/back capsule must not also be installed on macOS")
         XCTAssertLessThan(leadingPosition, actionsPosition)

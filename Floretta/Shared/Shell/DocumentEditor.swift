@@ -97,6 +97,19 @@ struct DocumentEditor: View {
             .accessibilityIdentifier("basicChain.back")
             .help(Text(verbatim: text("返回导图列表")))
         }
+        ToolbarItem(id: "document.title", placement: .navigation) {
+            Button(action: beginRename) {
+                Text(verbatim: documentTitle)
+                    .lineLimit(1)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+            }
+            .buttonStyle(.plain)
+            .appleGlassChrome(.floatingPanel)
+            .accessibilityLabel(documentTitle)
+            .accessibilityHint(text("为这份导图重新命名"))
+            .accessibilityIdentifier("document.title")
+        }
     }
 
     @ToolbarContentBuilder
@@ -158,7 +171,7 @@ struct DocumentEditor: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
-        .modifier(MacEditorWindowTitle(title: documentTitle))
+        .modifier(MacEditorWindowTitle(title: ""))
         .zenChrome(session.zen.chrome)
         .overlay(alignment: .topTrailing) {
             if session.zen.isActive && isExitAffordanceRevealed {
@@ -283,8 +296,9 @@ struct DocumentEditor: View {
             }
             #if os(macOS)
             .toolbar(id: "floretta.editor") {
+                // Navigation identity must not follow selection/focus chrome.
+                macToolbarItemsLeading
                 if session.zen.chrome.showsToolbar {
-                    macToolbarItemsLeading
                     macToolbarItemsPrimary
                     macToolbarItemsInsert
                     macToolbarItemsNavigation

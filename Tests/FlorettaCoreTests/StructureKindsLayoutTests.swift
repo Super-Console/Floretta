@@ -162,7 +162,136 @@ final class StructureKindsLayoutTests: XCTestCase {
         XCTAssertEqual(LayoutKind.timeline.makeLayout(geometry: geometry()).kind, .timeline)
     }
 
+    // MARK: - 鱼骨图
+
+    func testFishboneRunsEveryRibAtFortyFiveDegreesAndAlternatesSides() throws {
+        let ribs = (0..<4).map { MindMapNode(text: "原因\($0)") }
+        let root = MindMapNode(text: "问题", children: ribs)
+        let frames = fishbone(MindMapDocument(title: "fish", roots: [root]))
+        let rootFrame = try XCTUnwrap(frames.first { $0.id == root.id })
+        let spine = rootFrame.frame.midY
+        for (index, rib) in ribs.enumerated() {
+            let frame = try XCTUnwrap(frames.first { $0.id == rib.id })
+            let rise = frame.frame.midY - spine
+            // Even ribs go up, odd ribs go down.
+            XCTAssertEqual(rise < 0, index % 2 == 0)
+            // The head leaves the spine at 45°: the drop equals the run, and the
+            // run is one gap past the largest half of the box.
+            let run = LayoutMetrics().horizontalGap + max(frame.frame.width, frame.frame.height) / 2
+            XCTAssertEqual(abs(rise), run, accuracy: 0.001)
+            XCTAssertLessThan(abs(rise), run + 0.002)
+        }
+    }
+
+    func testFishboneRunsDeeperTopicsAlongTheSameRib() throws {
+        let grand = MindMapNode(text: "孙")
+        let kid = MindMapNode(text: "子", children: [grand])
+        let root = MindMapNode(text: "问题", children: [kid])
+        let frames = fishbone(MindMapDocument(title: "rib", roots: [root]))
+        let kidFrame = try XCTUnwrap(frames.first { $0.id == kid.id })
+        let grandFrame = try XCTUnwrap(frames.first { $0.id == grand.id })
+        XCTAssertEqual(grandFrame.frame.minX - kidFrame.frame.maxX, LayoutMetrics().horizontalGap, accuracy: 0.001)
+        XCTAssertEqual(
+            abs(grandFrame.frame.midY - kidFrame.frame.midY),
+            grandFrame.frame.midX - kidFrame.frame.midX,
+            accuracy: 0.001
+        )
+        // The rib keeps climbing away from the spine.
+        XCTAssertLessThan(grandFrame.frame.midY, kidFrame.frame.midY)
+    }
+
+    func testFishboneGivesRibsOnOneSideTheirOwnLanes() throws {
+        let ribs = (0..<4).map { index in
+            MindMapNode(text: "原因\(index)", children: [MindMapNode(text: "细节\(index)")])
+        }
+        let root = MindMapNode(text: "问题", children: ribs)
+        let frames = fishbone(MindMapDocument(title: "lanes", roots: [root]))
+        let first = subtree(of: ribs[0].id, in: frames) + [try XCTUnwrap(frames.first { $0.id == ribs[0].id })]
+        let third = subtree(of: ribs[2].id, in: frames) + [try XCTUnwrap(frames.first { $0.id == ribs[2].id })]
+        let firstMaxX = first.map(\.frame.maxX).max() ?? 0
+        let thirdMinX = third.map(\.frame.minX).min() ?? 0
+        XCTAssertLessThan(firstMaxX, thirdMinX)
+        XCTAssertGreaterThanOrEqual(thirdMinX - firstMaxX, LayoutMetrics().horizontalGap - 0.001)
+    }
+
+    func testFishboneRibHeadLeavesTheSpineAndTheRestLeavesTheRightEdge() throws {
+        let kid = MindMapNode(text: "细节")
+        let rib = MindMapNode(text: "原因", children: [kid])
+        let root = MindMapNode(text: "问题", children: [rib])
+        let frames = fishbone(MindMapDocument(title: "links", roots: [root]))
+        let rootFrame = try XCTUnwrap(frames.first { $0.id == root.id })
+        let ribFrame = try XCTUnwrap(frames.first { $0.id == rib.id })
+        let head = try XCTUnwrap(ribFrame.link)
+        XCTAssertEqual(head.start.y, rootFrame.frame.midY, accuracy: 0.001)
+        XCTAssertEqual(head.end.x, ribFrame.frame.minX, accuracy: 0.001)
+        XCTAssertEqual(head.end.y, ribFrame.frame.midY, accuracy: 0.001)
+        XCTAssertNil(rootFrame.link)
+
+        let kidFrame = try XCTUnwrap(frames.first { $0.id == kid.id })
+        let link = try XCTUnwrap(kidFrame.link)
+        XCTAssertEqual(link.start.x, ribFrame.frame.maxX, accuracy: 0.001)
+        XCTAssertEqual(link.start.y, ribFrame.frame.midY, accuracy: 0.001)
+        XCTAssertEqual(link.end.x, kidFrame.frame.minX, accuracy: 0.001)
+        XCTAssertEqual(kidFrame.parentID, rib.id)
+    }
+
+    func testFishboneCollapsedTopicHidesItsSubtree() {
+        let rib = MindMapNode(text: "原因", children: [MindMapNode(text: "细节")])
+        var root = MindMapNode(text: "问题", children: [rib, MindMapNode(text: "另一个")])
+        root.isCollapsed = true
+        let frames = fishbone(MindMapDocument(title: "fold", roots: [root]))
+        XCTAssertEqual(frames.count, 1)
+        XCTAssertEqual(frames.first?.id, root.id)
+    }
+
+    func testFishbonePlacesAStoredRootPointAndKeepsTheSpineOnIt() throws {
+        let rib = MindMapNode(text: "原因")
+        let root = MindMapNode(
+            text: "问题",
+            position: MindMapPoint(x: 70, y: 25),
+            children: [rib]
+        )
+        let frames = fishbone(MindMapDocument(title: "manual", roots: [root]))
+        let rootFrame = try XCTUnwrap(frames.first { $0.id == root.id })
+        let ribFrame = try XCTUnwrap(frames.first { $0.id == rib.id })
+        XCTAssertEqual(rootFrame.origin.x, 70, accuracy: 0.001)
+        XCTAssertEqual(rootFrame.origin.y, 25, accuracy: 0.001)
+        XCTAssertEqual(ribFrame.link?.start.y ?? 0, rootFrame.frame.midY, accuracy: 0.001)
+    }
+
+    func testFishboneKeepsThirtyOneTopicsFromOverlapping() {
+        let root = MindMapNode(text: "上线失败", children: (0..<6).map { index in
+            MindMapNode(
+                text: "原因\(index)",
+                children: (0..<4).map { MindMapNode(text: "细节\(index)-\($0)") }
+            )
+        })
+        let frames = fishbone(MindMapDocument(title: "big", roots: [root]))
+        XCTAssertEqual(frames.count, 31)
+        assertNoOverlap(frames)
+    }
+
+    func testFishboneJoinsTheStructureRegistry() {
+        XCTAssertEqual(LayoutKind.fishbone.displayNameKey, "layout.fishbone")
+        XCTAssertEqual(LayoutKind.fishbone.makeLayout(geometry: geometry()).kind, .fishbone)
+    }
+
     // MARK: - Helpers
+
+    private func fishbone(_ document: MindMapDocument) -> [NodeFrame] {
+        LayoutEngine(kind: .fishbone).layout(document)
+    }
+
+    private func subtree(of id: UUID, in frames: [NodeFrame]) -> [NodeFrame] {
+        var collected: [NodeFrame] = []
+        var frontier = [id]
+        while let current = frontier.popLast() {
+            let kids = frames.filter { $0.parentID == current }
+            collected.append(contentsOf: kids)
+            frontier.append(contentsOf: kids.map(\.id))
+        }
+        return collected
+    }
 
     private func geometry() -> LayoutGeometry {
         LayoutGeometry(

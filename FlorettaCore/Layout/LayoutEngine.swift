@@ -10,6 +10,8 @@ public enum LayoutKind: String, CaseIterable, Codable, Equatable, Sendable {
     case logicChart
     /// Root at the top, every branch grows down (XMind 组织结构图).
     case orgChart
+    /// One horizontal spine; first-level topics alternate above and below it (XMind 时间轴).
+    case timeline
 
     /// Localization key for a structure picker. The app resolves it; Core stays string-free.
     public var displayNameKey: String {
@@ -17,6 +19,7 @@ public enum LayoutKind: String, CaseIterable, Codable, Equatable, Sendable {
         case .bilateral: return "layout.bilateral"
         case .logicChart: return "layout.logicChart"
         case .orgChart: return "layout.orgChart"
+        case .timeline: return "layout.timeline"
         }
     }
 
@@ -27,6 +30,7 @@ public enum LayoutKind: String, CaseIterable, Codable, Equatable, Sendable {
         case .bilateral: return BilateralLayout(geometry: geometry)
         case .logicChart: return LogicChartLayout(geometry: geometry)
         case .orgChart: return OrgChartLayout(geometry: geometry)
+        case .timeline: return TimelineLayout(geometry: geometry)
         }
     }
 }

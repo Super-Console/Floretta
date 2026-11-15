@@ -1,0 +1,192 @@
+import FlorettaCore
+import XCTest
+
+/// Geometry of the 1.0.22 structures (时间轴 / 鱼骨图 / 树型表格 / 矩阵图).
+/// Every layout places the tree through `LayoutGeometry`, so these tests read
+/// frames only: no canvas, no exporter.
+final class StructureKindsLayoutTests: XCTestCase {
+    private func timeline(_ document: MindMapDocument) -> [NodeFrame] {
+        LayoutEngine(kind: .timeline).layout(document)
+    }
+
+    // MARK: - 时间轴
+
+    func testTimelineCentersTheRootOnTheSpineAndAlternatesFirstLevelTopics() throws {
+        let events = (0..<4).map { MindMapNode(text: "节点\($0)") }
+        let root = MindMapNode(text: "时间轴", children: events)
+        let frames = timeline(MindMapDocument(title: "timeline", roots: [root]))
+        XCTAssertEqual(frames.count, 5)
+        let rootFrame = try XCTUnwrap(frames.first { $0.id == root.id })
+        let spine = rootFrame.frame.midY
+        let gap = LayoutMetrics().horizontalGap
+        let placed = try events.enumerated().map { index, event in
+            (index, try XCTUnwrap(frames.first { $0.id == event.id }))
+        }
+        // Even siblings sit above the spine, odd siblings below it.
+        for (index, frame) in placed {
+            if index % 2 == 0 {
+                XCTAssertEqual(spine - frame.frame.maxY, gap, accuracy: 0.001)
+            } else {
+                XCTAssertEqual(frame.frame.minY - spine, gap, accuracy: 0.001)
+            }
+        }
+    }
+
+    func testTimelineAdvancesFirstLevelTopicsAlongTheSpineInSiblingOrder() throws {
+        var cursor: CGFloat = 0
+        let events = (0..<5).map { MindMapNode(text: "第\($0)个节点") }
+        let root = MindMapNode(text: "轴", children: events)
+        let frames = timeline(MindMapDocument(title: "order", roots: [root]))
+        let rootFrame = try XCTUnwrap(frames.first { $0.id == root.id })
+        let xs = try events.map { event in
+            try XCTUnwrap(frames.first { $0.id == event.id }).frame.minX
+        }
+        for (index, x) in xs.enumerated() {
+            XCTAssertGreaterThan(x, cursor)
+            cursor = x
+        }
+        XCTAssertGreaterThanOrEqual(xs[0], rootFrame.frame.maxX)
+    }
+
+    func testTimelineIndentsDeeperLevelsOneHorizontalGapAndCentersChildren() throws {
+        let grand = MindMapNode(text: "孙")
+        let child = MindMapNode(text: "子", children: [grand])
+        let second = MindMapNode(text: "次")
+        let root = MindMapNode(text: "轴", children: [child, second])
+        let frames = timeline(MindMapDocument(title: "indent", roots: [root]))
+        let childFrame = try XCTUnwrap(frames.first { $0.id == child.id })
+        let grandFrame = try XCTUnwrap(frames.first { $0.id == grand.id })
+        // The first event is above the spine, so its branch grows upward.
+        XCTAssertEqual(childFrame.frame.minY - grandFrame.frame.maxY, LayoutMetrics().horizontalGap, accuracy: 0.001)
+        XCTAssertEqual(grandFrame.frame.midX, childFrame.frame.midX, accuracy: 0.001)
+    }
+
+    func testTimelineStacksABranchOneSiblingGapApartOnOneCentreLine() throws {
+        let kids = (0..<3).map { MindMapNode(text: "分支\($0)") }
+        let event = MindMapNode(text: "事件", children: kids)
+        let root = MindMapNode(text: "轴", children: [event])
+        let frames = timeline(MindMapDocument(title: "stack", roots: [root]))
+        let rows = try kids.map { kid in
+            try XCTUnwrap(frames.first { $0.id == kid.id })
+        }.sorted { $0.frame.minY < $1.frame.minY }
+        XCTAssertEqual(Set(rows.map(\.frame.midX)).count, 1)
+        XCTAssertEqual(rows[1].frame.minY - rows[0].frame.maxY, LayoutMetrics().siblingGap, accuracy: 0.001)
+        XCTAssertEqual(rows[2].frame.minY - rows[1].frame.maxY, LayoutMetrics().siblingGap, accuracy: 0.001)
+        // Stacking grows away from the spine: the whole pile ends above the event.
+        let eventFrame = try XCTUnwrap(frames.first { $0.id == event.id })
+        XCTAssertEqual(
+            eventFrame.frame.minY - rows[2].frame.maxY,
+            LayoutMetrics().horizontalGap,
+            accuracy: 0.001
+        )
+    }
+
+    func testTimelineLinksStartOnTheSpineAndRunStraightToTheTopic() throws {
+        let kid = MindMapNode(text: "分支")
+        let event = MindMapNode(text: "事件", children: [kid])
+        let root = MindMapNode(text: "轴", children: [event])
+        let frames = timeline(MindMapDocument(title: "links", roots: [root]))
+        let rootFrame = try XCTUnwrap(frames.first { $0.id == root.id })
+        let spine = rootFrame.frame.midY
+        let eventFrame = try XCTUnwrap(frames.first { $0.id == event.id })
+        let link = try XCTUnwrap(eventFrame.link)
+        // The anchor is on the axis itself, which is what makes the spine read as
+        // one straight line without a second drawing primitive.
+        XCTAssertEqual(link.start.y, spine, accuracy: 0.001)
+        XCTAssertEqual(link.start.x, eventFrame.frame.midX, accuracy: 0.001)
+        XCTAssertEqual(link.end.y, eventFrame.frame.minY, accuracy: 0.001)
+        XCTAssertEqual(link.control1.x, link.start.x, accuracy: 0.001)
+        XCTAssertEqual(link.control2.x, link.end.x, accuracy: 0.001)
+        // Every control point shares the topic's centre line, so the spike to the
+        // spine is a straight vertical, not a curve.
+        XCTAssertEqual(link.point(at: 0.5).x, link.start.x, accuracy: 0.001)
+        XCTAssertNil(rootFrame.link)
+        XCTAssertEqual(eventFrame.parentID, root.id)
+
+        let kidFrame = try XCTUnwrap(frames.first { $0.id == kid.id })
+        let kidLink = try XCTUnwrap(kidFrame.link)
+        XCTAssertEqual(kidLink.start.x, eventFrame.frame.midX, accuracy: 0.001)
+        XCTAssertEqual(kidLink.start.y, eventFrame.frame.minY, accuracy: 0.001)
+        XCTAssertEqual(kidFrame.parentID, event.id)
+    }
+
+    func testTimelineCollapsedTopicHidesItsSubtreeAndItsTail() {
+        let event = MindMapNode(text: "事件", children: [MindMapNode(text: "分支")])
+        var root = MindMapNode(text: "轴", children: [event, MindMapNode(text: "另一个")])
+        root.isCollapsed = true
+        let frames = timeline(MindMapDocument(title: "fold", roots: [root]))
+        XCTAssertEqual(frames.count, 1)
+        XCTAssertEqual(frames.first?.id, root.id)
+    }
+
+    func testTimelinePlacesAStoredRootPointAndKeepsTheSpineOnIt() throws {
+        let event = MindMapNode(text: "事件")
+        let root = MindMapNode(
+            text: "轴",
+            position: MindMapPoint(x: 140, y: -60),
+            children: [event]
+        )
+        let frames = timeline(MindMapDocument(title: "manual", roots: [root]))
+        let rootFrame = try XCTUnwrap(frames.first { $0.id == root.id })
+        let eventFrame = try XCTUnwrap(frames.first { $0.id == event.id })
+        XCTAssertEqual(rootFrame.origin.x, 140, accuracy: 0.001)
+        XCTAssertEqual(rootFrame.origin.y, -60, accuracy: 0.001)
+        XCTAssertEqual(eventFrame.link?.start.y ?? 0, rootFrame.frame.midY, accuracy: 0.001)
+        XCTAssertEqual(rootFrame.frame.midY - eventFrame.frame.maxY, LayoutMetrics().horizontalGap, accuracy: 0.001)
+    }
+
+    func testTimelineKeepsThirtyTopicsFromOverlapping() {
+        let root = MindMapNode(text: "2024 复盘", children: [
+            MindMapNode(text: "一月", children: (0..<3).map { MindMapNode(text: "一月的事项\($0)") }),
+            MindMapNode(text: "二月", children: (0..<2).map { MindMapNode(text: "二月的事项\($0)") }),
+            MindMapNode(text: "三月"),
+            MindMapNode(text: "四月", children: [MindMapNode(text: "四月的事项")]),
+            MindMapNode(text: "五月"),
+            MindMapNode(text: "六月", children: (0..<2).map { MindMapNode(text: "六月的事项\($0)") }),
+            MindMapNode(text: "七月"),
+        ])
+        let frames = timeline(MindMapDocument(title: "big", roots: [root]))
+        XCTAssertEqual(frames.count, 16)
+        assertNoOverlap(frames)
+
+        let wide = MindMapNode(text: "全年", children: (0..<8).map { index in
+            MindMapNode(text: "第\(index)季度", children: (0..<3).map { MindMapNode(text: "事项\(index)-\($0)") })
+        })
+        let wideFrames = timeline(MindMapDocument(title: "wide", roots: [wide]))
+        XCTAssertEqual(wideFrames.count, 33)
+        assertNoOverlap(wideFrames)
+    }
+
+    func testTimelineJoinsTheStructureRegistry() {
+        XCTAssertEqual(LayoutKind.timeline.displayNameKey, "layout.timeline")
+        XCTAssertEqual(LayoutKind.timeline.makeLayout(geometry: geometry()).kind, .timeline)
+    }
+
+    // MARK: - Helpers
+
+    private func geometry() -> LayoutGeometry {
+        LayoutGeometry(
+            cache: TextMeasurementCache(),
+            metrics: LayoutMetrics(),
+            appearance: .standard
+        )
+    }
+
+    private func assertNoOverlap(
+        _ frames: [NodeFrame],
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        for left in frames.indices {
+            for right in frames.indices where right > left {
+                let hit = frames[left].frame.intersection(frames[right].frame)
+                XCTAssertFalse(
+                    hit.width > 0.5 && hit.height > 0.5,
+                    "\(frames[left].text) overlaps \(frames[right].text)",
+                    file: file,
+                    line: line
+                )
+            }
+        }
+    }
+}

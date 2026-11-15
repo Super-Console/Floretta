@@ -281,8 +281,12 @@ final class StructureLayoutTests: XCTestCase {
             LayoutEngine.forDocument(reopened).layout(reopened),
             LayoutEngine(kind: .orgChart).layout(document)
         )
-        XCTAssertEqual(Set(LayoutKind.allCases), [.bilateral, .logicChart, .orgChart])
-        XCTAssertEqual(LayoutKind.allCases.count, 3)
+        // The shipped three stay registered. The full set lives in
+        // `StructureKindsLayoutTests` so this test does not need an edit every
+        // time a structure joins the engine.
+        XCTAssertTrue(
+            Set(LayoutKind.allCases).isSuperset(of: [.bilateral, .logicChart, .orgChart])
+        )
     }
 
     private func assertNoOverlap(_ frames: [NodeFrame], file: StaticString = #filePath, line: UInt = #line) {

@@ -1,11 +1,11 @@
 import XCTest
 
-/// Locks editor chrome alongside the UI test: the back button and persistent
-/// filename occupy the leading Mac toolbar region, and the iOS control is a
-/// stock toolbar item. The hit area itself is
-/// `EditorBackButtonHitAreaTests`.
+/// Locks editor chrome alongside the UI test: the back glyph and the editable
+/// filename share one leading Mac navigation capsule (system glass only, no
+/// custom plate stacked inside it), and the iOS control is a stock toolbar
+/// item. The hit area itself is `EditorBackButtonHitAreaTests`.
 final class EditorChromeContractTests: XCTestCase {
-    func testMacBackButtonIsIndependentFromNativeDocumentTitle() throws {
+    func testMacBackButtonAndTitleShareOneNavigationCapsule() throws {
         let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         let leading = try slice(
             source,
@@ -14,9 +14,11 @@ final class EditorChromeContractTests: XCTestCase {
         )
         XCTAssertTrue(leading.contains("chevron.backward"))
         XCTAssertTrue(leading.contains("\"basicChain.back\""))
-        XCTAssertTrue(leading.contains("ToolbarItem(id: \"document.title\", placement: .navigation)"))
+        XCTAssertTrue(leading.contains("ToolbarItem(id: \"document.navigation\", placement: .navigation)"))
+        XCTAssertTrue(leading.contains("HStack(spacing: 8)"), "the title sits beside the back glyph in the one system capsule")
+        XCTAssertTrue(leading.contains("\"document.title\""), "the rename control keeps its accessibility identifier")
         XCTAssertTrue(leading.contains("Text(verbatim: documentTitle)"))
-        XCTAssertTrue(leading.contains(".appleGlassChrome(.floatingPanel)"))
+        XCTAssertFalse(leading.contains(".appleGlassChrome(.floatingPanel)"), "no custom glass plate may be nested inside the system navigation capsule")
         XCTAssertTrue(source.contains(".modifier(MacEditorWindowTitle(title: \"\"))"))
     }
 

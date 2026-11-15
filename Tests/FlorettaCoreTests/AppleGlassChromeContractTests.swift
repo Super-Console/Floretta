@@ -36,11 +36,11 @@ final class AppleGlassChromeContractTests: XCTestCase {
         let leadingPosition = try XCTUnwrap(macToolbar.range(of: "macToolbarItemsLeading")).lowerBound
         let actionsPosition = try XCTUnwrap(macToolbar.range(of: "macToolbarItemsPrimary")).lowerBound
 
-        XCTAssertTrue(leading.contains("placement: .navigation"), "the independent back button uses the leading navigation slot")
+        XCTAssertTrue(leading.contains("ToolbarItem(id: \"document.navigation\", placement: .navigation)"), "back and title share the leading navigation slot")
         XCTAssertTrue(leading.contains("Button(action: onClose)"))
-        XCTAssertFalse(leading.contains("HStack"), "the back button and title remain distinct toolbar items")
+        XCTAssertTrue(leading.contains("HStack(spacing: 8)"), "the title and back glyph are one system capsule, not separate items")
         XCTAssertTrue(leading.contains("document.title"))
-        XCTAssertTrue(leading.contains(".appleGlassChrome(.floatingPanel)"), "the persistent leading title uses the project's Apple Liquid Glass role")
+        XCTAssertFalse(leading.contains(".appleGlassChrome(.floatingPanel)"), "the leading capsule is system glass; the title must not stack a custom plate inside it")
         XCTAssertTrue(sharedToolbar.contains("#if os(iOS)"))
         XCTAssertFalse(sharedToolbar.contains("leadingDocumentChrome"), "the old cancellationAction title/back capsule must not also be installed on macOS")
         XCTAssertLessThan(leadingPosition, actionsPosition)

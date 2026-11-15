@@ -720,6 +720,17 @@ struct DocumentEditor: View {
         .padding(.bottom, EditorStatusBarChrome.bottomInset)
         .safeAreaPadding(.bottom)
         .accessibilityIdentifier("editor.bottomBar")
+        // Renaming a sheet hangs off the row, not the capsule: the alert is one
+        // more modifier on the smallest enclosing view, and the capsule stays a
+        // single short type. Behaviour is unchanged — the menu still raises the
+        // same alert with the same field and buttons.
+        .alert(Text(verbatim: text("重新命名")), isPresented: $showCanvasRename) {
+            TextField(text("名称"), text: $canvasRenameText)
+            Button(text("确定")) {
+                session.renameCanvas(at: canvasRenameIndex, to: canvasRenameText)
+            }
+            Button(text("取消"), role: .cancel) {}
+        }
     }
 
     private func revealZenExitAffordance() {
@@ -775,64 +786,221 @@ struct DocumentEditor: View {
     /// still reports the name's own width, so the capsule hugs short names and
     /// a 60-character name stays inside the cap instead of pushing the row out.
     private var canvasTabBar: some View {
-        HStack(spacing: 2) {
-            Menu {
-                canvasSheetMenu
-            } label: {
-                HStack(spacing: 4) {
-                    CappedWidthLayout(maxWidth: canvasTitleWidthLimit) {
-                        Text(verbatim: currentCanvasTitle)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .multilineTextAlignment(.center)
-                    }
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 10, weight: .regular))
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.leading, 12)
-                .padding(.trailing, 10)
-                .frame(minHeight: EditorStatusBarChrome.controlMinHeight)
-                .contentShape(Rectangle())
-            }
-            .menuStyle(.button)
-            .buttonStyle(.plain)
-            .menuIndicator(.hidden)
-            .help(Text(verbatim: text("切换、重命名或删除画布")))
-            .accessibilityLabel(Text(verbatim: currentCanvasTitle))
-            .accessibilityHint(text("切换、重命名或删除画布"))
-            .accessibilityIdentifier("canvas.menu")
-
-            if showsSheetDivider {
-                Divider()
-                    .frame(height: 18)
-            }
-
-            Button {
+        CanvasSheetCapsule(
+            title: currentCanvasTitle,
+            titleWidthLimit: canvasTitleWidthLimit,
+            showsSheetDivider: showsSheetDivider,
+            sheetTitles: (0..<session.document.canvasCount).map { sheetTitle(at: $0) },
+            currentIndex: currentCanvasIndex,
+            canPaste: session.hasStagedCanvas,
+            canDelete: session.document.canvasCount > 1,
+            canUndoDelete: session.restorableCanvasRemoval != nil,
+            language: settings.language,
+            onActivate: { index in
+                session.activateCanvas(index, viewport: camera.viewport.persisted)
+            },
+            onRename: beginCanvasRename,
+            onCopy: {
+                session.copyActiveCanvas(viewport: camera.viewport.persisted)
+            },
+            onPaste: {
+                session.pasteCanvas(
+                    viewport: camera.viewport.persisted,
+                    title: copyCanvasTitle(suffix: text("副本"))
+                )
+            },
+            onDuplicate: {
+                session.duplicateCanvas(
+                    viewport: camera.viewport.persisted,
+                    title: copyCanvasTitle(suffix: text("副本"))
+                )
+            },
+            onDelete: {
+                session.removeCanvas(at: currentCanvasIndex, viewport: camera.viewport.persisted)
+            },
+            onUndoDelete: {
+                session.restoreRemovedCanvas()
+            },
+            onAdd: {
                 session.addCanvas(viewport: camera.viewport.persisted)
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: EditorStatusBarChrome.chromeFontSize, weight: .regular))
-                    .frame(width: 34, height: EditorStatusBarChrome.controlMinHeight)
-                    .contentShape(Rectangle())
+            },
+            onSaveAs: saveActiveCanvasAs
+        )
+    }
+
+    /// The sheet capsule as one named type.
+    ///
+    /// It lives outside `DocumentEditor` so the capsule is a single name in the
+    /// type of `canvasTabBar`, of `bottomBarRow`, and of `editorCore`, instead of
+    /// the whole `Menu` + `ForEach` + `alert` chain being nested into each of
+    /// them. That nesting is what the Release runtime could not demangle:
+    /// `__swift_instantiateConcreteTypeFromMangledNameV2` recursed through
+    /// `decodeMangledType` until the thread stack overflowed ("Thread stack size
+    /// exceeded", EXC_BAD_ACCESS) while laying out `canvasTabBar`. Release
+    /// mangled names carry more of the chain than Debug ones, which is why only
+    /// the shipped build crashed.
+    ///
+    /// Only data and closures cross the boundary — never a `@ViewBuilder`
+    /// parameter, which would nest the caller's view type back into this one.
+    /// The rename alert is not here: it hangs off `bottomBarRow`, one level up.
+    private struct CanvasSheetCapsule: View {
+        var title: String
+        var titleWidthLimit: CGFloat
+        var showsSheetDivider: Bool
+        var sheetTitles: [String]
+        var currentIndex: Int
+        var canPaste: Bool
+        var canDelete: Bool
+        var canUndoDelete: Bool
+        var language: AppLanguage
+        var onActivate: (Int) -> Void
+        var onRename: () -> Void
+        var onCopy: () -> Void
+        var onPaste: () -> Void
+        var onDuplicate: () -> Void
+        var onDelete: () -> Void
+        var onUndoDelete: () -> Void
+        var onAdd: () -> Void
+        var onSaveAs: () -> Void
+
+        var body: some View {
+            HStack(spacing: 2) {
+                Menu {
+                    sheetMenu
+                } label: {
+                    CanvasSheetNameLabel(title: title, titleWidthLimit: titleWidthLimit)
+                }
+                .menuStyle(.button)
+                .buttonStyle(.plain)
+                .menuIndicator(.hidden)
+                .help(Text(verbatim: text("切换、重命名或删除画布")))
+                .accessibilityLabel(Text(verbatim: title))
+                .accessibilityHint(text("切换、重命名或删除画布"))
+                .accessibilityIdentifier("canvas.menu")
+
+                if showsSheetDivider {
+                    Divider()
+                        .frame(height: 18)
+                }
+
+                Button(action: onAdd) {
+                    Image(systemName: "plus")
+                        .font(.system(size: EditorStatusBarChrome.chromeFontSize, weight: .regular))
+                        .frame(width: 34, height: EditorStatusBarChrome.controlMinHeight)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(Text(verbatim: text("新建画布")))
+                .accessibilityLabel(text("新建画布"))
+                .accessibilityIdentifier("canvas.add")
             }
-            .buttonStyle(.plain)
-            .help(Text(verbatim: text("新建画布")))
-            .accessibilityLabel(text("新建画布"))
-            .accessibilityIdentifier("canvas.add")
+            .controlSize(.small)
+            .padding(.horizontal, 4)
+            .frame(minHeight: EditorStatusBarChrome.controlMinHeight)
+            .appleGlassChrome(.bottomBarCapsule)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("canvas.tabs")
         }
-        .controlSize(.small)
-        .padding(.horizontal, 4)
-        .frame(minHeight: EditorStatusBarChrome.controlMinHeight)
-        .appleGlassChrome(.bottomBarCapsule)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("canvas.tabs")
-        .alert(Text(verbatim: text("重新命名")), isPresented: $showCanvasRename) {
-            TextField(text("名称"), text: $canvasRenameText)
-            Button(text("确定")) {
-                session.renameCanvas(at: canvasRenameIndex, to: canvasRenameText)
+
+        /// The `▾` menu. A capability that does not exist is not drawn as a dead
+        /// row: 删除 needs a second sheet, 粘贴 needs a copied one.
+        @ViewBuilder
+        private var sheetMenu: some View {
+            ForEach(sheetTitles.indices, id: \.self) { index in
+                Button {
+                    onActivate(index)
+                } label: {
+                    if index == currentIndex {
+                        Label(sheetTitles[index], systemImage: "checkmark")
+                    } else {
+                        Text(verbatim: sheetTitles[index])
+                    }
+                }
+                .accessibilityIdentifier("canvas.tab.\(index)")
             }
-            Button(text("取消"), role: .cancel) {}
+
+            Divider()
+
+            Button(action: onRename) {
+                Label(text("重新命名画布"), systemImage: "pencil")
+            }
+            .accessibilityIdentifier("canvas.menu.rename")
+
+            Button(action: onCopy) {
+                Label(text("拷贝画布"), systemImage: "doc.on.doc")
+            }
+            .accessibilityIdentifier("canvas.menu.copy")
+
+            if canPaste {
+                Button(action: onPaste) {
+                    Label(text("粘贴画布"), systemImage: "doc.on.clipboard")
+                }
+                .accessibilityIdentifier("canvas.menu.paste")
+            }
+
+            Button(action: onDuplicate) {
+                Label(text("复制画布"), systemImage: "plus.square.on.square")
+            }
+            .accessibilityIdentifier("canvas.menu.duplicate")
+
+            if canDelete {
+                Button(role: .destructive, action: onDelete) {
+                    Label(text("删除画布"), systemImage: "trash")
+                }
+                .accessibilityIdentifier("canvas.menu.delete")
+            }
+
+            if canUndoDelete {
+                Button(action: onUndoDelete) {
+                    Label(text("撤销删除画布"), systemImage: "arrow.uturn.backward")
+                }
+                .accessibilityIdentifier("canvas.menu.undoDelete")
+            }
+
+            Button(action: onAdd) {
+                Label(text("新建画布"), systemImage: "plus.rectangle.on.rectangle")
+            }
+            .accessibilityIdentifier("canvas.menu.add")
+
+            Button(action: onSaveAs) {
+                Label(text("画布另存为…"), systemImage: "square.and.arrow.down.on.square")
+            }
+            .accessibilityIdentifier("canvas.menu.saveAs")
+        }
+
+        private func text(_ key: String) -> String {
+            FlorettaL10n.string(key, language: language)
+        }
+    }
+
+    /// The `▾` label: the sheet name in a capped slot, then the chevron.
+    ///
+    /// Its own type for the same reason as `CanvasSheetCapsule`: the name text,
+    /// the capped slot, and the glyph stay one short name in the capsule's type.
+    /// The name is centred and truncates in the middle so the `.floretta`
+    /// extension survives. `CappedWidthLayout` proposes the cap and still
+    /// reports the name's own width, so the capsule hugs a short name and a
+    /// 60-character name stays inside the cap instead of widening the row.
+    private struct CanvasSheetNameLabel: View {
+        var title: String
+        var titleWidthLimit: CGFloat
+
+        var body: some View {
+            HStack(spacing: 4) {
+                CappedWidthLayout(maxWidth: titleWidthLimit) {
+                    Text(verbatim: title)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .multilineTextAlignment(.center)
+                }
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .regular))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.leading, 12)
+            .padding(.trailing, 10)
+            .frame(minHeight: EditorStatusBarChrome.controlMinHeight)
+            .contentShape(Rectangle())
         }
     }
 
@@ -849,94 +1017,6 @@ struct DocumentEditor: View {
     /// 「<当前画布> 副本」, numbered when that name is taken.
     private func copyCanvasTitle(suffix: String) -> String {
         session.document.uniqueCanvasTitle(basedOn: currentCanvasTitle, suffix: suffix)
-    }
-
-    /// The `▾` menu. A capability that does not exist is not drawn as a dead row:
-    /// 删除 needs a second sheet, 粘贴 needs a copied one.
-    @ViewBuilder
-    private var canvasSheetMenu: some View {
-        ForEach(0..<session.document.canvasCount, id: \.self) { index in
-            Button {
-                session.activateCanvas(index, viewport: camera.viewport.persisted)
-            } label: {
-                if index == currentCanvasIndex {
-                    Label(sheetTitle(at: index), systemImage: "checkmark")
-                } else {
-                    Text(verbatim: sheetTitle(at: index))
-                }
-            }
-            .accessibilityIdentifier("canvas.tab.\(index)")
-        }
-
-        Divider()
-
-        Button {
-            beginCanvasRename()
-        } label: {
-            Label(text("重新命名画布"), systemImage: "pencil")
-        }
-        .accessibilityIdentifier("canvas.menu.rename")
-
-        Button {
-            session.copyActiveCanvas(viewport: camera.viewport.persisted)
-        } label: {
-            Label(text("拷贝画布"), systemImage: "doc.on.doc")
-        }
-        .accessibilityIdentifier("canvas.menu.copy")
-
-        if session.hasStagedCanvas {
-            Button {
-                session.pasteCanvas(
-                    viewport: camera.viewport.persisted,
-                    title: copyCanvasTitle(suffix: text("副本"))
-                )
-            } label: {
-                Label(text("粘贴画布"), systemImage: "doc.on.clipboard")
-            }
-            .accessibilityIdentifier("canvas.menu.paste")
-        }
-
-        Button {
-            session.duplicateCanvas(
-                viewport: camera.viewport.persisted,
-                title: copyCanvasTitle(suffix: text("副本"))
-            )
-        } label: {
-            Label(text("复制画布"), systemImage: "plus.square.on.square")
-        }
-        .accessibilityIdentifier("canvas.menu.duplicate")
-
-        if session.document.canvasCount > 1 {
-            Button(role: .destructive) {
-                session.removeCanvas(at: currentCanvasIndex, viewport: camera.viewport.persisted)
-            } label: {
-                Label(text("删除画布"), systemImage: "trash")
-            }
-            .accessibilityIdentifier("canvas.menu.delete")
-        }
-
-        if session.restorableCanvasRemoval != nil {
-            Button {
-                session.restoreRemovedCanvas()
-            } label: {
-                Label(text("撤销删除画布"), systemImage: "arrow.uturn.backward")
-            }
-            .accessibilityIdentifier("canvas.menu.undoDelete")
-        }
-
-        Button {
-            session.addCanvas(viewport: camera.viewport.persisted)
-        } label: {
-            Label(text("新建画布"), systemImage: "plus.rectangle.on.rectangle")
-        }
-        .accessibilityIdentifier("canvas.menu.add")
-
-        Button {
-            saveActiveCanvasAs()
-        } label: {
-            Label(text("画布另存为…"), systemImage: "square.and.arrow.down.on.square")
-        }
-        .accessibilityIdentifier("canvas.menu.saveAs")
     }
 
     private func beginCanvasRename() {

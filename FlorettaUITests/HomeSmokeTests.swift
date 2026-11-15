@@ -183,6 +183,34 @@ final class HomeSmokeTests: XCTestCase {
         entry.tap()
     }
 
+    /// The rename alert now hangs off `bottomBarRow` instead of the sheet capsule,
+    /// so the capsule stays one short view type. The alert must still open from
+    /// the capsule's `▾` menu and still carry the name field: moving the modifier
+    /// is a type-shape change, not a behaviour change.
+    @MainActor
+    func testSheetCapsuleRenameAlertStillOpens() throws {
+        let app = launchHome()
+        let newMap = app.buttons["home.newMap"]
+        XCTAssertTrue(newMap.waitForExistence(timeout: 15), "首页没有「新建导图」")
+        newMap.tap()
+
+        let capsule = app.buttons["canvas.menu"]
+        XCTAssertTrue(capsule.waitForExistence(timeout: 8), "单画布文档也应显示画布胶囊")
+        capsule.tap()
+
+        let rename = app.buttons["canvas.menu.rename"]
+        XCTAssertTrue(rename.waitForExistence(timeout: 5), "画布菜单没有重新命名项")
+        rename.tap()
+
+        let alert = app.alerts.firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 5), "重新命名弹窗没有出现")
+        XCTAssertTrue(alert.textFields.firstMatch.exists, "重新命名弹窗缺少名称输入框")
+        XCTAssertTrue(alert.buttons["取消"].exists, "重新命名弹窗缺少取消按钮")
+        alert.buttons["取消"].tap()
+        XCTAssertFalse(alert.waitForExistence(timeout: 3), "取消后弹窗仍然存在")
+        XCTAssertTrue(app.buttons["canvas.menu"].waitForExistence(timeout: 5), "关闭弹窗后画布胶囊消失")
+    }
+
     /// The home chrome is a system tab bar, a toolbar menu, and `.searchable`.
     /// The old three-icon capsule kept 「模板库」 as a visible toolbar button.
     @MainActor

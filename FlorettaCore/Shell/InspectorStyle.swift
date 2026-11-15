@@ -17,12 +17,13 @@ public enum InspectorTab: Int, CaseIterable, Identifiable, Sendable {
 }
 
 /// Style-page groups in XMind's order. `shape` / `fill` / `border` / `width` / `text`
-/// are written on the selected topic; `branch` / `colorScheme` / `background` /
-/// `globalFont` are written on the document or the app profile and stay visible
-/// with nothing selected. There is no `structure` case: the 结构 dropdown belongs
-/// to the layout engine (TD-005) and must not appear until that engine exists.
+/// are written on the selected topic; `structure` / `branch` / `colorScheme` /
+/// `background` / `globalFont` are written on the document and stay visible with
+/// nothing selected. `structure` is the layout engine's one entry point: it writes
+/// `document.layoutKind`, the field the canvas and the exporter both read.
 public enum InspectorStyleSection: String, CaseIterable, Identifiable, Sendable {
     case shape
+    case structure
     case fill
     case border
     case width
@@ -38,6 +39,7 @@ public enum InspectorStyleSection: String, CaseIterable, Identifiable, Sendable 
     public var titleKey: String {
         switch self {
         case .shape: "形状"
+        case .structure: "结构"
         case .fill: "填充"
         case .border: "边框"
         case .width: "宽度"
@@ -53,7 +55,7 @@ public enum InspectorStyleSection: String, CaseIterable, Identifiable, Sendable 
     /// True for the sections that do not need a selected topic.
     public var isDocumentScope: Bool {
         switch self {
-        case .branch, .colorScheme, .background, .globalFont: true
+        case .structure, .branch, .colorScheme, .background, .globalFont: true
         case .shape, .fill, .border, .width, .text, .links: false
         }
     }

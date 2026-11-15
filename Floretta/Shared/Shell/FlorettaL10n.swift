@@ -477,6 +477,15 @@ enum FlorettaL10n {
         "视图": "View",
         "视频无法播放": "Unable to Play Video",
         "音频文件无法播放": "Unable to Play Audio File",
+        // 结构 picker. `LayoutKind.displayNameKey` names the same structure in
+        // FlorettaCore, which ships no display text.
+        "layout.bilateral": "Mind Map",
+        "layout.logicChart": "Logic Chart",
+        "layout.orgChart": "Org Chart",
+        "layout.timeline": "Timeline",
+        "layout.fishbone": "Fishbone",
+        "layout.treeTable": "Tree Table",
+        "layout.matrix": "Matrix",
     ]
 
     private final class BundleToken {}

@@ -963,6 +963,16 @@ final class EditorSession {
         }
     }
 
+    /// 结构. The picker's only write; undo puts the previous structure back.
+    func setLayoutKind(_ kind: LayoutKind) {
+        guard !isMarkdownDocument else { return }
+        finishEditingIfNeeded()
+        guard keyboard.mode == .command, !keyboard.isComposing else { return }
+        editActive { document in
+            _ = keyboard.setLayoutKind(kind, document: &document)
+        }
+    }
+
     private func closeEditingForCanvasChange() {
         if keyboard.isComposing {
             keyboard.discardEditHistory()

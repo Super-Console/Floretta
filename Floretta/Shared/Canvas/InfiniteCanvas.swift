@@ -1873,15 +1873,35 @@ struct InfiniteCanvas: View {
         textRect = excludingChildBadge(textRect, node: node, scale: scale)
         let showTitle = (pose?.showsText ?? true) && !editing
         if showTitle, CanvasTextLOD.level(onScreenPointSize: pointSize).drawsTitle, textRect.height > 1, textRect.width > 1 {
-            let text = styledText(node, pointSize: pointSize)
+            let shown = NodeAttachmentDrawing.canvasText(
+                title: node.text,
+                caption: node.caption,
+                fileBadges: node.fileBadges
+            )
             let subtitleHeight = node.subtitle.isEmpty ? 0 : node.subtitleHeight * scale + 2 * scale
             var titleRect = textRect
             titleRect.size.height = max(0, textRect.height - subtitleHeight)
             var textLayer = layer
             textLayer.clip(to: Path(titleRect))
-            // Same wrap path as MapExport. `draw(at:)` paints the ideal (usually
-            // single-line) size and clips mid-glyph; `draw(in:)` wraps to the node.
-            textLayer.draw(text, in: titleRect)
+            // `draw(in:)` wraps at the node width but starts at the leading/top
+            // edge, and SwiftUI's `Text` ignores the paragraph style's centering,
+            // so the preview sat in the corner while the editor centered the same
+            // string. Break the text with the same attributes MapExport uses and
+            // paint each line at its own mid point instead.
+            for line in CenteredNodeTextLayout.lines(
+                shown,
+                lineHeight: appearanceProfile.lineHeight,
+                familyID: appearanceProfile.fontFamilyID,
+                nodeDesign: node.fontDesign,
+                size: pointSize,
+                in: titleRect
+            ) {
+                textLayer.draw(
+                    styledText(line.text, node: node, pointSize: pointSize),
+                    at: line.center,
+                    anchor: .center
+                )
+            }
             if !node.subtitle.isEmpty, subtitleHeight > 1 {
                 let subtitleRect = CGRect(
                     x: textRect.minX,
@@ -1889,17 +1909,23 @@ struct InfiniteCanvas: View {
                     width: textRect.width,
                     height: min(subtitleHeight, textRect.maxY - titleRect.maxY)
                 )
-                let subtitle = NodeTextTypography.canvasText(
+                let subtitleSize = CanvasTextScale.onScreenPointSize(fontSize: node.subtitleFontSize, scale: scale)
+                var subtitleLayer = layer
+                subtitleLayer.clip(to: Path(subtitleRect))
+                for line in CenteredNodeTextLayout.lines(
                     node.subtitle,
                     lineHeight: appearanceProfile.lineHeight,
                     familyID: appearanceProfile.fontFamilyID,
                     nodeDesign: node.fontDesign,
-                    size: CanvasTextScale.onScreenPointSize(fontSize: node.subtitleFontSize, scale: scale)
-                )
-                .foregroundColor(color(node.textColor).opacity(0.72))
-                var subtitleLayer = layer
-                subtitleLayer.clip(to: Path(subtitleRect))
-                subtitleLayer.draw(subtitle, in: subtitleRect)
+                    size: subtitleSize,
+                    in: subtitleRect
+                ) {
+                    subtitleLayer.draw(
+                        styledSubtitle(line.text, node: node, pointSize: subtitleSize),
+                        at: line.center,
+                        anchor: .center
+                    )
+                }
             }
         }
         if pose == nil, detail.drawsText {
@@ -1996,12 +2022,7 @@ struct InfiniteCanvas: View {
         )
     }
 
-    private func styledText(_ node: NodeFrame, pointSize: CGFloat) -> Text {
-        let shown = NodeAttachmentDrawing.canvasText(
-            title: node.text,
-            caption: node.caption,
-            fileBadges: node.fileBadges
-        )
+    private func styledText(_ shown: String, node: NodeFrame, pointSize: CGFloat) -> Text {
         var text = NodeTextTypography.canvasText(
             shown,
             lineHeight: appearanceProfile.lineHeight,
@@ -2020,6 +2041,19 @@ struct InfiniteCanvas: View {
         if node.strikethrough { text = text.strikethrough() }
         if node.underline { text = text.underline() }
         return text
+    }
+
+    /// Subtitles keep their own ink: the theme face and the bold/italic flags
+    /// belong to the title only, as before this change.
+    private func styledSubtitle(_ shown: String, node: NodeFrame, pointSize: CGFloat) -> Text {
+        NodeTextTypography.canvasText(
+            shown,
+            lineHeight: appearanceProfile.lineHeight,
+            familyID: appearanceProfile.fontFamilyID,
+            nodeDesign: node.fontDesign,
+            size: pointSize
+        )
+        .foregroundColor(color(node.textColor).opacity(0.72))
     }
 
     private func excludingChildBadge(_ textRect: CGRect, node: NodeFrame, scale: CGFloat) -> CGRect {

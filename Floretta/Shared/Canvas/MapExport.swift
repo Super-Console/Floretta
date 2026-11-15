@@ -1,5 +1,6 @@
 import FlorettaCore
 import CoreGraphics
+import CoreText
 import ImageIO
 import SwiftUI
 import UniformTypeIdentifiers
@@ -8,6 +9,99 @@ import AppKit
 #elseif os(iOS)
 import UIKit
 #endif
+
+/// Breaks node text into the lines the canvas and the exporter then paint.
+///
+/// SwiftUI's `Text` ignores the paragraph style's alignment, and
+/// `multilineTextAlignment` returns `some View`, which `GraphicsContext.draw`
+/// cannot take. So the lines are broken here with exactly the attributes
+/// `NodeTextTypography.canvasText` renders, and each line is drawn at its own
+/// mid point (`anchor: .center`) instead of trusting leading/top layout.
+enum CenteredNodeTextLayout {
+    #if os(macOS)
+    typealias UniformFont = NSFont
+    #else
+    typealias UniformFont = UIFont
+    #endif
+
+    struct Line {
+        let text: String
+        let rect: CGRect
+        var center: CGPoint { CGPoint(x: rect.midX, y: rect.midY) }
+    }
+
+    /// Line pitch for one row. The paragraph style's `lineHeightMultiple` scales
+    /// the natural line box, so the row height has to use the same clamp.
+    static func rowPitch(for font: UniformFont, lineHeight: Double) -> CGFloat {
+        let natural = font.ascender - font.descender + font.leading
+        let multiple = CGFloat(min(max(lineHeight, 0.8), 2.5))
+        return max(natural * multiple, 1)
+    }
+
+    /// Visible line fragments at `width`, in top-to-bottom order.
+    static func visibleLineStrings(_ attributed: NSAttributedString, width: CGFloat) -> [String] {
+        guard attributed.length > 0, width > 0 else { return [] }
+        let framesetter = CTFramesetterCreateWithAttributedString(attributed)
+        let range = CFRange(location: 0, length: attributed.length)
+        let suggested = CTFramesetterSuggestFrameSizeWithConstraints(
+            framesetter,
+            range,
+            nil,
+            CGSize(width: max(width, 1), height: CGFloat.greatestFiniteMagnitude),
+            nil
+        )
+        let path = CGPath(
+            rect: CGRect(x: 0, y: 0, width: max(width, 1), height: max(suggested.height + 4, 4)),
+            transform: nil
+        )
+        let frame = CTFramesetterCreateFrame(framesetter, range, path, nil)
+        let composed = CTFrameGetLines(frame) as! [CTLine]
+        guard !composed.isEmpty else { return [] }
+        var origins = [CGPoint](repeating: .zero, count: composed.count)
+        CTFrameGetLineOrigins(frame, CFRange(location: 0, length: 0), &origins)
+        // CTFrameGetLines order is not guaranteed to read top-down; the origins
+        // are, so sort on them and keep the glyph order the reader expects.
+        let ordered = zip(composed, origins).sorted { $0.1.y > $1.1.y }.map { $0.0 }
+        let ns = attributed.string as NSString
+        return ordered.compactMap { line in
+            let fragment = CTLineGetStringRange(line)
+            guard fragment.length > 0 else { return nil }
+            var text = ns.substring(with: NSRange(location: fragment.location, length: fragment.length))
+            // The fragment keeps the hard break it ends on. Painting that
+            // trailing break as one Text adds an empty second row and drags the
+            // visible row off centre, so drop the break characters.
+            while let last = text.last, last.isNewline { text.removeLast() }
+            return text.isEmpty ? nil : text
+        }
+    }
+
+    /// One row per wrapped line, centered horizontally and as a block vertically
+    /// inside `rect`.
+    static func lines(
+        _ string: String,
+        lineHeight: Double,
+        familyID: String,
+        nodeDesign: String,
+        size: CGFloat,
+        in rect: CGRect
+    ) -> [Line] {
+        guard !string.isEmpty, rect.width > 1, rect.height > 1, size > 0 else { return [] }
+        let font = ThemeFontCascade.platformFont(familyID: familyID, nodeDesign: nodeDesign, size: size)
+        let attributed = NSAttributedString(string: string, attributes: [
+            .font: font,
+            .paragraphStyle: NodeTextTypography.paragraphStyle(lineHeight: lineHeight),
+        ])
+        let strings = visibleLineStrings(attributed, width: rect.width)
+        guard !strings.isEmpty else { return [] }
+        let pitch = rowPitch(for: font, lineHeight: lineHeight)
+        let rows = EditorLayoutConvergence.centeredRows(
+            in: rect,
+            rowHeights: Array(repeating: pitch, count: strings.count)
+        )
+        guard rows.count == strings.count else { return [] }
+        return zip(strings, rows).map { Line(text: $0, rect: $1) }
+    }
+}
 
 enum MapExportScale: CGFloat, Equatable, Sendable {
     /// 1 render pixel per logical point. No extra scale coefficient.
@@ -350,15 +444,17 @@ private struct MapExportView: View {
                 if node.borderWidth > 0 {
                     context.stroke(path, with: .color(color(node.border)), lineWidth: node.borderWidth)
                 }
-                var textRect = rect.insetBy(dx: 8, dy: 4)
+                // Same 6/4 text inset the canvas uses, so a node's text lands on
+                // the same point on screen and in the exported PNG/PDF.
+                var textRect = rect.insetBy(dx: 6, dy: 4)
                 if let hash = node.thumbnailHashes.first, let image = images[hash] {
                     let imageRect = ImagePlacement.rect(for: image, in: rect)
                     context.draw(Image(decorative: image, scale: 1), in: imageRect)
                     let top = imageRect.maxY + 2
                     textRect = CGRect(
-                        x: rect.minX + 8,
+                        x: rect.minX + 6,
                         y: top,
-                        width: max(0, rect.width - 16),
+                        width: max(0, rect.width - 12),
                         height: max(0, rect.maxY - top - 4)
                     )
                 }
@@ -369,17 +465,27 @@ private struct MapExportView: View {
                 }
                 textRect = excludingChildBadge(textRect, node: node)
                 if textRect.width > 1, textRect.height > 1 {
-                    context.draw(
-                        NodeTextTypography.canvasText(
-                            node.text,
-                            lineHeight: appearanceProfile.lineHeight,
-                            familyID: appearanceProfile.fontFamilyID,
-                            nodeDesign: node.fontDesign,
-                            size: node.fontSize
-                        )
-                        .foregroundStyle(color(node.textColor)),
+                    for line in CenteredNodeTextLayout.lines(
+                        node.text,
+                        lineHeight: appearanceProfile.lineHeight,
+                        familyID: appearanceProfile.fontFamilyID,
+                        nodeDesign: node.fontDesign,
+                        size: node.fontSize,
                         in: textRect
-                    )
+                    ) {
+                        context.draw(
+                            NodeTextTypography.canvasText(
+                                line.text,
+                                lineHeight: appearanceProfile.lineHeight,
+                                familyID: appearanceProfile.fontFamilyID,
+                                nodeDesign: node.fontDesign,
+                                size: node.fontSize
+                            )
+                            .foregroundStyle(color(node.textColor)),
+                            at: line.center,
+                            anchor: .center
+                        )
+                    }
                 }
                 TopicTagCanvas.draw(
                     node: node,

@@ -14,7 +14,15 @@
 
 ### TD-001 画布节点文字在预览态不居中（贴在框左上）
 
-- 状态：❌ 未开工（2026-11-15 记录，待开工后改为 🚧）。
+- 状态：🚧 进行中(fix/glass-title-restore 分支)。
+- 实测证据（2026-11-15 21:06 CST，本机 `fix/glass-title-restore`）：
+  - 实现：`FlorettaCore/Layout/EditorLayoutConvergence.swift` 新增 `centeredRows(in:rowHeights:)`（纯几何，块居中、行等距堆叠）；`Floretta/Shared/Canvas/MapExport.swift` 新增 `CenteredNodeTextLayout`（`ThemeFontCascade.platformFont` + `NodeTextTypography.paragraphStyle(lineHeight:)` 组属性，`CTFramesetter` 在容器宽度断行，`CTFrameGetLineOrigins` 排出上→下顺序，逐行 `draw(Text, at: 行中心, anchor: .center)`）。
+  - 画布：`InfiniteCanvas.swift` 的 `draw(_ node:...)` 标题与副标题都改为逐行居中，`excludingChildBadge` / 徽章 `badgeTop` / `tagBandHeight` / 缩略图让位 / `clip(to:)` 全部保留；副标题仍用原有的 0.72 墨色，不吃标题的主题字体与粗斜体。
+  - 导出：`MapExport.swift` 节点文字同一机制，`insetBy(dx: 8, dy: 4)` 对齐成画布的 `6/4`。
+  - 已修的一处实测缺陷：`CTLineGetStringRange` 会把硬换行的 `\n` 带进行字符串，`Text("第一行\n")` 会多出空行、把可见行挤偏（导出实测首行偏 6.25pt），现已剔除行尾换行符。
+  - 测试：`Tests/FlorettaCoreTests/LayoutTests.swift` 新增 `testCenteredRowsAreSymmetricAboutTheContainerCentre`（给定 rect 与行高，断言行块相对中心对称）；`FlorettaTests/MapExportTests.swift` 新增两条像素断言：单行「中心」ink 水平偏 0.5pt、垂直偏 1.75pt，「HAMBURG」水平 0.25pt、垂直 0.25pt；两行且末行更短时两行 ink 水平偏 −0.25pt / −0.5pt。口径按**行盒（typographic line box）居中**为准，ink 偏移只用于发现整体跑偏（CJK 的 1.75pt 来自字形升部/降部不对称，编辑态 `NSTextView` 同样按行盒排，未改）。
+  - 闸门：`bash scripts/check-compile-and-tests.sh` 全部 PASSED（core-imports / macos-compile / ios-compile / macos-florettatests，EXIT=0，FlorettaTests 477 条 0 failure）；`swift test`（FlorettaCore）通过。
+  - 未完成：真机 GUI 截图（编辑前 / 编辑中）尚未入库 `docs/reviews/`，由上级统一启动预览 App 截图后补；编辑态与预览态同一文字的 ≤1pt 对照因此仍待截图核对。
 - 现象：同一份文档、同一个节点，**非编辑态**文字贴在节点框的左上角（水平偏左、垂直偏上）；点开编辑后文字才回到框中心。用户判定「不可接受」，要求任何状态下文字都始终位于框的正中。对照截图两张（编辑前 / 编辑中）已由 Timmy 于 2026-11-15 20:45 提供。
 - 根因（2026-11-15 用独立渲染实验证实，未靠猜测）：
   1. 预览态走 SwiftUI `Canvas` + `GraphicsContext.draw(Text, in: rect)`，位置在 `Floretta/Shared/Canvas/InfiniteCanvas.swift` 的 `draw(_ node:...)`（标题段约 1836–1920 行）。该 API 按 **leading / top** 排版，`rect` 只是排版容器，文字永远从左上开始。

@@ -119,4 +119,28 @@ public enum EditorLayoutConvergence {
         guard current.isFinite, proposed.isFinite else { return false }
         return abs(current - proposed) > 0.5
     }
+
+    /// Stacked row rectangles for text painted inside `container`.
+    ///
+    /// Preview text used to go through `GraphicsContext.draw(Text, in:)`, which
+    /// lays glyphs out from the container's leading/top edge, so a node's text
+    /// sat in the top-left corner while the `NSTextView` editor centered it.
+    /// The painter now breaks the string itself and asks for one row per line.
+    /// The block is placed so the two outer margins are equal; a single row
+    /// therefore has its mid point exactly on the container's mid point.
+    public static func centeredRows(in container: CGRect, rowHeights: [CGFloat]) -> [CGRect] {
+        guard !rowHeights.isEmpty,
+              container.width.isFinite, container.height.isFinite,
+              container.width > 0, container.height > 0 else { return [] }
+        let heights = rowHeights.map { $0.isFinite ? max(0, $0) : 0 }
+        let total = heights.reduce(0, +)
+        var y = container.midY - total / 2
+        var rows: [CGRect] = []
+        rows.reserveCapacity(heights.count)
+        for height in heights {
+            rows.append(CGRect(x: container.minX, y: y, width: container.width, height: height))
+            y += height
+        }
+        return rows
+    }
 }

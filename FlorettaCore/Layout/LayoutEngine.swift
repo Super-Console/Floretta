@@ -32,6 +32,26 @@ public enum LayoutKind: String, CaseIterable, Codable, Equatable, Sendable {
         }
     }
 
+    /// Which add handles a hovered topic offers. A structure grows on one axis,
+    /// so a handle on the other axis would only add a topic the layout then places
+    /// somewhere else, which reads as a broken button.
+    ///
+    /// - bilateral splits at the root, so both sides are real choices;
+    /// - logic chart / timeline / fishbone run left to right;
+    /// - org chart / tree table / matrix grow downwards (the matrix root sits
+    ///   above its column headers, and the headers above their cells).
+    ///
+    /// An unknown structure id decodes to `.bilateral` (see
+    /// `MindMapDocument.init(from:)`), so every document resolves to a case here
+    /// and the switch stays exhaustive: a new kind has to pick its handles.
+    public var addDirections: [CanvasDirection] {
+        switch self {
+        case .bilateral: return [.left, .right]
+        case .logicChart, .timeline, .fishbone: return [.right]
+        case .orgChart, .treeTable, .matrix: return [.down]
+        }
+    }
+
     /// The one place a structure joins the engine. Adding a kind is one case
     /// above, one `StructureLayout` file, one line below, and one geometry test.
     public func makeLayout(geometry: LayoutGeometry) -> any StructureLayout {
@@ -397,8 +417,9 @@ public struct CanvasInteraction: Equatable, Sendable {
         showsShadows: false
     )
 
-    public var addDirections: [CanvasDirection] {
-        hoveredNodeID == nil ? [] : CanvasDirection.allCases
+    /// Add handles for the hovered topic in `kind`. Empty when nothing is hovered.
+    public func addDirections(for kind: LayoutKind) -> [CanvasDirection] {
+        hoveredNodeID == nil ? [] : kind.addDirections
     }
 
     public var showsSelectionChrome: Bool { selectedNodeID != nil }
@@ -467,9 +488,22 @@ public enum CanvasCommands {
         case .select(let id):
             interaction.selectedNodeID = id
             return nil
-        case .addChild(let parentID, _):
-            let child = MindMapNode(text: "新主题")
-            guard insert(child, under: parentID, nodes: &document.roots) else { return nil }
+        case .addChild(let parentID, let direction):
+            var child = MindMapNode(text: "新主题")
+            // A bilateral map splits its root children left and right, so the pressed
+            // handle is the only record of the side the new branch belongs on.
+            // Every other structure grows on one axis, where a stored side would be
+            // noise in the file, so those handles stay a plain "add here".
+            if document.layoutKind == .bilateral {
+                switch direction {
+                case .left: child.side = .left
+                case .right: child.side = .right
+                case .up, .down: break
+                }
+            }
+            guard document.insertChild(child, under: parentID) else { return nil }
+            // A collapsed parent would hide the topic that opens for editing.
+            document.mutateNode(parentID) { if $0.isCollapsed { $0.isCollapsed = false } }
             return child.id
         case .addFloatingTopic(let point):
             let node = MindMapNode(
@@ -479,19 +513,6 @@ public enum CanvasCommands {
             document.roots.append(node)
             return node.id
         }
-    }
-
-    private static func insert(_ child: MindMapNode, under parentID: UUID, nodes: inout [MindMapNode]) -> Bool {
-        for index in nodes.indices {
-            if nodes[index].id == parentID {
-                nodes[index].children.append(child)
-                return true
-            }
-            if insert(child, under: parentID, nodes: &nodes[index].children) {
-                return true
-            }
-        }
-        return false
     }
 }
 

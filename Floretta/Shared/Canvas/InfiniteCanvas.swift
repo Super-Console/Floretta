@@ -17,6 +17,9 @@ struct InfiniteCanvas: View {
     @State private var stickyDrag: StickyDrag?
     @State private var regionDrag: RegionDrag?
     @State private var ignoreDrag = false
+    /// Pending clear for the hovered topic. The add handles sit outside the topic
+    /// box, so a pointer that steps off the box is usually on its way to a handle.
+    @State private var hoverClearTask: Task<Void, Never>?
     @State private var panAnchor: CGPoint?
     @State private var pinchStartScale: CGFloat?
     @State private var interaction = CanvasInteraction.standard
@@ -113,11 +116,39 @@ struct InfiniteCanvas: View {
         view
         .canvasHover { location in
             guard let location else {
-                interaction.hoveredNodeID = nil
+                scheduleHoverClear()
                 return
             }
             let point = camera.viewport.canvasPoint(fromView: location)
-            interaction.hoveredNodeID = CanvasPlacement.nodeID(at: point, in: layoutSource())
+            // The add handles are drawn outside the topic box, so the hit test has
+            // to accept the ring around a topic or the handles vanish as soon as
+            // the pointer starts towards one. `hoverInflate` is in view points and
+            // the hit test runs in canvas space, so it is divided by the zoom.
+            let inflate = AddHandleGeometry.canvasInflate(scale: camera.viewport.scale)
+            guard let id = CanvasPlacement.nodeIDNear(at: point, inflate: inflate, in: layoutSource()) else {
+                scheduleHoverClear()
+                return
+            }
+            hoverClearTask?.cancel()
+            hoverClearTask = nil
+            if interaction.hoveredNodeID != id {
+                interaction.hoveredNodeID = id
+            }
+        }
+    }
+
+    /// Holds a miss for `AddHandleGeometry.hoverGraceMilliseconds` before the
+    /// hover clears, so crossing the gap between two handles does not blink them.
+    /// Captures bindings, never `self`, so the task stays sendable.
+    private func scheduleHoverClear() {
+        guard interaction.hoveredNodeID != nil, hoverClearTask == nil else { return }
+        let hovered = $interaction.hoveredNodeID
+        let pending = $hoverClearTask
+        hoverClearTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(AddHandleGeometry.hoverGraceMilliseconds))
+            guard !Task.isCancelled else { return }
+            pending.wrappedValue = nil
+            hovered.wrappedValue = nil
         }
     }
 
@@ -599,10 +630,15 @@ struct InfiniteCanvas: View {
            !document.isInFreeNodeTree(id),
            let frame = placedFrames().first(where: { $0.id == id }) {
             let rect = camera.viewport.viewRect(fromCanvas: frame.frame)
-            addButton(.up, at: CGPoint(x: rect.midX, y: rect.minY - 18), parent: id)
-            addButton(.down, at: CGPoint(x: rect.midX, y: rect.maxY + 18), parent: id)
-            addButton(.left, at: CGPoint(x: rect.minX - 18, y: rect.midY), parent: id)
-            addButton(.right, at: CGPoint(x: rect.maxX + 18, y: rect.midY), parent: id)
+            // Only the directions this structure can grow in. A logic chart has no
+            // left branch, and a top-down chart has no horizontal one.
+            ForEach(document.layoutKind.addDirections, id: \.self) { direction in
+                addButton(
+                    direction,
+                    at: AddHandleGeometry.handleCenter(direction, in: rect),
+                    parent: id
+                )
+            }
         }
     }
 
@@ -1254,13 +1290,25 @@ struct InfiniteCanvas: View {
 
     private func addButton(_ direction: CanvasDirection, at point: CGPoint, parent: UUID) -> some View {
         Button {
-            _ = CanvasCommands.apply(
+            // A handle is a create-then-type gesture: the new topic opens in its
+            // editor, which is what Tab does from the keyboard. Text typed on the
+            // previous topic is committed first so it is not written to the new one.
+            if keyboard.mode == .edit {
+                keyboard.apply(.commitEdit, document: &document, frames: placedFrames())
+            }
+            guard let childID = CanvasCommands.apply(
                 .addChild(parentID: parent, direction: direction),
                 document: &document,
                 interaction: &interaction
-            )
+            ) else { return }
+            beginEditing(childID)
         } label: {
+            // The glyph stays inside `buttonSide`, which is what keeps the whole
+            // handle within the hover ring `AddHandleGeometry.hoverInflate` allows.
             Image(systemName: "plus.circle.fill")
+                .font(.system(size: AddHandleGeometry.buttonSide * 0.75))
+                .frame(width: AddHandleGeometry.buttonSide, height: AddHandleGeometry.buttonSide)
+                .contentShape(Circle())
         }
         .buttonStyle(.borderless)
         .position(point)

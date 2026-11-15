@@ -324,7 +324,15 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertFalse(primary.contains("toolbarControl(.immersive)"), "full screen lives in the status capsule (TD-003)")
         XCTAssertFalse(primary.contains("toolbarControl(.share)"), "import/export is low frequency; it is in ••• (TD-006)")
 
-        XCTAssertFalse(home.contains("appleGlassChrome"))
+        // 2026-11-15: the home page's one plate is the circular 设置 button, which
+        // floats in the top-right corner and owns its own glass. The page itself
+        // is still painted by `settings.homeBackground.palette`: no content
+        // surface is supplied as a glass background, and no column or panel
+        // plate is added.
+        XCTAssertEqual(home.components(separatedBy: "appleGlassChrome").count - 1, 1)
+        XCTAssertTrue(home.contains(".appleGlassChrome(.iconButton)"), "the 设置 button is the only plate on the home page")
+        XCTAssertFalse(home.contains(".appleGlassChrome(.sidebarColumn)"))
+        XCTAssertFalse(home.contains(".appleGlassChrome(.floatingPanel)"))
         XCTAssertTrue(home.contains("settings.homeBackground.palette"), "the home page paints the semantic background")
         XCTAssertFalse(editor.contains(".blur("))
         XCTAssertFalse(editor.contains("regularMaterial"))

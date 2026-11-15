@@ -74,11 +74,10 @@ final class HomeChromeContractTests: XCTestCase {
         let shell = try slice(source, from: "private var shell", until: "private var homeStack")
 
         let ios = try slice(shell, from: "#if os(iOS)", until: "#else")
-        XCTAssertTrue(ios.contains("TabView(selection: $library.tab)"))
-        XCTAssertTrue(ios.contains("Tab(value: ShellTab.home)"))
-        XCTAssertTrue(ios.contains("Tab(value: ShellTab.settings)"))
-        XCTAssertTrue(ios.contains(".tabViewStyle(.tabBarOnly)"))
-        XCTAssertFalse(ios.contains(".tabItem"), "home tabs fell back to the legacy item style")
+        XCTAssertTrue(ios.contains("homeStack"))
+        XCTAssertFalse(ios.contains("TabView"), "the phone lost its tab bar when 设置 stopped being a tab")
+        XCTAssertFalse(ios.contains(".tabViewStyle"), "no tab bar style is left to apply")
+        XCTAssertFalse(ios.contains(".tabItem"))
         assertNoCustomChrome(ios)
 
         let mac = try slice(shell, from: "#else", until: "#endif")
@@ -91,6 +90,70 @@ final class HomeChromeContractTests: XCTestCase {
         let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         XCTAssertTrue(editor.contains("showInspector.toggle()"))
         XCTAssertTrue(editor.contains("\"inspector.open\""))
+    }
+
+    /// 2026-11-15: 设置 is a card the home page pulls up, not a first-level page.
+    func testIPhoneHasNoSettingsTabAndOpensSettingsAsASheet() throws {
+        let source = try repoFile("Floretta/Shared/ContentView.swift")
+        let shell = try slice(source, from: "private var shell", until: "private var homeStack")
+        let ios = try slice(shell, from: "#if os(iOS)", until: "#else")
+
+        // A single 首页 tab would draw a bar with nothing to switch to.
+        XCTAssertFalse(ios.contains("TabView"))
+        XCTAssertFalse(ios.contains("ShellTab"))
+        XCTAssertTrue(ios.contains(".sheet(isPresented: $showSettings)"), "设置 opens as a sheet")
+        XCTAssertTrue(ios.contains("SettingsView(settings: settings)"))
+
+        // Bottom card: two detents and the system drag indicator.
+        XCTAssertTrue(ios.contains(".presentationDetents([.medium, .large])"))
+        XCTAssertTrue(ios.contains(".presentationDragIndicator(.visible)"))
+
+        // The tab model went with the bar.
+        XCTAssertFalse(source.contains("library.tab"))
+        let appSettings = try repoFile("Floretta/Shared/Shell/AppSettings.swift")
+        XCTAssertFalse(appSettings.contains("enum ShellTab"), "no tab enum is left to select")
+        XCTAssertFalse(appSettings.contains("case settings"))
+        let session = try repoFile("Floretta/Shared/Shell/DocumentSession.swift")
+        XCTAssertFalse(session.contains("var tab: ShellTab"))
+    }
+
+    func testHomeSettingsIsACircularGlassButtonInTheTopRightCorner() throws {
+        let source = try repoFile("Floretta/Shared/Shell/LibraryHome.swift")
+        let recent = try slice(source, from: "struct RecentPage", until: "struct NewMapPage")
+        let button = try slice(recent, from: "private var settingsButton", until: "/// System navigation-bar items")
+        let ios = try slice(recent, from: "#if os(iOS)", until: "#else")
+
+        XCTAssertTrue(button.contains("Image(systemName: \"gearshape\")"), "the entry is the gearshape glyph")
+        XCTAssertTrue(button.contains(".appleGlassChrome(.iconButton)"), "the button owns one circular Apple glass plate")
+        XCTAssertTrue(button.contains(".frame(width: 44, height: 44)"), "the plate is a 44pt circle")
+        XCTAssertTrue(button.contains(".contentShape(Circle())"))
+        XCTAssertTrue(button.contains(".accessibilityIdentifier(\"home.settings\")"))
+        XCTAssertTrue(button.contains(".accessibilityLabel(text(\"设置\"))"))
+        XCTAssertTrue(button.contains(".help("))
+        XCTAssertFalse(button.contains("ToolbarItem"), "a toolbar item is already glass; a plate inside it is the double-glass bug")
+        XCTAssertFalse(button.contains("Capsule("), "a capsule would not be a round button")
+
+        // Top-right of the page, and its own strip so no card is covered.
+        XCTAssertTrue(ios.contains(".safeAreaInset(edge: .top"), "the button sits at the top of the page")
+        XCTAssertTrue(ios.contains("Spacer(minLength: 0)"))
+        XCTAssertTrue(ios.contains("settingsButton"))
+        XCTAssertFalse(ios.contains("TabView"))
+    }
+
+    func testSettingsCardHasNoLargeTitle() throws {
+        let source = try repoFile("Floretta/Shared/Shell/LibraryHome.swift")
+        let card = try slice(source, from: "struct SettingsView: View", until: "#if os(macOS)\n/// The macOS Settings window")
+
+        XCTAssertTrue(card.contains(".navigationBarTitleDisplayMode(.inline)"), "the card carries an inline 设置 header")
+        XCTAssertFalse(card.contains(".large"), "设置 is no longer a page, so it has no large title")
+        XCTAssertFalse(card.contains("LargeTitle"))
+        XCTAssertTrue(card.contains("Form {"))
+        XCTAssertTrue(card.contains("Button(text(\"完成\"))"), "a card needs an explicit way out")
+        XCTAssertTrue(card.contains("\"settings.done\""))
+        for page in ["SettingsGeneralPage", "SettingsExportPage", "SettingsAboutPage"] {
+            XCTAssertTrue(card.contains(page), page)
+        }
+        XCTAssertFalse(card.contains("appleGlassChrome"), "the card keeps the system bar")
     }
 
     func testMacOSSettingsIsAStandardSettingsSceneWithSystemTabs() throws {

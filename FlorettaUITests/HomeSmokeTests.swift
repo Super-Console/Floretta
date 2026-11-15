@@ -1,7 +1,8 @@
 import XCTest
 
-/// Smoke coverage for the iPhone home shell: the recent-page title, a live
-/// settings tab, document rows that actually open, and a way back out.
+/// Smoke coverage for the iPhone home shell: the recent-page title, the circular
+/// 设置 button that opens the settings card, document rows that actually open, and
+/// a way back out.
 final class HomeSmokeTests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -17,11 +18,14 @@ final class HomeSmokeTests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["home.recent"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.alerts.element.exists)
 
-        app.tabBars.buttons["设置"].tap()
+        XCTAssertFalse(app.tabBars.buttons["设置"].exists, "设置 不再是底栏 Tab")
+        let settingsButton = app.buttons["home.settings"]
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5), "首页右上角没有圆形设置按钮")
+        settingsButton.tap()
         XCTAssertTrue(app.staticTexts["语言"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.navigationBars["设置"].waitForExistence(timeout: 5))
-
-        app.tabBars.buttons["首页"].tap()
+        XCTAssertTrue(app.buttons["settings.done"].waitForExistence(timeout: 5), "设置卡片没有完成按钮")
+        app.buttons["settings.done"].tap()
         XCTAssertTrue(homeTitle(app).waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["home.newMap"].waitForExistence(timeout: 5))
 
@@ -183,16 +187,17 @@ final class HomeSmokeTests: XCTestCase {
         entry.tap()
     }
 
-    /// The home chrome is a system tab bar, a toolbar menu, and `.searchable`.
-    /// The old three-icon capsule kept 「模板库」 as a visible toolbar button.
+    /// The home chrome is the system toolbar, a toolbar menu, `.searchable`, and
+    /// the one circular 设置 button — no tab bar, no three-icon capsule.
     @MainActor
-    func testHomeUsesSystemTabBarMenuAndSearchNotACapsule() throws {
+    func testHomeUsesSystemToolbarMenuAndSearchNotACapsule() throws {
         let app = launchHome()
         let titleBar = homeTitle(app)
         XCTAssertTrue(titleBar.waitForExistence(timeout: 15), "首页项目管理器标题不可见")
 
-        XCTAssertTrue(app.tabBars.buttons["首页"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.tabBars.buttons["设置"].exists)
+        XCTAssertFalse(app.tabBars.buttons["首页"].exists, "首页 不再是 Tab，底栏应当整条消失")
+        XCTAssertFalse(app.tabBars.buttons["设置"].exists)
+        XCTAssertTrue(app.buttons["home.settings"].waitForExistence(timeout: 5), "首页缺少圆形设置按钮")
         XCTAssertFalse(app.descendants(matching: .any)["home.actionCapsule"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["home.tabCapsule"].exists)
         XCTAssertFalse(

@@ -14,6 +14,7 @@ struct ContentView: View {
     @State private var browseRoot: URL?
     @State private var browseTitle = LocalDeviceLabel.current.title
     @State private var notice: String?
+    @State private var showSettings = false
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -128,22 +129,16 @@ struct ContentView: View {
     @ViewBuilder
     private var shell: some View {
         #if os(iOS)
-        // System tab bar. `.tabBarOnly` keeps iPhone and iPad on that bar
-        // instead of a sidebar. No custom glass, blur, or capsule.
-        // The phone's tab bar and settings entry are unchanged.
-        TabView(selection: $library.tab) {
-            Tab(value: ShellTab.home) {
-                homeStack
-            } label: {
-                Label(text(ShellTab.home.title), systemImage: ShellTab.home.systemImage)
-            }
-            Tab(value: ShellTab.settings) {
+        // One page and no tab bar: 设置 stopped being a first-level page, so a
+        // lone 首页 tab would only draw a bar with nothing to switch to. The
+        // home page's top-right gear pulls 设置 up as a card from the bottom;
+        // the system sheet draws the card, its detents, and its drag indicator.
+        homeStack
+            .sheet(isPresented: $showSettings) {
                 SettingsView(settings: settings)
-            } label: {
-                Label(text(ShellTab.settings.title), systemImage: ShellTab.settings.systemImage)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
             }
-        }
-        .tabViewStyle(.tabBarOnly)
         #else
         // One column. 设置 is the standard Settings scene (⌘,), not a page in
         // this window, so the 首页 / 设置 sidebar has nothing left to navigate.
@@ -162,7 +157,8 @@ struct ContentView: View {
                     searchText: $searchText,
                     openFiles: { AppLaunch.presentUITestImporter(open: { library.openFile($0) }) { showImporter = true } },
                     openICloud: openICloud,
-                    browseLocal: browsePad
+                    browseLocal: browsePad,
+                    openSettings: { showSettings = true }
                 )
             case .newMap:
                 NewMapPage(
@@ -202,7 +198,6 @@ struct ContentView: View {
         if library.closeEditor() {
             recovery.quitNormally()
         }
-        library.tab = .home
         page = .recent
     }
 

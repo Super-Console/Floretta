@@ -4,7 +4,8 @@ import SwiftUI
 /// Shared bottom status strip for iPhone, iPad, and macOS.
 ///
 /// One Liquid Glass capsule on the trailing edge (TD-003), left to right: the
-/// live topic count, the live zoom percent, the view mode, the outline switch,
+/// live topic count, the live zoom percent, the pointer / hand tool (Mac only),
+/// the view mode, the outline switch,
 /// and the full-screen switch. On the Mac, hovering the topic count opens the
 /// 主题 / 字数 / 字符数 breakdown; iPad and iPhone open it with a tap. Those
 /// three numbers used to sit in the ••• menu and now live here only; they still
@@ -25,6 +26,9 @@ struct EditorStatusStrip: View {
     var census: TopicTitleCensus
     var language: AppLanguage
     @Binding var showOutline: Bool
+    /// Pointer / hand. Written straight through to `AppSettings`, so the choice
+    /// survives the next launch. Only the Mac draws the control.
+    @Binding var pointerMode: CanvasPointerMode
 
     /// Hover (macOS) and tap (iPad / iPhone) present the same breakdown.
     @State private var showsCensus = false
@@ -70,6 +74,9 @@ struct EditorStatusStrip: View {
     /// The three icon controls, `capsuleControlSpacing` apart.
     private var viewControls: some View {
         HStack(spacing: EditorStatusBarChrome.capsuleControlSpacing) {
+            #if os(macOS)
+            pointerModeToggle
+            #endif
             viewModeToggle
             outlineToggle
             fullScreenToggle
@@ -182,6 +189,33 @@ struct EditorStatusStrip: View {
             }
             .keyboardShortcut("0", modifiers: .command)
         }
+    }
+
+    // MARK: pointer mode
+
+    /// 指针 / 手掌, the Mac tool in XMind's bottom-right corner. The glyph is the
+    /// mode that is showing; one click flips it, so there is no ▾ menu. The
+    /// preference lives in `AppSettings`, so the next document opens in it too.
+    private var pointerModeToggle: some View {
+        Button {
+            pointerMode = pointerMode.toggled
+        } label: {
+            statusSymbol(pointerMode.symbolName)
+        }
+        .buttonStyle(.plain)
+        .help(Text(verbatim: pointerModeActionLabel))
+        .accessibilityLabel(Text(verbatim: pointerModeActionLabel))
+        .accessibilityHint(Text(verbatim: string("用指针框选主题，或用手掌拖动画布")))
+        .accessibilityIdentifier("statusBar.pointer")
+    }
+
+    /// Current mode, then what a click does.
+    private var pointerModeActionLabel: String {
+        "\(pointerModeTitle(pointerMode)) · \(pointerModeTitle(pointerMode.toggled))"
+    }
+
+    private func pointerModeTitle(_ mode: CanvasPointerMode) -> String {
+        string(mode == .pan ? "手掌模式" : "指针模式")
     }
 
     // MARK: view mode, outline, full screen

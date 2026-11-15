@@ -307,6 +307,12 @@ final class AppSettings {
         didSet { defaults.set(exportIncludesStickies, forKey: Key.exportIncludesStickies) }
     }
 
+    /// Pointer or hand for a drag on blank canvas. The Mac opens as a pointer;
+    /// iPhone and iPad open as the hand, which is the drag they already had.
+    var pointerMode: CanvasPointerMode {
+        didSet { defaults.set(pointerMode.rawValue, forKey: Key.pointerMode) }
+    }
+
     init(defaults: UserDefaults) {
         self.defaults = defaults
         // One-time move off classic / modern / custom. Repeated launches are no-ops.
@@ -321,6 +327,7 @@ final class AppSettings {
         }
         pngScale = PNGScalePreference(rawValue: defaults.string(forKey: Key.pngScale) ?? "") ?? .two
         pngBackground = PNGBackgroundPreference(rawValue: defaults.string(forKey: Key.pngBackground) ?? "") ?? .white
+        pointerMode = CanvasPointerMode.stored(defaults.string(forKey: Key.pointerMode))
         if defaults.object(forKey: Key.exportIncludesStickies) == nil {
             exportIncludesStickies = true
         } else {
@@ -368,6 +375,7 @@ final class AppSettings {
         static let pngScale = "floretta.pngScale"
         static let pngBackground = "floretta.pngBackground"
         static let exportIncludesStickies = "floretta.exportIncludesStickies"
+        static let pointerMode = "floretta.pointerMode"
         static let homeBackground = AppearanceMigration.homeBackgroundKey
         static let profile = AppearanceMigration.profileKey
     }

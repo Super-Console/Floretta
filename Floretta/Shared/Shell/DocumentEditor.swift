@@ -615,6 +615,7 @@ struct DocumentEditor: View {
                 fontMetrics: fontMetrics,
                 focusNodeID: session.viewMode == .focus ? session.focusNodeID : nil,
                 zenActive: session.zen.isActive,
+                pointerMode: settings.pointerMode,
                 onEscape: { session.handleEscape() },
                 onConsumeBlankDoubleTap: { session.consumeBlankDoubleTap() },
                 thumbnails: thumbnails,
@@ -699,7 +700,8 @@ struct DocumentEditor: View {
                     camera: camera,
                     census: statusCensus,
                     language: settings.language,
-                    showOutline: $showOutline
+                    showOutline: $showOutline,
+                    pointerMode: $settings.pointerMode
                 )
                 .onGeometryChange(for: CGFloat.self) { proxy in
                     proxy.size.width

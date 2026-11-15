@@ -36,7 +36,7 @@ struct EditorStatusStrip: View {
         .frame(minHeight: EditorStatusBarChrome.controlMinHeight)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("statusBar")
-        .themeTypography(language: language)
+        .chromeTypography(language: language, role: .compact)
         .onDisappear {
             censusDismissTask?.cancel()
             censusDismissTask = nil

@@ -69,6 +69,50 @@ extension View {
     }
 }
 
+/// How large the system face runs on a chrome surface.
+enum ChromeTextRole {
+    /// Toolbars, sidebars, forms, menus, inspector labels: the platform's own
+    /// interface text (`body`), 13 pt on macOS and 17 pt on iOS.
+    case body
+    /// Chrome that rides a capsule or a status strip, where the system's own
+    /// compact size (`callout`) is what the bar was drawn for.
+    case compact
+
+    var font: Font {
+        switch self {
+        case .body: .body
+        case .compact: .callout
+        }
+    }
+}
+
+/// Chrome typography. Toolbars, the status capsule, sidebars, settings and
+/// inspector forms, menus, empty states and notices never take the theme
+/// family: they stay on the platform's own sans — SF for Latin, PingFang for
+/// Chinese — which is the split Apple draws in Books, Pages and Notes (serif
+/// body, system chrome). Only content may be serif.
+///
+/// Deliberately no `ThemeFontResolver` call lives here. `themeTypography` stays
+/// for canvas nodes and Markdown body; see `docs/THEME-MODES.md`.
+struct ChromeTypographyModifier: ViewModifier {
+    /// Mirrors `themeTypography(language:)` so a call site reads the same either
+    /// way. The system face already carries both scripts at one optical size, so
+    /// no per-script size adjustment is needed.
+    var language: AppLanguage = .system
+    var role: ChromeTextRole = .body
+
+    func body(content: Content) -> some View {
+        content.font(role.font)
+    }
+}
+
+extension View {
+    /// Chrome-only typography: always the system face, never the theme family.
+    func chromeTypography(language: AppLanguage = .system, role: ChromeTextRole = .body) -> some View {
+        modifier(ChromeTypographyModifier(language: language, role: role))
+    }
+}
+
 enum ThemeTypography {
     static func font(mode: ThemeMode, language: AppLanguage, locale: Locale = .current, size: CGFloat) -> Font? {
         let isChinese: Bool

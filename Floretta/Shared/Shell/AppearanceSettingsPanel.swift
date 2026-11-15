@@ -58,7 +58,7 @@ struct AppearanceSettingsPanel: View {
         }
         // Controls stay on the system UI font even when the map uses a serif family.
         .font(.body)
-        .themeTypography(language: settings.language)
+        .chromeTypography(language: settings.language)
     }
 
     /// 背景色 group: the paper the map is drawn on.

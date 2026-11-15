@@ -8,6 +8,10 @@ final class StructureLayoutTests: XCTestCase {
         LayoutEngine(kind: .logicChart).layout(document)
     }
 
+    private func orgChart(_ document: MindMapDocument) -> [NodeFrame] {
+        LayoutEngine(kind: .orgChart).layout(document)
+    }
+
     // MARK: - 逻辑图
 
     func testLogicChartGrowsRightAndIndentsEveryLevelByTheHorizontalGap() throws {
@@ -152,6 +156,133 @@ final class StructureLayoutTests: XCTestCase {
         )
         XCTAssertFalse(plain.contains("\"layoutKind\""))
         XCTAssertEqual(try FlorettaCodec.decode(Data(plain.utf8)).layoutKind, .bilateral)
+    }
+
+    // MARK: - 组织结构图
+
+    func testOrgChartGrowsDownAndIndentsEveryLevelByTheHorizontalGap() throws {
+        let grand = MindMapNode(text: "孙")
+        let child = MindMapNode(text: "子", children: [grand])
+        let root = MindMapNode(text: "根", children: [child])
+        let frames = orgChart(MindMapDocument(title: "org", roots: [root]))
+        XCTAssertEqual(frames.count, 3)
+        let rootFrame = try XCTUnwrap(frames.first { $0.id == root.id })
+        let childFrame = try XCTUnwrap(frames.first { $0.id == child.id })
+        let grandFrame = try XCTUnwrap(frames.first { $0.id == grand.id })
+        let gap = LayoutMetrics().horizontalGap
+        XCTAssertEqual(rootFrame.frame.minY, 0, accuracy: 0.001)
+        XCTAssertEqual(rootFrame.frame.midX, 0, accuracy: 0.001)
+        XCTAssertGreaterThan(childFrame.frame.minY, rootFrame.frame.maxY)
+        XCTAssertEqual(childFrame.frame.minY - rootFrame.frame.maxY, gap, accuracy: 0.001)
+        XCTAssertEqual(grandFrame.frame.minY - childFrame.frame.maxY, gap, accuracy: 0.001)
+        XCTAssertEqual(childFrame.frame.midX, rootFrame.frame.midX, accuracy: 0.001)
+        XCTAssertEqual(grandFrame.frame.midX, childFrame.frame.midX, accuracy: 0.001)
+    }
+
+    func testOrgChartLaysSiblingsInOneRowOneSiblingGapApart() throws {
+        let first = MindMapNode(text: "一")
+        let second = MindMapNode(text: "这是一段明显更长的二级主题")
+        let third = MindMapNode(text: "三")
+        let root = MindMapNode(text: "根", children: [first, second, third])
+        let frames = orgChart(MindMapDocument(title: "row", roots: [root]))
+        let firstFrame = try XCTUnwrap(frames.first { $0.id == first.id })
+        let secondFrame = try XCTUnwrap(frames.first { $0.id == second.id })
+        let thirdFrame = try XCTUnwrap(frames.first { $0.id == third.id })
+        let row = [firstFrame, secondFrame, thirdFrame].sorted { $0.frame.minX < $1.frame.minX }
+        XCTAssertEqual(Set(row.map(\.frame.minY)).count, 1)
+        XCTAssertEqual(row[1].frame.minX - row[0].frame.maxX, LayoutMetrics().siblingGap, accuracy: 0.001)
+        XCTAssertEqual(row[2].frame.minX - row[1].frame.maxX, LayoutMetrics().siblingGap, accuracy: 0.001)
+    }
+
+    func testOrgChartCentersTheParentOverTheRowOfItsChildren() throws {
+        let first = MindMapNode(text: "甲")
+        let second = MindMapNode(text: "乙")
+        let third = MindMapNode(text: "丙")
+        let root = MindMapNode(text: "根", children: [first, second, third])
+        let frames = orgChart(MindMapDocument(title: "center", roots: [root]))
+        let rootFrame = try XCTUnwrap(frames.first { $0.id == root.id })
+        let secondFrame = try XCTUnwrap(frames.first { $0.id == second.id })
+        let kids = [first, second, third].map { id in frames.first { $0.id == id.id }! }.sorted {
+            $0.frame.minX < $1.frame.minX
+        }
+        XCTAssertEqual((kids[0].frame.minX + kids[2].frame.maxX) / 2, rootFrame.frame.midX, accuracy: 0.01)
+        XCTAssertEqual(secondFrame.frame.midX, rootFrame.frame.midX, accuracy: 0.01)
+    }
+
+    func testOrgChartLinksLeaveTheBottomEdgeAndEnterTheTopEdge() throws {
+        let leaf = MindMapNode(text: "子")
+        let root = MindMapNode(text: "根", children: [leaf])
+        let frames = orgChart(MindMapDocument(title: "links", roots: [root]))
+        let rootFrame = try XCTUnwrap(frames.first { $0.id == root.id })
+        let leafFrame = try XCTUnwrap(frames.first { $0.id == leaf.id })
+        let link = try XCTUnwrap(leafFrame.link)
+        XCTAssertEqual(link.start.x, rootFrame.frame.midX, accuracy: 0.001)
+        XCTAssertEqual(link.start.y, rootFrame.frame.maxY, accuracy: 0.001)
+        XCTAssertEqual(link.end.x, leafFrame.frame.midX, accuracy: 0.001)
+        XCTAssertEqual(link.end.y, leafFrame.frame.minY, accuracy: 0.001)
+        let dy = link.end.y - link.start.y
+        XCTAssertEqual(link.control1.x, link.start.x, accuracy: 0.001)
+        XCTAssertEqual(link.control1.y, link.start.y + dy * 0.5, accuracy: 0.001)
+        XCTAssertEqual(link.control2.x, link.end.x, accuracy: 0.001)
+        XCTAssertEqual(link.control2.y, link.end.y - dy * 0.5, accuracy: 0.001)
+        XCTAssertNil(rootFrame.link)
+        XCTAssertEqual(leafFrame.parentID, root.id)
+    }
+
+    func testOrgChartCollapsedTopicHidesItsSubtree() {
+        let child = MindMapNode(text: "子", children: [MindMapNode(text: "孙")])
+        var root = MindMapNode(text: "根", children: [child])
+        root.isCollapsed = true
+        let frames = orgChart(MindMapDocument(title: "fold", roots: [root]))
+        XCTAssertEqual(frames.count, 1)
+        XCTAssertEqual(frames.first?.id, root.id)
+    }
+
+    func testOrgChartPlacesAStoredRootPointAndKeepsTheSubtreeUnderIt() throws {
+        let child = MindMapNode(text: "子")
+        let root = MindMapNode(
+            text: "根",
+            position: MindMapPoint(x: 90, y: -30),
+            children: [child]
+        )
+        let frames = orgChart(MindMapDocument(title: "manual", roots: [root]))
+        let rootFrame = try XCTUnwrap(frames.first { $0.id == root.id })
+        let childFrame = try XCTUnwrap(frames.first { $0.id == child.id })
+        XCTAssertEqual(rootFrame.origin.x, 90, accuracy: 0.001)
+        XCTAssertEqual(rootFrame.origin.y, -30, accuracy: 0.001)
+        XCTAssertEqual(childFrame.frame.minY, rootFrame.frame.maxY + LayoutMetrics().horizontalGap, accuracy: 0.001)
+        XCTAssertEqual(childFrame.frame.midX, rootFrame.frame.midX, accuracy: 0.001)
+    }
+
+    func testOrgChartKeepsFramesFromOverlapping() {
+        let root = MindMapNode(text: "根", children: [
+            MindMapNode(text: "甲", children: (0..<4).map { MindMapNode(text: "甲\($0)") }),
+            MindMapNode(text: "乙", children: (0..<2).map { MindMapNode(text: "乙\($0)") }),
+            MindMapNode(text: "丙"),
+        ])
+        let frames = orgChart(MindMapDocument(title: "no-overlap", roots: [root]))
+        XCTAssertEqual(frames.count, 10)
+        assertNoOverlap(frames)
+        let deepest = frames.map(\.frame.maxY).max() ?? 0
+        XCTAssertEqual(frames.first { $0.id == root.id }?.frame.minY, 0)
+        XCTAssertGreaterThan(deepest, 0)
+    }
+
+    func testOrgChartRoundTripsThroughTheDocument() throws {
+        let document = MindMapDocument(
+            title: "org",
+            roots: [MindMapNode(text: "根", children: [MindMapNode(text: "子")])],
+            layoutKind: .orgChart
+        )
+        XCTAssertEqual(LayoutEngine.forDocument(document).kind, .orgChart)
+        let reopened = try FlorettaCodec.decode(FlorettaCodec.encode(document))
+        XCTAssertEqual(reopened.layoutKind, .orgChart)
+        XCTAssertEqual(
+            LayoutEngine.forDocument(reopened).layout(reopened),
+            LayoutEngine(kind: .orgChart).layout(document)
+        )
+        XCTAssertEqual(Set(LayoutKind.allCases), [.bilateral, .logicChart, .orgChart])
+        XCTAssertEqual(LayoutKind.allCases.count, 3)
     }
 
     private func assertNoOverlap(_ frames: [NodeFrame], file: StaticString = #filePath, line: UInt = #line) {

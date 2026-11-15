@@ -10,6 +10,102 @@
 
 状态词只用：✅ 已交付 / 🚧 进行中(PR#) / ❌ 缺失 / ⛔ 不做(原因)。证据列只写已存在的 PR、提交、路径或已核验的时间。不得用 ✅ 掩盖未收口项。
 
+## 待办（未开工）
+
+### TD-001 画布节点文字在预览态不居中（贴在框左上）
+
+- 状态：❌ 未开工（2026-11-15 记录，待开工后改为 🚧）。
+- 现象：同一份文档、同一个节点，**非编辑态**文字贴在节点框的左上角（水平偏左、垂直偏上）；点开编辑后文字才回到框中心。用户判定「不可接受」，要求任何状态下文字都始终位于框的正中。对照截图两张（编辑前 / 编辑中）已由 Timmy 于 2026-11-15 20:45 提供。
+- 根因（2026-11-15 用独立渲染实验证实，未靠猜测）：
+  1. 预览态走 SwiftUI `Canvas` + `GraphicsContext.draw(Text, in: rect)`，位置在 `Floretta/Shared/Canvas/InfiniteCanvas.swift` 的 `draw(_ node:...)`（标题段约 1836–1920 行）。该 API 按 **leading / top** 排版，`rect` 只是排版容器，文字永远从左上开始。
+  2. 文字本身是 `Text(AttributedString(NSAttributedString))`，属性里确实带 `NSMutableParagraphStyle(alignment: .center)`（`Floretta/Shared/Canvas/MapExport.swift` 的 `canvasText` 与 `Floretta/Shared/Ports/ApplePlatformPorts.swift` 的 `NodeTextTypography.paragraphStyle`）。但 **SwiftUI 的 Text 忽略 NSParagraphStyle**：实验里属性带 center 的两行文字仍然贴左，证明这条路径无效。
+  3. `Text.multilineTextAlignment(.center)` 在当前 SDK 返回 `some View`，不是 `Text`，无法作为 `GraphicsContext.draw` 的实参（编译报错），因此也不能靠单行改修饰器解决。
+  4. 编辑态由 `NSTextView` 渲染（`Floretta/Shared/Keyboard/NodeTextEditor.swift`：218 行 `textContainerInset = (8, 6)`、330–346 行 `lineFragmentPadding = 0` + 段落 `.center`，垂直方向按 `EditorLayoutConvergence` 动态写 inset 去居中）。所以「编辑时才居中」不是巧合，是两套渲染各干各的。
+  5. 垂直方向同样错：预览只做了 `rect.insetBy(dx: 6, dy: 4)` 与 `NodeEditChrome.textInset = (6, 4)` 对齐（注释写明目的是「glyphs do not jump」），这只能防止进出编辑时跳字，不产生居中。
+- 修复方案（实验已确认可行）：按行绘制并显式居中，不依赖 SwiftUI 的对齐继承。
+  1. 断行沿用画布自己那套字体：用 `ThemeFontCascade.platformFont(familyID:nodeDesign:size:)` + `NodeTextTypography.paragraphStyle(lineHeight:)` 构造与 `canvasText` 完全相同的 `NSAttributedString`，再用 `CTFramesetter` 在 `titleRect.width` 约束下取行（`CTFrameGetLines` / `CTFrameGetLineOrigins`），得到每行字符串、行宽、行位置。
+  2. 绘制：每行 `context.draw(Text(line), at: CGPoint(x: rect.midX, y: 行中心 Y), anchor: .center)`；整块行高之和在 `titleRect` 内垂直居中。实验中两行（第二行更短）也各自居中，短行不会偏左。
+  3. 保留全部现有裁剪与让位逻辑：`excludingChildBadge`、子节点徽章 `badgeTop`、标签带 `tagBandHeight`、缩略图让位、`clip(to:)`。
+  4. 明确不动：`titleRect` 的 6/4 内边距、节点尺寸计算、编辑态 `NSTextView` 路径。
+- 同批要一起做（Timmy 2026-11-15 明确要求「副标题和导出都做」）：
+  1. **副标题**：`node.subtitle` 现在同样走 `draw(in:)`（`InfiniteCanvas.swift` 约 1885–1911 行），标题居中后必然显得歪 → 用同一逐行机制在副标题 rect 内水平居中，垂直分配沿用现有 `subtitleHeight` 逻辑。
+  2. **导出**：`MapExport.swift` 节点文字（约 355–382 行）用的是同一个 `draw(in:)`，导出的 PNG/PDF 目前同样偏左上 → 同一机制修正；顺带把导出 `insetBy(dx: 8, dy: 4)` 与画布 `6/4` 的差异对齐，避免导出与屏幕不一致。
+  3. 影响面记录：`InfiniteCanvas.swift` 为 macOS / iPad / iPhone 共用，三端会一起变居中；`MapExport` 影响 PNG/PDF 导出与分享扩展。
+- 验收标准（全部要有证据，不写「应该好了」）：
+  1. 单行「中心」在非编辑态与编辑态，文字块中心相对节点框中心偏差 ≤ 1pt（水平、垂直各测一次）。
+  2. 六种情形不回退：单行、多行、末行更短、带副标题、带标签带或附件徽章、窄节点强制折行。
+  3. 导出 PNG 与屏幕同一节点的文字位置一致（同一文档对照）。
+  4. `bash scripts/check-compile-and-tests.sh` 通过；新增一条纯几何单测：给定 rect 与断行结果，断言行矩形相对 rect 中心对称。
+  5. 真机截图入库：编辑前、编辑中各一张，放 `docs/reviews/`，文件名注明日期。
+
+### 参照：XMind 的实现事实（2026-11-15 核实，避免重复调研）
+
+- 用户对标的是新版 XMind（Zen / 2020 起）。该版本**闭源**：2018.01 起由 Electron 整包重写，绘制引擎名 Snowbrush，节点与连线用 **SVG 渲染**。因此其视觉与交互可以按行为重新实现，源码不可复用，也不存在合法的「照抄代码」路径。
+- XMind 8（旧版，Java / Eclipse RCP）是真开源（LGPLv3 + EPL，`github.com/xmindapp/xmind`），但 UI 与新版本完全不同，**不可作为视觉参照**，仅可用于理解早期布局思路。
+- 文件格式公开：`.xmind` 即 zip；2020+ 内为 `content.json`，XMind 8 为 `content.xml`。官方 `xmindltd/xmind-sdk-js`（npm 包名 `xmind`，MIT，v2.2.33）可程序化读写；`xmindltd/xmind-viewer` 可把 `.xmind` 渲染成 SVG。格式层已有合法路径（本仓 PR #43 已做双向导入导出），UI 层只能重画。
+- 因此后续条目一律按「照行为重画」处理，不要指望引入 XMind 前端资产。
+
+### TD-002 画布标签栏（多画布切换 UI）
+
+- 状态：❌ 未开工。
+- 参照：XMind 画布左下角一条胶囊：「结构版 | 画布 2 ▾ | ＋」，`▾` 弹出 重命名 / 拷贝 / 粘贴 / 复制 / 删除 / 新画布 / 画布另存为…（用户 2026-11-15 20:54 截图）。
+- 现状证据：多画布**模型层已存在**——`Floretta/Shared/Shell/DocumentSession.swift:541`（sheets 不进当前值，避免测量时遍历其它画布）、`:579`（切画布前记住本画布 camera，撤销不跨画布）；`EditorToolbarCommandID.newCanvas` 已在 `FlorettaCore/Editor/EditorToolbarCatalog.swift`。但仓库内**没有任何画布切换栏 UI**（`grep -rn 'sheetBar|canvasTabs' Floretta/Shared` 无命中）。
+- 差距：纯 UI 层 + 右键菜单；重命名、删除、另存为属于文档级操作，删除画布须可撤销。
+- 修法：底部左侧玻璃胶囊 + `＋`；切换复用现有 activeSheet / camera 逻辑；菜单项对齐 XMind 七项，暂无能力的项不出现（不要放灰的死按钮）。
+- 难度：低（0.5–1 天）。
+- 验收：新建 / 切换 / 重命名 / 删除画布后，节点内容与 camera 均正确恢复；删除画布可撤销；macOS 与 iPad 行为一致；胶囊不遮挡画布右下角操作。
+
+### TD-003 右下角状态胶囊与主题统计 popover
+
+- 状态：❌ 未开工。
+- 参照：XMind 右下角胶囊「主题: 5 ｜ 100% ▾ ｜ 卡片视图 / 大纲 / 全屏 / 演说」，hover「主题: 5」弹出「主题 / 字数 / 字符数」三行（用户 2026-11-15 20:54、20:55 截图）。**用户明确只要前三个图标，不做「演说」**。
+- 现状证据：`Floretta/Shared/Shell/EditorStatusBar.swift:10-20` 的 `EditorStatusStrip` 现在是个空 `Spacer`，底栏什么都不画；主题 / 字数 / 字符数被塞在 `EditorOverflowCensus`（同文件 26 行起，即 `•••` 菜单内）；缩放百分比是工具栏项 `zoomPercent`。
+- 差距：把已有零件搬进胶囊，不新建数据源；统计直接复用 `TopicTitleCensus`（`EditorOverflowCensus` 已在用），禁止第二套计数器。
+- 修法：胶囊容器用官方 Liquid Glass（复用 `Floretta/Shared/Shell/AppleGlassChrome.swift` 的 role，不要手写渐变或自定义 blur）；hover popover 在 macOS 用 `.popover`，iPad / iPhone 用长按或点按（跨端差异必须显式处理，不能只做 macOS）。
+- 难度：低（0.5–1 天）。
+- 验收：三个数字与 `•••` 内完全一致；缩放点按与键盘快捷键状态同步；浅色 / 深色下玻璃可读；窗口变窄时不遮挡画布内容。
+
+### TD-004 右侧样式检查器（XMind 式）
+
+- 状态：❌ 未开工。
+- 参照：XMind 右侧浮层，tab「样式 / 演说 / 画布」，区块为 形状 / 填充 / 边框 / 宽度（PX·适应）/ 文本（字体、字号、加粗斜体下划线、对齐）/ 结构 / 分支（线条、终点）/ 配色方案 / 背景色 / 全局字体 / 分支线粗细（用户 2026-11-15 20:55–20:57 截图）。**明确不做：演说 tab、彩虹分支。**
+- 现状证据：`InspectorTab` 已存在（`Floretta/Shared/Shell/DocumentEditor.swift:51` 声明、`:1649` 渲染，AX 标识 `inspector.tabs`）；外观三模式与字体在 `Floretta/Shared/Shell/AppearanceSettingsPanel.swift`。
+- 差距：字段大多在模型里已有，缺的是按 XMind 分组的重排；形状 / 结构下拉引用 TD-005，未实现前该行不出现。
+- 难度：中（2–3 天，不含结构布局）。
+- 验收：每个控件改动即时反映到画布与导出；面板可收起且不挤压画布；键盘可达；深色模式对比度合规。
+
+### TD-005 结构布局引擎（9 种图，第一版只做 2 种）
+
+- 状态：❌ 未开工（依赖 TD-004 的入口）。
+- 参照：XMind「结构」下拉九项——思维导图 / 逻辑图 / 括号图 / 组织结构图 / 树形图 / 时间轴 / 鱼骨图 / 树型表格 / 矩阵图（用户 2026-11-15 20:56 截图）。
+- 现状证据：`FlorettaCore/Layout/LayoutEngine.swift:6-8` 的 `LayoutKind` **只有 `.bilateral` 一个 case**，即九种里已有一种（双侧思维导图）。
+- 差距（本项是全批里唯一的工程级投入）：其余 8 种各需一套布局算法 + 连线规则 + 折行 + 导出渲染一致性，`Floretta/Shared/Canvas/InfiniteCanvas.swift` 与 `Floretta/Shared/Canvas/MapExport.swift` 都要跟着支持；同时影响 XMind 导入时 layout 字段的映射。
+- 修法：先把 `LayoutKind` 从单 case 扩成可插拔布局（每布局一个实现 + 单元测试 + 视觉回归夹具）；**第一版只做逻辑图与组织结构图**验证架构，验证通过再补齐其余，不要一次上九种。
+- 难度：高（每种 1–3 天，全量约 3–4 周）。
+- 验收：切换结构后节点位置、连线、导出 PNG 与屏幕一致；导入的 `.xmind` layout 字段能映射到对应结构；每种布局有独立单测与一张入库截图。
+
+### TD-006 顶栏铺开与窄窗口收敛
+
+- 状态：❌ 未开工。
+- 参照：XMind 顶栏一排图标（撤销 / 关系线 / 边界 / 概要 / 标签 / 备注 / ＋插入），窗口变窄时由系统溢出（用户 2026-11-15 20:58 截图）。
+- 现状证据：`FlorettaCore/Editor/EditorToolbarCatalog.swift` 的 `EditorToolbarCommandID` 已含 40+ 命令（含 link / summary / boundary / region / tagFilter / outline / viewMode / focusMode / immersive / zoom / fit / newCanvas / history），并已有 `EditorCommandPlacement`（principal / primary）与 `EditorCommandVisibility`（visible / menuOnly）分级。差距是**分组策略**，不是造轮子。
+- 修法：顶栏分三组——`撤销 / 重做` ｜ `＋ 插入`（子节点 / 同级 / 自由节点 / 便签 / 图片 / 附件 / 录音）｜ `关系线 / 概要 / 边界 / 标签 / 备注`；低频项（导入导出、历史、主题、查找、统计）留 `•••`。溢出交给系统 toolbar，不另写「变窄就换 •••」的判定。
+- 难度：低-中（0.5–1 天）。
+- 验收：默认宽度下高频项在顶栏且无重复入口；窗口收窄到最小可用宽度时无控件被裁切、`•••` 仍可达；`Tests/FlorettaCoreTests/EditorChromeContractTests.swift` 同步更新。
+
+### TD-007 检查器开关的玻璃胶囊样式
+
+- 状态：❌ 未开工。
+- 参照：XMind 右上角「笑脸 + 侧栏开关」的玻璃胶囊（用户 2026-11-15 20:56 截图）。
+- 现状证据：检查器开关已存在（AX `inspector.tabs`），只缺样式。
+- 修法：复用 `Floretta/Shared/Shell/AppleGlassChrome.swift` 的 toolbar 角色，不手写渐变。
+- 难度：低（数小时）。
+- 验收：浅色 / 深色下图标清晰可辨；点按区域不小于 28×28；与顶栏其它控件基线对齐。
+
+### 建议执行顺序（2026-11-15）
+
+TD-003 → TD-002 → TD-007 → TD-006 → TD-004 → TD-005。前四条都是「已有零件 + 入口/样式」，一天内可见；TD-004 需要设计确认；TD-005 单独立项，先做两种验证架构。
+
 ## 功能矩阵
 
 | 功能 | macOS | iPad | iPhone | Web | 证据 |

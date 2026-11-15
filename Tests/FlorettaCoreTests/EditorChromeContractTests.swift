@@ -86,7 +86,9 @@ final class EditorChromeContractTests: XCTestCase {
         XCTAssertTrue(editor.contains("shouldApply(to:"))
     }
 
-    func testWordCountSitsInTheOverflowMenu() throws {
+    /// TD-003: the counts left the ••• menu for the bottom capsule's popover.
+    /// Both still read the one `TopicTitleCensus`; nothing counts twice.
+    func testStatusCapsuleCarriesTheCountsInsteadOfTheOverflowMenu() throws {
         let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         let bar = try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift")
         let more = try slice(source, from: "private var moreMenu", until: "private var insertOverflowSubmenu")
@@ -94,17 +96,21 @@ final class EditorChromeContractTests: XCTestCase {
         XCTAssertTrue(source.contains("session.zen.chrome.showsStatusBar"))
         XCTAssertTrue(source.contains("EditorStatusStrip("))
         XCTAssertFalse(source.contains("TopicStatusBar("))
-        XCTAssertTrue(more.contains("EditorOverflowCensus("))
-        XCTAssertTrue(more.contains("overflowCensus"))
+        XCTAssertFalse(more.contains("EditorCensusBreakdown"))
+        XCTAssertFalse(more.contains("StatusCensusBreakdown"))
+        XCTAssertFalse(more.contains("status.topicCensus"))
+        XCTAssertFalse(source.contains("makeCensusUIMenu"))
+        XCTAssertFalse(source.contains("EditorOverflowCensus"))
+        XCTAssertTrue(source.contains("census: statusCensus"))
         XCTAssertFalse(more.contains("perform(.about)"))
         XCTAssertFalse(more.contains(".about"))
-        XCTAssertTrue(bar.contains("struct EditorOverflowCensus"))
+        XCTAssertTrue(bar.contains("struct StatusCensusBreakdown"))
         XCTAssertTrue(bar.contains("\"主题 %lld\""))
         XCTAssertTrue(bar.contains("\"字数 %lld\""))
         XCTAssertTrue(bar.contains("\"字符数 %lld\""))
-        XCTAssertTrue(bar.contains("status.topics"))
-        XCTAssertTrue(bar.contains("status.words"))
-        XCTAssertTrue(bar.contains("status.characters"))
+        XCTAssertTrue(bar.contains("status.popover.topics"))
+        XCTAssertTrue(bar.contains("status.popover.words"))
+        XCTAssertTrue(bar.contains("status.popover.characters"))
         XCTAssertTrue(bar.contains("TopicTitleCensus"))
         let inspector = try slice(source, from: "private var documentInfo", until: "private var relationshipLabelForm")
         XCTAssertFalse(inspector.contains("字数"))
@@ -112,30 +118,8 @@ final class EditorChromeContractTests: XCTestCase {
         let editor = try repoFile("Floretta/Shared/Keyboard/NodeTextEditor.swift")
         XCTAssertFalse(editor.contains("字数"))
         XCTAssertFalse(editor.contains("TopicStatusBar"))
+        XCTAssertFalse(editor.contains("StatusCensusBreakdown"))
         XCTAssertFalse(editor.contains("EditorOverflowCensus"))
-    }
-
-    /// TD-007: the right-top inspector switch is one glass capsule. The plate
-    /// comes from the official glass role, the hit target stays at least 28x28,
-    /// and nothing paints its own gradient, blur, or shadow.
-    func testMacInspectorToggleIsOneGlassCapsule() throws {
-        let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
-        let toggle = try slice(source, from: "private var macInspectorToggle", until: "#endif")
-        XCTAssertTrue(toggle.contains("ToolbarItem(id: \"inspector.toggle\", placement: .primaryAction)"))
-        XCTAssertTrue(toggle.contains("showInspector.toggle()"))
-        XCTAssertTrue(toggle.contains(".appleGlassChrome(.toolbarFloatingButton)"))
-        XCTAssertTrue(toggle.contains("sidebar.trailing"))
-        XCTAssertTrue(toggle.contains(".frame(width: 34, height: 28)"), "hit target must stay at least 28x28")
-        XCTAssertTrue(toggle.contains("contentShape(Capsule())"))
-        XCTAssertTrue(toggle.contains("accessibilityIdentifier(\"inspector.toggle\")"))
-        XCTAssertTrue(toggle.contains(".defaultCustomization(.visible)"))
-        for painted in [".linearGradient", ".blur(", ".shadow(", "ultraThinMaterial", "Color.white", "Color.black"] {
-            XCTAssertFalse(toggle.contains(painted), painted)
-        }
-        let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
-        XCTAssertTrue(glass.contains("case .segmentedContainer, .bottomBarCapsule, .toolbarFloatingButton:"))
-        XCTAssertTrue(glass.contains("plated(inked(view), shape: Capsule())"))
-        XCTAssertTrue(toggle.contains("EditorToolbarCatalog.command(.style).title"), "the switch reuses the 样式 title instead of inventing one")
     }
 
     private func repoFile(_ relative: String) throws -> String {

@@ -102,7 +102,7 @@ final class EditorToolbarCatalogTests: XCTestCase {
     func testDefaultToolbarMatchesTheCurrentBarAndTheRestCanBeAdded() {
         XCTAssertEqual(
             EditorToolbarCatalog.defaultToolbarItems,
-            [.undo, .redo, .delete, .insert, .share, .zoom, .immersive, .more]
+            [.undo, .redo, .delete, .insert, .share, .immersive, .more]
         )
         XCTAssertTrue(EditorToolbarCatalog.addableToolbarItems.contains(.summary))
         XCTAssertTrue(EditorToolbarCatalog.addableToolbarItems.contains(.boundary))

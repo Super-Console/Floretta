@@ -157,7 +157,9 @@ public enum EditorToolbarCatalog {
         item(.delete, "删除", "trash", "删除选中的节点、便签、关系、概要、边界或专区", customization: .visible, placement: .principal),
         item(.insert, "插入", "plus", "插入子节点、同级、语音输入、自由节点、便签、概要、边界、专区、图片、附件，或从文件导入", kind: .pulldown, customization: .visible),
         item(.share, "分享", "square.and.arrow.up", "把导图导出为 PDF、PNG、Markdown，或保存为已支持的文件", kind: .pulldown, customization: .visible),
-        item(.zoom, "缩放", "plus.magnifyingglass", "选择缩放比例，或让导图适应窗口", kind: .pulldown, customization: .visible),
+        // Zoom is a pulldown, not a bar item: the bottom status capsule owns the
+        // live percent (TD-003), so the toolbar no longer draws a second entry.
+        item(.zoom, "缩放", "plus.magnifyingglass", "选择缩放比例，或让导图适应窗口", kind: .pulldown, customization: .menuOnly),
         item(.immersive, "全屏沉浸", "rectangle.expand.diagonal", "进入全屏沉浸模式，暂时只留下导图", customization: .visible),
         item(.more, "更多", "ellipsis", "大纲、样式、配色、查找、标签筛选、版本历史、粘贴和文档统计", kind: .pulldown, customization: .visible),
 

@@ -117,7 +117,6 @@ struct DocumentEditor: View {
         macItem(.redo)
         macItem(.delete)
         macItem(.share)
-        macItem(.zoom)
         macItem(.immersive)
         macItem(.more)
         macItem(.child)
@@ -288,10 +287,6 @@ struct DocumentEditor: View {
                         }
                         if toolbarVisibleItems.contains(.share) {
                             toolbarControl(.share)
-                                .appleGlassChrome(.toolbarFloatingButton)
-                        }
-                        if toolbarVisibleItems.contains(.zoom) {
-                            toolbarControl(.zoom)
                                 .appleGlassChrome(.toolbarFloatingButton)
                         }
                         if toolbarVisibleItems.contains(.immersive) {
@@ -660,7 +655,9 @@ struct DocumentEditor: View {
                     EditorStatusStrip(
                         session: session,
                         camera: camera,
-                        language: settings.language
+                        census: statusCensus,
+                        language: settings.language,
+                        showOutline: $showOutline
                     )
                 }
             }
@@ -970,13 +967,10 @@ struct DocumentEditor: View {
         EditorToolbarLayout.visibleItems(for: toolbarWidthClass)
     }
 
-    private var overflowCensus: TopicTitleCensus {
+    /// One census read for the status capsule. Same cache as before; the editor
+    /// still counts topics, words, and characters in exactly one place.
+    private var statusCensus: TopicTitleCensus {
         topicCensus.census(of: session.editingDocument)
-    }
-
-    private func overflowAccessibilityLabel(census: TopicTitleCensus) -> String {
-        let stats = EditorOverflowCensus(census: census, locale: settings.resolvedLocale)
-        return "\(text(EditorToolbarCatalog.command(.more).title))\n\(stats.accessibilityLabel)"
     }
 
     private func commandLabel(
@@ -1087,7 +1081,6 @@ struct DocumentEditor: View {
             case .insert: insertMenu
             case .share: shareMenu
             case .more: moreMenu
-            case .zoom: zoomMenu
             default: EmptyView()
             }
         case .submenu:
@@ -1171,29 +1164,6 @@ struct DocumentEditor: View {
         .accessibilityHint(text(commandHelp(.link)))
     }
 
-    private var zoomMenu: some View {
-        Menu {
-            ForEach(ZoomStop.allCases, id: \.self) { stop in
-                Button { camera.zoom(to: stop) } label: {
-                    Label("\(stop.percent)%", systemImage: "magnifyingglass")
-                }
-                    .explained(FlorettaL10n.format("把画布缩放到 %lld%%", locale: settings.resolvedLocale, arguments: [Int64(stop.percent)]))
-            }
-            commandMenuButton(.fit) { perform(.fit) }
-                .keyboardShortcut("0", modifiers: .command)
-        } label: {
-            #if os(iOS)
-            // Keep the compact toolbar face on iOS; macOS shows the live percentage.
-            commandLabel(.zoom, surface: .toolbar)
-            #else
-            commandLabel(.zoom, surface: .toolbar)
-            #endif
-        }
-        .explained(EditorToolbarCatalog.command(.zoom).help)
-        .appleGlassChrome(.toolbarFloatingButton)
-        .accessibilityIdentifier("editor.zoom")
-    }
-
     @ViewBuilder
     private var shareMenu: some View {
         #if os(iOS)
@@ -1245,22 +1215,18 @@ struct DocumentEditor: View {
 
     @ViewBuilder
     private var moreMenu: some View {
-        let census = overflowCensus
         #if os(iOS)
         IdentifiedSystemMenuButton(
             symbol: EditorToolbarCatalog.command(.more).symbol,
             accessibilityIdentifier: "editor.more",
-            accessibilityLabel: overflowAccessibilityLabel(census: census),
+            accessibilityLabel: text(EditorToolbarCatalog.command(.more).title),
             help: text(EditorToolbarCatalog.command(.more).help),
-            makeMenu: { makeOverflowUIMenu(census: census) }
+            makeMenu: { makeOverflowUIMenu() }
         )
         .help(Text(verbatim: text(EditorToolbarCatalog.command(.more).help)))
         .appleGlassChrome(.toolbarFloatingButton)
         #else
         Menu {
-            EditorOverflowCensus(census: census, locale: settings.resolvedLocale)
-                .accessibilityIdentifier("status.topicCensus")
-            Divider()
             #if os(macOS)
             insertOverflowSubmenu
             #else
@@ -1285,7 +1251,7 @@ struct DocumentEditor: View {
             commandLabel(.more, surface: .toolbar)
                 .accessibilityIdentifier("editor.more")
         }
-        .accessibilityLabel(overflowAccessibilityLabel(census: census))
+        .accessibilityLabel(text(EditorToolbarCatalog.command(.more).title))
         .accessibilityIdentifier("editor.more")
         .help(Text(verbatim: text(EditorToolbarCatalog.command(.more).help)))
         .appleGlassChrome(.toolbarFloatingButton)
@@ -1333,8 +1299,8 @@ struct DocumentEditor: View {
 
 
     #if os(iOS)
-    private func makeOverflowUIMenu(census: TopicTitleCensus) -> UIMenu {
-        var children: [UIMenuElement] = [makeCensusUIMenu(census: census)]
+    private func makeOverflowUIMenu() -> UIMenu {
+        var children: [UIMenuElement] = []
         if !toolbarVisibleItems.contains(.insert) {
             children.append(makeInsertUIMenu())
         }
@@ -1351,26 +1317,6 @@ struct DocumentEditor: View {
             children.append(commandUIAction(id))
         }
         return UIMenu(children: children)
-    }
-
-    private func makeCensusUIMenu(census: TopicTitleCensus) -> UIMenu {
-        func item(_ key: String, _ value: Int, identifier: String) -> UIAction {
-            let title = FlorettaL10n.format(key, locale: settings.resolvedLocale, arguments: [Int64(value)])
-            let action = UIAction(title: title, handler: { _ in })
-            action.attributes.insert(.disabled)
-            action.accessibilityIdentifier = identifier
-            return action
-        }
-        let menu = UIMenu(
-            options: .displayInline,
-            children: [
-                item("主题 %lld", census.topics, identifier: "status.topics"),
-                item("字数 %lld", census.words, identifier: "status.words"),
-                item("字符数 %lld", census.characters, identifier: "status.characters"),
-            ]
-        )
-        menu.accessibilityIdentifier = "status.topicCensus"
-        return menu
     }
 
     private func makeShareUIMenu() -> UIMenu {
@@ -3603,15 +3549,5 @@ private struct CanvasViewportRelay: View {
             .onChange(of: camera.viewport) { _, viewport in
                 onChange(viewport)
             }
-    }
-}
-
-/// Toolbar zoom face. Reads the zoom percent in its own body so a zoom frame redraws only this label.
-private struct ZoomPercentText: View {
-    let camera: CanvasCamera
-
-    var body: some View {
-        Text("\(camera.chrome.zoomPercent)%")
-            .monospacedDigit()
     }
 }

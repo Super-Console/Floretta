@@ -6,11 +6,14 @@ import CoreGraphics
 public enum LayoutKind: String, CaseIterable, Codable, Equatable, Sendable {
     /// Root centered, children split left and right. The shipped mind map.
     case bilateral
+    /// Root at the left, every branch grows right (XMind 逻辑图).
+    case logicChart
 
     /// Localization key for a structure picker. The app resolves it; Core stays string-free.
     public var displayNameKey: String {
         switch self {
         case .bilateral: return "layout.bilateral"
+        case .logicChart: return "layout.logicChart"
         }
     }
 
@@ -19,6 +22,7 @@ public enum LayoutKind: String, CaseIterable, Codable, Equatable, Sendable {
     public func makeLayout(geometry: LayoutGeometry) -> any StructureLayout {
         switch self {
         case .bilateral: return BilateralLayout(geometry: geometry)
+        case .logicChart: return LogicChartLayout(geometry: geometry)
         }
     }
 }

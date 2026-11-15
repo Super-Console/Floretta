@@ -75,6 +75,15 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertEqual(editor.components(separatedBy: ".toolbarBackground(.hidden, for: .windowToolbar)").count - 1, 1, "the editor hides the system background once; no second material is installed there")
     }
 
+    func testSettingsUsesSystemNavigationAndFormWithoutGlassHeaderBand() throws {
+        let home = try repoFile("Floretta/Shared/Shell/LibraryHome.swift")
+        let settings = try slice(home, from: "struct SettingsView: View", until: "private func text")
+
+        XCTAssertTrue(settings.contains("NavigationStack"))
+        XCTAssertTrue(settings.contains("Form {"))
+        XCTAssertFalse(settings.contains("appleGlassChrome"), "Settings uses the system navigation/form header, not a custom glass band sampling content underneath")
+    }
+
     func testSidebarSelectionUsesOnlyTheNativeListSelection() throws {
         let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
         let inset = try slice(glass, from: "func sidebarSelectionInset()", until: "private struct GlassBandBottomFadeModifier")

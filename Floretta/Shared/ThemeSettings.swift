@@ -6,38 +6,20 @@ import AppKit
 import UIKit
 #endif
 
-/// The single persisted source of truth for the app-wide theme selection.
-/// `@AppStorage` uses the same key wherever this dynamic property is installed.
-struct ThemeSettings: DynamicProperty {
-    @AppStorage("floretta.theme.mode") private var storedMode = ThemeMode.default.rawValue
-    @AppStorage("floretta.theme.serifOverride") private var storedSerifOverride: Bool = true
-
-    var mode: ThemeMode {
-        get { ThemeMode(rawValue: storedMode) ?? .default }
-        nonmutating set { storedMode = newValue.rawValue }
-    }
-
-    var serifOverride: Bool? {
-        get { mode == .custom ? storedSerifOverride : nil }
-        nonmutating set { storedSerifOverride = newValue ?? ThemeFontResolver.spec(for: mode, script: .latin).isSerif }
-    }
-}
-
+/// Resolves the content face from the family the user picked in the font list.
+/// There is no mode: serif is one entry in `AppearanceCatalog.families`.
 struct ThemeTypographyModifier: ViewModifier {
     var language: AppLanguage = .system
     @Environment(\.locale) private var locale
-    @AppStorage("floretta.theme.mode") private var storedMode = ThemeMode.default.rawValue
-    @AppStorage("floretta.theme.serifOverride") private var storedSerifOverride = true
+    @AppStorage(AppearanceMigration.contentFontFamilyKey) private var storedFamilyID = AppearanceCatalog.defaultFontFamilyID
     @AppStorage("floretta.language") private var storedLanguage = AppLanguage.system.rawValue
 
     func body(content: Content) -> some View {
-        let mode = ThemeMode(rawValue: storedMode) ?? .default
         let selectedLanguage = language == .system
             ? (AppLanguage(rawValue: storedLanguage) ?? .system)
             : language
         let script: ThemeScript = usesChinese(language: selectedLanguage, locale: locale) ? .cjk : .latin
-        let override = mode == .custom ? storedSerifOverride : nil
-        let spec = ThemeFontResolver.spec(for: mode, script: script, serifOverride: override)
+        let spec = ThemeFontResolver.spec(script: script, familyID: storedFamilyID)
         let name = spec.familyCandidates.first(where: isFontAvailable)
         if let name {
             content.font(.custom(name, size: 17, relativeTo: .body))
@@ -114,7 +96,7 @@ extension View {
 }
 
 enum ThemeTypography {
-    static func font(mode: ThemeMode, language: AppLanguage, locale: Locale = .current, size: CGFloat) -> Font? {
+    static func font(familyID: String, language: AppLanguage, locale: Locale = .current, size: CGFloat) -> Font? {
         let isChinese: Bool
         switch language {
         case .simplifiedChinese: isChinese = true
@@ -122,7 +104,7 @@ enum ThemeTypography {
         case .system: isChinese = locale.language.languageCode?.identifier == "zh"
         }
         let script: ThemeScript = isChinese ? .cjk : .latin
-        let spec = ThemeFontResolver.spec(for: mode, script: script)
+        let spec = ThemeFontResolver.spec(script: script, familyID: familyID)
         guard let name = spec.familyCandidates.first(where: { name in
             #if os(macOS)
             NSFont(name: name, size: size) != nil

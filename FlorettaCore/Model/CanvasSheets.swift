@@ -109,7 +109,8 @@ extension MindMapDocument {
                 formatVersion: formatVersion,
                 themeID: themeID,
                 branchLineStyle: branchLineStyle,
-                branchEndMarker: branchEndMarker
+                branchEndMarker: branchEndMarker,
+                canvasBackgroundHex: canvasBackgroundHex
             )
         }
         let canvas = additionalCanvases[index - 1]
@@ -125,7 +126,8 @@ extension MindMapDocument {
             formatVersion: formatVersion,
             themeID: themeID,
             branchLineStyle: branchLineStyle,
-            branchEndMarker: branchEndMarker
+            branchEndMarker: branchEndMarker,
+            canvasBackgroundHex: canvasBackgroundHex
         )
     }
 

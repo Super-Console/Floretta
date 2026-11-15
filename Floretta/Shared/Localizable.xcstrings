@@ -256,40 +256,6 @@
         }
       }
     },
-    "iCloud 云盘不可用。" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "iCloud Drive isn't available."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "iCloud 云盘不可用。"
-          }
-        }
-      }
-    },
-    "iCloud云盘" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "iCloud Drive"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "iCloud云盘"
-          }
-        }
-      }
-    },
     "Inter" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -596,23 +562,6 @@
         }
       }
     },
-    "pinch scale %lld%%" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "pinch scale %lld%%"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "pinch scale %lld%%"
-          }
-        }
-      }
-    },
     "PNG 和 PDF 可以带上便签。关掉后便签还在导图里，只是不画进图片。" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -660,6 +609,57 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "PNG 背景"
+          }
+        }
+      }
+    },
+    "iCloud 云盘不可用。" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud Drive isn't available."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud 云盘不可用。"
+          }
+        }
+      }
+    },
+    "iCloud云盘" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud Drive"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud云盘"
+          }
+        }
+      }
+    },
+    "pinch scale %lld%%" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "pinch scale %lld%%"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "pinch scale %lld%%"
           }
         }
       }
@@ -932,23 +932,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "为选中的节点生成概要，并画出括住它的括号"
-          }
-        }
-      }
-    },
-    "项目" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Projects"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "项目"
           }
         }
       }
@@ -1514,6 +1497,23 @@
         }
       }
     },
+    "内容外观" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Content Appearance"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "内容外观"
+          }
+        }
+      }
+    },
     "再开一个窗口，编辑同一份导图。" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1527,23 +1527,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "再开一个窗口，编辑同一份导图。"
-          }
-        }
-      }
-    },
-    "最近" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Recent"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "最近"
           }
         }
       }
@@ -1582,6 +1565,23 @@
         }
       }
     },
+    "切换、重命名或删除画布" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch, rename, or delete a canvas"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换、重命名或删除画布"
+          }
+        }
+      }
+    },
     "删去" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1612,6 +1612,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "删除"
+          }
+        }
+      }
+    },
+    "删除画布" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Canvas"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除画布"
           }
         }
       }
@@ -1697,6 +1714,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "剪切 / 复制 / 粘贴"
+          }
+        }
+      }
+    },
+    "副文本" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subtitle"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "副文本"
+          }
+        }
+      }
+    },
+    "副本" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "copy"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "副本"
           }
         }
       }
@@ -2245,6 +2296,23 @@
         }
       }
     },
+    "墨色" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ink"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "墨色"
+          }
+        }
+      }
+    },
     "备注" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2258,6 +2326,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "备注"
+          }
+        }
+      }
+    },
+    "复制画布" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Duplicate Canvas"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "复制画布"
           }
         }
       }
@@ -2309,23 +2394,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "外观"
-          }
-        }
-      }
-    },
-    "外观模式" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appearance Mode"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "外观模式"
           }
         }
       }
@@ -2840,6 +2908,23 @@
         }
       }
     },
+    "居中" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Center"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "居中"
+          }
+        }
+      }
+    },
     "岩色" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3078,6 +3163,23 @@
         }
       }
     },
+    "恢复内容外观默认值" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore Content Defaults"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "恢复内容外观默认值"
+          }
+        }
+      }
+    },
     "恢复刚刚撤销的编辑" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3112,6 +3214,23 @@
         }
       }
     },
+    "我的 Mac" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "My Mac"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我的 Mac"
+          }
+        }
+      }
+    },
     "我的 iPad" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3142,23 +3261,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "我的 iPhone"
-          }
-        }
-      }
-    },
-    "我的 Mac" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "My Mac"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "我的 Mac"
           }
         }
       }
@@ -3244,6 +3346,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打开新的 Floretta 文件"
+          }
+        }
+      }
+    },
+    "打开本机文件夹" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Local Folder"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开本机文件夹"
           }
         }
       }
@@ -3588,6 +3707,23 @@
         }
       }
     },
+    "拷贝画布" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy Canvas"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拷贝画布"
+          }
+        }
+      }
+    },
     "按当前圈住的节点调整专区" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3775,6 +3911,23 @@
         }
       }
     },
+    "撤销删除画布" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undo Delete Canvas"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤销删除画布"
+          }
+        }
+      }
+    },
     "播放音频" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3924,6 +4077,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "文字"
+          }
+        }
+      }
+    },
+    "文字对齐" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text alignment"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文字对齐"
           }
         }
       }
@@ -4113,69 +4283,6 @@
             "value" : "新建画布"
           }
         }
-      }
-    },
-    "重新命名画布" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Rename Canvas" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重新命名画布" } }
-      }
-    },
-    "删除画布" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete Canvas" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "删除画布" } }
-      }
-    },
-    "拷贝画布" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Copy Canvas" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拷贝画布" } }
-      }
-    },
-    "粘贴画布" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paste Canvas" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "粘贴画布" } }
-      }
-    },
-    "复制画布" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Duplicate Canvas" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "复制画布" } }
-      }
-    },
-    "撤销删除画布" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Undo Delete Canvas" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "撤销删除画布" } }
-      }
-    },
-    "画布另存为…" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Save Canvas As…" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "画布另存为…" } }
-      }
-    },
-    "副本" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "copy" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "副本" } }
-      }
-    },
-    "切换、重命名或删除画布" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Switch, rename, or delete a canvas" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "切换、重命名或删除画布" } }
       }
     },
     "新建窗口" : {
@@ -4514,6 +4621,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "更多"
+          }
+        }
+      }
+    },
+    "最近" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recent"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近"
           }
         }
       }
@@ -5351,23 +5475,6 @@
         }
       }
     },
-    "现代模式" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Modern"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "现代模式"
-          }
-        }
-      }
-    },
     "现在是创建一个好的时机。" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5436,6 +5543,23 @@
         }
       }
     },
+    "画布另存为…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save Canvas As…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画布另存为…"
+          }
+        }
+      }
+    },
     "白色" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5500,40 +5624,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "确定"
-          }
-        }
-      }
-    },
-    "视图" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "View"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "视图"
-          }
-        }
-      }
-    },
-    "视频无法播放" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unable to Play Video"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "视频无法播放"
           }
         }
       }
@@ -5674,6 +5764,23 @@
         }
       }
     },
+    "粘贴画布" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste Canvas"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "粘贴画布"
+          }
+        }
+      }
+    },
     "系统" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5725,23 +5832,6 @@
         }
       }
     },
-    "红旗" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Red Flag"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "红旗"
-          }
-        }
-      }
-    },
     "紫旗" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5759,6 +5849,57 @@
         }
       }
     },
+    "红旗" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Red Flag"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "红旗"
+          }
+        }
+      }
+    },
+    "纯白" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "White"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "纯白"
+          }
+        }
+      }
+    },
+    "纸质米白" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paper"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "纸质米白"
+          }
+        }
+      }
+    },
     "组织架构" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5772,23 +5913,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "组织架构"
-          }
-        }
-      }
-    },
-    "经典模式" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Classic"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "经典模式"
           }
         }
       }
@@ -6014,23 +6138,6 @@
         }
       }
     },
-    "自定义" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Custom"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "自定义"
-          }
-        }
-      }
-    },
     "自由节点" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6235,6 +6342,40 @@
         }
       }
     },
+    "视图" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "视图"
+          }
+        }
+      }
+    },
+    "视频无法播放" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unable to Play Video"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "视频无法播放"
+          }
+        }
+      }
+    },
     "让大纲占满或恢复原来的宽度" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6384,6 +6525,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "超过 10GB 软上限。"
+          }
+        }
+      }
+    },
+    "跟随外观默认" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use Appearance Default"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跟随外观默认"
           }
         }
       }
@@ -6762,6 +6920,23 @@
         }
       }
     },
+    "通用" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "General"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通用"
+          }
+        }
+      }
+    },
     "逻辑分解" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6860,6 +7035,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重新命名"
+          }
+        }
+      }
+    },
+    "重新命名画布" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rename Canvas"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新命名画布"
           }
         }
       }
@@ -7000,6 +7192,40 @@
         }
       }
     },
+    "靠右" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Right"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "靠右"
+          }
+        }
+      }
+    },
+    "靠左" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Left"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "靠左"
+          }
+        }
+      }
+    },
     "音频文件无法播放" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -7013,6 +7239,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "音频文件无法播放"
+          }
+        }
+      }
+    },
+    "项目" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Projects"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "项目"
           }
         }
       }
@@ -7047,6 +7290,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "首页"
+          }
+        }
+      }
+    },
+    "首页背景" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Home Background"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "首页背景"
           }
         }
       }
@@ -7115,108 +7375,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "黄色"
-          }
-        }
-      }
-    },
-    "墨色" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ink"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "墨色"
-          }
-        }
-      }
-    },
-    "文字对齐" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Text alignment"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "文字对齐"
-          }
-        }
-      }
-    },
-    "靠左" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Left"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "靠左"
-          }
-        }
-      }
-    },
-    "居中" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Center"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "居中"
-          }
-        }
-      }
-    },
-    "靠右" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Right"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "靠右"
-          }
-        }
-      }
-    },
-    "副文本" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Subtitle"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "副文本"
           }
         }
       }

@@ -71,35 +71,6 @@ enum ShellTab: Hashable, Equatable, Sendable {
         }
     }
 
-    /// iPhone, iPad, and Mac share these two destinations. iOS draws them in the
-    /// system tab bar. Mac lists them in the sidebar.
-    static let destinations: [ShellTab] = [.home, .settings]
-
-    /// Visible settings entry is the sidebar row (wide) or the Settings tab (narrow).
-    /// The home toolbar must not add a second gear. ⌘, is a shortcut, not another row.
-    static let homeOverflowTitles: [String] = []
-
-    static var preferredColumnVisibility: NavigationSplitViewVisibility {
-        #if os(macOS)
-        .all
-        #else
-        .detailOnly
-        #endif
-    }
-}
-
-/// Width the home shell should follow. Compact is the iPhone (and a narrow iPad).
-enum HomeWidthClass: Equatable, Sendable {
-    case compact
-    case regular
-    case unspecified
-}
-
-/// Compact width shows the recent stack itself. A split view there shows the
-/// sidebar, which is outside the `NavigationStack` that owns 「最近」.
-enum HomeLibraryChrome: Equatable, Sendable {
-    case stack
-    case split
 }
 
 enum HomeLibrary {
@@ -108,78 +79,6 @@ enum HomeLibrary {
     /// Documents the UI-test launch writes into a temporary library, so the
     /// home list does not depend on anyone's personal files.
     static let smokeFixtureTitles = ["甲图", "乙图"]
-
-    static func chrome(width: HomeWidthClass, phoneWhenUnspecified: Bool) -> HomeLibraryChrome {
-        switch width {
-        case .compact:
-            return .stack
-        case .regular:
-            return .split
-        case .unspecified:
-            return phoneWhenUnspecified ? .stack : .split
-        }
-    }
-}
-
-/// iPad sidebar rows. There is no 「最近」 row: that button only assigned
-/// `HomePage.recent`, which is already showing, so the tap changed nothing.
-enum HomeSidebarRow: String, Hashable, Identifiable, Sendable {
-    case newMap
-    case openFiles
-    case openICloud
-    case browseLocal
-
-    var id: String { rawValue }
-
-    static let leading: [HomeSidebarRow] = [.newMap]
-    static let local: [HomeSidebarRow] = [.openFiles, .openICloud, .browseLocal]
-    static let all: [HomeSidebarRow] = leading + local
-
-    /// Page this row selects. Creating a document or presenting the file panel
-    /// does not change `HomePage`.
-    var destinationPage: HomePage? {
-        switch self {
-        case .newMap, .openFiles:
-            return nil
-        case .openICloud, .browseLocal:
-            return .browse
-        }
-    }
-
-    var accessibilityIdentifier: String { "home.sidebar.\(rawValue)" }
-
-    func title(device: LocalDeviceLabel) -> String {
-        switch self {
-        case .newMap: "新建导图"
-        case .openFiles: "从文件应用打开"
-        case .openICloud: "从iCloud云盘打开"
-        case .browseLocal: device.title
-        }
-    }
-
-    func systemImage(device: LocalDeviceLabel) -> String {
-        switch self {
-        case .newMap: "plus"
-        case .openFiles: "folder"
-        case .openICloud: "cloud"
-        case .browseLocal: device.systemImage
-        }
-    }
-
-    /// True when activating the row changes what the user sees from `page`.
-    /// Selecting the page that is already current does not.
-    static func hasVisibleEffect(_ row: HomeSidebarRow, from page: HomePage) -> Bool {
-        switch row {
-        case .newMap, .openFiles:
-            return true
-        case .openICloud, .browseLocal:
-            return page != .browse
-        }
-    }
-
-    static func selectingPageHasVisibleEffect(_ page: HomePage, from current: HomePage) -> Bool {
-        page != current
-    }
 }
 
 /// File types the open panel may offer: the four map formats, plus XML and
@@ -359,32 +258,36 @@ final class AppSettings {
         didSet { defaults.set(appearance.rawValue, forKey: Key.appearance) }
     }
 
-    /// Content appearance preset. Default is classic. Changing a profile (for
-    /// example, setting classic to a sans family) is stored with that mode.
-    var appearanceMode: AppearanceMode {
-        didSet { defaults.set(appearanceMode.rawValue, forKey: Key.appearanceMode) }
+    /// What the home page sits on. The preference is the semantic choice; the
+    /// concrete color is resolved per scheme when the page is drawn.
+    var homeBackground: HomeBackground {
+        didSet { defaults.set(homeBackground.rawValue, forKey: Key.homeBackground) }
     }
 
-    /// One profile per mode. Missing keys fall back to catalog defaults.
-    var appearanceProfiles: [AppearanceMode: AppearanceProfile] {
-        didSet { persistAppearanceProfiles() }
+    /// The one content profile. There are no per-mode copies any more.
+    var profile: AppearanceProfile {
+        didSet { persistProfile() }
     }
 
     var currentProfile: AppearanceProfile {
-        get { appearanceProfiles[appearanceMode] ?? AppearanceCatalog.defaultProfile(for: appearanceMode) }
-        set {
-            appearanceProfiles[appearanceMode] = newValue
-        }
+        get { profile }
+        set { profile = newValue }
     }
 
     func updateCurrentProfile(_ body: (inout AppearanceProfile) -> Void) {
-        var profile = currentProfile
-        body(&profile)
-        currentProfile = profile
+        var copy = profile
+        body(&copy)
+        profile = copy
     }
 
-    func restoreCurrentModeDefaults() {
-        appearanceProfiles[appearanceMode] = AppearanceCatalog.defaultProfile(for: appearanceMode)
+    func restoreContentAppearanceDefaults() {
+        profile = AppearanceCatalog.defaultProfile(homeBackground: homeBackground)
+    }
+
+    /// Paper a document created right now stores. Concrete, so the file looks
+    /// the same wherever it is opened and an export is deterministic.
+    func defaultDocumentBackgroundHex(for scheme: MapColorScheme) -> String {
+        homeBackground.pageHex(for: scheme)
     }
 
     var defaultView: DocumentViewMode {
@@ -406,6 +309,8 @@ final class AppSettings {
 
     init(defaults: UserDefaults) {
         self.defaults = defaults
+        // One-time move off classic / modern / custom. Repeated launches are no-ops.
+        AppearanceMigration.migrateIfNeeded(defaults: defaults)
         language = AppLanguage(rawValue: defaults.string(forKey: Key.language) ?? "") ?? .system
         appearance = AppAppearance(rawValue: defaults.string(forKey: Key.appearance) ?? "") ?? .system
         if let raw = defaults.string(forKey: Key.defaultView),
@@ -421,15 +326,18 @@ final class AppSettings {
         } else {
             exportIncludesStickies = defaults.bool(forKey: Key.exportIncludesStickies)
         }
-        appearanceMode = AppearanceMode(rawValue: defaults.string(forKey: Key.appearanceMode) ?? "")
-            ?? AppearanceCatalog.defaultMode
-        appearanceProfiles = AppearanceCatalog.profiles(from: defaults.data(forKey: Key.appearanceProfiles))
+        homeBackground = HomeBackground(rawValue: defaults.string(forKey: Key.homeBackground) ?? "")
+            ?? AppearanceMigration.homeBackground(forLegacyMode: defaults.string(forKey: AppearanceMigration.legacyModeKey))
+        profile = AppearanceCatalog.profile(from: defaults.data(forKey: Key.profile))
+        persistProfile()
     }
 
-    private func persistAppearanceProfiles() {
-        if let data = try? AppearanceCatalog.encodeProfiles(appearanceProfiles) {
-            defaults.set(data, forKey: Key.appearanceProfiles)
+    private func persistProfile() {
+        if let data = try? AppearanceCatalog.encodeProfile(profile) {
+            defaults.set(data, forKey: Key.profile)
         }
+        // The typography modifier reads one string instead of decoding the profile.
+        defaults.set(profile.fontFamilyID, forKey: AppearanceMigration.contentFontFamilyKey)
     }
 
     static let shared = AppSettings(defaults: .standard)
@@ -460,7 +368,7 @@ final class AppSettings {
         static let pngScale = "floretta.pngScale"
         static let pngBackground = "floretta.pngBackground"
         static let exportIncludesStickies = "floretta.exportIncludesStickies"
-        static let appearanceMode = "floretta.appearanceMode"
-        static let appearanceProfiles = "floretta.appearanceProfiles"
+        static let homeBackground = AppearanceMigration.homeBackgroundKey
+        static let profile = AppearanceMigration.profileKey
     }
 }

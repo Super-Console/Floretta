@@ -128,7 +128,7 @@ struct MapExportOptions: Equatable, Sendable {
     /// Nil keeps the export clip at `maxPixelDimension`. Quick Look sets this so Finder sees the map, not a corner.
     var fitLongestPixelEdge: CGFloat? = nil
     var fontFamilyID: String = "system-serif"
-    var appearanceProfile: AppearanceProfile = AppearanceCatalog.defaultProfile(for: .classic)
+    var appearanceProfile: AppearanceProfile = AppearanceCatalog.defaultProfile()
 }
 
 struct MapExportResult: Equatable, Sendable {
@@ -307,7 +307,10 @@ enum MapExporter {
             ),
             scheme: scheme
         )
-        let paper = exportPaper(options.background, canvas: appearance.canvasBackground)
+        // The paper the document stores wins, so an export follows the file and
+        // not whatever the home page is set to right now.
+        let canvas = document.resolvedCanvasBackground(fallback: appearance.canvasBackground)
+        let paper = exportPaper(options.background, canvas: canvas)
         let view = MapExportView(
             frames: frames,
             lines: RelationshipGeometry.lines(for: document.relationships, frames: frames),
@@ -382,7 +385,7 @@ private struct MapExportView: View {
     var renderBounds: CGRect
     var paper: Color
     var images: [String: CGImage]
-    var appearanceProfile: AppearanceProfile = AppearanceCatalog.defaultProfile(for: .classic)
+    var appearanceProfile: AppearanceProfile = AppearanceCatalog.defaultProfile()
     /// 分支 · 线条 token, copied from the document so the export matches the canvas.
     var branchLine: String? = nil
     /// 分支 · 终点 token. Nil draws nothing.

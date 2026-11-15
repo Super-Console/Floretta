@@ -63,6 +63,10 @@ public struct MindMapDocument: Equatable, Sendable {
     /// Structure of the first canvas. `.bilateral` is the shipped mind map.
     /// Omitted from JSON when `.bilateral`, so an older file opens on the mind map.
     public var layoutKind: LayoutKind
+    /// Paper this document draws on, as `#RRGGBB`. Omitted from JSON when nil.
+    /// Nil keeps the app profile's paper, which is how every file written before
+    /// documents carried a background resolves; those files are never rewritten.
+    public var canvasBackgroundHex: String?
 
     public init(
         title: String,
@@ -86,6 +90,7 @@ public struct MindMapDocument: Equatable, Sendable {
         primaryCanvasTitle: String? = nil,
         primaryCanvasViewport: CanvasViewportState = .standard,
         layoutKind: LayoutKind = .bilateral,
+        canvasBackgroundHex: String? = nil,
         clock: any ClockPort = FoundationClock()
     ) {
         self.formatVersion = formatVersion
@@ -110,6 +115,7 @@ public struct MindMapDocument: Equatable, Sendable {
         self.primaryCanvasTitle = (trimmedTitle?.isEmpty == false) ? trimmedTitle : nil
         self.primaryCanvasViewport = primaryCanvasViewport
         self.layoutKind = layoutKind
+        self.canvasBackgroundHex = HomeBackground.canonicalHex(canvasBackgroundHex)
         clampActiveCanvasIndex()
     }
 
@@ -120,6 +126,7 @@ public struct MindMapDocument: Equatable, Sendable {
         createdAt: Date? = nil,
         modifiedAt: Date? = nil,
         roots: [MindMapNode] = [],
+        canvasBackgroundHex: String? = nil,
         clock: any ClockPort = FoundationClock()
     ) -> MindMapDocument {
         MindMapDocument(
@@ -128,6 +135,7 @@ public struct MindMapDocument: Equatable, Sendable {
             modifiedAt: modifiedAt,
             roots: roots,
             themeID: MapThemeCatalog.defaultThemeID,
+            canvasBackgroundHex: canvasBackgroundHex,
             clock: clock
         )
     }
@@ -210,6 +218,7 @@ extension MindMapDocument: Codable {
         case primaryCanvasTitle
         case primaryCanvasViewport
         case layoutKind
+        case canvasBackgroundHex
     }
 
     public init(from decoder: Decoder) throws {
@@ -255,6 +264,10 @@ extension MindMapDocument: Codable {
         ) ?? .standard
         // An unknown structure id falls back to the mind map instead of refusing the file.
         let layoutKind = (try container.decodeIfPresent(LayoutKind.self, forKey: .layoutKind)) ?? .bilateral
+        // A file with no stored paper keeps following the app appearance.
+        let canvasBackgroundHex = HomeBackground.canonicalHex(
+            try container.decodeIfPresent(String.self, forKey: .canvasBackgroundHex)
+        )
         self.formatVersion = version
         self.title = title
         self.createdAt = createdAt
@@ -277,6 +290,7 @@ extension MindMapDocument: Codable {
         self.primaryCanvasTitle = (trimmedTitle?.isEmpty == false) ? trimmedTitle : nil
         self.primaryCanvasViewport = primaryCanvasViewport
         self.layoutKind = layoutKind
+        self.canvasBackgroundHex = canvasBackgroundHex
         clampActiveCanvasIndex()
         promoteUnmappedTopicTags()
         try FlorettaTree.validate(self)
@@ -332,6 +346,8 @@ extension MindMapDocument: Codable {
         if layoutKind != .bilateral {
             try container.encode(layoutKind, forKey: .layoutKind)
         }
+        // Absent for every file that never carried a paper, so old JSON is unchanged.
+        try container.encodeIfPresent(canvasBackgroundHex, forKey: .canvasBackgroundHex)
     }
 }
 

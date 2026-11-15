@@ -8,7 +8,7 @@ import UIKit
 #endif
 
 private enum AppearanceProfileKey: EnvironmentKey {
-    static let defaultValue = AppearanceCatalog.defaultProfile(for: .classic)
+    static let defaultValue = AppearanceCatalog.defaultProfile()
 }
 
 extension EnvironmentValues {

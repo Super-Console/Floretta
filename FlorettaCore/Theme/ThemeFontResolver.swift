@@ -19,16 +19,13 @@ public struct ThemeFontSpec: Equatable, Sendable {
     }
 }
 
+/// Resolves a face for content text. Serif is a property of the face the user
+/// picked in the font list, not of an appearance mode.
 public enum ThemeFontResolver {
-    public static func spec(
-        for mode: ThemeMode,
-        script: ThemeScript,
-        serifOverride: Bool? = nil
-    ) -> ThemeFontSpec {
-        let usesClassicFonts = mode != .modern
+    public static func spec(script: ThemeScript, isSerif: Bool) -> ThemeFontSpec {
         let candidates: [String]
 
-        switch (usesClassicFonts, script) {
+        switch (isSerif, script) {
         case (true, .cjk):
             candidates = ["Songti SC", "STSong", "Songti TC"]
         case (true, .latin):
@@ -39,9 +36,10 @@ public enum ThemeFontResolver {
             candidates = ["Inter", "Helvetica Neue"]
         }
 
-        return ThemeFontSpec(
-            familyCandidates: candidates,
-            isSerif: serifOverride ?? usesClassicFonts
-        )
+        return ThemeFontSpec(familyCandidates: candidates, isSerif: isSerif)
+    }
+
+    public static func spec(script: ThemeScript, familyID: String) -> ThemeFontSpec {
+        spec(script: script, isSerif: AppearanceCatalog.family(id: familyID)?.kind == .serif)
     }
 }

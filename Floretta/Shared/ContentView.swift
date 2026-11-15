@@ -9,11 +9,7 @@ struct ContentView: View {
     @Bindable var library: LibraryModel
 
     @State private var page: HomePage = .recent
-    @State private var columnVisibility = ShellTab.preferredColumnVisibility
     @State private var searchText = ""
-    #if os(iOS)
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    #endif
     @State private var showImporter = false
     @State private var browseRoot: URL?
     @State private var browseTitle = LocalDeviceLabel.current.title
@@ -36,6 +32,19 @@ struct ContentView: View {
             .onChange(of: recovery.restoredDocument) { _, restored in
                 if let restored {
                     library.openRecovered(restored)
+                }
+            }
+            // The macOS 「文件」 menu sends the same three commands the home
+            // toolbar's 打开▾ menu runs.
+            .onChange(of: library.pendingHomeOpen) { _, _ in
+                guard let command = library.consumeHomeOpen() else { return }
+                switch command {
+                case .files:
+                    AppLaunch.presentUITestImporter(open: { library.openFile($0) }) { showImporter = true }
+                case .iCloud:
+                    openICloud()
+                case .local:
+                    browsePad()
                 }
             }
             .alert(Text(verbatim: text("要恢复未保存的导图吗？")), isPresented: $recovery.showOffer) {
@@ -120,10 +129,11 @@ struct ContentView: View {
     private var shell: some View {
         #if os(iOS)
         // System tab bar. `.tabBarOnly` keeps iPhone and iPad on that bar
-        // instead of an iPad sidebar. No custom glass, blur, or capsule.
+        // instead of a sidebar. No custom glass, blur, or capsule.
+        // The phone's tab bar and settings entry are unchanged.
         TabView(selection: $library.tab) {
             Tab(value: ShellTab.home) {
-                iosHome
+                homeStack
             } label: {
                 Label(text(ShellTab.home.title), systemImage: ShellTab.home.systemImage)
             }
@@ -135,86 +145,10 @@ struct ContentView: View {
         }
         .tabViewStyle(.tabBarOnly)
         #else
-        NavigationSplitView(columnVisibility: $columnVisibility) {
-            List(selection: macSelection) {
-                ForEach(ShellTab.destinations, id: \.self) { destination in
-                    Label(text(destination.title), systemImage: destination.systemImage)
-                        .tag(destination)
-                        .sidebarSelectionInset()
-                }
-            }
-            .navigationTitle("Floretta")
-            .listStyle(.sidebar)
-            .scrollContentBackground(.hidden)
-            .appleGlassChrome(.sidebarColumn)
-        } detail: {
-            // Keep the Mac window-toolbar backdrop independent from detail
-            // content. Extending the grid into that region makes its cards
-            // visible through the titlebar's system glass.
-            Group {
-                switch library.tab {
-                case .home:
-                    homeStack
-                case .settings:
-                    SettingsView(settings: settings)
-                }
-            }
-        }
+        // One column. 设置 is the standard Settings scene (⌘,), not a page in
+        // this window, so the 首页 / 设置 sidebar has nothing left to navigate.
+        homeStack
         #endif
-    }
-
-    #if os(iOS)
-    /// The phone shows the recent stack directly. `NavigationSplitView` inside
-    /// the tab bar collapses to the sidebar, and that list is not inside the
-    /// `NavigationStack` that carries the project-manager title.
-    @ViewBuilder
-    private var iosHome: some View {
-        switch homeChrome {
-        case .stack:
-            homeStack
-        case .split:
-            iosLibrary
-        }
-    }
-
-    private var homeChrome: HomeLibraryChrome {
-        // `UserInterfaceSizeClass` is not frozen. Compare the known cases;
-        // nil and any future case stay unspecified so an iPhone still uses the stack.
-        let width: HomeWidthClass
-        if horizontalSizeClass == .compact {
-            width = .compact
-        } else if horizontalSizeClass == .regular {
-            width = .regular
-        } else {
-            width = .unspecified
-        }
-        return HomeLibrary.chrome(
-            width: width,
-            phoneWhenUnspecified: LocalDeviceLabel.currentKind == .iPhone
-        )
-    }
-
-    private var iosLibrary: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
-            HomeSidebar(
-                library: library,
-                openFiles: { AppLaunch.presentUITestImporter(open: { library.openFile($0) }) { showImporter = true } },
-                openICloud: openICloud,
-                browsePad: browsePad
-            )
-            .appleGlassChrome(.sidebarColumn)
-        } detail: {
-            homeStack
-                .backgroundExtensionEffect()
-        }
-    }
-    #endif
-
-    private var macSelection: Binding<ShellTab?> {
-        Binding(
-            get: { library.tab },
-            set: { if let tab = $0 { library.tab = tab } }
-        )
     }
 
     private var homeStack: some View {
@@ -223,6 +157,7 @@ struct ContentView: View {
             case .recent:
                 RecentPage(
                     library: library,
+                    settings: settings,
                     page: $page,
                     searchText: $searchText,
                     openFiles: { AppLaunch.presentUITestImporter(open: { library.openFile($0) }) { showImporter = true } },

@@ -241,15 +241,15 @@ final class ShellTests: XCTestCase {
         XCTAssertEqual(again.appearance.colorScheme, .light)
         again.appearance = .system
         XCTAssertNil(again.appearance.colorScheme)
-        XCTAssertEqual(again.appearanceMode, .classic)
-        XCTAssertEqual(again.currentProfile.fontFamilyID, "system-serif")
-        again.updateCurrentProfile { $0.fontFamilyID = "system-sans" }
+        XCTAssertEqual(again.homeBackground, .paper)
         XCTAssertEqual(again.currentProfile.fontFamilyID, "system-sans")
+        again.updateCurrentProfile { $0.fontFamilyID = "system-serif" }
+        XCTAssertEqual(again.currentProfile.fontFamilyID, "system-serif")
         let reread = AppSettings(defaults: defaults)
-        XCTAssertEqual(reread.appearanceMode, .classic)
-        XCTAssertEqual(reread.currentProfile.fontFamilyID, "system-sans")
-        reread.restoreCurrentModeDefaults()
+        XCTAssertEqual(reread.homeBackground, .paper)
         XCTAssertEqual(reread.currentProfile.fontFamilyID, "system-serif")
+        reread.restoreContentAppearanceDefaults()
+        XCTAssertEqual(reread.currentProfile.fontFamilyID, AppearanceCatalog.defaultFontFamilyID)
         again.language = .english
         XCTAssertTrue(again.resolvedLocale.identifier.lowercased().hasPrefix("en"))
         XCTAssertEqual(again.defaultView, .focus)
@@ -561,7 +561,6 @@ final class ShellTests: XCTestCase {
         let shapes = cards.map { TemplateKind.shape($0.kind.document(clock: FoundationClock())) }
         XCTAssertEqual(Set(shapes).count, shapes.count)
         XCTAssertFalse(cards.map(\.name).contains("即将推出"))
-        XCTAssertTrue(ShellTab.homeOverflowTitles.isEmpty)
     }
 
     func testSecondTapOnTheSelectedNodeStartsEditing() {
@@ -880,25 +879,15 @@ final class ShellTests: XCTestCase {
         XCTAssertFalse(originalMM.contains("中文"))
     }
 
-    func testCompactHomeShowsTheRecentStackAndSidebarRowsAreNotNoOps() throws {
+    func testHomeIsOneColumnAndTheSidebarCommandsBecameMenuItems() throws {
         XCTAssertEqual(HomeLibrary.navigationTitle, "项目")
-        XCTAssertEqual(HomeLibrary.chrome(width: .compact, phoneWhenUnspecified: false), .stack)
-        XCTAssertEqual(HomeLibrary.chrome(width: .regular, phoneWhenUnspecified: true), .split)
-        XCTAssertEqual(HomeLibrary.chrome(width: .unspecified, phoneWhenUnspecified: true), .stack)
-        XCTAssertEqual(HomeLibrary.chrome(width: .unspecified, phoneWhenUnspecified: false), .split)
-
-        XCTAssertEqual(
-            HomeSidebarRow.all.map(\.rawValue),
-            ["newMap", "openFiles", "openICloud", "browseLocal"]
-        )
-        let device = LocalDeviceLabel(title: "我的 iPhone", systemImage: "iphone")
-        for row in HomeSidebarRow.all {
-            XCTAssertNotEqual(row.title(device: device), HomeLibrary.navigationTitle)
-            XCTAssertNotEqual(row.destinationPage, .recent)
-            XCTAssertTrue(HomeSidebarRow.hasVisibleEffect(row, from: .recent))
+        // The old sidebar rows were commands, not destinations. They are one enum
+        // the toolbar menu and the macOS 文件 menu both send.
+        XCTAssertEqual(HomeOpenCommand.allCases.map(\.rawValue), ["files", "iCloud", "local"])
+        for command in HomeOpenCommand.allCases {
+            XCTAssertFalse(command.titleKey.isEmpty)
+            XCTAssertNotEqual(command.titleKey, HomeLibrary.navigationTitle)
         }
-        XCTAssertFalse(HomeSidebarRow.selectingPageHasVisibleEffect(.recent, from: .recent))
-        XCTAssertTrue(HomeSidebarRow.selectingPageHasVisibleEffect(.browse, from: .recent))
 
         let library = try makeLibrary(directory: try temporaryDirectory())
         try library.installSmokeFixtures()

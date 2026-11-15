@@ -4,7 +4,9 @@ import XCTest
 @MainActor
 final class AppearanceSettingsTests: XCTestCase {
     private func makeSettings() throws -> AppSettings {
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: "appearance-settings-tests.\(UUID().uuidString)"))
+        let name = "appearance-settings-tests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defaults.removePersistentDomain(forName: name)
         return AppSettings(defaults: defaults)
     }
 
@@ -16,49 +18,79 @@ final class AppearanceSettingsTests: XCTestCase {
         let inspectorEntry = settings
         XCTAssertTrue(settingsEntry === inspectorEntry)
 
-        settingsEntry.appearanceMode = .modern
-        XCTAssertEqual(inspectorEntry.appearanceMode, .modern)
+        settingsEntry.homeBackground = .white
+        XCTAssertEqual(inspectorEntry.homeBackground, .white)
 
         inspectorEntry.updateCurrentProfile { $0.fontFamilyID = "inter" }
         XCTAssertEqual(settingsEntry.currentProfile.fontFamilyID, "inter")
-        XCTAssertEqual(settingsEntry.appearanceProfiles[.modern]?.fontFamilyID, "inter")
+        XCTAssertEqual(settingsEntry.profile.fontFamilyID, "inter")
 
         settingsEntry.updateCurrentProfile { $0.light.canvasHex = "#FEDCBA" }
         XCTAssertEqual(inspectorEntry.currentProfile.light.canvasHex, "#FEDCBA")
     }
 
-    func testThreeModesAreSwitchableAndClassicSansPersistsAcrossRestart() {
-        let defaultsName = "appearance-settings-tests.persist.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: defaultsName)!
+    func testHomeBackgroundAndProfilePersistAcrossRelaunch() throws {
+        let name = "appearance-settings-tests.persist.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defaults.removePersistentDomain(forName: name)
         let settings = AppSettings(defaults: defaults)
-        XCTAssertEqual(settings.appearanceMode, .classic)
 
-        settings.updateCurrentProfile { $0.fontFamilyID = "inter" }
-        XCTAssertEqual(settings.currentProfile.fontFamilyID, "inter")
+        XCTAssertEqual(settings.homeBackground, .paper)
+        XCTAssertEqual(settings.currentProfile.fontFamilyID, AppearanceCatalog.defaultFontFamilyID)
+        XCTAssertFalse(settings.currentProfile.fontIsSerif, "content defaults to sans")
 
-        settings.appearanceMode = .modern
-        XCTAssertEqual(settings.appearanceMode, .modern)
-        XCTAssertEqual(settings.currentProfile.fontFamilyID, "system-sans")
-
-        settings.appearanceMode = .custom
-        XCTAssertEqual(settings.appearanceMode, .custom)
-        XCTAssertEqual(settings.currentProfile.fontFamilyID, "system-serif")
-
-        settings.appearanceMode = .classic
-        XCTAssertEqual(settings.currentProfile.fontFamilyID, "inter")
+        // Choosing a serif is a font-list decision, not a mode.
+        settings.updateCurrentProfile { $0.fontFamilyID = "eb-garamond" }
+        settings.homeBackground = .white
 
         let relaunched = AppSettings(defaults: defaults)
-        XCTAssertEqual(relaunched.appearanceMode, .classic)
-        XCTAssertEqual(relaunched.currentProfile.fontFamilyID, "inter")
+        XCTAssertEqual(relaunched.homeBackground, .white)
+        XCTAssertEqual(relaunched.currentProfile.fontFamilyID, "eb-garamond")
+        XCTAssertEqual(defaults.string(forKey: AppearanceMigration.contentFontFamilyKey), "eb-garamond")
+    }
+
+    func testLegacyThreeModeDefaultsAreMigratedOnFirstLaunch() throws {
+        let name = "appearance-settings-tests.legacy.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defaults.removePersistentDomain(forName: name)
+        var modern = AppearanceCatalog.defaultProfile(homeBackground: .white)
+        modern.fontFamilyID = "noto-sans"
+        defaults.set("modern", forKey: AppearanceMigration.legacyModeKey)
+        defaults.set(try AppearanceCatalog.encodeLegacyProfiles(["modern": modern]), forKey: AppearanceMigration.legacyProfilesKey)
+
+        let settings = AppSettings(defaults: defaults)
+        XCTAssertEqual(settings.homeBackground, .white, "modern maps to 纯白")
+        XCTAssertEqual(settings.currentProfile.fontFamilyID, "noto-sans")
+        XCTAssertNil(defaults.object(forKey: AppearanceMigration.legacyModeKey))
+    }
+
+    func testRestoringContentDefaultsKeepsTheHomeBackground() throws {
+        let settings = try makeSettings()
+        settings.homeBackground = .white
+        settings.updateCurrentProfile { $0.cornerRadius = 3 }
+        settings.restoreContentAppearanceDefaults()
+        XCTAssertEqual(settings.currentProfile.cornerRadius, AppearanceCatalog.defaultProfile().cornerRadius)
+        XCTAssertEqual(settings.currentProfile.light.canvasHex, "#FFFFFF")
+        XCTAssertEqual(settings.homeBackground, .white)
+    }
+
+    func testNewDocumentsResolveTheHomeBackgroundForTheCurrentScheme() throws {
+        let settings = try makeSettings()
+        XCTAssertEqual(settings.defaultDocumentBackgroundHex(for: .light), "#FBF7F0")
+        XCTAssertEqual(settings.defaultDocumentBackgroundHex(for: .dark), "#1B1917")
+
+        settings.homeBackground = .white
+        XCTAssertEqual(settings.defaultDocumentBackgroundHex(for: .light), "#FFFFFF")
+        XCTAssertEqual(settings.defaultDocumentBackgroundHex(for: .dark), "#121212")
     }
 
     func testIdentifierPrefixesAreStableAndDoNotCollideWithColorSchemePicker() {
         XCTAssertEqual(AppearanceIdentifier.settingsPrefix, "settings.appearance")
         XCTAssertEqual(AppearanceIdentifier.inspectorPrefix, "inspector.appearance")
-        XCTAssertEqual(AppearanceIdentifier.id(AppearanceIdentifier.settingsPrefix, "mode"), "settings.appearance.mode")
-        XCTAssertEqual(AppearanceIdentifier.id(AppearanceIdentifier.inspectorPrefix, "mode"), "inspector.appearance.mode")
+        XCTAssertEqual(AppearanceIdentifier.id(AppearanceIdentifier.settingsPrefix, "homeBackground"), "settings.appearance.homeBackground")
+        XCTAssertEqual(AppearanceIdentifier.id(AppearanceIdentifier.inspectorPrefix, "homeBackground"), "inspector.appearance.homeBackground")
         XCTAssertEqual(AppearanceIdentifier.id(AppearanceIdentifier.settingsPrefix, "fontFamily"), "settings.appearance.fontFamily")
-        XCTAssertEqual(AppearanceIdentifier.id(AppearanceIdentifier.inspectorPrefix, "fontFamily"), "inspector.appearance.fontFamily")
+        XCTAssertFalse(AppearanceIdentifier.keys.contains("mode"))
         // The light/dark/system picker keeps the un-suffixed `settings.appearance`.
         for key in AppearanceIdentifier.keys {
             XCTAssertNotEqual(AppearanceIdentifier.id(AppearanceIdentifier.settingsPrefix, key), "settings.appearance")
@@ -68,7 +100,7 @@ final class AppearanceSettingsTests: XCTestCase {
     }
 
     func testLayoutFramesPickUpProfilePaperFillScaleAndCornerImmediately() {
-        var profile = AppearanceCatalog.defaultProfile(for: .classic)
+        var profile = AppearanceCatalog.defaultProfile()
         profile.fontFamilyID = "inter"
         profile.fontSizeScale = 1.5
         profile.cornerRadius = 20
@@ -91,5 +123,17 @@ final class AppearanceSettingsTests: XCTestCase {
 
         let applied = profile.applying(to: .standard, scheme: .light)
         XCTAssertEqual(applied.canvasBackground, BranchColor(hex: "#F6F1E4"))
+    }
+
+    func testDocumentPaperDoesNotMoveWhenTheHomePreferenceChanges() throws {
+        let settings = try makeSettings()
+        // A document created now keeps the color it was born with.
+        let document = MindMapDocument.newMap(
+            title: "继承",
+            canvasBackgroundHex: settings.defaultDocumentBackgroundHex(for: .light)
+        )
+        settings.homeBackground = .white
+        XCTAssertEqual(document.canvasBackgroundHex, "#FBF7F0")
+        XCTAssertEqual(settings.defaultDocumentBackgroundHex(for: .light), "#FFFFFF")
     }
 }

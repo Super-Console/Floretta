@@ -76,11 +76,20 @@
 
 ### TD-005 结构布局引擎（9 种图，第一版只做 2 种）
 
-- 状态：❌ 未开工（依赖 TD-004 的入口）。
+- 状态：🚧 进行中(fix/td005；已完成逻辑图与组织结构图)。
 - 参照：XMind「结构」下拉九项——思维导图 / 逻辑图 / 括号图 / 组织结构图 / 树形图 / 时间轴 / 鱼骨图 / 树型表格 / 矩阵图（用户 2026-11-15 20:56 截图）。
-- 现状证据：`FlorettaCore/Layout/LayoutEngine.swift:6-8` 的 `LayoutKind` **只有 `.bilateral` 一个 case**，即九种里已有一种（双侧思维导图）。
+- 现状证据（2026-11-15，分支 `fix/td005`）：`LayoutKind` 已从单 case 扩成 `.bilateral` / `.logicChart` / `.orgChart`（`FlorettaCore/Layout/LayoutEngine.swift`），每个 case 背后是 `StructureLayout` 的一个实现（`BilateralLayout.swift` / `LogicChartLayout.swift` / `OrgChartLayout.swift`）；量尺寸、配色与连线统一收在 `LayoutGeometry.swift`，布局不许另写测量公式；`MindMapDocument.layoutKind` 存结构（`.bilateral` 不写进 JSON，旧文件照旧打开为思维导图），`LayoutEngine.forDocument(_:)` 让画布与导出取同一结构。
 - 差距（本项是全批里唯一的工程级投入）：其余 8 种各需一套布局算法 + 连线规则 + 折行 + 导出渲染一致性，`Floretta/Shared/Canvas/InfiniteCanvas.swift` 与 `Floretta/Shared/Canvas/MapExport.swift` 都要跟着支持；同时影响 XMind 导入时 layout 字段的映射。
 - 修法：先把 `LayoutKind` 从单 case 扩成可插拔布局（每布局一个实现 + 单元测试 + 视觉回归夹具）；**第一版只做逻辑图与组织结构图**验证架构，验证通过再补齐其余，不要一次上九种。
+- 已完成（`fix/td005`，三次提交，每个提交都单独编译过）：
+  1. 架构 `38ab284`：`StructureLayout` 协议 + `LayoutGeometry`（尺寸/配色/连线/帧工厂）+ `LayoutKind.makeLayout(geometry:)` 注册表；原双边算法整体搬进 `BilateralLayout`，几何零变化（重构后 `swift test` 395 tests / 1 skipped / 0 failures）。
+  2. 逻辑图 `1bd9640`（单侧向右）：父节点垂直居中于子节点栈，每层右移一个 `horizontalGap`，兄弟间距 `siblingGap`，连线由父右边到子左边；拖拽过的根保留落点、子树跟随。
+  3. 组织结构图 `3302d0d`（向下展开）：父节点水平居中于子节点行，每层下移一个 `horizontalGap`，兄弟间距 `siblingGap`，连线由父底边到子顶边（新增 `LinkAnchor.down`）。
+  4. 单测：`Tests/FlorettaCoreTests/StructureLayoutTests.swift` 共 16 条（两种布局各 8 条）——逐层缩进、兄弟间距、父级居中、连线端点与控制点、折叠隐藏子树、手动根点、互不重叠、文档↔引擎↔编解码往返。
+  5. 画布与导出一致：`CanvasPlacement.nodes` 改为 `LayoutEngine.forDocument`，`MapExport` 的 PNG/PDF 与图片槽都复用 `CanvasPlacement.nodes`，因此位置、父子连线、命中测试、选中、拖拽、插入子节点读的是同一批 `NodeFrame`。
+  6. 验证（真实输出）：`swift test` → `Executed 411 tests, with 1 test skipped and 0 failures`；macOS Debug ad-hoc `xcodebuild` → `** BUILD SUCCEEDED **`（未跑 iOS 编译脚本）。
+- 新增一种布局要改的地方（本次实测清单）：1) `LayoutKind` 加 case；2) `displayNameKey` 加一行；3) `makeLayout` 加一行；4) 新文件实现 `StructureLayout`（只用 `LayoutGeometry` 的 `size` / `frame` / `link`）；5) `StructureLayoutTests` 加该布局的几何测试；6) 连线若不走左右出，只在 `LinkAnchor` 加一个锚点。
+- 仍未收口：其余 7 种结构；XMind `structureClass` 映射（`XMindFieldCatalog` 仍是 passthrough「不解释」）；九种结构的入口 UI 属 TD-004；入库截图与视觉回归夹具未做（本任务禁止启动 App 截图）。
 - 难度：高（每种 1–3 天，全量约 3–4 周）。
 - 验收：切换结构后节点位置、连线、导出 PNG 与屏幕一致；导入的 `.xmind` layout 字段能映射到对应结构；每种布局有独立单测与一张入库截图。
 

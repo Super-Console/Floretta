@@ -276,7 +276,163 @@ final class StructureKindsLayoutTests: XCTestCase {
         XCTAssertEqual(LayoutKind.fishbone.makeLayout(geometry: geometry()).kind, .fishbone)
     }
 
+    // MARK: - 树型表格
+
+    func testTreeTableGivesEveryDepthItsOwnAlignedColumn() throws {
+        let grand = MindMapNode(text: "孙")
+        let child = MindMapNode(text: "子", children: [grand])
+        let sibling = MindMapNode(text: "另一个子")
+        let root = MindMapNode(text: "根", children: [child, sibling])
+        let frames = treeTable(MindMapDocument(title: "table", roots: [root]))
+        let gap = LayoutMetrics().horizontalGap
+        let rootFrame = try XCTUnwrap(frames.first { $0.id == root.id })
+        let childFrame = try XCTUnwrap(frames.first { $0.id == child.id })
+        let siblingFrame = try XCTUnwrap(frames.first { $0.id == sibling.id })
+        let grandFrame = try XCTUnwrap(frames.first { $0.id == grand.id })
+        XCTAssertEqual(rootFrame.frame.minX, 0, accuracy: 0.001)
+        // One column per depth: every topic of a level shares one left edge.
+        XCTAssertEqual(childFrame.frame.minX, siblingFrame.frame.minX, accuracy: 0.001)
+        // And column d + 1 starts one gap past the widest topic of column d.
+        let widestDepth1 = max(childFrame.frame.maxX, siblingFrame.frame.maxX)
+        XCTAssertEqual(grandFrame.frame.minX - widestDepth1, gap, accuracy: 0.001)
+        let widestDepth0 = frames.filter { $0.depth == 0 }.map(\.frame.maxX).max() ?? 0
+        XCTAssertEqual(childFrame.frame.minX - widestDepth0, gap, accuracy: 0.001)
+    }
+
+    func testTreeTableStacksRowsOneSiblingGapApartAndCentresTheParent() throws {
+        let kids = (0..<3).map { index in
+            MindMapNode(text: "行\(index)", children: (0...index).map { MindMapNode(text: "格\($0)") })
+        }
+        let root = MindMapNode(text: "根", children: kids)
+        let frames = treeTable(MindMapDocument(title: "rows", roots: [root]))
+        let rootFrame = try XCTUnwrap(frames.first { $0.id == root.id })
+        let rows = try kids.map { kid in
+            try XCTUnwrap(frames.first { $0.id == kid.id })
+        }.sorted { $0.frame.minY < $1.frame.minY }
+        // Rows are one siblingGap apart, measured from the row the topic sits in.
+        let cells = try kids.flatMap { kid in
+            subtree(of: kid.id, in: frames)
+        }.sorted { $0.frame.minY < $1.frame.minY }
+        XCTAssertFalse(cells.isEmpty)
+        for pair in zip(rows, rows.dropFirst()) {
+            XCTAssertGreaterThan(pair.1.frame.minY, pair.0.frame.maxY)
+        }
+        // The root is centred on the band of its rows.
+        let top = rows[0].frame.minY
+        let bandTop = min(top, cells[0].frame.minY)
+        let bottom = max(rows[2].frame.maxY, cells.map(\.frame.maxY).max() ?? 0)
+        XCTAssertEqual(rootFrame.frame.midY, (bandTop + bottom) / 2, accuracy: 1)
+
+        // Leaf-only rows are exactly one siblingGap apart.
+        let leaves = (0..<3).map { MindMapNode(text: "格\($0)") }
+        let leafFrames = treeTable(
+            MindMapDocument(title: "leaves", roots: [MindMapNode(text: "根", children: leaves)])
+        )
+        let leafRows = try leaves.map { leaf in
+            try XCTUnwrap(leafFrames.first { $0.id == leaf.id })
+        }.sorted { $0.frame.minY < $1.frame.minY }
+        XCTAssertEqual(leafRows[1].frame.minY - leafRows[0].frame.maxY, LayoutMetrics().siblingGap, accuracy: 0.001)
+        XCTAssertEqual(leafRows[2].frame.minY - leafRows[1].frame.maxY, LayoutMetrics().siblingGap, accuracy: 0.001)
+    }
+
+    func testTreeTableGrowsARowForAWrappedTitle() throws {
+        let short = MindMapNode(text: "短")
+        let long = MindMapNode(text: String(repeating: "很长的一段主题文字", count: 6))
+        let shortFrames = treeTable(
+            MindMapDocument(title: "short", roots: [MindMapNode(text: "根", children: [short])])
+        )
+        let longFrames = treeTable(
+            MindMapDocument(title: "long", roots: [MindMapNode(text: "根", children: [long])])
+        )
+        let shortFrame = try XCTUnwrap(shortFrames.first { $0.id == short.id })
+        let longFrame = try XCTUnwrap(longFrames.first { $0.id == long.id })
+        // A wrapped title is taller, and the row grew with it.
+        XCTAssertGreaterThan(longFrame.frame.height, shortFrame.frame.height)
+
+        // The height is the one `LayoutGeometry` measured, not a second formula.
+        let geometry = LayoutGeometry(
+            cache: TextMeasurementCache(),
+            metrics: LayoutMetrics(),
+            appearance: .standard
+        )
+        var heights: [Int: CGFloat] = [:]
+        geometry.collectHeights(long, depth: 1, into: &heights)
+        let measured = geometry.size(long, depth: 1, heights: heights)
+        XCTAssertEqual(longFrame.frame.height, measured.height, accuracy: 0.001)
+        XCTAssertGreaterThan(longFrame.frame.height, LayoutMetrics().level2FontSize)
+        assertNoOverlap(longFrames)
+    }
+
+    func testTreeTableLinksLeaveTheRightEdgeIntoTheNextColumn() throws {
+        let kid = MindMapNode(text: "子")
+        let root = MindMapNode(text: "根", children: [kid])
+        let frames = treeTable(MindMapDocument(title: "links", roots: [root]))
+        let rootFrame = try XCTUnwrap(frames.first { $0.id == root.id })
+        let kidFrame = try XCTUnwrap(frames.first { $0.id == kid.id })
+        let link = try XCTUnwrap(kidFrame.link)
+        XCTAssertEqual(link.start.x, rootFrame.frame.maxX, accuracy: 0.001)
+        XCTAssertEqual(link.start.y, rootFrame.frame.midY, accuracy: 0.001)
+        XCTAssertEqual(link.end.x, kidFrame.frame.minX, accuracy: 0.001)
+        XCTAssertEqual(link.end.y, kidFrame.frame.midY, accuracy: 0.001)
+        XCTAssertNil(rootFrame.link)
+        XCTAssertEqual(kidFrame.parentID, root.id)
+    }
+
+    func testTreeTableCollapsedTopicHidesItsSubtree() {
+        let child = MindMapNode(text: "子", children: [MindMapNode(text: "孙")])
+        var root = MindMapNode(text: "根", children: [child])
+        root.isCollapsed = true
+        let frames = treeTable(MindMapDocument(title: "fold", roots: [root]))
+        XCTAssertEqual(frames.count, 1)
+        XCTAssertEqual(frames.first?.id, root.id)
+    }
+
+    func testTreeTablePlacesAStoredRootPoint() throws {
+        let child = MindMapNode(text: "子")
+        let root = MindMapNode(
+            text: "根",
+            position: MindMapPoint(x: 32, y: 48),
+            children: [child]
+        )
+        let frames = treeTable(MindMapDocument(title: "manual", roots: [root]))
+        let rootFrame = try XCTUnwrap(frames.first { $0.id == root.id })
+        let childFrame = try XCTUnwrap(frames.first { $0.id == child.id })
+        XCTAssertEqual(rootFrame.frame.minX, 32, accuracy: 0.001)
+        XCTAssertEqual(childFrame.frame.minX, rootFrame.frame.maxX + LayoutMetrics().horizontalGap, accuracy: 0.001)
+    }
+
+    func testTreeTableKeepsThirtyThreeTopicsFromOverlapping() {
+        let root = MindMapNode(text: "知识库", children: (0..<4).map { section in
+            MindMapNode(
+                text: "章节\(section)",
+                children: (0..<3).map { topic in
+                    MindMapNode(
+                        text: "小节\(section)-\(topic)",
+                        children: (0..<2).map { MindMapNode(text: "要点\(section)-\(topic)-\($0)") }
+                    )
+                }
+            )
+        })
+        let frames = treeTable(MindMapDocument(title: "big", roots: [root]))
+        XCTAssertEqual(frames.count, 41)
+        assertNoOverlap(frames)
+        // Every depth keeps one left edge even at this size.
+        let depths = Dictionary(grouping: frames, by: \.depth)
+        for (_, group) in depths {
+            XCTAssertEqual(Set(group.map { ($0.frame.minX * 100).rounded() / 100 }).count, 1)
+        }
+    }
+
+    func testTreeTableJoinsTheStructureRegistry() {
+        XCTAssertEqual(LayoutKind.treeTable.displayNameKey, "layout.treeTable")
+        XCTAssertEqual(LayoutKind.treeTable.makeLayout(geometry: geometry()).kind, .treeTable)
+    }
+
     // MARK: - Helpers
+
+    private func treeTable(_ document: MindMapDocument) -> [NodeFrame] {
+        LayoutEngine(kind: .treeTable).layout(document)
+    }
 
     private func fishbone(_ document: MindMapDocument) -> [NodeFrame] {
         LayoutEngine(kind: .fishbone).layout(document)

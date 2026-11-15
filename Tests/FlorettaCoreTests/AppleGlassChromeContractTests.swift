@@ -49,8 +49,7 @@ final class AppleGlassChromeContractTests: XCTestCase {
 
     func testMacTitlebarGlassDoesNotExtendTheHomeGridIntoItsBackdrop() throws {
         let content = try repoFile("Floretta/Shared/ContentView.swift")
-        let macShell = try slice(content, from: "#else\n        NavigationSplitView", until: "#endif")
-        let iosSplit = try slice(content, from: "private var iosLibrary", until: "#endif")
+        let macShell = try slice(content, from: "// One column. 设置 is the standard", until: "#endif")
         let home = try repoFile("Floretta/Shared/Shell/LibraryHome.swift")
         let recents = try slice(home, from: "private var recentBody", until: "private var filtered")
         let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
@@ -61,7 +60,8 @@ final class AppleGlassChromeContractTests: XCTestCase {
         let fadeRoles = try slice(glass, from: "var fadesBottomEdge: Bool", until: "/// Scene used to pick")
 
         XCTAssertFalse(macShell.contains("backgroundExtensionEffect()"), "Mac must not extend Home detail/grid pixels behind the window titlebar glass")
-        XCTAssertTrue(iosSplit.contains(".backgroundExtensionEffect()"), "the iOS split detail retains its independent navigation-bar behavior")
+        XCTAssertFalse(content.contains("backgroundExtensionEffect()"), "the single-column home has no titlebar band to extend into")
+        XCTAssertFalse(content.contains("NavigationSplitView"), "the home is one column on macOS and iPad")
         XCTAssertTrue(recents.contains("LazyVGrid"))
         XCTAssertEqual(recents.components(separatedBy: "LazyVGrid").count - 1, 1, "the recents grid must have one rendered instance")
         XCTAssertFalse(recents.contains("appleGlassChrome"), "the grid is rendered once as content, never supplied as a chrome background")
@@ -92,7 +92,11 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertTrue(inset.contains(".listRowInsets("))
         XCTAssertTrue(inset.contains(".listRowBackground(Color.clear)"))
         XCTAssertFalse(inset.contains("RoundedRectangle"))
-        XCTAssertTrue(try repoFile("Floretta/Shared/ContentView.swift").contains(".appleGlassChrome(.sidebarColumn)"))
+        // The editor's outline column still uses the sidebar glass role; the home
+        // sidebar it was first written for is gone.
+        let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        XCTAssertTrue(editor.contains(".appleGlassChrome(.sidebarColumn)"))
+        XCTAssertFalse(try repoFile("Floretta/Shared/ContentView.swift").contains(".appleGlassChrome(.sidebarColumn)"))
     }
 
     func testOfficialGlassAPIsAndTheVisualEffectFallbackAreDocumented() throws {
@@ -249,7 +253,7 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertFalse(primary.contains("toolbarControl(.share)"), "import/export is low frequency; it is in ••• (TD-006)")
 
         XCTAssertFalse(home.contains("appleGlassChrome"))
-        XCTAssertTrue(home.contains("scrollContentBackground(.hidden)"))
+        XCTAssertTrue(home.contains("settings.homeBackground.palette"), "the home page paints the semantic background")
         XCTAssertFalse(editor.contains(".blur("))
         XCTAssertFalse(editor.contains("regularMaterial"))
         XCTAssertFalse(editor.contains(".background(.bar)"))
@@ -257,8 +261,8 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertTrue(editor.contains(".appleGlassChrome(.floatingPanel)"))
 
         let content = try repoFile("Floretta/Shared/ContentView.swift")
-        XCTAssertTrue(content.contains(".appleGlassChrome(.sidebarColumn)"))
-        XCTAssertTrue(content.contains(".backgroundExtensionEffect()"))
+        XCTAssertFalse(content.contains(".appleGlassChrome(.sidebarColumn)"), "the home sidebar column is gone")
+        XCTAssertFalse(content.contains(".backgroundExtensionEffect()"))
         XCTAssertFalse(content.contains("regularMaterial"))
         XCTAssertFalse(content.contains("ultraThinMaterial"))
         XCTAssertFalse(content.contains(".blur("))

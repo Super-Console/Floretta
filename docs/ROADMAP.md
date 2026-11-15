@@ -173,6 +173,21 @@ TD-003 → TD-002 → TD-007 → TD-006 → TD-004 → TD-005。前四条都是�
 - 签名方式与环境事实：Pro 的 Xcode 未登录 Apple ID；`xcodebuild archive -allowProvisioningUpdates -authenticationKeyPath/KID/Issuer` 可自动取描述文件，但 **codesign 必须在 GUI 登录会话里执行**。SSH 会话直签、`launchctl asuser`、`osascript do shell script` 三种方式均报 `errSecInternalComponent`，因为都跑在 SSH 的安全会话里；最终通过在用户已打开的「终端」窗口执行 `nohup bash <script> &` 完成。钥匙串须由 Timmy 本人 `security unlock-keychain` 解锁，助手不接触密码。
 - 未完成（不得写成已交付）：① 真机/桌面视觉验收未做——上传时 Mac 处于锁屏状态，无法截图；② Web 端 TD-008 未开始；③ TD-005 只实现逻辑图与组织结构图，其余 6 种未做（括号图 / 树形图 / 时间轴 / 鱼骨图 / 树型表格 / 矩阵图）；④ 「备注」命令在仓库内不存在，「卡片视图」当前接的是查看模式。
 
+### 设计规则：Chrome 与内容的字体分工（2026-11-15 拍板）
+
+- 规则（不再讨论，新界面一律遵守）：**内容层可以用衬线（主题字体）；Chrome 层永远用系统无衬线。** 依据是苹果自己的做法——Books / Pages / Notes 正文可衬线，工具栏、按钮、菜单永远是系统 SF；界面件用衬线族在 13pt 上会中西文混排失配，是「字体看着怪」的真实来源。
+- Chrome 范围：顶部工具栏标题与控件标签、底栏状态胶囊、画布标签胶囊、侧栏（首页/最近）、设置面板、检查器标签与分组标题、菜单与弹出框里的静态文字、空状态与提示条。
+- 内容范围：画布节点文字、Markdown 正文、以及用户输入的正文内容；节点/卡片内标题按内容处理。
+- 决定过程：Timmy 2026-11-15 提出过「为了和 App 图标呼应而全界面用衬线」，讨论后判定不划算——图标是 1024px 场景，界面是 13–15pt 场景，用日常可读性换大图里的品牌感属于拿高价值换低价值；品牌感应放在启动页、空状态、「关于」页这类大字号场景。
+- 经典模式不因此「退化成只剩米白背景」：仍可用行距/段距、暖墨色、发丝分隔线、小圆角无投影四个杠杆拉开与「现代模式」的差距（见 TD-009）。
+
+### TD-009 落地 Chrome/内容字体分工
+
+- 状态：🚧 进行中（`feat/chrome-typography`）。
+- 现状证据：`themeTypography` 全仓仅 7 处调用、5 个文件（`ThemeSettings.swift` 定义处、`AppearanceSettingsPanel.swift`、`DocumentEditor.swift`、`LibraryHome.swift`、`EditorStatusBar.swift`）。
+- 修法：新增 chrome 专用系统字体修饰器，替换 chrome 侧调用；内容侧保留 `themeTypography`；加源码级契约测试（chrome 文件不得出现 `themeTypography(`）与 `docs/THEME-MODES.md` 说明。
+- 验收：经典模式下工具栏/侧栏/首页/设置/检查器/底栏全部系统无衬线；画布节点与 Markdown 正文仍随主题变化；modern 模式不回退。
+
 ## 功能矩阵
 
 | 功能 | macOS | iPad | iPhone | Web | 证据 |

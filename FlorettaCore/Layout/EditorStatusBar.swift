@@ -53,14 +53,33 @@ public enum EditorStatusBarChrome: Sendable {
     /// Size of the SF Symbols the bottom capsules draw. Vector glyphs scale with
     /// this number, so every chrome icon has one weight and one size.
     public static let chromeFontSize: CGFloat = 13
-    /// Square size of one icon button inside the bottom capsules.
-    public static let iconButtonSize: CGFloat = 22
+    /// Square frame of one icon button inside the bottom capsules. The frame is
+    /// also the hit target, so it never drops below `iconButtonHitMinSize`; the
+    /// glyph inside keeps its `chromeFontSize` optical size, so a larger target
+    /// does not draw a larger icon.
+    public static let iconButtonSize: CGFloat = 28
+    /// Floor for a chrome icon button's hit target, in points.
+    public static let iconButtonHitMinSize: CGFloat = 28
     /// Horizontal padding inside the status capsule.
     public static let capsuleHorizontalPadding: CGFloat = 10
     /// Vertical padding inside the status capsule.
     public static let capsuleVerticalPadding: CGFloat = 3
-    /// Spacing between the controls inside the status capsule.
-    public static let capsuleControlSpacing: CGFloat = 8
+    /// Spacing between the controls inside one group of the status capsule.
+    public static let capsuleControlSpacing: CGFloat = 10
+    /// Spacing between two groups of the status capsule. The hairline sits in
+    /// the middle of this gap, so the gap is measured across the divider.
+    public static let capsuleGroupSpacing: CGFloat = 16
+    /// Width of the hairline that separates two groups.
+    public static let capsuleSeparatorWidth: CGFloat = 1
+    /// Height of that hairline: shorter than the plate, so it reads as a
+    /// divider and not as a wall.
+    public static let capsuleSeparatorHeight: CGFloat = 16
+    /// Space each side of the hairline. Derived from the group gap and the
+    /// hairline width, so the two groups sit exactly `capsuleGroupSpacing`
+    /// apart without a second copy of that number.
+    public static var capsuleSeparatorInset: CGFloat {
+        (capsuleGroupSpacing - capsuleSeparatorWidth) / 2
+    }
     /// Window edge to the outer edge of either capsule.
     public static let horizontalInset: CGFloat = 12
     /// Bottom safe area to the capsules' bottom edge. Applied once, to the shared
@@ -69,7 +88,15 @@ public enum EditorStatusBarChrome: Sendable {
     /// Smallest gap the row keeps between the two capsules. A narrower window
     /// truncates the sheet name instead of letting the plates touch.
     public static let capsuleGap: CGFloat = 8
-    /// Width the sheet name may claim before it truncates with an ellipsis.
+    /// Share of the bottom row the sheet name may claim before it truncates.
+    /// A window-relative cap keeps both capsules in proportion: a fixed cap
+    /// left a short name stranded in a wide box, and let a wide window's
+    /// capsule eat the row.
+    public static let canvasTitleWidthFraction: CGFloat = 0.30
+    /// Narrowest the sheet name is laid out at. A small window keeps a
+    /// readable name instead of a couple of letters.
+    public static let canvasTitleMinWidth: CGFloat = 120
+    /// Widest the sheet name may claim, however wide the window is.
     public static let canvasTitleMaxWidth: CGFloat = 240
 }
 
@@ -91,6 +118,21 @@ public enum EditorBottomBarLayout {
         let reserved = statusWidth > 0 ? statusWidth + EditorStatusBarChrome.capsuleGap : 0
         let available = rowWidth - EditorStatusBarChrome.horizontalInset * 2 - reserved
         return available >= minimumWidthWithDivider
+    }
+
+    /// Width the sheet name may claim in a row of `rowWidth`:
+    /// `canvasTitleWidthFraction` of the row, clamped to the readability floor
+    /// and the ceiling. The name is laid out at this width and truncates inside
+    /// it, so a 60-character name can neither spill out of the capsule nor
+    /// widen the bottom row. `rowWidth` is the measured bottom row — the same
+    /// measurement the divider rule uses; 0 means "not measured yet".
+    public static func canvasTitleWidthLimit(rowWidth: CGFloat) -> CGFloat {
+        guard rowWidth > 0 else { return EditorStatusBarChrome.canvasTitleMinWidth }
+        let share = rowWidth * EditorStatusBarChrome.canvasTitleWidthFraction
+        return min(
+            max(share, EditorStatusBarChrome.canvasTitleMinWidth),
+            EditorStatusBarChrome.canvasTitleMaxWidth
+        )
     }
 }
 

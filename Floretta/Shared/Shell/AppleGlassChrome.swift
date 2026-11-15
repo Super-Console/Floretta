@@ -31,18 +31,28 @@ import UIKit
 ///    `Glass.tint(_:)`; no semi-transparent colour is painted by hand.
 /// 2. The runtime-discovered AppKit glass view when a host cannot apply the
 ///    SwiftUI modifier. `AppleGlassChromePlates` builds it when available.
-/// 3. `NSVisualEffectView`, `blendingMode: .behindWindow` as the older-OS
-///    fallback. Bars and the inspector plate use material `.sidebar`.
+/// 3. `NSVisualEffectView` as the older-OS fallback. The blending mode is the
+///    sample source, and it follows the role, not habit: chrome that floats
+///    over the canvas (`bottomBarCapsule`, `floatingPanel`) blurs the window's
+///    own content (`blendingMode: .withinWindow`, material `.hudWindow` /
+///    `.popover`), so a node passing under a plate is diffused instead of
+///    showing through with a sharp edge that reads as a cut-off bar.
+///    Columns (`sidebarColumn`, `inspectorPanel`) keep
+///    `blendingMode: .behindWindow` with material `.sidebar`: they own a
+///    column of the window and are supposed to sample the window backdrop.
 ///    Segmented controls, icon buttons, and toolbar buttons use
 ///    `.underWindowBackground`.
 /// 4. On iOS before Liquid Glass, the system control stays as it is. This
 ///    file does not invent a blur, a frosted fill, or a shadow.
 ///
-/// On iOS, `toolbarFloatingButton` is a no-op. Those controls are already
-/// system toolbar items, which supply official glass and a circular hit
-/// target. Wrapping them in `GlassEffectContainer` turns the bar into custom
-/// content: the back button's accessibility frame shrinks to the chevron
-/// (~20pt), and `editor.more` can drop out of the bar.
+/// `toolbarFloatingButton` draws no plate on either platform. Those controls
+/// are system toolbar items, and the system already paints the official glass
+/// capsule behind them. A second plate inside the item is the double-glass
+/// bug: a faint capsule inside the system one, most visible on macOS. Pressed
+/// and hover states stay the system's, so nothing has to be painted back to
+/// keep the feedback. On iOS, wrapping them in `GlassEffectContainer` also
+/// turns the bar into custom content: the back button's accessibility frame
+/// shrinks to the chevron (~20pt), and `editor.more` can drop out of the bar.
 ///
 /// Contrast. Chrome labels and SF Symbols use `.foregroundStyle(.primary)`.
 /// In the light appearance that ink is dark. In the dark appearance it is
@@ -61,8 +71,16 @@ enum AppleGlassChromeRole: String, Equatable {
     /// Capsule bars, including the bottom sheet capsules.
     case bottomBarCapsule
     /// Toolbar buttons that float over the canvas. Not the back button.
-    /// On iOS this is a no-op; the system toolbar item already has official glass.
+    /// Draws no plate on either platform: a system toolbar item already paints
+    /// Apple's official glass capsule behind its content, and a second plate
+    /// inside the item is the double-glass bug (a faint capsule inside the
+    /// system one, most visible on macOS). A button that is *not* in a toolbar
+    /// uses `canvasFloatingButton`.
     case toolbarFloatingButton
+    /// A button that floats directly over the canvas, outside any toolbar: the
+    /// Zen exit. It needs its own plate, because nothing else supplies glass
+    /// there.
+    case canvasFloatingButton
     /// NavigationSplitView sidebar and the editor outline column.
     case sidebarColumn
     /// Floating banners, status strips, and the in-canvas audio bar.
@@ -134,11 +152,53 @@ enum AppleGlassChromeMetrics {
 }
 
 extension AppleGlassChromeRole {
+    /// Whether this role draws its own plate here.
+    ///
+    /// A toolbar item is already glass: the system paints the capsule and the
+    /// hit target, and a plate inside it shows as a second capsule. The macOS
+    /// inspector column is already Liquid Glass for the same reason. Both are
+    /// answered here, so no call site has to remember it.
+    var drawsPlate: Bool {
+        switch self {
+        case .toolbarFloatingButton:
+            return false
+        case .inspectorPanel:
+            #if os(macOS)
+            return false
+            #else
+            return true
+            #endif
+        case .segmentedContainer, .iconButton, .bottomBarCapsule, .sidebarColumn, .floatingPanel, .canvasFloatingButton:
+            return true
+        }
+    }
+
+    /// Chrome that floats over canvas content instead of owning a column of
+    /// the window: the two bottom capsules, the in-canvas banners and audio
+    /// bar. A plate over content has to blur that content; a plate over the
+    /// window backdrop has to blur the backdrop. One property answers which,
+    /// so no plate re-decides it on its own.
+    var floatsOverContent: Bool {
+        switch self {
+        case .bottomBarCapsule, .floatingPanel, .canvasFloatingButton:
+            return true
+        case .inspectorPanel, .sidebarColumn, .segmentedContainer, .iconButton, .toolbarFloatingButton:
+            return false
+        }
+    }
+
+    /// Underlay material for the `.light` path. A plate over the canvas gets
+    /// the thicker material, so a node under it stops reading as a sharp
+    /// shape; the columns and in-bar controls keep the thin one.
+    var lightUnderlayMaterial: Material {
+        floatsOverContent ? .thickMaterial : .thinMaterial
+    }
+
     /// Chrome that reads as a horizontal band over the canvas; its bottom
     /// edge fades out instead of ending in a hard cut.
     var fadesBottomEdge: Bool {
         switch self {
-        case .floatingPanel, .segmentedContainer, .bottomBarCapsule:
+        case .floatingPanel, .segmentedContainer, .bottomBarCapsule, .canvasFloatingButton:
             return true
         case .inspectorPanel, .sidebarColumn, .iconButton, .toolbarFloatingButton:
             return false
@@ -152,7 +212,7 @@ extension AppleGlassChromeRole {
             return .sidebar
         case .segmentedContainer, .iconButton, .toolbarFloatingButton:
             return .header
-        case .floatingPanel, .bottomBarCapsule:
+        case .floatingPanel, .bottomBarCapsule, .canvasFloatingButton:
             return .hud
         }
     }
@@ -226,19 +286,11 @@ private struct AppleGlassChromePlate<Content: View>: View {
     }
 
     var body: some View {
-        #if os(macOS)
-        if role == .inspectorPanel {
-            content
-        } else {
+        if role.drawsPlate {
             hosted(content)
-        }
-        #else
-        if role == .toolbarFloatingButton {
-            content
         } else {
-            hosted(content)
+            content
         }
-        #endif
     }
 
     @ViewBuilder
@@ -246,7 +298,7 @@ private struct AppleGlassChromePlate<Content: View>: View {
         switch role {
         case .iconButton:
             plated(inked(view), shape: Circle())
-        case .segmentedContainer, .bottomBarCapsule, .toolbarFloatingButton:
+        case .segmentedContainer, .bottomBarCapsule, .toolbarFloatingButton, .canvasFloatingButton:
             plated(inked(view), shape: Capsule())
         case .inspectorPanel:
             plated(inked(view), shape: RoundedRectangle(cornerRadius: AppleGlassChromeMetrics.panelCornerRadius, style: .continuous))
@@ -268,7 +320,7 @@ private struct AppleGlassChromePlate<Content: View>: View {
             view
         case .iconButton:
             view.symbolRenderingMode(.monochrome).foregroundStyle(.primary)
-        case .toolbarFloatingButton, .segmentedContainer, .bottomBarCapsule:
+        case .toolbarFloatingButton, .segmentedContainer, .bottomBarCapsule, .canvasFloatingButton:
             view.foregroundStyle(.primary)
         }
     }
@@ -304,7 +356,7 @@ private struct AppleGlassChromePlate<Content: View>: View {
             if #available(iOS 26.0, macOS 26.0, *) {
                 GlassEffectContainer(spacing: CGFloat(0)) {
                     view
-                        .background(.thinMaterial, in: shape)
+                        .background(role.lightUnderlayMaterial, in: shape)
                         .glassEffect(
                             .regular.tint(AppleGlassChromeMetrics.lightTint),
                             in: shape
@@ -349,13 +401,29 @@ private struct AppleGlassChromePlate<Content: View>: View {
 
 #if os(macOS)
 extension AppleGlassChromeRole {
+    /// Fallback material. Plates over the canvas are raised to the stronger
+    /// material Apple ships for floating surfaces (`.hudWindow`, `.popover`),
+    /// so text on the plate stays readable while a node passes underneath.
+    /// The columns keep `.sidebar`; in-bar controls keep the window background.
     var fallbackMaterial: NSVisualEffectView.Material {
         switch self {
-        case .bottomBarCapsule, .inspectorPanel, .sidebarColumn, .floatingPanel:
+        case .bottomBarCapsule, .canvasFloatingButton:
+            .hudWindow
+        case .floatingPanel:
+            .popover
+        case .inspectorPanel, .sidebarColumn:
             .sidebar
         case .segmentedContainer, .iconButton, .toolbarFloatingButton:
             .underWindowBackground
         }
+    }
+
+    /// What the plate samples. `behindWindow` reads the desktop behind the
+    /// window, which is why a capsule sitting on canvas nodes looked cut off:
+    /// it neither diffused nor covered them. Only chrome that floats over the
+    /// canvas switches to `.withinWindow`; the columns stay on `.behindWindow`.
+    var fallbackBlendingMode: NSVisualEffectView.BlendingMode {
+        floatsOverContent ? .withinWindow : .behindWindow
     }
 
     /// `.native` scene -> Apple system material.
@@ -383,7 +451,7 @@ extension AppleGlassChromeRole {
             AppleGlassChromeMetrics.sidebarCornerRadius
         case .iconButton:
             22
-        case .segmentedContainer, .bottomBarCapsule, .toolbarFloatingButton:
+        case .segmentedContainer, .bottomBarCapsule, .toolbarFloatingButton, .canvasFloatingButton:
             20
         }
     }
@@ -431,7 +499,7 @@ enum AppleGlassChromePlates {
 
     static func updateVisualEffectView(_ view: NSVisualEffectView, role: AppleGlassChromeRole, cornerRadius: CGFloat) {
         view.material = role.fallbackMaterial
-        view.blendingMode = .behindWindow
+        view.blendingMode = role.fallbackBlendingMode
         view.state = .followsWindowActiveState
         view.wantsLayer = true
         view.layer?.backgroundColor = nil
@@ -470,7 +538,7 @@ private struct AppleGlassChromeVisualPlate: NSViewRepresentable {
 
     func updateNSView(_ view: NSVisualEffectView, context: Context) {
         view.material = role.fallbackMaterial
-        view.blendingMode = .behindWindow
+        view.blendingMode = role.fallbackBlendingMode
         view.layer?.cornerRadius = role.plateCornerRadius
         view.layer?.cornerCurve = .continuous
         view.layer?.backgroundColor = nil

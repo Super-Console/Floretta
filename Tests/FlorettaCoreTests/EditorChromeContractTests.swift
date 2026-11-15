@@ -222,8 +222,10 @@ final class EditorChromeContractTests: XCTestCase {
 
         // Narrow windows: the name truncates, then the divider goes. Nothing
         // overlaps and the status capsule is never pushed off screen.
-        XCTAssertTrue(canvas.contains(".truncationMode(.tail)"))
-        XCTAssertTrue(canvas.contains("EditorStatusBarChrome.canvasTitleMaxWidth"))
+        XCTAssertTrue(canvas.contains(".truncationMode(.middle)"), "the .floretta extension is kept")
+        XCTAssertTrue(canvas.contains("CappedWidthLayout(maxWidth: canvasTitleWidthLimit)"))
+        XCTAssertFalse(canvas.contains(".frame(maxWidth:"), "a flexible frame fills its cap and stretches the capsule")
+        XCTAssertTrue(core.contains("public static func canvasTitleWidthLimit(rowWidth: CGFloat)"))
         XCTAssertTrue(canvas.contains("if showsSheetDivider"))
         XCTAssertTrue(source.contains("EditorBottomBarLayout.showsSheetDivider("))
         XCTAssertTrue(canvas.contains("accessibilityIdentifier(\"canvas.tabs\")"))

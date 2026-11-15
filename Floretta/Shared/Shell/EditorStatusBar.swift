@@ -45,15 +45,18 @@ struct EditorStatusStrip: View {
             }
     }
 
+    /// Three groups, separated by a hairline that owns the gap on both sides.
+    /// The row itself keeps no spacing: `capsuleControlSpacing` is inside a
+    /// group and `capsuleGroupSpacing` is across a divider, and mixing them in
+    /// one `HStack(spacing:)` is what made the groups read as one undivided
+    /// run of icons.
     private var capsule: some View {
-        HStack(spacing: EditorStatusBarChrome.capsuleControlSpacing) {
+        HStack(spacing: 0) {
             censusTrigger
             separator
             zoomMenu
             separator
-            viewModeToggle
-            outlineToggle
-            fullScreenToggle
+            viewControls
         }
         .controlSize(.small)
         .padding(.horizontal, EditorStatusBarChrome.capsuleHorizontalPadding)
@@ -64,11 +67,25 @@ struct EditorStatusStrip: View {
         .accessibilityIdentifier("statusBar.capsule")
     }
 
+    /// The three icon controls, `capsuleControlSpacing` apart.
+    private var viewControls: some View {
+        HStack(spacing: EditorStatusBarChrome.capsuleControlSpacing) {
+            viewModeToggle
+            outlineToggle
+            fullScreenToggle
+        }
+    }
+
     /// A hairline, not a surface: the capsule stays the only glass on the row.
+    /// Its inset is the group gap, so the divider sits in the middle of it.
     private var separator: some View {
         Rectangle()
             .fill(.quaternary)
-            .frame(width: 1, height: 16)
+            .frame(
+                width: EditorStatusBarChrome.capsuleSeparatorWidth,
+                height: EditorStatusBarChrome.capsuleSeparatorHeight
+            )
+            .padding(.horizontal, EditorStatusBarChrome.capsuleSeparatorInset)
             .accessibilityHidden(true)
     }
 
@@ -286,5 +303,38 @@ private struct StatusZoomLabel: View {
     var body: some View {
         Text("\(camera.chrome.zoomPercent)%")
             .monospacedDigit()
+    }
+}
+
+/// The sheet-name slot of the bottom row: the child keeps its natural width
+/// while it fits and truncates inside `maxWidth` once it does not.
+///
+/// A flexible frame cannot express that. `.frame(maxWidth:)` sizes itself to
+/// the proposal up to its cap, so a short name sat in a wide box on the left
+/// and the capsule was stretched to the cap. A `Layout` both proposes the cap
+/// — which is what makes the text truncate — and reports the child's own
+/// width, so the capsule hugs a short name and a long one stays inside the cap.
+struct CappedWidthLayout: Layout {
+    var maxWidth: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let subview = subviews.first else { return .zero }
+        let width = min(proposal.width ?? maxWidth, maxWidth)
+        let size = subview.sizeThatFits(ProposedViewSize(width: width, height: proposal.height))
+        return CGSize(width: min(size.width, maxWidth), height: size.height)
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) {
+        guard let subview = subviews.first else { return }
+        let width = min(bounds.width, maxWidth)
+        subview.place(
+            at: CGPoint(x: bounds.midX - width / 2, y: bounds.minY),
+            proposal: ProposedViewSize(width: width, height: bounds.height)
+        )
     }
 }

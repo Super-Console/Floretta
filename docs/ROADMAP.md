@@ -224,6 +224,14 @@ TD-003 → TD-002 → TD-007 → TD-006 → TD-004 → TD-005。前四条都是�
 - 归档上传：双平台并行归档 66s 双成功、并行上传 132s 双 `Upload succeeded`。ASC 回读：iOS build 23 `VALID`（2026-11-15T08:04:37-08:00）、macOS build 23 `VALID`（08:04:53-08:00）。
 - 未完成（不得写成已交付）：①本轮未做屏幕级验收（助手截图受上下文限制被吞，只有离屏渲染与契约测试背书），观感由 Timmy 在 TestFlight 确认；②键位响应延迟（Tab/Enter 约 0.2s）仅做了代码层怀疑点分析，未跑 profile；③iPhone 设置入口仍待定；④Web 端 TD-008 未开始；⑤「备注」命令仓库内不存在。
 
+### TD-012 iOS 线上闪退：Release 下类型名解析爆栈（2026-11-16 定位）
+
+- 现象：1.0 (23) 在 iPhone/iPad 上打开文档（新建或打开现有）立即闪退。
+- 真实崩溃日志关键行：`EXC_BAD_ACCESS` + `Exception Message: Thread stack size exceeded`，崩溃线程为 `decodeMangledType` 反复递归 → `__swift_instantiateConcreteTypeFromMangledNameV2` → `DocumentEditor.canvasTabBar.getter` ← `bottomBarRow`(694) ← `canvasStack`(676) ← `editorCore`(221)。
+- 根因：`DocumentEditor.canvasTabBar` 的 SwiftUI 视图类型链嵌套过深，Swift 运行时解析巨型泛型 mangled name 时自身递归，把主线程栈打爆。**Release 构建的类型名比 Debug 长，所以只在线上触发**——Debug 模拟器跑同一路径不崩，这也解释了为什么本机没发现。
+- 修法：把该胶囊拆成独立的小 `View` 结构体（`CanvasSheetCapsule` / `CanvasSheetNameLabel`），把 `.alert` 移到父级，切断类型链；并用 **Release 配置**在 iOS 模拟器跑 UI 测试实测确认「点新建不崩」。
+- 教训：凡是把一个巨型视图体内联在 `DocumentEditor` 这种超大 View 里、又叠加大量 modifier 的地方，都可能在 Release 下踩这个坑。验收这类改动必须用 Release 构建，Debug 通过不算数。
+
 ## 功能矩阵
 
 | 功能 | macOS | iPad | iPhone | Web | 证据 |

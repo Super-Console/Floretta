@@ -69,7 +69,15 @@ public enum EditorStatusBarChrome: Sendable {
     /// Smallest gap the row keeps between the two capsules. A narrower window
     /// truncates the sheet name instead of letting the plates touch.
     public static let capsuleGap: CGFloat = 8
-    /// Width the sheet name may claim before it truncates with an ellipsis.
+    /// Share of the bottom row the sheet name may claim before it truncates.
+    /// A window-relative cap keeps both capsules in proportion: a fixed cap
+    /// left a short name stranded in a wide box, and let a wide window's
+    /// capsule eat the row.
+    public static let canvasTitleWidthFraction: CGFloat = 0.30
+    /// Narrowest the sheet name is laid out at. A small window keeps a
+    /// readable name instead of a couple of letters.
+    public static let canvasTitleMinWidth: CGFloat = 120
+    /// Widest the sheet name may claim, however wide the window is.
     public static let canvasTitleMaxWidth: CGFloat = 240
 }
 
@@ -91,6 +99,21 @@ public enum EditorBottomBarLayout {
         let reserved = statusWidth > 0 ? statusWidth + EditorStatusBarChrome.capsuleGap : 0
         let available = rowWidth - EditorStatusBarChrome.horizontalInset * 2 - reserved
         return available >= minimumWidthWithDivider
+    }
+
+    /// Width the sheet name may claim in a row of `rowWidth`:
+    /// `canvasTitleWidthFraction` of the row, clamped to the readability floor
+    /// and the ceiling. The name is laid out at this width and truncates inside
+    /// it, so a 60-character name can neither spill out of the capsule nor
+    /// widen the bottom row. `rowWidth` is the measured bottom row — the same
+    /// measurement the divider rule uses; 0 means "not measured yet".
+    public static func canvasTitleWidthLimit(rowWidth: CGFloat) -> CGFloat {
+        guard rowWidth > 0 else { return EditorStatusBarChrome.canvasTitleMinWidth }
+        let share = rowWidth * EditorStatusBarChrome.canvasTitleWidthFraction
+        return min(
+            max(share, EditorStatusBarChrome.canvasTitleMinWidth),
+            EditorStatusBarChrome.canvasTitleMaxWidth
+        )
     }
 }
 

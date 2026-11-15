@@ -749,26 +749,39 @@ struct DocumentEditor: View {
         )
     }
 
+    /// Width the sheet name may claim on this window. Comes from the measured
+    /// bottom row, so the cap follows the window and no second number is kept
+    /// here.
+    private var canvasTitleWidthLimit: CGFloat {
+        EditorBottomBarLayout.canvasTitleWidthLimit(rowWidth: bottomRowWidth)
+    }
+
     /// XMind's sheet capsule: the current sheet name behind a `▾` menu, then `＋`.
     ///
     /// One capsule instead of a row of tabs. Switching sheets, rename, copy, paste,
     /// duplicate, delete, new sheet, and 画布另存为 all live in the menu, which is
-    /// where XMind puts them too. The capsule is left-aligned and only as wide as
-    /// its content, up to `EditorStatusBarChrome.canvasTitleMaxWidth`, and shares
-    /// the bottom row with the status capsule.
+    /// where XMind puts them too. The capsule is only as wide as its content and
+    /// shares the bottom row with the status capsule.
+    ///
+    /// The name is centred, truncates in the middle so the `.floretta` extension
+    /// survives, and is capped at `EditorBottomBarLayout.canvasTitleWidthLimit`
+    /// — a share of the measured row, not a fixed 240 pt box. A flexible frame
+    /// could not do this: `.frame(maxWidth:)` fills its cap, which stretched the
+    /// capsule even for a short name. `CappedWidthLayout` proposes the cap and
+    /// still reports the name's own width, so the capsule hugs short names and
+    /// a 60-character name stays inside the cap instead of pushing the row out.
     private var canvasTabBar: some View {
         HStack(spacing: 2) {
             Menu {
                 canvasSheetMenu
             } label: {
                 HStack(spacing: 4) {
-                    Text(verbatim: currentCanvasTitle)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .frame(
-                            maxWidth: EditorStatusBarChrome.canvasTitleMaxWidth,
-                            alignment: .leading
-                        )
+                    CappedWidthLayout(maxWidth: canvasTitleWidthLimit) {
+                        Text(verbatim: currentCanvasTitle)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .multilineTextAlignment(.center)
+                    }
                     Image(systemName: "chevron.down")
                         .font(.system(size: 10, weight: .regular))
                         .foregroundStyle(.secondary)

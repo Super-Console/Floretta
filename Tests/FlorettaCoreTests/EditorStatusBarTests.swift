@@ -160,6 +160,8 @@ final class EditorStatusBarTests: XCTestCase {
         XCTAssertEqual(EditorStatusBarChrome.bottomInset, 6)
         XCTAssertEqual(EditorStatusBarChrome.capsuleGap, 8)
         XCTAssertEqual(EditorStatusBarChrome.canvasTitleMaxWidth, 240)
+        XCTAssertEqual(EditorStatusBarChrome.canvasTitleMinWidth, 120)
+        XCTAssertEqual(EditorStatusBarChrome.canvasTitleWidthFraction, 0.30)
         XCTAssertEqual(EditorBottomBarLayout.minimumWidthWithDivider, 200)
 
         XCTAssertTrue(EditorBottomBarLayout.showsSheetDivider(rowWidth: 1200, statusWidth: 320))
@@ -167,6 +169,48 @@ final class EditorStatusBarTests: XCTestCase {
         XCTAssertFalse(EditorBottomBarLayout.showsSheetDivider(rowWidth: 420, statusWidth: 320))
         XCTAssertTrue(EditorBottomBarLayout.showsSheetDivider(rowWidth: 300, statusWidth: 0))
         XCTAssertFalse(EditorBottomBarLayout.showsSheetDivider(rowWidth: 0, statusWidth: 0))
+    }
+
+    /// TD-002 sheet name: centred, middle-truncated, and capped at a share of
+    /// the window instead of a fixed box. The fixture is 60 汉字 plus the
+    /// `.floretta` extension — the name that used to spill out of the capsule
+    /// and widen the bottom row.
+    func testSheetNameIsCentredCappedInTheMiddleAndNeverStretchesTheCapsule() throws {
+        let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let bar = try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift")
+        let canvas = try slice(editor, from: "private var canvasTabBar", until: "private var currentCanvasIndex")
+
+        // Centred, middle-truncated name inside the capped slot.
+        XCTAssertTrue(canvas.contains(".multilineTextAlignment(.center)"))
+        XCTAssertTrue(canvas.contains(".truncationMode(.middle)"))
+        XCTAssertTrue(canvas.contains("CappedWidthLayout(maxWidth: canvasTitleWidthLimit)"))
+        XCTAssertFalse(canvas.contains("alignment: .leading"), "a leading frame left the name off-centre in a wide box")
+        XCTAssertFalse(canvas.contains(".frame(maxWidth:"), "a flexible frame fills its cap and stretches the capsule")
+        XCTAssertTrue(bar.contains("struct CappedWidthLayout: Layout"))
+        XCTAssertTrue(bar.contains("subview.sizeThatFits"))
+        XCTAssertTrue(bar.contains("bounds.midX - width / 2"), "the slot centres its child")
+
+        // The cap follows the window: 30% of the measured row, floor 120,
+        // ceiling 240, and the floor while the row has not been measured.
+        let longName = String(repeating: "长", count: 60) + ".floretta"
+        XCTAssertEqual(longName.count, 69)
+        XCTAssertEqual(EditorBottomBarLayout.canvasTitleWidthLimit(rowWidth: 2000), 240, accuracy: 0.001)
+        XCTAssertEqual(EditorBottomBarLayout.canvasTitleWidthLimit(rowWidth: 1200), 240, accuracy: 0.001)
+        XCTAssertEqual(EditorBottomBarLayout.canvasTitleWidthLimit(rowWidth: 700), 210, accuracy: 0.001)
+        XCTAssertEqual(EditorBottomBarLayout.canvasTitleWidthLimit(rowWidth: 400), 120, accuracy: 0.001)
+        XCTAssertEqual(EditorBottomBarLayout.canvasTitleWidthLimit(rowWidth: 200), 120, accuracy: 0.001)
+        XCTAssertEqual(EditorBottomBarLayout.canvasTitleWidthLimit(rowWidth: 0), 120, accuracy: 0.001)
+
+        // A CJK glyph advances one em at `chromeFontSize`, so 69 characters need
+        // at least 897 pt: the long name always truncates, whatever the window.
+        let naturalWidth = CGFloat(longName.count) * EditorStatusBarChrome.chromeFontSize
+        for rowWidth in [600.0, 900.0, 1400.0, 2200.0] as [CGFloat] {
+            let limit = EditorBottomBarLayout.canvasTitleWidthLimit(rowWidth: rowWidth)
+            XCTAssertLessThan(limit, naturalWidth, "the long name is truncated, never laid out in full")
+            XCTAssertLessThanOrEqual(limit, EditorStatusBarChrome.canvasTitleMaxWidth)
+            XCTAssertGreaterThanOrEqual(limit, EditorStatusBarChrome.canvasTitleMinWidth)
+            XCTAssertLessThanOrEqual(limit, rowWidth * EditorStatusBarChrome.canvasTitleWidthFraction + 0.001)
+        }
     }
 
     private func repoFile(_ relative: String) throws -> String {

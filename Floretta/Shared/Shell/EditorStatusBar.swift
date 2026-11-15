@@ -288,3 +288,36 @@ private struct StatusZoomLabel: View {
             .monospacedDigit()
     }
 }
+
+/// The sheet-name slot of the bottom row: the child keeps its natural width
+/// while it fits and truncates inside `maxWidth` once it does not.
+///
+/// A flexible frame cannot express that. `.frame(maxWidth:)` sizes itself to
+/// the proposal up to its cap, so a short name sat in a wide box on the left
+/// and the capsule was stretched to the cap. A `Layout` both proposes the cap
+/// — which is what makes the text truncate — and reports the child's own
+/// width, so the capsule hugs a short name and a long one stays inside the cap.
+struct CappedWidthLayout: Layout {
+    var maxWidth: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let subview = subviews.first else { return .zero }
+        let width = min(proposal.width ?? maxWidth, maxWidth)
+        let size = subview.sizeThatFits(ProposedViewSize(width: width, height: proposal.height))
+        return CGSize(width: min(size.width, maxWidth), height: size.height)
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) {
+        guard let subview = subviews.first else { return }
+        let width = min(bounds.width, maxWidth)
+        subview.place(
+            at: CGPoint(x: bounds.midX - width / 2, y: bounds.minY),
+            proposal: ProposedViewSize(width: width, height: bounds.height)
+        )
+    }
+}

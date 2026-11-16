@@ -245,6 +245,14 @@ TD-003 → TD-002 → TD-007 → TD-006 → TD-004 → TD-005。前四条都是�
 - 工作区清理（Timmy 2026-11-16 授权，全部移至废纸篓可恢复）：18 个已合并工作树 → `~/.Trash/floretta-worktrees-20261116-014059/`；UI 测试残留的测试文档与快照（未命名 10–19 及 `.snapshots`）+ `ui-polish-14-ui-test` 缓存 → `~/.Trash/floretta-cleanup-*`。保留 `floretta`、`floretta-wt/integration` 与 6 个历史 `.worktrees/*`。
 - 仍未完成：① 键位延迟未解决（见上）；② 观感一律由 Timmy 在 TestFlight 验收，助手不做截图/CUA 验收；③ 「备注」命令仓库内不存在；④ Web 端 TD-008 未开始；⑤ iPhone 设置入口已按新形态重做，但真机体验待验。
 
+### 交付记录：1.0 (25) → TestFlight（2026-11-16）
+
+- main 末尾 `1ed5621`。合并：`fix/macfix`（检查器滚动、原生控件替自绘渐隐、大纲动画、文件名居中、菜单去重）→ `fix/iosfix`（设置齿轮移到 ⋯ 左侧、底栏原生控件、返回单层、文件名胶囊、主题 popover、大纲与沉浸修复），合并冲突由专人在 `a76582b` 语义合并（渐隐彻底删除、原生控件优先）。
+- 闸门：`swift test` 565 项 / 1 skipped / 0 failures；macOS 与 iOS Debug 编译 exit 0。
+- 上传：双平台并行归档 66s、并行上传 120s，均 `Upload succeeded`。ASC 回读：iOS 与 macOS build 25 均 `VALID`（2026-11-15T20:59:51-08:00）。
+- 已知语义取舍：大纲面板动画不再仅限 iOS（macOS 也动画）；大纲表头按钮改用系统 `.glass` 按钮样式；iOS 的一处动画断言改为对齐 `ChromeMotion` 常量，断言意图未削。
+- 仍未收口：键位延迟的 ~170ms 地板未解决（需 Instruments）；Web 端 TD-008 未开始；观感一律由 Timmy 验收。
+
 ## 功能矩阵
 
 | 功能 | macOS | iPad | iPhone | Web | 证据 |

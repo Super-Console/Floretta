@@ -328,7 +328,10 @@ final class AppleGlassChromeContractTests: XCTestCase {
         let empty = try slice(editor, from: "text(\"选择一个主题\")", until: "accessibilityIdentifier(\"inspector.empty\")")
         XCTAssertTrue(empty.contains(".appleGlassChrome(.iconButton)"))
         XCTAssertTrue(empty.contains("inspector.empty.brush"))
-        XCTAssertTrue(empty.contains(".frame(maxWidth: .infinity, maxHeight: .infinity)"), "empty content fills the shared page area instead of constraining the header")
+        XCTAssertTrue(
+            empty.contains(".frame(maxWidth: .infinity, minHeight: 180)"),
+            "the empty state is a row of the style page's one form, so it fills the width and keeps a readable height instead of owning a second scroll view"
+        )
 
         // Zen exit is hidden by default and floats out only after a canvas tap;
         // the immersive canvas must not have a persistent chrome button.
@@ -433,12 +436,14 @@ final class AppleGlassChromeContractTests: XCTestCase {
 
     func testInspectorFormsKeepNativeControls() throws {
         let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
-        let style = try slice(editor, from: "private var appearanceForm", until: "private var shape:")
+        let style = try slice(editor, from: "private var appearanceSections", until: "private var shape:")
         XCTAssertTrue(style.contains("Slider("))
         XCTAssertTrue(style.contains("ColorPicker("))
         XCTAssertTrue(style.contains("Toggle("))
-        XCTAssertTrue(style.contains(".formStyle(.grouped)"))
-        XCTAssertTrue(style.contains(".appleGlassInspectorFormPlate()"))
+        // These are sections of the style page's one form: a nested form here
+        // would be a second scroll view in the same column.
+        XCTAssertFalse(style.contains("Form {"), "the node groups are sections, not a second scroll view")
+        XCTAssertTrue(style.contains(".inspectorRowBlock()"))
         XCTAssertFalse(style.contains(".blur("))
         XCTAssertFalse(style.contains("glassEffect"))
     }

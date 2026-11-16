@@ -113,7 +113,7 @@ final class EditorChromeContractTests: XCTestCase {
         XCTAssertTrue(bar.contains("status.popover.words"))
         XCTAssertTrue(bar.contains("status.popover.characters"))
         XCTAssertTrue(bar.contains("TopicTitleCensus"))
-        let inspector = try slice(source, from: "private var documentInfo", until: "private var relationshipLabelForm")
+        let inspector = try slice(source, from: "private var documentInfo", until: "private var relationshipLabelSection")
         XCTAssertFalse(inspector.contains("字数"))
         XCTAssertFalse(inspector.contains("字符数"))
         let editor = try repoFile("Floretta/Shared/Keyboard/NodeTextEditor.swift")

@@ -31,14 +31,21 @@ final class InspectorPanelGlassTests: XCTestCase {
 
         let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         let panel = try repoFile("Floretta/Shared/Shell/AppearanceSettingsPanel.swift")
-        XCTAssertGreaterThanOrEqual(
-            editor.components(separatedBy: ".appleGlassInspectorFormPlate()").count - 1,
-            7,
-            "every inspector form asks for the plate"
-        )
+        // One form per inspector page: the style page owns a single scroll
+        // container, and the selection-scope groups are sections of it. Two
+        // stacked forms split the column height and neither one scrolls, which
+        // is the panel bug this pins shut.
+        let style = try slice(editor, from: "private var stylePage", until: "private var inspectorStructureSection")
+        XCTAssertEqual(style.components(separatedBy: "Form {").count - 1, 1, "one scroll container for the whole style page")
+        XCTAssertTrue(style.contains(".appleGlassInspectorFormPlate()"), "that one form lets the panel glass through")
+
+        let selection = try slice(editor, from: "private var inspectorSelectionSections", until: "private var documentInfo")
+        XCTAssertFalse(selection.contains("Form {"), "the selection groups are sections, never a second scroll view")
+
         // 专区 was the one inspector form that still painted its own background.
-        let region = try slice(editor, from: "private var regionStyleForm", until: "private var regionDraftToken")
-        XCTAssertTrue(region.contains(".appleGlassInspectorFormPlate()"))
+        let region = try slice(editor, from: "private var regionStyleSection", until: "private var regionDraftToken")
+        XCTAssertFalse(region.contains("Form {"), "the 专区 rows are sections of the page form")
+        XCTAssertTrue(region.contains(".inspectorRowBlock()"))
         XCTAssertFalse(panel.contains("scrollContentBackground"), "the shared panel leaves the plate to its inspector host")
     }
 
@@ -75,8 +82,15 @@ final class InspectorPanelGlassTests: XCTestCase {
         let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         let panel = try repoFile("Floretta/Shared/Shell/AppearanceSettingsPanel.swift")
 
-        XCTAssertGreaterThanOrEqual(editor.components(separatedBy: ".formStyle(.grouped)").count - 1, 7)
-        XCTAssertGreaterThanOrEqual(editor.components(separatedBy: "Form {").count - 1, 7, "the inspector keeps the grouped form, not a hand-laid list")
+        // Every form in this file is a grouped form, and the style page keeps
+        // exactly one of them (one scroll container per page).
+        let forms = editor.components(separatedBy: "Form {").count - 1
+        XCTAssertGreaterThanOrEqual(forms, 3)
+        XCTAssertEqual(
+            editor.components(separatedBy: ".formStyle(.grouped)").count - 1,
+            forms,
+            "every form in the editor is the grouped form"
+        )
         XCTAssertFalse(editor.contains(".listStyle("), "no hand-tuned list style replaced the grouped form")
         XCTAssertTrue(panel.contains(".chromeTypography(language: settings.language)"), "the panel keeps the chrome face rule")
         XCTAssertFalse(panel.contains(".font(.system(size:"), "row blocks do not change the 13 pt chrome type")

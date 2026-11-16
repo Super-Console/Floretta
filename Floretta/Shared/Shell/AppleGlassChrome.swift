@@ -627,3 +627,30 @@ private struct AppleGlassChromeNativePlate: UIViewRepresentable {
     }
 }
 #endif
+
+/// Apple's own motion, for chrome feedback, in one place — and the one place
+/// that honours Reduce Motion.
+///
+/// Nothing here invents a curve: `.snappy` and `.smooth` are the system
+/// animations, every duration stays well under 0.35 s, and nothing is drawn to
+/// fake a transition. A control that changes state gets the system's press
+/// feedback from its own button style; this enum only decides the curve for the
+/// surfaces this file's chrome hosts (a panel appearing, an inspector page
+/// switching, a symbol replacing another).
+///
+/// Reduce Motion: `resolved` returns `nil`, and both `withAnimation(nil)` and
+/// `.animation(nil, value:)` apply the change with no animation at all. Passing
+/// the environment value through this function is the whole rule, so no call
+/// site branches on the setting itself.
+enum ChromeMotion {
+    /// A panel appearing or a page switching: short and springless enough that
+    /// a 300 pt column does not appear to slide on its own.
+    static let panel: Animation = .snappy(duration: 0.24)
+    /// A control changing state where no surface moves.
+    static let control: Animation = .smooth(duration: 0.18)
+
+    /// The animation to use, or `nil` when the reader asked for Reduce Motion.
+    static func resolved(_ animation: Animation, reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : animation
+    }
+}

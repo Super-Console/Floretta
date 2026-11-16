@@ -54,6 +54,9 @@ struct DocumentEditor: View {
     @State private var showThemes = false
     @State private var showHistory = false
     @Environment(\.colorScheme) private var colorScheme
+    /// Every animation in this view goes through `ChromeMotion.resolved`, so a
+    /// reader with Reduce Motion gets the change with no curve at all.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     #endif
@@ -654,13 +657,21 @@ struct DocumentEditor: View {
             // what made it read as a solid grey plate. One plate only: this
             // modifier, plus `OutlineView` hiding its list's scroll
             // background, so no second material is stacked on the glass.
+            //
+            // It arrives and leaves with the system's own motion: a short
+            // `.snappy` move from the leading edge plus a fade. The animation is
+            // attached to `showOutline` alone, so nothing in the canvas
+            // animates when the panel opens (the canvas frame does not change),
+            // and Reduce Motion drops the curve to nil.
             if showOutline, session.zen.chrome.showsSidebar {
                 outlinePanel
                     .frame(width: outlineWide ? nil : 300)
                     .frame(maxWidth: outlineWide ? .infinity : 300, maxHeight: .infinity)
                     .appleGlassChrome(.sidebarColumn)
+                    .transition(.move(edge: .leading).combined(with: .opacity))
             }
         }
+        .animation(ChromeMotion.resolved(ChromeMotion.panel, reduceMotion: reduceMotion), value: showOutline)
         .overlay(alignment: .top) {
             if !session.zen.isActive {
                 VStack(spacing: 8) {
@@ -1110,21 +1121,34 @@ struct DocumentEditor: View {
             HStack {
                 Text(verbatim: text("大纲")).font(.headline)
                 Spacer()
+                // Apple's glass button, the same surface the window toolbar puts
+                // behind its own icons: the system draws the capsule, the press
+                // feedback and the hover state. No plate of our own is stacked
+                // inside it, and the glyph swaps with the system's replace
+                // transition instead of hard-cutting.
                 Button {
                     outlineWide.toggle()
                 } label: {
-                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                    Image(systemName: outlineWide ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                        .contentTransition(.symbolEffect(.replace))
+                        .frame(width: 16, height: 16)
                 }
+                .buttonStyle(.glass)
+                .controlSize(.small)
                 .explained("让大纲占满或恢复原来的宽度")
-                .appleGlassChrome(.iconButton)
+                .accessibilityIdentifier("outline.wide")
                 Button {
                     showOutline = false
                 } label: {
                     Image(systemName: "xmark")
+                        .frame(width: 16, height: 16)
                 }
+                .buttonStyle(.glass)
+                .controlSize(.small)
                 .explained("关闭大纲")
-                .appleGlassChrome(.iconButton)
+                .accessibilityIdentifier("outline.close")
             }
+            .animation(ChromeMotion.resolved(ChromeMotion.control, reduceMotion: reduceMotion), value: outlineWide)
             .padding(12)
             if session.isMarkdownDocument {
                 Text(verbatim: text(MarkdownModePolicy.reason(.collapse)))
@@ -1886,6 +1910,12 @@ struct DocumentEditor: View {
         // toolbar controls over the canvas. Keep the native Picker in a stable,
         // top-anchored inset; only the page below is flexible and scrollable.
         inspectorTabPage
+            // 样式 ⇄ 导图 is a page swap, not a slide: the system's short
+            // `.snappy` curve on an opacity cross-fade. Only the page fades —
+            // the header lives in the inset below, so the shared toolbar
+            // controls never move. Reduce Motion resolves the curve to nil.
+            .transition(.opacity)
+            .animation(ChromeMotion.resolved(ChromeMotion.panel, reduceMotion: reduceMotion), value: inspectorTab)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .safeAreaInset(edge: .top, spacing: 12) {
                 inspectorHeader

@@ -432,6 +432,48 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertFalse(leading.contains("ultraThinMaterial"))
     }
 
+    /// Chrome moves with Apple's own motion, and Reduce Motion turns it off.
+    /// Every animation in the editor asks `ChromeMotion`, so no call site can
+    /// quietly ship a hand-written curve, a long duration, or a canvas
+    /// animation.
+    func testChromeMotionIsSystemAnimationAndHonoursReduceMotion() throws {
+        let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
+        let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+
+        let motion = try slice(glass, from: "enum ChromeMotion", until: "static func resolved")
+        XCTAssertTrue(motion.contains(".snappy(duration: 0.24)"), "the panel curve is the system snappy one")
+        XCTAssertTrue(motion.contains(".smooth(duration: 0.18)"), "control feedback is the system smooth one")
+        XCTAssertFalse(motion.contains(".linear("), "no hand-tuned curve")
+        XCTAssertFalse(motion.contains(".timingCurve"), "no hand-tuned curve")
+        for duration in [0.24, 0.18] {
+            XCTAssertLessThan(duration, 0.35, "chrome animation stays under 0.35 s")
+        }
+        XCTAssertTrue(
+            glass.contains("reduceMotion ? nil : animation"),
+            "Reduce Motion is decided in one function, not at each call site"
+        )
+
+        // The outline panel arrives from its own edge and fades, and the value
+        // that drives it is the panel flag alone, so the canvas does not animate.
+        let stack = try slice(editor, from: "private var canvasStack", until: "private var bottomBarRow")
+        XCTAssertTrue(stack.contains(".transition(.move(edge: .leading).combined(with: .opacity))"))
+        XCTAssertTrue(
+            stack.contains(".animation(ChromeMotion.resolved(ChromeMotion.panel, reduceMotion: reduceMotion), value: showOutline)"),
+            "one value drives the panel transition"
+        )
+        XCTAssertFalse(stack.contains("withAnimation"), "no animation wraps a canvas redraw")
+
+        // The inspector page cross-fades; the header stays in its inset.
+        let inspector = try slice(editor, from: "private var inspectorBody", until: "private var inspectorHeader")
+        XCTAssertTrue(inspector.contains(".transition(.opacity)"))
+        XCTAssertTrue(inspector.contains("ChromeMotion.resolved(ChromeMotion.panel, reduceMotion: reduceMotion), value: inspectorTab"))
+
+        // Nothing in this file animates on a literal curve.
+        XCTAssertFalse(editor.contains(".animation(.easeIn"), "curves come from ChromeMotion")
+        XCTAssertFalse(editor.contains(".animation(.linear("), "curves come from ChromeMotion")
+        XCTAssertFalse(editor.contains(".animation(.spring("), "curves come from ChromeMotion")
+    }
+
     func testInspectorFormsKeepNativeControls() throws {
         let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         let style = try slice(editor, from: "private var appearanceSections", until: "private var shape:")

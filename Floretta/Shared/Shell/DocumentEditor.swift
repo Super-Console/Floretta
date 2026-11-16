@@ -1006,8 +1006,28 @@ struct DocumentEditor: View {
         var title: String
         var titleWidthLimit: CGFloat
 
+        /// Width of the `▾` slot. The glyph is drawn inside it, and an empty
+        /// slot of the same width leads the name, so the two balance.
+        private static let chevronSlot: CGFloat = 10
+
         var body: some View {
+            // The name is centred on the label's own centre line, not on a box
+            // that the chevron pushes to the left.
+            //
+            // The chevron used to be a plain member of this `HStack`, so it took
+            // ~10 pt of the label's width on the trailing side only: a short name
+            // like 测试 then sat roughly 7 pt left of the label's centre, which is
+            // exactly what reads as "偏左" in the capsule. Mirroring the glyph
+            // with an empty slot of the same width — and using one horizontal
+            // padding instead of 12 / 10 — makes the name's centre the label's
+            // centre:
+            //   12 + slot + 4 + name + 4 + slot + 12
+            // so the text's midpoint is at half the label's width. The glyph
+            // still reads as trailing because the leading slot carries no ink.
             HStack(spacing: 4) {
+                Color.clear
+                    .frame(width: Self.chevronSlot, height: 1)
+                    .accessibilityHidden(true)
                 CappedWidthLayout(maxWidth: titleWidthLimit) {
                     Text(verbatim: title)
                         .lineLimit(1)
@@ -1017,9 +1037,9 @@ struct DocumentEditor: View {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 10, weight: .regular))
                     .foregroundStyle(.secondary)
+                    .frame(width: Self.chevronSlot)
             }
-            .padding(.leading, 12)
-            .padding(.trailing, 10)
+            .padding(.horizontal, 12)
             .frame(minHeight: EditorStatusBarChrome.controlMinHeight)
             .contentShape(Rectangle())
         }

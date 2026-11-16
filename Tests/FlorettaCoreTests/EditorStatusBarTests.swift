@@ -194,6 +194,18 @@ final class EditorStatusBarTests: XCTestCase {
         XCTAssertTrue(canvas.contains("CappedWidthLayout(maxWidth: titleWidthLimit)"))
         XCTAssertFalse(canvas.contains("alignment: .leading"), "a leading frame left the name off-centre in a wide box")
         XCTAssertFalse(canvas.contains(".frame(maxWidth:"), "a flexible frame fills its cap and stretches the capsule")
+        // Truly centred in its own label box: the ▾ glyph gets a fixed slot and
+        // an empty slot of the same width leads the name, so the text's midpoint
+        // is the label's midpoint. Without the leading slot the glyph took ~10 pt
+        // on the trailing side only and pushed a short name left — the "偏左"
+        // that showed in the capsule. One horizontal padding, not 12 / 10.
+        let label = try slice(editor, from: "private struct CanvasSheetNameLabel", until: "private var currentCanvasIndex")
+        XCTAssertTrue(label.contains("frame(width: Self.chevronSlot, height: 1)"), "an empty slot balances the glyph")
+        XCTAssertTrue(label.contains(".frame(width: Self.chevronSlot)"), "the glyph sits in its own slot of the same width")
+        XCTAssertTrue(label.contains(".padding(.horizontal, 12)"), "one horizontal padding")
+        XCTAssertFalse(label.contains(".padding(.leading, 12)"), "asymmetric padding left the name off centre")
+        XCTAssertFalse(label.contains(".padding(.trailing, 10)"), "asymmetric padding left the name off centre")
+
         XCTAssertTrue(bar.contains("struct CappedWidthLayout: Layout"))
         XCTAssertTrue(bar.contains("subview.sizeThatFits"))
         XCTAssertTrue(bar.contains("bounds.midX - width / 2"), "the slot centres its child")

@@ -210,30 +210,11 @@ struct DocumentEditor: View {
         }
     }
 
-    /// The one leading system capsule: 返回, the document name, and the name's
-    /// counterpart on the trailing side.
-    ///
-    /// The bar draws one symmetric plate around this item, so the name reads as
-    /// centred exactly when its own slot is centred in this `HStack`. A plain
-    /// `[返回][名]` row is not centred: the back control takes its width on the
-    /// leading side only, so the name's midpoint sits right of the plate's
-    /// midpoint by that control plus the gap — the "标题偏右" report that has
-    /// come back three times. Padding the name on the trailing side with the
-    /// *same control*, stripped of ink, hit testing, and accessibility, gives
-    ///
-    ///     返回 + 8 + 名 + 8 + 返回(空)
-    ///
-    /// so the name's slot — and the text in it — keeps the plate's centre. The
-    /// mirror is the control itself, not a guessed 28 pt box, so it stays exact
-    /// if the bar's button metrics change. The plate grows by exactly that one
-    /// control and its gap: with the arrow inside the same plate, symmetric
-    /// whitespace *is* the fix, and the trailing side has to hold as much room
-    /// as the leading side holds. The height, the back control's hit area, and
-    /// every other toolbar item are untouched.
-    ///
-    /// The name is capped at `canvasTitleMaxWidth` and truncates in the middle,
-    /// so a 60-character name keeps the `.floretta` extension and can neither
-    /// widen the plate nor crowd the trailing items.
+    /// The leading navigation capsule hugs its two controls. A former invisible
+    /// copy of the back button balanced the title, but also added a full button
+    /// and gap to every capsule — especially visible beside a short filename.
+    /// The title stays capped and middle-truncated so long filenames cannot
+    /// grow the item without bound or lose the `.floretta` extension.
     private struct DocumentTitleCapsule: View {
         var title: String
         var titleWidthLimit: CGFloat
@@ -262,7 +243,6 @@ struct DocumentEditor: View {
                 .accessibilityLabel(Text(verbatim: title))
                 .accessibilityHint(Text(verbatim: renameHint))
                 .accessibilityIdentifier("document.title")
-                backSlot
             }
         }
 
@@ -275,18 +255,6 @@ struct DocumentEditor: View {
             .accessibilityLabel(Text(verbatim: backLabel))
             .accessibilityIdentifier("basicChain.back")
             .help(Text(verbatim: backHint))
-        }
-
-        /// The same control with no ink: width only. Nothing to click, nothing
-        /// for VoiceOver or XCUITest to find. It exists so the name's slot is
-        /// symmetric in the plate.
-        private var backSlot: some View {
-            Button(action: {}) {
-                Image(systemName: "chevron.backward")
-            }
-            .opacity(0)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
         }
     }
 

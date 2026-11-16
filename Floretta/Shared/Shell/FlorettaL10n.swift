@@ -41,6 +41,54 @@ enum FlorettaL10n {
     /// development language, matching the Xcode project.
     static let availableLocalizations = ["en", "zh-Hans"]
 
+    /// `Localizable.xcstrings` lookups are pure functions of the key, the
+    /// localization and the bundle, but each call used to redo
+    /// `Bundle.preferredLocalizations` (ICU), `Bundle(path:)` for the `.lproj`
+    /// and a table parse. A toolbar row asks for its title on every key press:
+    /// xctrace put 4.9 % of the main thread's CPU in `FlorettaL10n.string`, and
+    /// the answer can only change when the language does. Each table and each
+    /// string is therefore resolved once per language.
+    private static let lookups = LookupCache()
+
+    private final class LookupCache: @unchecked Sendable {
+        /// A box, so a cached "no table" or "no entry" answer stays cached.
+        /// Assigning `nil` to an `Optional` value would delete the entry and
+        /// make every miss do the bundle work again.
+        private struct Box<T> { var value: T? }
+
+        private let lock = NSLock()
+        private var identifiers: [String: String] = [:]
+        private var bundles: [String: Box<Bundle>] = [:]
+        private var strings: [String: Box<String>] = [:]
+
+        func identifier(for key: String, _ build: () -> String) -> String {
+            lock.lock()
+            defer { lock.unlock() }
+            if let hit = identifiers[key] { return hit }
+            let value = build()
+            identifiers[key] = value
+            return value
+        }
+
+        func bundle(for key: String, _ build: () -> Bundle?) -> Bundle? {
+            lock.lock()
+            defer { lock.unlock() }
+            if let hit = bundles[key] { return hit.value }
+            let value = build()
+            bundles[key] = Box(value: value)
+            return value
+        }
+
+        func string(for key: String, _ build: () -> String?) -> String? {
+            lock.lock()
+            defer { lock.unlock() }
+            if let hit = strings[key] { return hit.value }
+            let value = build()
+            strings[key] = Box(value: value)
+            return value
+        }
+    }
+
     static let english: [String: String] = [
         "最近": "Recent",
         "项目": "Projects",
@@ -498,6 +546,15 @@ enum FlorettaL10n {
         for language: AppLanguage,
         preferences: [String] = Locale.preferredLanguages
     ) -> String {
+        lookups.identifier(for: language.rawValue + "|" + preferences.joined(separator: ",")) {
+            computeLocalizationIdentifier(for: language, preferences: preferences)
+        }
+    }
+
+    private static func computeLocalizationIdentifier(
+        for language: AppLanguage,
+        preferences: [String]
+    ) -> String {
         switch language {
         case .english:
             return "en"
@@ -666,14 +723,19 @@ enum FlorettaL10n {
     /// Same table `String(localized:locale:)` reads from the compiled catalog.
     /// A missing English entry falls through to the in-memory copy so the setting still applies.
     private static func bundledString(_ key: String, localization: String, bundle: Bundle) -> String? {
-        guard let path = bundle.path(forResource: localization, ofType: "lproj"),
-              let table = Bundle(path: path) else { return nil }
-        let missing = "\u{0}"
-        let value = table.localizedString(forKey: key, value: missing, table: "Localizable")
-        if value == missing { return nil }
-        if localization == "en", value == key, let translated = english[key], translated != key {
-            return nil
+        let scope = localization + "|" + bundle.bundlePath
+        guard let table = lookups.bundle(for: scope, {
+            guard let path = bundle.path(forResource: localization, ofType: "lproj") else { return nil }
+            return Bundle(path: path)
+        }) else { return nil }
+        return lookups.string(for: scope + "|" + key) {
+            let missing = "\u{0}"
+            let value = table.localizedString(forKey: key, value: missing, table: "Localizable")
+            if value == missing { return nil }
+            if localization == "en", value == key, let translated = english[key], translated != key {
+                return nil
+            }
+            return value
         }
-        return value
     }
 }

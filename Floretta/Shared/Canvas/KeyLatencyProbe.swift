@@ -592,9 +592,12 @@ enum KeyLatencyDriver {
             return
         }
         window = found
+        // Move the probe window before making it key. The toolbar benchmark is
+        // run on the secondary display so activating the window never flashes
+        // its initial frame over the user's primary display.
+        placeWindow(found)
         NSApp.activate(ignoringOtherApps: true)
         found.makeKeyAndOrderFront(nil)
-        placeWindow(found)
         gapSampler = RunLoopGapSampler()
         gapSampler?.start()
         diagnostics["windowIsKey"] = found.isKeyWindow

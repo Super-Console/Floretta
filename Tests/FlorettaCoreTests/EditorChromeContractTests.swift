@@ -29,7 +29,7 @@ final class EditorChromeContractTests: XCTestCase {
         )
         XCTAssertTrue(leading.contains("ToolbarItem(id: \"document.navigation\", placement: .navigation)"), "back and title share the leading navigation slot")
         XCTAssertTrue(leading.contains("DocumentTitleCapsule("), "the one item draws the capsule type")
-        XCTAssertTrue(leading.contains("title: documentTitle"))
+        XCTAssertTrue(leading.contains("title: macToolbarSnapshot.documentTitle"))
         XCTAssertTrue(leading.contains("onBack: onClose"))
         XCTAssertFalse(leading.contains("HStack"), "the row lives in the capsule type: one item, one plate")
 
@@ -216,9 +216,24 @@ final class EditorChromeContractTests: XCTestCase {
         let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         let toolbar = try slice(source, from: ".toolbar(id: \"floretta.editor\")", until: ".toolbarBackground(.hidden, for: .windowToolbar)")
         let title = try XCTUnwrap(toolbar.range(of: "macToolbarItemsLeading"))
-        let conditional = try XCTUnwrap(toolbar.range(of: "if session.zen.chrome.showsToolbar"))
+        let conditional = try XCTUnwrap(toolbar.range(of: "if macToolbarSnapshot.showsToolbar"))
 
         XCTAssertLessThan(title.lowerBound, conditional.lowerBound, "back and title stay installed regardless of editor selection/focus chrome")
+    }
+
+    func testMacToolbarSnapshotAndEditorHostingDoNotCarrySelectionIdentity() throws {
+        let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let snapshot = try slice(source, from: "private struct MacToolbarSnapshot", until: "/// Canvas and inspector live in their own SwiftUI graph.")
+        let host = try slice(source, from: "private struct MacEditorContentHost", until: "private struct MacEditorContent:")
+
+        XCTAssertTrue(snapshot.contains("EditorToolbarContext"))
+        XCTAssertTrue(snapshot.contains("documentTitle"))
+        XCTAssertTrue(snapshot.contains("showsToolbar"))
+        XCTAssertFalse(snapshot.contains("selectedNodeID"), "selection identity must not invalidate the outer toolbar graph")
+        XCTAssertTrue(host.contains("NSViewRepresentable"))
+        XCTAssertTrue(host.contains("NSHostingView<AnyView>"))
+        XCTAssertTrue(host.contains("MacEditorContent(editor: editor"))
+        XCTAssertTrue(source.contains("onChange(of: liveToolbarSnapshot, initial: true)"))
     }
 
     /// Window chrome is corrected once, from attachment and representable

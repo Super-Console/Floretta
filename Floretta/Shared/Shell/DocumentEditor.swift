@@ -16,6 +16,12 @@ private enum RegionMetric: Hashable {
     case stroke
 }
 
+private enum FlorettaExportPurpose {
+    case standard
+    case duplicate
+    case saveAs
+}
+
 struct DocumentEditor: View {
     @Bindable var session: EditorSession
     @Bindable var settings: AppSettings
@@ -26,11 +32,14 @@ struct DocumentEditor: View {
     var onEdit: (MindMapDocument) -> Void
     var onImport: () -> Void
     var onSavedCopy: (URL) -> Void = { _ in }
+    var onDuplicatedCopy: (URL) -> Void = { _ in }
+    var onSavedAs: (URL) -> Void = { _ in }
     var onMarkdownUpgrade: (URL, MarkdownUpgradeChoice) -> Void = { _, _ in }
     var thumbnailCache: ThumbnailFileCache? = nil
 
     @State private var showExport = false
     @State private var exportKind = ""
+    @State private var florettaExportPurpose = FlorettaExportPurpose.standard
     @State private var exportFile = ExportFile(data: Data())
     @State private var exportType: UTType = .png
     @State private var exportName = "Floretta"
@@ -648,11 +657,10 @@ struct DocumentEditor: View {
             ) { result in
                 switch result {
                 case .success(let url):
-                    if exportKind == "floretta" {
-                        onSavedCopy(url)
-                    }
+                    finishFlorettaExport(at: url)
                 case .failure(let error):
                     exportError = error.localizedDescription
+                    florettaExportPurpose = .standard
                 }
             }
             .fileExporter(
@@ -1529,12 +1537,16 @@ struct DocumentEditor: View {
         let ids: [EditorToolbarCommandID] = [
             .child, .sibling, .freeNode, .sticky, .image, .attachment,
             .summary, .boundary, .region, .outline, .fit, .mapMode, .focusMode,
-            .immersive, .style, .theme, .about, .find, .png, .pdf, .markdownExport, .textBundle, .saveFloretta, .xmind
+            .immersive, .style, .theme, .about, .find, .png, .pdf, .markdownExport, .textBundle,
+            .saveFloretta, .upgrade, .mm, .opml, .xmind, .importFile, .printMap
         ]
         var actions = FlorettaEditorMenuActions(
             perform: Dictionary(uniqueKeysWithValues: ids.map { id in (id, { perform(id) }) }),
             enabled: eligible
         )
+        actions.isMarkdownDocument = session.isMarkdownDocument
+        actions.duplicateDocument = { export("floretta", purpose: .duplicate) }
+        actions.saveAsDocument = { export("floretta", purpose: .saveAs) }
         actions.hasSelectedTopic = hasSelection
         actions.hasEditableSelection = hasSelection && !session.isMarkdownDocument
         actions.showShortcutHelp = { showShortcutHelp = true }
@@ -3131,9 +3143,7 @@ struct DocumentEditor: View {
                 } else {
                     try exportFile.data.write(to: destination, options: .atomic)
                 }
-                if exportKind == "floretta" {
-                    onSavedCopy(destination)
-                }
+                finishFlorettaExport(at: destination)
             } catch {
                 exportError = error.localizedDescription
             }
@@ -3141,6 +3151,22 @@ struct DocumentEditor: View {
         }
         showExport = true
         return false
+    }
+
+    private func finishFlorettaExport(at url: URL) {
+        guard exportKind == "floretta" else {
+            florettaExportPurpose = .standard
+            return
+        }
+        switch florettaExportPurpose {
+        case .standard:
+            onSavedCopy(url)
+        case .duplicate:
+            onDuplicatedCopy(url)
+        case .saveAs:
+            onSavedAs(url)
+        }
+        florettaExportPurpose = .standard
     }
 
     private func exportFlorettaCopy() throws {
@@ -3185,7 +3211,8 @@ struct DocumentEditor: View {
         return options
     }
 
-    private func export(_ kind: String) {
+    private func export(_ kind: String, purpose: FlorettaExportPurpose = .standard) {
+        florettaExportPurpose = kind == "floretta" ? purpose : .standard
         session.prepareToSave()
         let title = session.document.title.isEmpty ? "Floretta" : session.document.title
         let type = FlorettaFileTypes.contentType(forExport: kind)

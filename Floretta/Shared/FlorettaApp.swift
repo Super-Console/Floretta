@@ -115,6 +115,27 @@ private struct FlorettaCommands: Commands {
                 Label(FlorettaL10n.string(HomeOpenCommand.local.titleKey, language: settings.language), systemImage: "internaldrive")
             }
             .disabled(library.editor != nil)
+
+            Menu {
+                if library.recents.isEmpty {
+                    Button(menuText("没有最近打开的文件"), action: {})
+                        .disabled(true)
+                } else {
+                    ForEach(library.recents) { entry in
+                        Button(entry.filename) { library.openRecent(entry) }
+                    }
+                }
+            } label: {
+                Label(menuText("最近打开"), systemImage: "clock")
+            }
+
+            Button {
+                _ = library.closeEditor()
+            } label: {
+                Label(menuText("关闭"), systemImage: "xmark")
+            }
+            .keyboardShortcut("w", modifiers: .command)
+            .disabled(library.editor == nil)
         }
         CommandGroup(replacing: .saveItem) {
             Button {
@@ -125,21 +146,63 @@ private struct FlorettaCommands: Commands {
             .keyboardShortcut("s", modifiers: .command)
             .disabled(!library.canSaveActiveFile)
         }
-        if let editorCommands {
-            // 文件 > 导出 ▸
-            //
-            // The exports used to be their own top-level 导出 menu, which is not
-            // where a Mac app puts them: a file operation belongs to 文件. One
-            // submenu, the same six commands, the same shortcuts.
-            CommandGroup(after: .saveItem) {
-                Menu {
-                    ForEach([EditorToolbarCommandID.png, .pdf, .markdownExport, .textBundle, .saveFloretta, .xmind], id: \.self) { id in
+        CommandGroup(after: .saveItem) {
+            Button {
+                editorCommands?.duplicateDocument?()
+            } label: {
+                Label(menuText("复制副本"), systemImage: "plus.square.on.square")
+            }
+            .disabled(editorCommands?.duplicateDocument == nil)
+
+            Button {
+                editorCommands?.saveAsDocument?()
+            } label: {
+                Label(menuText("另存为…"), systemImage: "square.and.arrow.down")
+            }
+            .keyboardShortcut("s", modifiers: [.command, .shift])
+            .disabled(editorCommands?.saveAsDocument == nil)
+
+            Divider()
+            Menu {
+                if let editorCommands {
+                    ForEach([EditorToolbarCommandID.png, .pdf, .markdownExport, .textBundle, .mm, .opml, .xmind], id: \.self) { id in
                         editorCommand(id, actions: editorCommands)
                     }
-                } label: {
-                    Label("导出", systemImage: "square.and.arrow.up")
+                    editorCommand(editorCommands.isMarkdownDocument ? .upgrade : .saveFloretta, actions: editorCommands)
                 }
+            } label: {
+                Label(menuText("导出为…"), systemImage: "square.and.arrow.up")
             }
+            .disabled(editorCommands == nil)
+
+            Button {
+                editorCommands?.perform[.importFile]?()
+            } label: {
+                Label(menuText("导入…"), systemImage: "square.and.arrow.down.on.square")
+            }
+            .disabled(editorCommands?.perform[.importFile] == nil)
+
+            Divider()
+            Button {
+                editorCommands?.perform[.printMap]?()
+            } label: {
+                Label(menuText("打印…"), systemImage: "printer")
+            }
+            .keyboardShortcut("p", modifiers: .command)
+            .disabled(editorCommands?.perform[.printMap] == nil)
+
+            Menu {
+                if let editorCommands {
+                    ForEach(EditorToolbarCommandID.allCases.filter { EditorToolbarCatalog.command($0).menu == .share }, id: \.self) { id in
+                        editorCommand(id, actions: editorCommands)
+                    }
+                }
+            } label: {
+                Label(menuText("共享…"), systemImage: "square.and.arrow.up.on.square")
+            }
+            .disabled(editorCommands == nil)
+        }
+        if let editorCommands {
             // 编辑 > 查找
             CommandGroup(after: .textEditing) {
                 editorCommand(.find, actions: editorCommands)
@@ -275,6 +338,10 @@ private struct FlorettaCommands: Commands {
         return AnyView(topicButton(entry.title, command: command, entry: entry))
     }
 
+    private func menuText(_ key: String) -> String {
+        FlorettaL10n.string(key, language: settings.language)
+    }
+
     private func topicButton(
         _ title: String,
         command: MindMapCommand,
@@ -339,6 +406,9 @@ struct FlorettaEditorMenuActions {
     var zoomActual: (() -> Void)?
     var isZenActive = false
     var exitZen: (() -> Void)?
+    var duplicateDocument: (() -> Void)?
+    var saveAsDocument: (() -> Void)?
+    var isMarkdownDocument = false
 }
 
 private struct FlorettaEditorMenuActionsKey: FocusedValueKey {

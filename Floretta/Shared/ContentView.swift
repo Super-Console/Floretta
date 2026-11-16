@@ -115,6 +115,8 @@ struct ContentView: View {
                     },
                     onImport: { AppLaunch.presentUITestImporter(open: { library.openFile($0) }) { showImporter = true } },
                     onSavedCopy: { library.noteExportedCopy($0) },
+                    onDuplicatedCopy: { library.noteDuplicatedCopy($0) },
+                    onSavedAs: { library.noteSavedAsCopy($0) },
                     onMarkdownUpgrade: { url, choice in
                         library.finishMarkdownUpgrade(savedAt: url, choice: choice)
                     },
@@ -262,6 +264,8 @@ struct SameDocumentWindow: View {
                         },
                         onImport: { AppLaunch.presentUITestImporter(open: { library.openFile($0) }) { showImporter = true } },
                         onSavedCopy: { library.noteExportedCopy($0) },
+                        onDuplicatedCopy: { library.noteDuplicatedCopy($0) },
+                        onSavedAs: { library.noteSavedAsCopy($0) },
                         onMarkdownUpgrade: { url, choice in
                             library.finishMarkdownUpgrade(savedAt: url, choice: choice)
                         },

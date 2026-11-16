@@ -1496,6 +1496,48 @@ final class LibraryModel {
         dismissOpenError()
     }
 
+    /// A duplicate is a new recent file, but the current editor must keep its URL.
+    func noteDuplicatedCopy(_ url: URL) {
+        let access = SecurityScopedURL(url: url)
+        defer { access.end() }
+        do {
+            try store.remember(url, clock: ports.clock)
+        } catch {
+            inventoryError = nil
+            alertTitle = "无法保存"
+            openError = saveFailureMessage(error)
+            return
+        }
+        reload()
+        dismissOpenError()
+    }
+
+    /// Save As adopts the newly written Floretta package, including when the
+    /// current editor was already backed by another `.floretta` URL.
+    func noteSavedAsCopy(_ url: URL) {
+        let access = SecurityScopedURL(url: url)
+        do {
+            try store.remember(url, clock: ports.clock)
+        } catch {
+            access.end()
+            inventoryError = nil
+            alertTitle = "无法保存"
+            openError = saveFailureMessage(error)
+            return
+        }
+        reload()
+        guard let editor else {
+            access.end()
+            return
+        }
+        scope?.end()
+        scope = access
+        editor.url = url
+        editor.sourceExtension = "floretta"
+        editor.leaveMarkdownMode()
+        dismissOpenError()
+    }
+
     /// ⌘S. A Markdown document is written back to its own URL. A `.floretta` uses the existing package write.
     func saveActiveFile() {
         guard let current = editor, canSaveActiveFile else { return }

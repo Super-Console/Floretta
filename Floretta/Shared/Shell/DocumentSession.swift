@@ -881,7 +881,7 @@ final class EditorSession {
 
     /// Toolbar actions arrive while a new node is still in the text view.
     /// Commit that edit first so create / delete / undo see command mode.
-    private func finishEditingIfNeeded() {
+    internal func finishEditingIfNeeded() {
         guard !keyboard.isComposing, keyboard.mode == .edit else { return }
         editActive { document in
             keyboard.apply(.commitEdit, document: &document, frames: [])

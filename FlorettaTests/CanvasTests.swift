@@ -486,12 +486,17 @@ final class LineBreakTests: XCTestCase {
         let shiftEnter = KeyEvent(key: .enter, modifiers: .shift, mode: .edit, isComposing: false)
         let enter = KeyEvent(key: .enter, modifiers: [], mode: .edit, isComposing: false)
         let commandEnter = KeyEvent(key: .enter, modifiers: .command, mode: .edit, isComposing: false)
+        // 2026-11-16: in edit mode a bare Return commits and leaves the field;
+        // only the modified Returns insert a line break. Creating a sibling is
+        // the command-mode job of Return, so it must not happen while editing.
         XCTAssertTrue(NodeEditLineBreak.textViewInsertsLine(for: shiftEnter))
-        XCTAssertTrue(NodeEditLineBreak.textViewInsertsLine(for: enter))
-        XCTAssertFalse(NodeEditLineBreak.textViewInsertsLine(for: commandEnter))
+        XCTAssertTrue(NodeEditLineBreak.textViewInsertsLine(for: commandEnter))
+        XCTAssertFalse(NodeEditLineBreak.textViewInsertsLine(for: enter))
         XCTAssertEqual(KeyboardCommandMapper.map(shiftEnter), .insertNewline)
-        XCTAssertEqual(KeyboardCommandMapper.map(enter), .insertNewline)
+        XCTAssertEqual(KeyboardCommandMapper.map(commandEnter), .insertNewline)
+        XCTAssertEqual(KeyboardCommandMapper.map(enter), .commitEdit)
         XCTAssertNotEqual(KeyboardCommandMapper.map(enter), .createSibling)
+        XCTAssertNotEqual(KeyboardCommandMapper.map(enter), .insertNewline)
     }
 
     func testLayoutCacheDoesNotGrowPastMaxTextWidthForLongTitles() {

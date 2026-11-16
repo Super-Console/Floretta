@@ -13,3 +13,11 @@
 - Change: far nodes now retain a 0.75 pt minimum contour (selection color for selected nodes), text LOD keeps every finite positive point size, and any positive text rectangle may be drawn. Existing viewport/link intersection selection remains unchanged.
 - After change: the same filtered command passed 2 tests, 0 failures. This is a source-contract test; actual rendering at 50% zoom was not GUI-verified, so no visual or frame-time claim is made.
 - macOS app compile: `xcodebuild` generic universal Debug attempt hit the command timeout; no compiler diagnostic identified. Re-running the same DerivedData path for `platform=macOS,arch=arm64` with signing disabled completed successfully (quiet mode, no output). Existing compiler deprecation/concurrency warnings remain.
+
+## D — zoom draw-selection latency
+
+- Baseline-failing test: before the change, `swift test --filter CanvasZoomSelectionTests` failed all three contract assertions: the draw path made separate `CanvasPlacement.frames` and `nodeIDsWithVisibleLinks` viewport queries and had no combined selector.
+- Change: each draw now uses `CanvasViewportDrawSelection.select`, a single linear pass that returns visible frames in document order and independently retains links whose Bézier control-point bounds intersect the viewport. This removes two per-frame SwiftFlow node-array conversions and avoids a second frame filter; the Bézier bounds calculation uses scalar min/max rather than temporary coordinate arrays.
+- After change: `swift test --filter CanvasZoomSelectionTests` passed 3 tests, 0 failures, including a link crossing the viewport while its owning node is outside it and invalid-viewport handling.
+- macOS compile follow-up: the earlier duplicate `SwiftCompile`/exit-code-0 anomaly did not recur with `xcodebuild -scheme Floretta-macOS -configuration Debug -destination 'platform=macOS,arch=arm64' CODE_SIGNING_ALLOWED=NO ENABLE_DEBUG_DYLIB=NO -jobs 1 build`; this unsigned arm64 build succeeded. It is compile verification only, not a signed delivery build.
+- No actual zoom gesture/frame-time p50/p95 was measured in this non-interactive run. The historical failing values remain the previously recorded `minFPS=2`, `maxDraw=225.1 ms`, `longestMainThreadFrame=567.9 ms`; they were not reproduced in the earlier six-run replay. This change's effect on those timings remains unmeasured.

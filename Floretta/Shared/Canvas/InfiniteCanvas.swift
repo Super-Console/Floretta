@@ -1808,8 +1808,9 @@ struct InfiniteCanvas: View {
             }
         }
         let viewport = camera.viewport.canvasRect(in: size).insetBy(dx: -48, dy: -48)
-        var visible = CanvasPlacement.frames(placed, intersectingCanvas: viewport)
-        let linkIDs = CanvasPlacement.nodeIDsWithVisibleLinks(placed, viewport: viewport)
+        let drawSelection = CanvasViewportDrawSelection.select(frames: placed, in: viewport)
+        var visible = drawSelection.visibleNodes
+        let linkIDs = drawSelection.visibleLinkNodeIDs
         let ghosts: [PetalGhost]
         if blooming {
             let visibleIDs = Set(visible.map(\.id))

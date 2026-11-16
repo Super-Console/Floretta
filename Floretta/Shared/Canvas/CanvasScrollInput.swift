@@ -1,3 +1,4 @@
+import FlorettaCore
 import SwiftUI
 #if os(macOS)
 import AppKit
@@ -66,7 +67,16 @@ private final class ScrollWheelView: NSView, @unchecked Sendable {
             monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
                 guard let self, let window = self.window, event.window == window else { return event }
                 let local = self.convert(event.locationInWindow, from: nil)
-                guard self.bounds.contains(local) else { return event }
+                // A monitor is window-wide, and this overlay covers the whole
+                // canvas frame, so the pointer over the inspector column or the
+                // outline panel is still inside `bounds`. The window's hit test
+                // is what knows the difference: if the pointer is on a scroll
+                // view that floats above the canvas, that view owns the gesture
+                // and the event has to reach it.
+                guard CanvasScrollScope.shouldConsume(
+                    hitChain: self.scrollHitChain(for: event),
+                    pointInCanvas: self.bounds.contains(local)
+                ) else { return event }
                 let multiplier: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 12
                 let delta = CGSize(
                     width: event.scrollingDeltaX * multiplier,
@@ -76,6 +86,34 @@ private final class ScrollWheelView: NSView, @unchecked Sendable {
                 return nil
             }
         }
+    }
+
+    /// What the window's hit test found under the pointer, deepest view first.
+    ///
+    /// Only the views between the pointer and the canvas's own container are
+    /// reported. The walk stops at the first ancestor that also contains this
+    /// overlay: anything above that common ancestor is window scaffolding, not
+    /// a panel floating over the canvas, so its scroll views are not what the
+    /// pointer is on.
+    private func scrollHitChain(for event: NSEvent) -> [CanvasScrollHit] {
+        guard let root = window?.contentView, let hit = root.hitTest(event.locationInWindow) else {
+            // Nothing under the pointer: transparent canvas pixels.
+            return [.canvas]
+        }
+        var chain: [CanvasScrollHit] = []
+        var view: NSView? = hit
+        while let current = view {
+            if current === self || self.isDescendant(of: current) { break }
+            if current is NSScrollView {
+                chain.append(.scrollView)
+            } else if chain.isEmpty {
+                chain.append(.other)
+            }
+            view = current.superview
+        }
+        // Only canvas pixels and its own non-scrolling overlays between the
+        // pointer and the canvas's container.
+        return chain.isEmpty ? [.canvas] : chain
     }
 
     /// Drops the local monitor. Safe to call more than once.

@@ -896,7 +896,6 @@ struct InfiniteCanvas: View {
                 ),
                 fontMetrics: fontMetrics,
                 onEvent: { handleKey($0) },
-                paper: colorScheme == .dark ? Color(white: 0.16) : Color.white,
                 ink: colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16),
                 dictationToken: dictationToken,
                 dictationReplacesPlaceholder: dictationReplacesPlaceholder
@@ -924,7 +923,6 @@ struct InfiniteCanvas: View {
                 ),
                 fontMetrics: fontMetrics,
                 onEvent: { handleKey($0) },
-                paper: colorScheme == .dark ? Color(white: 0.16) : Color.white,
                 ink: colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16),
                 dictationToken: dictationToken,
                 dictationReplacesPlaceholder: dictationReplacesPlaceholder
@@ -952,7 +950,6 @@ struct InfiniteCanvas: View {
                 ),
                 fontMetrics: fontMetrics,
                 onEvent: { handleKey($0) },
-                paper: colorScheme == .dark ? Color(white: 0.16) : Color.white,
                 ink: colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16),
                 dictationToken: dictationToken,
                 dictationReplacesPlaceholder: dictationReplacesPlaceholder
@@ -1039,7 +1036,6 @@ struct InfiniteCanvas: View {
                 fontSize: CanvasTextScale.onScreenPointSize(fontSize: 14, scale: camera.viewport.scale),
                 fontMetrics: fontMetrics,
                 onEvent: { handleKey($0) },
-                paper: colorScheme == .dark ? Color(white: 0.16) : Color.white,
                 ink: colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16),
                 dictationToken: dictationToken,
                 dictationReplacesPlaceholder: dictationReplacesPlaceholder

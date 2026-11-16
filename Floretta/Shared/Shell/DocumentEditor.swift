@@ -368,8 +368,16 @@ struct DocumentEditor: View {
     private var editorToolbar: some View {
         editorCore
             .inspector(isPresented: inspectorPresented) {
-                inspectorBody
-                    .inspectorColumnWidth(min: 280, ideal: 320, max: 440)
+                // SwiftUI's split-view coordinator enumerates this pane on every
+                // graph update, whether it is presented or not: over 85 key
+                // presses xctrace put 2.1 s of main-thread CPU (15 %) inside
+                // `SplitViewCoordinator.formCurrentItems` for a collapsed
+                // inspector. Nothing in a closed pane can be seen, so its body
+                // is only built while the pane is on screen.
+                if showInspector && !session.zen.isActive {
+                    inspectorBody
+                        .inspectorColumnWidth(min: 280, ideal: 320, max: 440)
+                }
             }
             .onAppear(perform: openInspectorForUITest)
             .toolbar {

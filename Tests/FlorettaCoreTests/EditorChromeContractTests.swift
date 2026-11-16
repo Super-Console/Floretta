@@ -6,19 +6,44 @@ import XCTest
 /// custom plate stacked inside it), and the iOS control is a stock toolbar
 /// item. The hit area itself is `EditorBackButtonHitAreaTests`.
 final class EditorChromeContractTests: XCTestCase {
-    func testMacBackButtonAndTitleShareOneNavigationCapsule() throws {
+    /// The name sits on the leading capsule's centre line, not to the right of
+    /// the back control.
+    ///
+    /// The row is `返回 + gap + 名 + gap + 返回(空)`: the trailing slot is the
+    /// same control with no ink, no hit testing, and no accessibility, so the
+    /// name's slot is symmetric and the name keeps the plate's centre. A plain
+    /// `[返回][名]` row measured ~20 pt right of centre in
+    /// `scripts/measure-title-capsule.sh --baseline`; this test locks the shape
+    /// that keeps it at 0 pt.
+    func testMacBackButtonAndTitleShareOneCentredNavigationCapsule() throws {
         let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         let leading = try slice(
             source,
             from: "private var macToolbarItemsLeading",
+            until: "/// The one leading system capsule"
+        )
+        let capsule = try slice(
+            source,
+            from: "private struct DocumentTitleCapsule",
             until: "private var macToolbarItemsPrimary"
         )
-        XCTAssertTrue(leading.contains("chevron.backward"))
-        XCTAssertTrue(leading.contains("\"basicChain.back\""))
-        XCTAssertTrue(leading.contains("ToolbarItem(id: \"document.navigation\", placement: .navigation)"))
-        XCTAssertTrue(leading.contains("HStack(spacing: 8)"), "the title sits beside the back glyph in the one system capsule")
-        XCTAssertTrue(leading.contains("\"document.title\""), "the rename control keeps its accessibility identifier")
-        XCTAssertTrue(leading.contains("Text(verbatim: documentTitle)"))
+        XCTAssertTrue(leading.contains("ToolbarItem(id: \"document.navigation\", placement: .navigation)"), "back and title share the leading navigation slot")
+        XCTAssertTrue(leading.contains("DocumentTitleCapsule("), "the one item draws the capsule type")
+        XCTAssertTrue(leading.contains("title: documentTitle"))
+        XCTAssertTrue(leading.contains("onBack: onClose"))
+        XCTAssertFalse(leading.contains("HStack"), "the row lives in the capsule type: one item, one plate")
+
+        XCTAssertTrue(capsule.contains("chevron.backward"))
+        XCTAssertTrue(capsule.contains("\"basicChain.back\""))
+        XCTAssertTrue(capsule.contains("\"document.title\""), "the rename control keeps its accessibility identifier")
+        XCTAssertTrue(capsule.contains("HStack(spacing: Self.gap)"), "both gaps come from the one constant")
+        XCTAssertTrue(capsule.contains("backSlot"), "the trailing mirror is what centres the name")
+        XCTAssertTrue(capsule.contains(".opacity(0)"), "the mirror carries no ink")
+        XCTAssertTrue(capsule.contains(".allowsHitTesting(false)"), "the mirror is not a second clickable back button")
+        XCTAssertTrue(capsule.contains(".accessibilityHidden(true)"), "the mirror is not a second back button to VoiceOver")
+        XCTAssertTrue(capsule.contains("CappedWidthLayout(maxWidth: titleWidthLimit)"), "a long name truncates instead of widening the plate")
+        XCTAssertTrue(capsule.contains(".truncationMode(.middle)"), "the .floretta extension survives")
+        XCTAssertFalse(capsule.contains(".frame(width:"), "no guessed back-button width: the mirror is the control itself")
         XCTAssertFalse(leading.contains(".appleGlassChrome(.floatingPanel)"), "no custom glass plate may be nested inside the system navigation capsule")
         XCTAssertTrue(source.contains(".modifier(MacEditorWindowTitle(title: \"\"))"))
     }

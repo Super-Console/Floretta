@@ -97,27 +97,100 @@ struct DocumentEditor: View {
     @State private var statusCapsuleWidth: CGFloat = 0
 
     #if os(macOS)
+    /// The leading navigation capsule: the back control, the document name, and
+    /// an inert mirror of the back control. See `DocumentTitleCapsule`.
     @ToolbarContentBuilder
     private var macToolbarItemsLeading: some CustomizableToolbarContent {
         ToolbarItem(id: "document.navigation", placement: .navigation) {
-            HStack(spacing: 8) {
-                Button(action: onClose) {
-                    Image(systemName: "chevron.backward")
-                }
-                .accessibilityLabel(text("返回"))
-                .accessibilityIdentifier("basicChain.back")
-                .help(Text(verbatim: text("返回导图列表")))
+            DocumentTitleCapsule(
+                title: documentTitle,
+                titleWidthLimit: EditorStatusBarChrome.canvasTitleMaxWidth,
+                backLabel: text("返回"),
+                backHint: text("返回导图列表"),
+                renameHint: text("为这份导图重新命名"),
+                onBack: onClose,
+                onRename: beginRename
+            )
+        }
+    }
 
-                Button(action: beginRename) {
-                    Text(verbatim: documentTitle)
-                        .lineLimit(1)
+    /// The one leading system capsule: 返回, the document name, and the name's
+    /// counterpart on the trailing side.
+    ///
+    /// The bar draws one symmetric plate around this item, so the name reads as
+    /// centred exactly when its own slot is centred in this `HStack`. A plain
+    /// `[返回][名]` row is not centred: the back control takes its width on the
+    /// leading side only, so the name's midpoint sits right of the plate's
+    /// midpoint by that control plus the gap — the "标题偏右" report that has
+    /// come back three times. Padding the name on the trailing side with the
+    /// *same control*, stripped of ink, hit testing, and accessibility, gives
+    ///
+    ///     返回 + 8 + 名 + 8 + 返回(空)
+    ///
+    /// so the name's slot — and the text in it — keeps the plate's centre. The
+    /// mirror is the control itself, not a guessed 28 pt box, so it stays exact
+    /// if the bar's button metrics change. The plate grows by exactly that one
+    /// control and its gap: with the arrow inside the same plate, symmetric
+    /// whitespace *is* the fix, and the trailing side has to hold as much room
+    /// as the leading side holds. The height, the back control's hit area, and
+    /// every other toolbar item are untouched.
+    ///
+    /// The name is capped at `canvasTitleMaxWidth` and truncates in the middle,
+    /// so a 60-character name keeps the `.floretta` extension and can neither
+    /// widen the plate nor crowd the trailing items.
+    private struct DocumentTitleCapsule: View {
+        var title: String
+        var titleWidthLimit: CGFloat
+        var backLabel: String
+        var backHint: String
+        var renameHint: String
+        var onBack: () -> Void
+        var onRename: () -> Void
+
+        /// Gap between the three slots. Both gaps come from this one number, so
+        /// the name cannot end up off centre by a stray literal.
+        private static let gap: CGFloat = 8
+
+        var body: some View {
+            HStack(spacing: Self.gap) {
+                backControl
+                Button(action: onRename) {
+                    CappedWidthLayout(maxWidth: titleWidthLimit) {
+                        Text(verbatim: title)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
                 }
                 .buttonStyle(.borderless)
-                .help(Text(verbatim: text("为这份导图重新命名")))
-                .accessibilityLabel(documentTitle)
-                .accessibilityHint(text("为这份导图重新命名"))
+                .help(Text(verbatim: renameHint))
+                .accessibilityLabel(Text(verbatim: title))
+                .accessibilityHint(Text(verbatim: renameHint))
                 .accessibilityIdentifier("document.title")
+                backSlot
             }
+        }
+
+        /// The back control. Its identifier and its 28 pt toolbar hit area are
+        /// the ones the UI tests already use; nothing here resizes it.
+        private var backControl: some View {
+            Button(action: onBack) {
+                Image(systemName: "chevron.backward")
+            }
+            .accessibilityLabel(Text(verbatim: backLabel))
+            .accessibilityIdentifier("basicChain.back")
+            .help(Text(verbatim: backHint))
+        }
+
+        /// The same control with no ink: width only. Nothing to click, nothing
+        /// for VoiceOver or XCUITest to find. It exists so the name's slot is
+        /// symmetric in the plate.
+        private var backSlot: some View {
+            Button(action: {}) {
+                Image(systemName: "chevron.backward")
+            }
+            .opacity(0)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
         }
     }
 

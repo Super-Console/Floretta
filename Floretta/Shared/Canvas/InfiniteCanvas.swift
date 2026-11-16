@@ -674,6 +674,9 @@ struct InfiniteCanvas: View {
             }
             keyboard.selectedNodeID = id
             interaction.selectedNodeID = id
+            if id != nil, keyboard.mode == .command {
+                canvasFocused = true
+            }
         case .beginEdit(let id):
             beginEditing(id)
         case .commitAndSelect(let id):

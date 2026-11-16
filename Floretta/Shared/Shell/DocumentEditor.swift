@@ -1957,7 +1957,10 @@ struct DocumentEditor: View {
             }
         }
         .pickerStyle(.segmented)
-        .appleGlassChrome(.segmentedContainer)
+        // Apple's segmented control draws its own glass. The old
+        // `.segmentedContainer` role wrapped it in a second glass capsule and
+        // masked that capsule's bottom edge with a gradient, which is the fade
+        // that showed under 样式 / 导图. The system control is the control.
         .labelsHidden()
         .accessibilityLabel(text("检查器"))
         .accessibilityIdentifier("inspector.tabs")

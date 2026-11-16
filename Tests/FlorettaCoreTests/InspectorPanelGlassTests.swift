@@ -23,7 +23,7 @@ final class InspectorPanelGlassTests: XCTestCase {
 
     func testEveryInspectorFormLetsThePanelGlassThrough() throws {
         let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
-        let plate = try slice(glass, from: "func appleGlassInspectorFormPlate()", until: "/// Soft bottom-edge fade")
+        let plate = try slice(glass, from: "func appleGlassInspectorFormPlate()", until: "/// Keep the native sidebar selection inset")
 
         XCTAssertTrue(plate.contains(".scrollContentBackground(.hidden)"), "a form-painted background would cover the panel glass")
         XCTAssertFalse(plate.contains("#if os(iOS)"), "macOS needs the same plate as iOS; the old iOS-only gate is what left the Mac panel opaque")

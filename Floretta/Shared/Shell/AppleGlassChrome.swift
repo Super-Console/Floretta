@@ -19,8 +19,8 @@ import UIKit
 /// `GlassChromeConfiguration.renderingStyle` (default `.light`):
 /// - `.light` is the shipped "frosted" Liquid Glass: `GlassEffectContainer`
 ///   + `glassEffect(.regular.tint(_:), in:)`, with a system `Material`
-///   underlay that diffuses the background into color blocks and a soft
-///   bottom-edge fade instead of a hard cut.
+///   underlay that diffuses the background into color blocks. Every plate
+///   ends on its own shape edge: no mask, no gradient, no fade is drawn here.
 /// - `.native` is the system vibrancy material: `NSVisualEffectView`
 ///   (macOS) / `UIVisualEffectView` (iOS) with a scene-specific material
 ///   (`.sidebar` / `.headerView` / `.hudWindow`) and a matching
@@ -49,10 +49,19 @@ import UIKit
 ///      `.behindWindow` for a panel that sits on canvas pixels is the
 ///      "solid grey plate" bug: it blurs the desktop behind the window while
 ///      the canvas it covers stays sharp underneath.
-///    - Segmented controls, icon buttons, and toolbar buttons inherit the bar
-///      they sit in and use `.underWindowBackground`.
+///    - Icon buttons and toolbar buttons inherit the bar they sit in and use
+///      `.underWindowBackground`. A segmented control is not plated at all:
+///      the system control draws its own background, and a capsule around it
+///      was a second surface on top of Apple's.
 /// 4. On iOS before Liquid Glass, the system control stays as it is. This
 ///    file does not invent a blur, a frosted fill, or a shadow.
+///
+/// No role fades an edge. A glass band used to be masked with an alpha
+/// gradient so its bottom edge "dissolved" into the canvas; that is a
+/// hand-drawn gradient on top of an official material, and it made the two
+/// bottom capsules and the segmented control read as a filter rather than as
+/// Apple's controls. The user asked for the system controls back, so that mask
+/// and its helper are gone: every plate now ends on its own shape.
 ///
 /// `toolbarFloatingButton` draws no plate on either platform. Those controls
 /// are system toolbar items, and the system already paints the official glass
@@ -80,8 +89,6 @@ enum AppleGlassChromeRole: String, Equatable {
     /// width, a sheet at compact width — so it covers canvas pixels and
     /// samples `windowContent`.
     case inspectorPanel
-    /// The 样式 / 导图 segmented control.
-    case segmentedContainer
     /// Icon buttons, including the inspector empty-state brush.
     case iconButton
     /// Capsule bars, including the bottom sheet capsules.
@@ -185,9 +192,6 @@ enum AppleGlassChromeMetrics {
     /// borders no longer read as a "reflection". This is an official glass
     /// tint, not a hand-filled semi-transparent overlay.
     static let lightTint = Color.primary.opacity(0.12)
-    /// Height of the soft bottom-edge fade on glass bands. A gradient alpha
-    /// mask only; it does not draw a blur or a colour fill.
-    static let glassBandBottomFadeHeight: CGFloat = 18
     /// Horizontal inset that keeps the sidebar's selected-row capsule clear
     /// of the column's rounded edge, so the two arcs never collide.
     static let sidebarRowInset: CGFloat = 8
@@ -210,7 +214,7 @@ extension AppleGlassChromeRole {
             #else
             return true
             #endif
-        case .segmentedContainer, .iconButton, .bottomBarCapsule, .sidebarColumn, .floatingPanel, .canvasFloatingButton:
+        case .iconButton, .bottomBarCapsule, .sidebarColumn, .floatingPanel, .canvasFloatingButton:
             return true
         }
     }
@@ -236,7 +240,7 @@ extension AppleGlassChromeRole {
             #else
             return .windowContent
             #endif
-        case .segmentedContainer, .iconButton, .toolbarFloatingButton:
+        case .iconButton, .toolbarFloatingButton:
             return .windowBackdrop
         }
     }
@@ -253,19 +257,8 @@ extension AppleGlassChromeRole {
             return .thickMaterial
         case .sidebarColumn, .inspectorPanel:
             return .regularMaterial
-        case .segmentedContainer, .iconButton, .toolbarFloatingButton:
+        case .iconButton, .toolbarFloatingButton:
             return .thinMaterial
-        }
-    }
-
-    /// Chrome that reads as a horizontal band over the canvas; its bottom
-    /// edge fades out instead of ending in a hard cut.
-    var fadesBottomEdge: Bool {
-        switch self {
-        case .floatingPanel, .segmentedContainer, .bottomBarCapsule, .canvasFloatingButton:
-            return true
-        case .inspectorPanel, .sidebarColumn, .iconButton, .toolbarFloatingButton:
-            return false
         }
     }
 
@@ -274,7 +267,7 @@ extension AppleGlassChromeRole {
         switch self {
         case .sidebarColumn, .inspectorPanel:
             return .sidebar
-        case .segmentedContainer, .iconButton, .toolbarFloatingButton:
+        case .iconButton, .toolbarFloatingButton:
             return .header
         case .floatingPanel, .bottomBarCapsule, .canvasFloatingButton:
             return .hud
@@ -302,18 +295,6 @@ extension View {
         self.scrollContentBackground(.hidden)
     }
 
-    /// Soft bottom-edge fade for a glass band. Uses only an alpha gradient
-    /// mask (opaque -> clear): no custom blur, no semi-transparent colour
-    /// fill, and the glass itself stays an official Apple material.
-    @ViewBuilder
-    func glassBandBottomFade(_ height: CGFloat, enabled: Bool) -> some View {
-        if enabled {
-            self.modifier(GlassBandBottomFadeModifier(fadeHeight: height))
-        } else {
-            self
-        }
-    }
-
     /// Keep the native sidebar selection inset while leaving selection drawing
     /// to `List(.sidebar)`; a custom row background would layer a second shape.
     func sidebarSelectionInset() -> some View {
@@ -321,24 +302,6 @@ extension View {
         return self
             .listRowInsets(EdgeInsets(top: 0, leading: inset, bottom: 0, trailing: inset))
             .listRowBackground(Color.clear)
-    }
-}
-
-private struct GlassBandBottomFadeModifier: ViewModifier {
-    var fadeHeight: CGFloat
-
-    func body(content: Content) -> some View {
-        content.mask {
-            VStack(spacing: 0) {
-                Rectangle().fill(Color.black)
-                LinearGradient(
-                    colors: [.black, .clear],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: fadeHeight)
-            }
-        }
     }
 }
 
@@ -364,7 +327,7 @@ private struct AppleGlassChromePlate<Content: View>: View {
         switch role {
         case .iconButton:
             plated(inked(view), shape: Circle())
-        case .segmentedContainer, .bottomBarCapsule, .toolbarFloatingButton, .canvasFloatingButton:
+        case .bottomBarCapsule, .toolbarFloatingButton, .canvasFloatingButton:
             plated(inked(view), shape: Capsule())
         case .inspectorPanel:
             plated(inked(view), shape: RoundedRectangle(cornerRadius: AppleGlassChromeMetrics.panelCornerRadius, style: .continuous))
@@ -386,7 +349,7 @@ private struct AppleGlassChromePlate<Content: View>: View {
             view
         case .iconButton:
             view.symbolRenderingMode(.monochrome).foregroundStyle(.primary)
-        case .toolbarFloatingButton, .segmentedContainer, .bottomBarCapsule, .canvasFloatingButton:
+        case .toolbarFloatingButton, .bottomBarCapsule, .canvasFloatingButton:
             view.foregroundStyle(.primary)
         }
     }
@@ -396,16 +359,8 @@ private struct AppleGlassChromePlate<Content: View>: View {
         switch GlassChromeConfiguration.renderingStyle {
         case .light:
             lightPlated(view, shape: shape)
-                .glassBandBottomFade(
-                    AppleGlassChromeMetrics.glassBandBottomFadeHeight,
-                    enabled: role.fadesBottomEdge
-                )
         case .native:
             nativePlated(view, shape: shape)
-                .glassBandBottomFade(
-                    AppleGlassChromeMetrics.glassBandBottomFadeHeight,
-                    enabled: role.fadesBottomEdge
-                )
         }
     }
 
@@ -489,7 +444,7 @@ extension AppleGlassChromeRole {
             .popover
         case .inspectorPanel, .sidebarColumn:
             .sidebar
-        case .segmentedContainer, .iconButton, .toolbarFloatingButton:
+        case .iconButton, .toolbarFloatingButton:
             .underWindowBackground
         }
     }
@@ -529,7 +484,7 @@ extension AppleGlassChromeRole {
             AppleGlassChromeMetrics.sidebarCornerRadius
         case .iconButton:
             22
-        case .segmentedContainer, .bottomBarCapsule, .toolbarFloatingButton, .canvasFloatingButton:
+        case .bottomBarCapsule, .toolbarFloatingButton, .canvasFloatingButton:
             20
         }
     }

@@ -268,10 +268,14 @@ struct DocumentEditor: View {
             .onAppear(perform: openInspectorForUITest)
             .toolbar {
                 if session.zen.chrome.showsToolbar {
-                    // A chevron nested in the filename stack is custom bar content:
-                    // the glass platter is decoration, and the hit target shrinks to
-                    // the glyph. Its own toolbar button is a system bar item, whose
-                    // platter is a circle of at least 44pt and owns the hit testing.
+                    // A system toolbar item is already Liquid Glass: the bar
+                    // paints the circular platter and owns the hit testing, and
+                    // the 44pt frame keeps the target comfortable. The
+                    // `.appleGlassChrome(.iconButton)` plate that used to sit
+                    // inside this item was a second capsule on top of the bar's
+                    // own — the double-glass bug the user reported on this
+                    // button. Nothing is painted here any more; the system
+                    // capsule is the only plate.
                     #if os(iOS)
                     ToolbarItem(placement: .cancellationAction) {
                         Button(action: onClose) {
@@ -282,7 +286,6 @@ struct DocumentEditor: View {
                         .help(Text(verbatim: text("返回导图列表")))
                         .frame(width: 44, height: 44)
                         .contentShape(Circle())
-                        .appleGlassChrome(.iconButton)
                     }
                     ToolbarSpacer(.fixed, placement: .cancellationAction)
                     ToolbarItem(placement: .cancellationAction) {

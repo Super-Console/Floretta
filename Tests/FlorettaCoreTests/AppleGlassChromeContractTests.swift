@@ -413,7 +413,10 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertFalse(content.contains(".blur("))
     }
 
-    func testBackButtonAndHomeChromeAreLeftAlone() throws {
+    /// 2026-11-16: the back button carries exactly one plate, and that plate is
+    /// the system bar item's own capsule. The `iconButton` plate that used to be
+    /// stacked inside it is what the user saw as two layers of Liquid Glass.
+    func testBackButtonHasExactlyOnePlatelessSystemCapsule() throws {
         let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         let leading = try slice(
             editor,
@@ -424,7 +427,8 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertTrue(leading.contains("basicChain.back"))
         XCTAssertTrue(leading.contains(".frame(width: 44, height: 44)"))
         XCTAssertTrue(leading.contains("contentShape(Circle())"))
-        XCTAssertTrue(leading.contains(".appleGlassChrome(.iconButton)"))
+        XCTAssertFalse(leading.contains(".appleGlassChrome"), "the system capsule must stay the only plate")
+        XCTAssertFalse(leading.contains("GlassEffectContainer"), "no second glass layer inside the bar item")
         XCTAssertFalse(leading.contains("ultraThinMaterial"))
     }
 

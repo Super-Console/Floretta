@@ -43,7 +43,10 @@ final class EditorChromeContractTests: XCTestCase {
         XCTAssertTrue(backItem.contains("\"basicChain.back\""))
         XCTAssertTrue(backItem.contains(".frame(width: 44, height: 44)"))
         XCTAssertTrue(backItem.contains("contentShape(Circle())"))
-        XCTAssertTrue(backItem.contains(".appleGlassChrome(.iconButton)"))
+        XCTAssertFalse(
+            backItem.contains(".appleGlassChrome"),
+            "a bar item is already glass; a plate inside it is the double-glass bug"
+        )
         XCTAssertFalse(backItem.contains("HStack"))
         XCTAssertFalse(backItem.contains("ultraThinMaterial"))
         XCTAssertFalse(backItem.contains(".blur("))

@@ -57,7 +57,6 @@ final class AppleGlassChromeContractTests: XCTestCase {
         let activeLightBackend = try slice(glass, from: "static let renderingStyle", until: "/// The three system scenes")
         let fallbackPlate = try slice(glass, from: "static func updateVisualEffectView", until: "#endif\n\n#if os(macOS)")
         let nativePlate = try slice(glass, from: "private func configure(_ view: NSVisualEffectView)", until: "}\n#endif")
-        let fadeRoles = try slice(glass, from: "var fadesBottomEdge: Bool", until: "/// Scene used to pick")
 
         XCTAssertFalse(macShell.contains("backgroundExtensionEffect()"), "Mac must not extend Home detail/grid pixels behind the window titlebar glass")
         XCTAssertFalse(content.contains("backgroundExtensionEffect()"), "the single-column home has no titlebar band to extend into")
@@ -71,9 +70,12 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertTrue(fallbackPlate.contains("view.blendingMode = role.fallbackBlendingMode"))
         XCTAssertTrue(nativePlate.contains("view.blendingMode = role.nativeBlendingMode"))
         XCTAssertTrue(glass.contains("sampleSource == .windowContent ? .withinWindow : .behindWindow"), "the sample layer is decided in one place")
-        XCTAssertTrue(fadeRoles.contains(".toolbarFloatingButton"))
-        XCTAssertFalse(try slice(fadeRoles, from: "case .floatingPanel", until: "case .inspectorPanel").contains("toolbarFloatingButton"), "the titlebar glass is excluded from the content-band bottom mask")
-        XCTAssertTrue(fadeRoles.contains("case .inspectorPanel, .sidebarColumn, .iconButton, .toolbarFloatingButton"))
+        // 2026-11-16: the bottom-edge fade mask is gone on both platforms. A
+        // hand-painted alpha gradient over Apple's glass is what the user saw
+        // as a fading bottom bar, so the plate ends at its shape's edge.
+        XCTAssertFalse(glass.contains("glassBandBottomFade"))
+        XCTAssertFalse(glass.contains("fadesBottomEdge"))
+        XCTAssertFalse(glass.contains("GlassBandBottomFadeModifier"))
         XCTAssertEqual(editor.components(separatedBy: ".toolbarBackground(.hidden, for: .windowToolbar)").count - 1, 1, "the editor hides the system background once; no second material is installed there")
     }
 
@@ -88,7 +90,7 @@ final class AppleGlassChromeContractTests: XCTestCase {
 
     func testSidebarSelectionUsesOnlyTheNativeListSelection() throws {
         let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
-        let inset = try slice(glass, from: "func sidebarSelectionInset()", until: "private struct GlassBandBottomFadeModifier")
+        let inset = try slice(glass, from: "func sidebarSelectionInset()", until: "private struct AppleGlassChromePlate")
         XCTAssertTrue(inset.contains(".listRowInsets("))
         XCTAssertTrue(inset.contains(".listRowBackground(Color.clear)"))
         XCTAssertFalse(inset.contains("RoundedRectangle"))
@@ -133,26 +135,20 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertFalse(glass.contains(".shadow("))
         XCTAssertFalse(glass.contains("colorScheme"))
 
-        // Colors and gradients are forbidden when they paint a glass-like
-        // background, but are valid inside the dedicated alpha-mask modifier.
-        let mask = try slice(
-            glass,
-            from: "content.mask {",
-            until: "private struct AppleGlassChromePlate"
-        )
-        XCTAssertTrue(mask.contains("Rectangle().fill(Color.black)"))
-        XCTAssertTrue(mask.contains("LinearGradient("))
-        XCTAssertTrue(mask.contains("colors: [.black, .clear]"))
-        let glassPainting = glass.replacingOccurrences(of: mask, with: "")
-        XCTAssertFalse(glassPainting.contains("LinearGradient("))
-        XCTAssertFalse(glassPainting.contains("RadialGradient("))
-        XCTAssertFalse(glassPainting.contains("AngularGradient("))
-        XCTAssertFalse(glassPainting.contains(".fill(Color.white"))
-        XCTAssertFalse(glassPainting.contains(".fill(Color.black"))
-        XCTAssertFalse(glassPainting.contains(".background(Color.white"))
-        XCTAssertFalse(glassPainting.contains(".background(Color.black"))
-        XCTAssertFalse(glassPainting.contains("Color.white.opacity("))
-        XCTAssertFalse(glassPainting.contains("Color.black.opacity("))
+        // No gradient may paint the glass, in any form. The one exception this
+        // file used to carry — the alpha-mask bottom-edge fade — is gone: the
+        // user saw it as a fading bottom bar, and it was a hand-drawn gradient
+        // on top of Apple's glass rather than a system control.
+        XCTAssertFalse(glass.contains("LinearGradient("))
+        XCTAssertFalse(glass.contains("RadialGradient("))
+        XCTAssertFalse(glass.contains("AngularGradient("))
+        XCTAssertFalse(glass.contains("Rectangle().fill(Color.black)"))
+        XCTAssertFalse(glass.contains(".fill(Color.white"))
+        XCTAssertFalse(glass.contains(".fill(Color.black"))
+        XCTAssertFalse(glass.contains(".background(Color.white"))
+        XCTAssertFalse(glass.contains(".background(Color.black"))
+        XCTAssertFalse(glass.contains("Color.white.opacity("))
+        XCTAssertFalse(glass.contains("Color.black.opacity("))
     }
 
     /// **The rule: a plate samples the layer it actually covers.** A panel that

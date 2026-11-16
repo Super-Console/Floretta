@@ -19,8 +19,9 @@ import UIKit
 /// `GlassChromeConfiguration.renderingStyle` (default `.light`):
 /// - `.light` is the shipped "frosted" Liquid Glass: `GlassEffectContainer`
 ///   + `glassEffect(.regular.tint(_:), in:)`, with a system `Material`
-///   underlay that diffuses the background into color blocks and a soft
-///   bottom-edge fade instead of a hard cut.
+///   underlay that diffuses the background into color blocks. The plate's edge
+///   is the shape's own edge: nothing here paints a fade, a wash, or a shadow
+///   on top of Apple's glass.
 /// - `.native` is the system vibrancy material: `NSVisualEffectView`
 ///   (macOS) / `UIVisualEffectView` (iOS) with a scene-specific material
 ///   (`.sidebar` / `.headerView` / `.hudWindow`) and a matching
@@ -185,9 +186,6 @@ enum AppleGlassChromeMetrics {
     /// borders no longer read as a "reflection". This is an official glass
     /// tint, not a hand-filled semi-transparent overlay.
     static let lightTint = Color.primary.opacity(0.12)
-    /// Height of the soft bottom-edge fade on glass bands. A gradient alpha
-    /// mask only; it does not draw a blur or a colour fill.
-    static let glassBandBottomFadeHeight: CGFloat = 18
     /// Horizontal inset that keeps the sidebar's selected-row capsule clear
     /// of the column's rounded edge, so the two arcs never collide.
     static let sidebarRowInset: CGFloat = 8
@@ -258,17 +256,6 @@ extension AppleGlassChromeRole {
         }
     }
 
-    /// Chrome that reads as a horizontal band over the canvas; its bottom
-    /// edge fades out instead of ending in a hard cut.
-    var fadesBottomEdge: Bool {
-        switch self {
-        case .floatingPanel, .segmentedContainer, .bottomBarCapsule, .canvasFloatingButton:
-            return true
-        case .inspectorPanel, .sidebarColumn, .iconButton, .toolbarFloatingButton:
-            return false
-        }
-    }
-
     /// Scene used to pick the `.native` system material on both platforms.
     var nativeScene: GlassNativeScene {
         switch self {
@@ -302,18 +289,6 @@ extension View {
         self.scrollContentBackground(.hidden)
     }
 
-    /// Soft bottom-edge fade for a glass band. Uses only an alpha gradient
-    /// mask (opaque -> clear): no custom blur, no semi-transparent colour
-    /// fill, and the glass itself stays an official Apple material.
-    @ViewBuilder
-    func glassBandBottomFade(_ height: CGFloat, enabled: Bool) -> some View {
-        if enabled {
-            self.modifier(GlassBandBottomFadeModifier(fadeHeight: height))
-        } else {
-            self
-        }
-    }
-
     /// Keep the native sidebar selection inset while leaving selection drawing
     /// to `List(.sidebar)`; a custom row background would layer a second shape.
     func sidebarSelectionInset() -> some View {
@@ -321,24 +296,6 @@ extension View {
         return self
             .listRowInsets(EdgeInsets(top: 0, leading: inset, bottom: 0, trailing: inset))
             .listRowBackground(Color.clear)
-    }
-}
-
-private struct GlassBandBottomFadeModifier: ViewModifier {
-    var fadeHeight: CGFloat
-
-    func body(content: Content) -> some View {
-        content.mask {
-            VStack(spacing: 0) {
-                Rectangle().fill(Color.black)
-                LinearGradient(
-                    colors: [.black, .clear],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: fadeHeight)
-            }
-        }
     }
 }
 
@@ -391,21 +348,18 @@ private struct AppleGlassChromePlate<Content: View>: View {
         }
     }
 
+    /// One plate, whatever the style: the shape's own edge. The soft
+    /// bottom-edge fade that used to be masked over the bottom capsules and
+    /// banners was a hand-painted gradient on top of Apple's glass — the fade
+    /// the user reported on both platforms — so the plate now ends where its
+    /// shape ends and the system glass is the only surface.
     @ViewBuilder
     private func plated<V: View, S: Shape>(_ view: V, shape: S) -> some View {
         switch GlassChromeConfiguration.renderingStyle {
         case .light:
             lightPlated(view, shape: shape)
-                .glassBandBottomFade(
-                    AppleGlassChromeMetrics.glassBandBottomFadeHeight,
-                    enabled: role.fadesBottomEdge
-                )
         case .native:
             nativePlated(view, shape: shape)
-                .glassBandBottomFade(
-                    AppleGlassChromeMetrics.glassBandBottomFadeHeight,
-                    enabled: role.fadesBottomEdge
-                )
         }
     }
 

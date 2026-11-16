@@ -242,27 +242,13 @@ struct RecentPage: View {
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 16)], spacing: 16) {
                     ForEach(items) { entry in
-                        Button {
+                        RecentDocumentCard(
+                            entry: entry,
+                            library: library,
+                            surface: homeSurface(raised: true)
+                        ) {
                             library.openRecent(entry)
-                        } label: {
-                            VStack(alignment: .leading, spacing: 8) {
-                                RecentDocumentThumbnail(entry: entry, library: library)
-                                Text(entry.filename)
-                                    .lineLimit(1)
-                                Text(entry.modifiedAt, format: .dateTime.year().month().day().hour().minute())
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding(10)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(
-                                homeSurface(raised: true),
-                                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            )
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(entry.filename)
-                        .accessibilityIdentifier("home.recent.row")
                     }
                 }
                 .padding()
@@ -316,6 +302,76 @@ private extension Image {
         #else
         self.init(uiImage: platformImage)
         #endif
+    }
+}
+
+/// One document card in the home grid.
+///
+/// A focused button on macOS draws the system focus effect: a saturated blue
+/// rounded rectangle around the whole tile, plus its glow. On a card that is
+/// already 12-point rounded and fills the grid cell, that ring reads as a
+/// second, brighter card outline rather than as "you are here". The effect is
+/// off; the card paints its own feedback instead, both states inside the
+/// existing 12-point shape so the tile keeps its size, padding and typography:
+///
+/// - hover: `Color.primary` at 6% — a light wash that lifts in light mode and
+///   separates in dark, where the card is lighter than the page.
+/// - keyboard focus: a 1.5-point accent border (`Color.accentColor`, so it
+///   follows the user's system accent) plus an 8% accent fill, both readable in
+///   either appearance.
+///
+/// The background is a `Shape.fill` pair and the border is an `.overlay`, so
+/// neither participates in layout: the card's frame is exactly the one the
+/// thumbnail and the two text lines already produced. The button stays
+/// focusable and Space/Return still open the document — only the ring is gone.
+private struct RecentDocumentCard: View {
+    let entry: RecentMapEntry
+    let library: LibraryModel
+    /// Page card surface, resolved by the page so light/dark stay in one place.
+    let surface: Color
+    let open: () -> Void
+
+    @State private var hovering = false
+    @FocusState private var focused: Bool
+
+    private static let hoverWash = 0.06
+    private static let focusWash = 0.08
+    private static let focusBorder = 1.5
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+        Button(action: open) {
+            VStack(alignment: .leading, spacing: 8) {
+                RecentDocumentThumbnail(entry: entry, library: library)
+                Text(entry.filename)
+                    .lineLimit(1)
+                Text(entry.modifiedAt, format: .dateTime.year().month().day().hour().minute())
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                shape.fill(surface)
+                shape.fill(Color.primary.opacity(hovering ? Self.hoverWash : 0))
+                shape.fill(Color.accentColor.opacity(focused ? Self.focusWash : 0))
+            }
+            .overlay {
+                shape.strokeBorder(
+                    Color.accentColor.opacity(focused ? 1 : 0),
+                    lineWidth: Self.focusBorder
+                )
+            }
+            .contentShape(shape)
+        }
+        .buttonStyle(.plain)
+        .focused($focused)
+        // macOS 14+ / iOS 17+: drop the system ring. It is replaced above, not
+        // silenced — the wash and border are the keyboard indicator.
+        .focusEffectDisabled()
+        .onHover { hovering = $0 }
+        .accessibilityLabel(entry.filename)
+        .accessibilityIdentifier("home.recent.row")
     }
 }
 

@@ -234,6 +234,54 @@ final class HomeChromeContractTests: XCTestCase {
         }
     }
 
+    /// The recents grid used to be a bare `.buttonStyle(.plain)` button, so a
+    /// focused tile drew macOS's system focus effect: a saturated blue rounded
+    /// rectangle around the whole card. The card owns its feedback now. This
+    /// locks both halves of that decision — the system ring is off, and hover
+    /// plus keyboard focus are still drawn — because a tile with no indicator at
+    /// all strands keyboard users.
+    func testRecentCardDropsTheSystemFocusRingButKeepsItsOwnFeedback() throws {
+        let source = try repoFile("Floretta/Shared/Shell/LibraryHome.swift")
+        let recents = try slice(source, from: "private var recentBody", until: "private var filtered")
+        let card = try slice(source, from: "private struct RecentDocumentCard", until: "struct NewMapPage")
+
+        // The grid renders the card view, not an inline button with a system ring.
+        XCTAssertTrue(recents.contains("RecentDocumentCard("), "the grid renders the card view")
+        XCTAssertFalse(recents.contains(".buttonStyle(.plain)"), "the plain button moved into RecentDocumentCard")
+        XCTAssertTrue(recents.contains("GridItem(.adaptive(minimum: 160), spacing: 16)"))
+
+        // 1. The default focus ring is gone on both platforms.
+        XCTAssertTrue(card.contains(".focusEffectDisabled()"), "the system focus ring must be off")
+
+        // 2. Feedback is replaced, not deleted: hover wash + keyboard border.
+        XCTAssertTrue(card.contains("@FocusState"), "the card knows when it is keyboard focused")
+        XCTAssertTrue(card.contains(".focused($focused)"), "keyboard focus drives the card's own indicator")
+        XCTAssertTrue(card.contains(".onHover"), "pointer position is tracked")
+        XCTAssertTrue(card.contains("Color.primary.opacity(hovering"), "hover uses an appearance-adaptive wash")
+        XCTAssertTrue(card.contains("shape.strokeBorder("), "focus draws a hairline border, not the system ring")
+        XCTAssertTrue(card.contains("Color.accentColor.opacity(focused"), "focus follows the system accent colour")
+        XCTAssertTrue(card.contains("lineWidth: Self.focusBorder"), "the focus border is a hairline")
+        XCTAssertFalse(card.contains(".focusable(false)"), "the tile stays keyboard reachable")
+        XCTAssertFalse(card.contains(".buttonStyle(.bordered)"), "no system button chrome comes back")
+        XCTAssertFalse(card.contains(".buttonStyle(.borderedProminent)"), "no system button chrome comes back")
+
+        // 3. The feedback is painted without touching layout: a background fill
+        //    and an overlay border inside the card's existing 12-point shape.
+        XCTAssertTrue(card.contains(".padding(10)"), "the card's padding is unchanged")
+        XCTAssertTrue(card.contains(".frame(maxWidth: .infinity, alignment: .leading)"))
+        XCTAssertTrue(card.contains(".font(.caption)"), "the date line keeps its caption style")
+        XCTAssertTrue(card.contains(".lineLimit(1)"), "the title still truncates to one line")
+        XCTAssertTrue(card.contains(".overlay"), "the focus border is an overlay, so it adds no size")
+        XCTAssertTrue(card.contains(".contentShape(shape)"))
+
+        // The border radius is still the one the grid shipped with.
+        XCTAssertTrue(card.components(separatedBy: "cornerRadius: 12, style: .continuous").count - 1 == 1)
+        // Thumbnail geometry is untouched.
+        let thumbnail = try slice(source, from: "private struct RecentDocumentThumbnail", until: "private extension Image")
+        XCTAssertTrue(thumbnail.contains(".frame(height: 110)"))
+        XCTAssertFalse(thumbnail.contains("focusEffectDisabled"), "the thumbnail is not the focus target")
+    }
+
     private func assertNoCustomChrome(_ source: String, file: StaticString = #filePath, line: UInt = #line) {
         let forbidden = [
             "Capsule(",

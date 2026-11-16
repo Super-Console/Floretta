@@ -17,6 +17,11 @@ struct RecentPage: View {
     var openSettings: () -> Void
     @Environment(\.locale) private var locale
     @Environment(\.colorScheme) private var colorScheme
+    /// Tap counter behind the 设置 gear's symbol feedback. The card itself is a
+    /// system sheet, so its slide-up is Apple's animation, not ours.
+    @State private var settingsTapPulse = 0
+    /// Chrome motion only. 减少动态效果 removes the symbol effect.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     #endif
@@ -72,8 +77,15 @@ struct RecentPage: View {
     @ToolbarContentBuilder
     private var homeSettingsToolbarItem: some ToolbarContent {
         ToolbarItem(placement: .primaryAction) {
-            Button(action: openSettings) {
+            Button {
+                settingsTapPulse += 1
+                openSettings()
+            } label: {
                 Label(text("设置"), systemImage: "gearshape")
+                    // Apple's symbol effect acknowledges the tap before the
+                    // system sheet slides over the page. Reduced motion removes it.
+                    .symbolEffect(.bounce, options: .nonRepeating, value: settingsTapPulse)
+                    .symbolEffectsRemoved(reduceMotion)
             }
             .accessibilityLabel(text("设置"))
             .accessibilityIdentifier("home.settings")

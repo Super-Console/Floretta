@@ -29,6 +29,9 @@ struct EditorStatusStrip: View {
     /// Pointer / hand. Written straight through to `AppSettings`, so the choice
     /// survives the next launch. Only the Mac draws the control.
     @Binding var pointerMode: CanvasPointerMode
+    /// Native motion only: chrome glyph swaps animate, and 减少动态效果 turns
+    /// that off. Canvas content is never animated here.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Hover (macOS) and tap (iPad / iPhone) present the same breakdown.
     @State private var showsCensus = false
@@ -228,15 +231,31 @@ struct EditorStatusStrip: View {
     /// no second click.
     private var viewModeToggle: some View {
         Button {
-            session.viewMode = session.viewMode == .map ? .focus : .map
+            changeViewMode(session.viewMode == .map ? .focus : .map)
         } label: {
             statusSymbol(viewModeSymbol(session.viewMode), on: session.viewMode == .focus)
+                // System symbol swap, so 地图 ⇄ 聚焦 does not hard-cut the glyph.
+                .contentTransition(reduceMotion ? .identity : .symbolEffect(.replace))
         }
         .buttonStyle(.plain)
         .help(Text(verbatim: viewModeActionLabel))
         .accessibilityLabel(Text(verbatim: viewModeActionLabel))
         .accessibilityHint(Text(verbatim: string("在地图模式和聚焦模式之间切换")))
         .accessibilityIdentifier("statusBar.views")
+    }
+
+    /// The mode change is chrome state: the system spring drives it, and
+    /// nothing moves when 减少动态效果 is on.
+    private func changeViewMode(_ mode: DocumentViewMode) {
+        #if os(iOS)
+        if reduceMotion {
+            session.viewMode = mode
+        } else {
+            withAnimation(.snappy) { session.viewMode = mode }
+        }
+        #else
+        session.viewMode = mode
+        #endif
     }
 
     /// Current mode, then what a click does. Both halves are existing keys.
@@ -246,14 +265,32 @@ struct EditorStatusStrip: View {
 
     private var outlineToggle: some View {
         Button {
-            showOutline.toggle()
+            toggleOutline()
         } label: {
             statusSymbol(EditorToolbarCatalog.command(.outline).symbol, on: showOutline)
+                // Apple's symbol effect: one short bounce acknowledges the tap
+                // while the panel itself slides in. Reduced motion removes it.
+                .symbolEffect(.bounce, options: .nonRepeating, value: showOutline)
+                .symbolEffectsRemoved(reduceMotion)
         }
         .buttonStyle(.plain)
         .help(Text(verbatim: string(EditorToolbarCatalog.command(.outline).help)))
         .accessibilityLabel(Text(verbatim: string(EditorToolbarCatalog.command(.outline).title)))
         .accessibilityIdentifier("status.outline")
+    }
+
+    /// The panel's own transition is driven by the editor's `showOutline`
+    /// animation; this keeps the toggle's state change in the same transaction.
+    private func toggleOutline() {
+        #if os(iOS)
+        if reduceMotion {
+            showOutline.toggle()
+        } else {
+            withAnimation(.snappy) { showOutline.toggle() }
+        }
+        #else
+        showOutline.toggle()
+        #endif
     }
 
     private var fullScreenToggle: some View {

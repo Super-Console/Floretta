@@ -135,6 +135,9 @@ struct ContentView: View {
         // the system sheet draws the card, its detents, and its drag indicator.
         homeStack
             .sheet(isPresented: $showSettings) {
+                // The card is the system sheet: Apple animates the slide-up, the
+                // detents, and the drag indicator. No custom motion is added here,
+                // and none is needed.
                 SettingsView(settings: settings)
                     .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)

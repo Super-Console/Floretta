@@ -3682,6 +3682,8 @@ private struct BranchThemePopover: View {
         .scrollBounceBehavior(.basedOnSize)
         .frame(height: CGFloat(Self.visibleRows) * Self.cardHeight + CGFloat(Self.visibleRows - 1) * Self.cardSpacing)
         .animation(reduceMotion ? nil : .snappy, value: showsThemes)
+        // Selection is a checkmark badge that scales in with the system spring.
+        .animation(reduceMotion ? nil : .snappy, value: themeID)
     }
 
     /// One card: colour block, then name. Selection is a system checkmark badge,

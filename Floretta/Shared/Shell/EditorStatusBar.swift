@@ -35,6 +35,10 @@ struct EditorStatusStrip: View {
     /// Leaving the trigger for the popover itself must not close it. A short
     /// grace period covers the gap; entering the popover cancels it.
     @State private var censusDismissTask: Task<Void, Never>?
+    /// The capsule is chrome, so its glyph swaps and its ink changes animate —
+    /// through `ChromeMotion`, which hands back nil when the reader turned
+    /// Reduce Motion on.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         capsule
@@ -283,12 +287,17 @@ struct EditorStatusStrip: View {
         Image(systemName: symbol)
             .symbolRenderingMode(.monochrome)
             .font(.system(size: EditorStatusBarChrome.chromeFontSize, weight: .regular))
+            // map ⇄ scope, and 大纲 off ⇄ on, are one glyph slot changing: the
+            // system's replace transition, and the accent ink eases in. Nothing
+            // is drawn to fake either.
+            .contentTransition(.symbolEffect(.replace))
             .frame(
                 width: EditorStatusBarChrome.iconButtonSize,
                 height: EditorStatusBarChrome.iconButtonSize
             )
             .contentShape(Rectangle())
             .foregroundStyle(on ? Color.accentColor : Color.primary)
+            .animation(ChromeMotion.resolved(ChromeMotion.control, reduceMotion: reduceMotion), value: on)
     }
 
     // MARK: text

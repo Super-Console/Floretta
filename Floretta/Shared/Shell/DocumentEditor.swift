@@ -54,6 +54,9 @@ struct DocumentEditor: View {
     @State private var showThemes = false
     @State private var showHistory = false
     @Environment(\.colorScheme) private var colorScheme
+    /// Every animation in this view goes through `ChromeMotion.resolved`, so a
+    /// reader with Reduce Motion gets the change with no curve at all.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     #endif
@@ -654,13 +657,21 @@ struct DocumentEditor: View {
             // what made it read as a solid grey plate. One plate only: this
             // modifier, plus `OutlineView` hiding its list's scroll
             // background, so no second material is stacked on the glass.
+            //
+            // It arrives and leaves with the system's own motion: a short
+            // `.snappy` move from the leading edge plus a fade. The animation is
+            // attached to `showOutline` alone, so nothing in the canvas
+            // animates when the panel opens (the canvas frame does not change),
+            // and Reduce Motion drops the curve to nil.
             if showOutline, session.zen.chrome.showsSidebar {
                 outlinePanel
                     .frame(width: outlineWide ? nil : 300)
                     .frame(maxWidth: outlineWide ? .infinity : 300, maxHeight: .infinity)
                     .appleGlassChrome(.sidebarColumn)
+                    .transition(.move(edge: .leading).combined(with: .opacity))
             }
         }
+        .animation(ChromeMotion.resolved(ChromeMotion.panel, reduceMotion: reduceMotion), value: showOutline)
         .overlay(alignment: .top) {
             if !session.zen.isActive {
                 VStack(spacing: 8) {
@@ -995,8 +1006,28 @@ struct DocumentEditor: View {
         var title: String
         var titleWidthLimit: CGFloat
 
+        /// Width of the `▾` slot. The glyph is drawn inside it, and an empty
+        /// slot of the same width leads the name, so the two balance.
+        private static let chevronSlot: CGFloat = 10
+
         var body: some View {
+            // The name is centred on the label's own centre line, not on a box
+            // that the chevron pushes to the left.
+            //
+            // The chevron used to be a plain member of this `HStack`, so it took
+            // ~10 pt of the label's width on the trailing side only: a short name
+            // like 测试 then sat roughly 7 pt left of the label's centre, which is
+            // exactly what reads as "偏左" in the capsule. Mirroring the glyph
+            // with an empty slot of the same width — and using one horizontal
+            // padding instead of 12 / 10 — makes the name's centre the label's
+            // centre:
+            //   12 + slot + 4 + name + 4 + slot + 12
+            // so the text's midpoint is at half the label's width. The glyph
+            // still reads as trailing because the leading slot carries no ink.
             HStack(spacing: 4) {
+                Color.clear
+                    .frame(width: Self.chevronSlot, height: 1)
+                    .accessibilityHidden(true)
                 CappedWidthLayout(maxWidth: titleWidthLimit) {
                     Text(verbatim: title)
                         .lineLimit(1)
@@ -1006,9 +1037,9 @@ struct DocumentEditor: View {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 10, weight: .regular))
                     .foregroundStyle(.secondary)
+                    .frame(width: Self.chevronSlot)
             }
-            .padding(.leading, 12)
-            .padding(.trailing, 10)
+            .padding(.horizontal, 12)
             .frame(minHeight: EditorStatusBarChrome.controlMinHeight)
             .contentShape(Rectangle())
         }
@@ -1110,21 +1141,34 @@ struct DocumentEditor: View {
             HStack {
                 Text(verbatim: text("大纲")).font(.headline)
                 Spacer()
+                // Apple's glass button, the same surface the window toolbar puts
+                // behind its own icons: the system draws the capsule, the press
+                // feedback and the hover state. No plate of our own is stacked
+                // inside it, and the glyph swaps with the system's replace
+                // transition instead of hard-cutting.
                 Button {
                     outlineWide.toggle()
                 } label: {
-                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                    Image(systemName: outlineWide ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                        .contentTransition(.symbolEffect(.replace))
+                        .frame(width: 16, height: 16)
                 }
+                .buttonStyle(.glass)
+                .controlSize(.small)
                 .explained("让大纲占满或恢复原来的宽度")
-                .appleGlassChrome(.iconButton)
+                .accessibilityIdentifier("outline.wide")
                 Button {
                     showOutline = false
                 } label: {
                     Image(systemName: "xmark")
+                        .frame(width: 16, height: 16)
                 }
+                .buttonStyle(.glass)
+                .controlSize(.small)
                 .explained("关闭大纲")
-                .appleGlassChrome(.iconButton)
+                .accessibilityIdentifier("outline.close")
             }
+            .animation(ChromeMotion.resolved(ChromeMotion.control, reduceMotion: reduceMotion), value: outlineWide)
             .padding(12)
             if session.isMarkdownDocument {
                 Text(verbatim: text(MarkdownModePolicy.reason(.collapse)))
@@ -1886,6 +1930,12 @@ struct DocumentEditor: View {
         // toolbar controls over the canvas. Keep the native Picker in a stable,
         // top-anchored inset; only the page below is flexible and scrollable.
         inspectorTabPage
+            // 样式 ⇄ 导图 is a page swap, not a slide: the system's short
+            // `.snappy` curve on an opacity cross-fade. Only the page fades —
+            // the header lives in the inset below, so the shared toolbar
+            // controls never move. Reduce Motion resolves the curve to nil.
+            .transition(.opacity)
+            .animation(ChromeMotion.resolved(ChromeMotion.panel, reduceMotion: reduceMotion), value: inspectorTab)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .safeAreaInset(edge: .top, spacing: 12) {
                 inspectorHeader
@@ -1957,7 +2007,10 @@ struct DocumentEditor: View {
             }
         }
         .pickerStyle(.segmented)
-        .appleGlassChrome(.segmentedContainer)
+        // Apple's segmented control draws its own glass. The old
+        // `.segmentedContainer` role wrapped it in a second glass capsule and
+        // masked that capsule's bottom edge with a gradient, which is the fade
+        // that showed under 样式 / 导图. The system control is the control.
         .labelsHidden()
         .accessibilityLabel(text("检查器"))
         .accessibilityIdentifier("inspector.tabs")
@@ -1982,28 +2035,39 @@ struct DocumentEditor: View {
         )
     }
 
+    /// The style page is **one** grouped form, which means **one** scroll
+    /// container.
+    ///
+    /// It used to be a `VStack` of two forms: the document groups on top, the
+    /// selected node's groups below. A `VStack` splits the column height between
+    /// its flexible children, so the page ended up with two scroll views stacked
+    /// in one column — neither tall enough for its content, and the trackpad
+    /// scrolled whichever short form was under the pointer while the lower half
+    /// stayed cut off. That is what read as "the inspector does not scroll".
+    /// Every group now lives in the same form, so the panel owns exactly one
+    /// scroll view and the page scrolls as a whole.
     @ViewBuilder
     private var stylePage: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Form {
-                // Document-scope XMind groups. They stay readable with nothing
-                // selected, because a structure, a color scheme and a branch are
-                // map-wide.
-                inspectorStructureSection
-                inspectorColorSchemeSection
-                inspectorBranchSection
-                AppearanceSettingsPanel(
-                    settings: settings,
-                    identifierPrefix: "inspector.appearance",
-                    density: .inspector,
-                    fields: .mapScope,
-                    documentBackground: documentBackground
-                )
-            }
-            .formStyle(.grouped)
-            .appleGlassInspectorFormPlate()
-            inspectorDocumentStyle
+        Form {
+            // Document-scope XMind groups. They stay readable with nothing
+            // selected, because a structure, a color scheme and a branch are
+            // map-wide.
+            inspectorStructureSection
+            inspectorColorSchemeSection
+            inspectorBranchSection
+            AppearanceSettingsPanel(
+                settings: settings,
+                identifierPrefix: "inspector.appearance",
+                density: .inspector,
+                fields: .mapScope,
+                documentBackground: documentBackground
+            )
+            // Selection-scope groups: the selected node's style, or the mark
+            // that is selected. Sections of the same form, never a second one.
+            inspectorSelectionSections
         }
+        .formStyle(.grouped)
+        .appleGlassInspectorFormPlate()
     }
 
     /// 结构. Seven structures, one document field. The canvas, the PNG/PDF export
@@ -2130,16 +2194,19 @@ struct DocumentEditor: View {
         )
     }
 
+    /// The selection-scope groups of the style page: **sections of the page's
+    /// one form**, never a form of their own. A second form would be a second
+    /// scroll view, which is the bug this page used to have.
     @ViewBuilder
-    private var inspectorDocumentStyle: some View {
+    private var inspectorSelectionSections: some View {
         if session.keyboard.selectedRelationshipID != nil {
-            relationshipLabelForm
+            relationshipLabelSection
         } else if session.keyboard.selectedSummaryID != nil {
-            summaryTextForm
+            summaryTextSection
         } else if session.keyboard.selectedBoundaryID != nil {
-            boundaryTitleForm
+            boundaryTitleSection
         } else if session.keyboard.selectedRegionID != nil {
-            regionStyleForm
+            regionStyleSection
         } else {
             StyleInspector(
                 document: session.activeCanvasDocument,
@@ -2181,20 +2248,18 @@ struct DocumentEditor: View {
         .accessibilityIdentifier("inspector.map")
     }
 
-    private var relationshipLabelForm: some View {
-        Form {
-            Section(text("标签")) {
-                Group {
-                    TextField(text("标签"), text: relationshipTitle)
-                        .onSubmit { commitRelationshipTitle() }
-                        .help(Text(verbatim: text("编辑这条关系的标签")))
-                        .accessibilityIdentifier("relationship.label")
-                }
-                .inspectorRowBlock()
+    /// 关系线 label row. A section of the style page's form, not a form.
+    @ViewBuilder
+    private var relationshipLabelSection: some View {
+        Section(text("标签")) {
+            Group {
+                TextField(text("标签"), text: relationshipTitle)
+                    .onSubmit { commitRelationshipTitle() }
+                    .help(Text(verbatim: text("编辑这条关系的标签")))
+                    .accessibilityIdentifier("relationship.label")
             }
+            .inspectorRowBlock()
         }
-        .formStyle(.grouped)
-        .appleGlassInspectorFormPlate()
     }
 
     private var relationshipTitle: Binding<String> {
@@ -2222,20 +2287,18 @@ struct DocumentEditor: View {
         )
     }
 
-    private var summaryTextForm: some View {
-        Form {
-            Section(text("概要")) {
-                Group {
-                    TextField(text("概要"), text: summaryText)
-                        .onSubmit { commitMarkText() }
-                        .help(Text(verbatim: text("编辑概要文字")))
-                        .accessibilityIdentifier("summary.text")
-                }
-                .inspectorRowBlock()
+    /// 概要 text row. A section of the style page's form, not a form.
+    @ViewBuilder
+    private var summaryTextSection: some View {
+        Section(text("概要")) {
+            Group {
+                TextField(text("概要"), text: summaryText)
+                    .onSubmit { commitMarkText() }
+                    .help(Text(verbatim: text("编辑概要文字")))
+                    .accessibilityIdentifier("summary.text")
             }
+            .inspectorRowBlock()
         }
-        .formStyle(.grouped)
-        .appleGlassInspectorFormPlate()
     }
 
     private var summaryText: Binding<String> {
@@ -2263,20 +2326,18 @@ struct DocumentEditor: View {
         )
     }
 
-    private var boundaryTitleForm: some View {
-        Form {
-            Section(text("边界")) {
-                Group {
-                    TextField(text("标题"), text: boundaryTitle)
-                        .onSubmit { commitMarkText() }
-                        .help(Text(verbatim: text("编辑边界标题")))
-                        .accessibilityIdentifier("boundary.title")
-                }
-                .inspectorRowBlock()
+    /// 边界 title row. A section of the style page's form, not a form.
+    @ViewBuilder
+    private var boundaryTitleSection: some View {
+        Section(text("边界")) {
+            Group {
+                TextField(text("标题"), text: boundaryTitle)
+                    .onSubmit { commitMarkText() }
+                    .help(Text(verbatim: text("编辑边界标题")))
+                    .accessibilityIdentifier("boundary.title")
             }
+            .inspectorRowBlock()
         }
-        .formStyle(.grouped)
-        .appleGlassInspectorFormPlate()
     }
 
     private var boundaryTitle: Binding<String> {
@@ -2303,54 +2364,52 @@ struct DocumentEditor: View {
         )
     }
 
-    private var regionStyleForm: some View {
-        Form {
-            Section(text("专区")) {
-                Group {
-                    TextField(text("标题"), text: regionLabel)
-                        .onSubmit { commitMarkText() }
-                        .help(Text(verbatim: text("编辑专区标题")))
-                        .accessibilityIdentifier("region.label")
-                    HStack {
-                        TextField(text("宽度"), text: $regionWidthDraft)
-                            .focused($regionMetric, equals: .width)
-                            .onSubmit { commitRegionMetric(.width, includingFocused: true) }
-                            .accessibilityIdentifier("region.width")
-                        Text("px")
-                            .foregroundStyle(.secondary)
-                    }
-                    HStack {
-                        TextField(text("高度"), text: $regionHeightDraft)
-                            .focused($regionMetric, equals: .height)
-                            .onSubmit { commitRegionMetric(.height, includingFocused: true) }
-                            .accessibilityIdentifier("region.height")
-                        Text("px")
-                            .foregroundStyle(.secondary)
-                    }
-                    Toggle(text("锁定"), isOn: regionAspectLocked)
-                        .accessibilityIdentifier("region.lockInspector")
-                    HStack {
-                        TextField(text("描边"), text: $regionStrokeDraft)
-                            .focused($regionMetric, equals: .stroke)
-                            .onSubmit { commitRegionMetric(.stroke, includingFocused: true) }
-                            .accessibilityIdentifier("region.stroke")
-                        Text("px")
-                            .foregroundStyle(.secondary)
-                    }
-                    ColorPicker(selection: regionFill, supportsOpacity: false) {
-                        Text(verbatim: text("填充颜色"))
-                    }
-                    .accessibilityIdentifier("region.fill")
-                    ColorPicker(selection: regionBorder, supportsOpacity: false) {
-                        Text(verbatim: text("颜色"))
-                    }
-                    .accessibilityIdentifier("region.border")
+    /// 专区 rows. A section of the style page's form, not a form.
+    @ViewBuilder
+    private var regionStyleSection: some View {
+        Section(text("专区")) {
+            Group {
+                TextField(text("标题"), text: regionLabel)
+                    .onSubmit { commitMarkText() }
+                    .help(Text(verbatim: text("编辑专区标题")))
+                    .accessibilityIdentifier("region.label")
+                HStack {
+                    TextField(text("宽度"), text: $regionWidthDraft)
+                        .focused($regionMetric, equals: .width)
+                        .onSubmit { commitRegionMetric(.width, includingFocused: true) }
+                        .accessibilityIdentifier("region.width")
+                    Text("px")
+                        .foregroundStyle(.secondary)
                 }
-                .inspectorRowBlock()
+                HStack {
+                    TextField(text("高度"), text: $regionHeightDraft)
+                        .focused($regionMetric, equals: .height)
+                        .onSubmit { commitRegionMetric(.height, includingFocused: true) }
+                        .accessibilityIdentifier("region.height")
+                    Text("px")
+                        .foregroundStyle(.secondary)
+                }
+                Toggle(text("锁定"), isOn: regionAspectLocked)
+                    .accessibilityIdentifier("region.lockInspector")
+                HStack {
+                    TextField(text("描边"), text: $regionStrokeDraft)
+                        .focused($regionMetric, equals: .stroke)
+                        .onSubmit { commitRegionMetric(.stroke, includingFocused: true) }
+                        .accessibilityIdentifier("region.stroke")
+                    Text("px")
+                        .foregroundStyle(.secondary)
+                }
+                ColorPicker(selection: regionFill, supportsOpacity: false) {
+                    Text(verbatim: text("填充颜色"))
+                }
+                .accessibilityIdentifier("region.fill")
+                ColorPicker(selection: regionBorder, supportsOpacity: false) {
+                    Text(verbatim: text("颜色"))
+                }
+                .accessibilityIdentifier("region.border")
             }
+            .inspectorRowBlock()
         }
-        .formStyle(.grouped)
-        .appleGlassInspectorFormPlate()
     }
 
     private var regionDraftToken: String {
@@ -3051,186 +3110,187 @@ private struct StyleInspector: View {
     var onSelectRelationship: (UUID) -> Void = { _ in }
     @Environment(\.locale) private var locale
 
+    /// Sections of the page's form. This view owns no `Form`: the style page
+    /// hosts these groups in its own single scroll container, so the panel never
+    /// stacks a second scroll view under the document groups.
+    @ViewBuilder
     var body: some View {
         if let nodeID, document.node(nodeID) != nil {
-            VStack(alignment: .leading, spacing: 0) {
-                if locksAppearance {
+            if locksAppearance {
+                Section {
                     Text(verbatim: text(MarkdownModePolicy.reason(.nodeColor)))
                         .font(.callout)
                         .foregroundStyle(.secondary)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 4)
                         .accessibilityHint(text(MarkdownModePolicy.reason(.nodeColor)))
                 }
-                appearanceForm
             }
+            appearanceSections
+                .disabled(locksAppearance)
+                .accessibilityIdentifier("inspector.style")
         } else {
-            ContentUnavailableView {
-                Label {
-                    Text(verbatim: text("选择一个主题"))
-                } icon: {
-                    Image(systemName: "paintbrush")
-                        .appleGlassChrome(.iconButton)
-                        .accessibilityIdentifier("inspector.empty.brush")
+            Section {
+                ContentUnavailableView {
+                    Label {
+                        Text(verbatim: text("选择一个主题"))
+                    } icon: {
+                        Image(systemName: "paintbrush")
+                            .appleGlassChrome(.iconButton)
+                            .accessibilityIdentifier("inspector.empty.brush")
+                    }
+                } description: {
+                    Text(verbatim: text(locksAppearance ? MarkdownModePolicy.reason(.nodeColor) : "样式会写进导图文件。"))
                 }
-            } description: {
-                Text(verbatim: text(locksAppearance ? MarkdownModePolicy.reason(.nodeColor) : "样式会写进导图文件。"))
+                .frame(maxWidth: .infinity, minHeight: 180)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("inspector.empty")
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("inspector.empty")
         }
     }
 
-    private var appearanceForm: some View {
-        Form {
-            Section(text(InspectorStyleSection.shape.titleKey)) {
-                Group {
-                    Picker(text("形状"), selection: shape) {
-                        ForEach(InspectorTopicShape.allCases) { item in
-                            Text(verbatim: text(item.titleKey)).tag(item)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .accessibilityIdentifier("inspector.style.shape")
-                }
-                .inspectorRowBlock()
-            }
-            Section(text(InspectorStyleSection.fill.titleKey)) {
-                Group {
-                    Picker(text("填充样式"), selection: fillStyle) {
-                        ForEach(fillStyleTags, id: \.self) { tag in
-                            Text(verbatim: fillStyleTitle(tag)).tag(tag)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .accessibilityIdentifier("inspector.style.fillStyle")
-                    ColorPicker(selection: fillColor, supportsOpacity: false) {
-                        Text(verbatim: text("填充颜色"))
-                    }
-                    .accessibilityIdentifier("inspector.style.fillColor")
-                }
-                .inspectorRowBlock()
-            }
-            Section(text(InspectorStyleSection.border.titleKey)) {
-                Group {
-                    Picker(text("样式"), selection: borderStyle) {
-                        ForEach(borderStyleTags, id: \.self) { tag in
-                            Text(verbatim: borderStyleTitle(tag)).tag(tag)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .accessibilityIdentifier("inspector.style.borderStyle")
-                    LabeledContent(text("宽度")) {
-                        Text(verbatim: borderWidthText)
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                    }
-                    Slider(value: borderWidth, in: InspectorStyle.borderWidthRange)
-                        .accessibilityLabel(text("宽度"))
-                        .accessibilityIdentifier("inspector.style.borderWidth")
-                    ColorPicker(selection: borderColor, supportsOpacity: false) {
-                        Text(verbatim: text("颜色"))
-                    }
-                    .accessibilityIdentifier("inspector.style.borderColor")
-                }
-                .inspectorRowBlock()
-            }
-            Section(text(InspectorStyleSection.width.titleKey)) {
-                Group {
-                    Picker(text("宽度模式"), selection: widthMode) {
-                        ForEach(InspectorWidthMode.allCases) { mode in
-                            Text(verbatim: text(mode.titleKey)).tag(mode)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .accessibilityLabel(text("宽度模式"))
-                    .accessibilityIdentifier("inspector.style.widthMode")
-                    LabeledContent(text("长度")) {
-                        Text(verbatim: widthReadout)
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                    }
-                    Slider(value: topicWidth, in: InspectorStyle.topicWidthRange)
-                        .accessibilityLabel(text("长度"))
-                        .disabled(InspectorStyle.widthMode(of: style) == .fit)
-                        .accessibilityIdentifier("inspector.style.topicWidth")
-                }
-                .inspectorRowBlock()
-            }
-            Section(text(InspectorStyleSection.text.titleKey)) {
-                Group {
-                    TextField(text("副文本"), text: subtitle)
-                        .accessibilityIdentifier("inspector.style.subtitle")
-                    Picker(text("文字对齐"), selection: textAlignment) {
-                        Text(verbatim: text("靠左")).tag(MindMapTextAlignment.leading)
-                        Text(verbatim: text("居中")).tag(MindMapTextAlignment.center)
-                        Text(verbatim: text("靠右")).tag(MindMapTextAlignment.trailing)
-                    }
-                    .pickerStyle(.segmented)
-                    .accessibilityIdentifier("inspector.style.textAlignment")
-                    Picker(text("字体"), selection: fontDesign) {
-                        ForEach(fontDesignTags, id: \.self) { tag in
-                            Text(verbatim: fontDesignTitle(tag)).tag(tag)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .accessibilityIdentifier("inspector.style.font")
-                    HStack(spacing: 8) {
-                        textFlagToggle(.bold)
-                        textFlagToggle(.italic)
-                        textFlagToggle(.strikethrough)
-                        textFlagToggle(.underline)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    LabeledContent(text("大小")) {
-                        Text(verbatim: "\(Int(InspectorStyle.fontSizeValue(of: style)))pt")
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                    }
-                    Slider(value: fontSize, in: InspectorStyle.fontSizeRange, step: InspectorStyle.fontSizeStep)
-                        .accessibilityLabel(text("大小"))
-                        .accessibilityIdentifier("inspector.style.fontSize")
-                    ColorPicker(selection: textColor, supportsOpacity: false) {
-                        Text(verbatim: text("颜色"))
-                    }
-                    .accessibilityIdentifier("inspector.style.textColor")
-                }
-                .inspectorRowBlock()
-            }
-            Section(text(InspectorStyleSection.links.titleKey)) {
-                Group {
-                    if locksAppearance {
-                        Text(verbatim: text(MarkdownModePolicy.reason(.relationship)))
-                    } else if let nodeID {
-                        if linkedRelationships.isEmpty {
-                            Text(verbatim: text("还没有连到其他节点。"))
-                        } else {
-                            ForEach(linkedRelationships) { link in
-                                Button {
-                                    onSelectRelationship(link.id)
-                                } label: {
-                                    Text(verbatim: InspectorStyle.relationshipLine(
-                                        link,
-                                        seenFrom: nodeID,
-                                        document: document,
-                                        missingTopic: text("缺失的节点")
-                                    ))
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                                .buttonStyle(.borderless)
-                                .accessibilityIdentifier("inspector.link.\(link.id.uuidString)")
-                            }
-                        }
+    @ViewBuilder
+    private var appearanceSections: some View {
+        Section(text(InspectorStyleSection.shape.titleKey)) {
+            Group {
+                Picker(text("形状"), selection: shape) {
+                    ForEach(InspectorTopicShape.allCases) { item in
+                        Text(verbatim: text(item.titleKey)).tag(item)
                     }
                 }
-                .inspectorRowBlock()
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("inspector.style.shape")
             }
+            .inspectorRowBlock()
         }
-        .formStyle(.grouped)
-        .appleGlassInspectorFormPlate()
-        .disabled(locksAppearance)
-        .accessibilityIdentifier("inspector.style")
+        Section(text(InspectorStyleSection.fill.titleKey)) {
+            Group {
+                Picker(text("填充样式"), selection: fillStyle) {
+                    ForEach(fillStyleTags, id: \.self) { tag in
+                        Text(verbatim: fillStyleTitle(tag)).tag(tag)
+                    }
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("inspector.style.fillStyle")
+                ColorPicker(selection: fillColor, supportsOpacity: false) {
+                    Text(verbatim: text("填充颜色"))
+                }
+                .accessibilityIdentifier("inspector.style.fillColor")
+            }
+            .inspectorRowBlock()
+        }
+        Section(text(InspectorStyleSection.border.titleKey)) {
+            Group {
+                Picker(text("样式"), selection: borderStyle) {
+                    ForEach(borderStyleTags, id: \.self) { tag in
+                        Text(verbatim: borderStyleTitle(tag)).tag(tag)
+                    }
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("inspector.style.borderStyle")
+                LabeledContent(text("宽度")) {
+                    Text(verbatim: borderWidthText)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+                Slider(value: borderWidth, in: InspectorStyle.borderWidthRange)
+                    .accessibilityLabel(text("宽度"))
+                    .accessibilityIdentifier("inspector.style.borderWidth")
+                ColorPicker(selection: borderColor, supportsOpacity: false) {
+                    Text(verbatim: text("颜色"))
+                }
+                .accessibilityIdentifier("inspector.style.borderColor")
+            }
+            .inspectorRowBlock()
+        }
+        Section(text(InspectorStyleSection.width.titleKey)) {
+            Group {
+                Picker(text("宽度模式"), selection: widthMode) {
+                    ForEach(InspectorWidthMode.allCases) { mode in
+                        Text(verbatim: text(mode.titleKey)).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityLabel(text("宽度模式"))
+                .accessibilityIdentifier("inspector.style.widthMode")
+                LabeledContent(text("长度")) {
+                    Text(verbatim: widthReadout)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+                Slider(value: topicWidth, in: InspectorStyle.topicWidthRange)
+                    .accessibilityLabel(text("长度"))
+                    .disabled(InspectorStyle.widthMode(of: style) == .fit)
+                    .accessibilityIdentifier("inspector.style.topicWidth")
+            }
+            .inspectorRowBlock()
+        }
+        Section(text(InspectorStyleSection.text.titleKey)) {
+            Group {
+                TextField(text("副文本"), text: subtitle)
+                    .accessibilityIdentifier("inspector.style.subtitle")
+                Picker(text("文字对齐"), selection: textAlignment) {
+                    Text(verbatim: text("靠左")).tag(MindMapTextAlignment.leading)
+                    Text(verbatim: text("居中")).tag(MindMapTextAlignment.center)
+                    Text(verbatim: text("靠右")).tag(MindMapTextAlignment.trailing)
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("inspector.style.textAlignment")
+                Picker(text("字体"), selection: fontDesign) {
+                    ForEach(fontDesignTags, id: \.self) { tag in
+                        Text(verbatim: fontDesignTitle(tag)).tag(tag)
+                    }
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("inspector.style.font")
+                HStack(spacing: 8) {
+                    textFlagToggle(.bold)
+                    textFlagToggle(.italic)
+                    textFlagToggle(.strikethrough)
+                    textFlagToggle(.underline)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                LabeledContent(text("大小")) {
+                    Text(verbatim: "\(Int(InspectorStyle.fontSizeValue(of: style)))pt")
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+                Slider(value: fontSize, in: InspectorStyle.fontSizeRange, step: InspectorStyle.fontSizeStep)
+                    .accessibilityLabel(text("大小"))
+                    .accessibilityIdentifier("inspector.style.fontSize")
+                ColorPicker(selection: textColor, supportsOpacity: false) {
+                    Text(verbatim: text("颜色"))
+                }
+                .accessibilityIdentifier("inspector.style.textColor")
+            }
+            .inspectorRowBlock()
+        }
+        Section(text(InspectorStyleSection.links.titleKey)) {
+            Group {
+                if locksAppearance {
+                    Text(verbatim: text(MarkdownModePolicy.reason(.relationship)))
+                } else if let nodeID {
+                    if linkedRelationships.isEmpty {
+                        Text(verbatim: text("还没有连到其他节点。"))
+                    } else {
+                        ForEach(linkedRelationships) { link in
+                            Button {
+                                onSelectRelationship(link.id)
+                            } label: {
+                                Text(verbatim: InspectorStyle.relationshipLine(
+                                    link,
+                                    seenFrom: nodeID,
+                                    document: document,
+                                    missingTopic: text("缺失的节点")
+                                ))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(.borderless)
+                            .accessibilityIdentifier("inspector.link.\(link.id.uuidString)")
+                        }
+                    }
+                }
+            }
+            .inspectorRowBlock()
+        }
     }
 
     private var linkedRelationships: [TopicRelationship] {

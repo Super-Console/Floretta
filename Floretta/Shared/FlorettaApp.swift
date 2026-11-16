@@ -40,6 +40,15 @@ struct FlorettaApp: App {
             EmptyCommands()
             #endif
         }
+        // One command set for the whole app.
+        //
+        // A `Commands` value is installed by every scene that carries it, so
+        // attaching `FlorettaCommands` here as well put 插入 / 视图 / 格式 / 导出 /
+        // 主题 / 帮助 in the menu bar a second time — the doubled menu list a
+        // reader saw: 文件 编辑 显示 插入 视图 格式 导出 主题 帮助, then the same
+        // custom menus again. The same-document window is another window of this
+        // app, not another app: it reads the focused editor's state through
+        // `FocusedValue`, so the primary window group's menu bar serves it too.
         #if os(macOS)
         WindowGroup(id: SameDocumentWindow.sceneID, for: UUID.self) { $windowID in
             SameDocumentWindow(
@@ -50,9 +59,6 @@ struct FlorettaApp: App {
             )
         }
         .defaultSize(width: 960, height: 680)
-        .commands {
-            FlorettaCommands(settings: settings, library: library)
-        }
         // Standard Settings scene: ⌘, opens this window on its own, outside the
         // document window and outside the Dock.
         Settings {
@@ -68,7 +74,18 @@ private struct FlorettaCommands: Commands {
     @Bindable var library: LibraryModel
     @FocusedValue(\.florettaEditorCommands) private var editorCommands: FlorettaEditorMenuActions?
 
+    /// The menu bar, once.
+    ///
+    /// Placement follows what a Mac document app does: every command lives in
+    /// the menu it belongs to, and nothing is duplicated. 文件 keeps 新建 /
+    /// 打开 / 保存 and carries the whole export list in a 导出 ▸ submenu; 显示 is
+    /// the system View menu, and our view commands join it through
+    /// `CommandGroup(after: .sidebar)` instead of a second top-level menu; 帮助 is
+    /// the system Help menu, and 快捷键一览 is its one item. 插入 / 格式 / 主题 stay
+    /// top-level because that is where XMind and every other Mac outliner put
+    /// them, and each owns its own commands only.
     var body: some Commands {
+        // 文件
         CommandGroup(replacing: .newItem) {
             Button {
                 library.makeNew()
@@ -76,6 +93,28 @@ private struct FlorettaCommands: Commands {
                 Label(FlorettaL10n.string("新建", language: settings.language), systemImage: "plus")
             }
             .keyboardShortcut("n", modifiers: .command)
+        }
+        // The three 打开 commands, in 文件: the three sources the home page used
+        // to carry.
+        CommandGroup(after: .newItem) {
+            Button {
+                library.requestHomeOpen(.files)
+            } label: {
+                Label(FlorettaL10n.string(HomeOpenCommand.files.titleKey, language: settings.language), systemImage: "folder")
+            }
+            .disabled(library.editor != nil)
+            Button {
+                library.requestHomeOpen(.iCloud)
+            } label: {
+                Label(FlorettaL10n.string(HomeOpenCommand.iCloud.titleKey, language: settings.language), systemImage: "icloud")
+            }
+            .disabled(library.editor != nil)
+            Button {
+                library.requestHomeOpen(.local)
+            } label: {
+                Label(FlorettaL10n.string(HomeOpenCommand.local.titleKey, language: settings.language), systemImage: "internaldrive")
+            }
+            .disabled(library.editor != nil)
         }
         CommandGroup(replacing: .saveItem) {
             Button {
@@ -87,12 +126,32 @@ private struct FlorettaCommands: Commands {
             .disabled(!library.canSaveActiveFile)
         }
         if let editorCommands {
+            // 文件 > 导出 ▸
+            //
+            // The exports used to be their own top-level 导出 menu, which is not
+            // where a Mac app puts them: a file operation belongs to 文件. One
+            // submenu, the same six commands, the same shortcuts.
+            CommandGroup(after: .saveItem) {
+                Menu {
+                    ForEach([EditorToolbarCommandID.png, .pdf, .markdownExport, .textBundle, .saveFloretta, .xmind], id: \.self) { id in
+                        editorCommand(id, actions: editorCommands)
+                    }
+                } label: {
+                    Label("导出", systemImage: "square.and.arrow.up")
+                }
+            }
+            // 编辑 > 查找
             CommandGroup(after: .textEditing) {
                 editorCommand(.find, actions: editorCommands)
             }
         }
+        // 显示: the system View menu already exists (sidebar + toolbar), so the
+        // view commands join it instead of adding a 视图 menu beside 显示.
         SidebarCommands()
         if let editorCommands {
+            CommandGroup(after: .sidebar) {
+                viewCommands(editorCommands)
+            }
             CommandMenu("插入") {
                 ForEach([EditorToolbarCommandID.child, .sibling, .freeNode, .sticky, .image, .attachment, .summary, .boundary, .region], id: \.self) { id in
                     editorCommand(id, actions: editorCommands)
@@ -115,24 +174,6 @@ private struct FlorettaCommands: Commands {
                     Label("关系线", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
                 }
                 .disabled(!editorCommands.hasSelectedTopic)
-            }
-            CommandMenu("视图") {
-                ForEach([EditorToolbarCommandID.fit, .outline, .mapMode, .focusMode, .immersive, .style], id: \.self) { id in
-                    editorCommand(id, actions: editorCommands)
-                }
-                if editorCommands.isZenActive {
-                    Button { editorCommands.exitZen?() } label: {
-                        Label("退出全屏沉浸", systemImage: "rectangle.compress.diagonal")
-                    }
-                        .keyboardShortcut(".", modifiers: .command)
-                }
-                Divider()
-                Button { editorCommands.zoomIn?() } label: { Label("放大", systemImage: "plus.magnifyingglass") }
-                    .keyboardShortcut("+", modifiers: .command).disabled(editorCommands.zoomIn == nil)
-                Button { editorCommands.zoomOut?() } label: { Label("缩小", systemImage: "minus.magnifyingglass") }
-                    .keyboardShortcut("-", modifiers: .command).disabled(editorCommands.zoomOut == nil)
-                Button { editorCommands.zoomActual?() } label: { Label("实际大小", systemImage: "viewfinder") }
-                    .keyboardShortcut("=", modifiers: .command).disabled(editorCommands.zoomActual == nil)
             }
             CommandMenu("格式") {
                 editorCommand(.theme, actions: editorCommands)
@@ -173,11 +214,6 @@ private struct FlorettaCommands: Commands {
                 .keyboardShortcut("i", modifiers: .command)
                 .disabled(!editorCommands.hasEditableSelection)
             }
-            CommandMenu("导出") {
-                ForEach([EditorToolbarCommandID.png, .pdf, .markdownExport, .textBundle, .saveFloretta, .xmind], id: \.self) { id in
-                    editorCommand(id, actions: editorCommands)
-                }
-            }
             CommandMenu("主题") {
                 topicButton("编辑主题", command: .beginEdit)
                 topicButton("新建同级（后）", command: .createSibling)
@@ -197,7 +233,8 @@ private struct FlorettaCommands: Commands {
                 topicButton("收起全部", command: .collapseAll)
                 topicShortcut(.openProperties)
             }
-            CommandMenu("帮助") {
+            // 帮助: the system Help menu, not a second 帮助 beside it.
+            CommandGroup(replacing: .help) {
                 Button {
                     editorCommands.showShortcutHelp?()
                 } label: {
@@ -206,31 +243,32 @@ private struct FlorettaCommands: Commands {
                 .keyboardShortcut("l", modifiers: [.command, .shift])
             }
         }
+        // 窗口 > 新建窗口: the menu the system owns for windows.
         CommandGroup(before: .windowList) {
             OpenSameDocumentWindowButton(settings: settings, library: library)
         }
-        // The three 打开 commands the home sidebar used to carry. The Settings
-        // window itself is the `Settings` scene, which the system wires to ⌘,.
-        CommandGroup(after: .newItem) {
-            Button {
-                library.requestHomeOpen(.files)
-            } label: {
-                Label(FlorettaL10n.string(HomeOpenCommand.files.titleKey, language: settings.language), systemImage: "folder")
-            }
-            .disabled(library.editor != nil)
-            Button {
-                library.requestHomeOpen(.iCloud)
-            } label: {
-                Label(FlorettaL10n.string(HomeOpenCommand.iCloud.titleKey, language: settings.language), systemImage: "icloud")
-            }
-            .disabled(library.editor != nil)
-            Button {
-                library.requestHomeOpen(.local)
-            } label: {
-                Label(FlorettaL10n.string(HomeOpenCommand.local.titleKey, language: settings.language), systemImage: "internaldrive")
-            }
-            .disabled(library.editor != nil)
+    }
+
+    /// 显示: 适应窗口, 大纲, 模式, 沉浸, 样式, then the zoom family. One group in
+    /// the system View menu, so 显示 is the only view menu in the bar.
+    @ViewBuilder
+    private func viewCommands(_ editorCommands: FlorettaEditorMenuActions) -> some View {
+        ForEach([EditorToolbarCommandID.fit, .outline, .mapMode, .focusMode, .immersive, .style], id: \.self) { id in
+            editorCommand(id, actions: editorCommands)
         }
+        if editorCommands.isZenActive {
+            Button { editorCommands.exitZen?() } label: {
+                Label("退出全屏沉浸", systemImage: "rectangle.compress.diagonal")
+            }
+            .keyboardShortcut(".", modifiers: .command)
+        }
+        Divider()
+        Button { editorCommands.zoomIn?() } label: { Label("放大", systemImage: "plus.magnifyingglass") }
+            .keyboardShortcut("+", modifiers: .command).disabled(editorCommands.zoomIn == nil)
+        Button { editorCommands.zoomOut?() } label: { Label("缩小", systemImage: "minus.magnifyingglass") }
+            .keyboardShortcut("-", modifiers: .command).disabled(editorCommands.zoomOut == nil)
+        Button { editorCommands.zoomActual?() } label: { Label("实际大小", systemImage: "viewfinder") }
+            .keyboardShortcut("=", modifiers: .command).disabled(editorCommands.zoomActual == nil)
     }
 
     #if os(macOS)

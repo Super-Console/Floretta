@@ -21,3 +21,10 @@
 - After change: `swift test --filter CanvasZoomSelectionTests` passed 3 tests, 0 failures, including a link crossing the viewport while its owning node is outside it and invalid-viewport handling.
 - macOS compile follow-up: the earlier duplicate `SwiftCompile`/exit-code-0 anomaly did not recur with `xcodebuild -scheme Floretta-macOS -configuration Debug -destination 'platform=macOS,arch=arm64' CODE_SIGNING_ALLOWED=NO ENABLE_DEBUG_DYLIB=NO -jobs 1 build`; this unsigned arm64 build succeeded. It is compile verification only, not a signed delivery build.
 - No actual zoom gesture/frame-time p50/p95 was measured in this non-interactive run. The historical failing values remain the previously recorded `minFPS=2`, `maxDraw=225.1 ms`, `longestMainThreadFrame=567.9 ms`; they were not reproduced in the earlier six-run replay. This change's effect on those timings remains unmeasured.
+
+## E–J follow-up verification (2026-11-17)
+
+- E/F/I/J already had implementations and contract tests in the branch history; no duplicate implementation changes were made. `EditorChromeContractTests` + `InspectorStructureTests` + `MacMenuBarContractTests` + `MacMenuExpansionContractTests` passed 32 tests, 0 failures.
+- G (inspector expansion frame rate) and H (window-resize frame rate) remain **UNMEASURED**. The current continuation has no confirmation that the Mac is unlocked; `STEER-OVERNIGHT.md` prohibits CUA until unlock/notification, so no test app was launched or captured. No new p50/p95 or layout-vs-draw attribution is claimed.
+- Full `swift test`: 606 tests executed, 1 skipped, 0 failures. Unsigned macOS arm64 `Floretta-macOS` build succeeded; this is not a signed delivery build.
+- Two typing-probe app bundles (74 MB each) and the 24 KB `FlorettaUITest-35377F7C-BBF4-4F8F-87F5-02F9F021DC4A` fixture remain present pending cleanup approval; none was removed. No simulator was used and no build/test process remained after verification.

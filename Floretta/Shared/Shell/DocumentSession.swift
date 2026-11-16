@@ -2099,6 +2099,110 @@ enum CanvasEditCommands {
         document.topics(matching: query).first
     }
 
+    static func findNext(in document: MindMapDocument, query: String, after selectedID: UUID?) -> UUID? {
+        let matches = document.topics(matching: query)
+        return nextMatch(in: matches, after: selectedID)
+    }
+
+    static func findNextTopicText(in document: MindMapDocument, query: String, after selectedID: UUID?) -> UUID? {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return nil }
+        var matches: [UUID] = []
+        document.walkTopics { node in
+            if node.text.localizedCaseInsensitiveContains(needle) {
+                matches.append(node.id)
+            }
+        }
+        return nextMatch(in: matches, after: selectedID)
+    }
+
+    private static func nextMatch(in matches: [UUID], after selectedID: UUID?) -> UUID? {
+        guard !matches.isEmpty else { return nil }
+        guard let selectedID, let current = matches.firstIndex(of: selectedID) else {
+            return matches[0]
+        }
+        return matches[(current + 1) % matches.count]
+    }
+
+    @discardableResult
+    static func replaceTopicText(
+        query: String,
+        with replacement: String,
+        on id: UUID,
+        document: inout MindMapDocument
+    ) -> Bool {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return false }
+        func replace(in nodes: inout [MindMapNode]) -> Bool {
+            for index in nodes.indices {
+                if nodes[index].id == id {
+                    let old = nodes[index].text
+                    let updated = old.replacingOccurrences(of: needle, with: replacement, options: [.caseInsensitive])
+                    guard updated != old else { return false }
+                    nodes[index].text = updated
+                    return true
+                }
+                if replace(in: &nodes[index].children) { return true }
+            }
+            return false
+        }
+        return replace(in: &document.roots) || replace(in: &document.freeNodes)
+    }
+
+    /// Replaces text only; labels and notes are intentionally outside the search scope.
+    /// The return value is the number of topics whose text changed.
+    @discardableResult
+    static func replaceTopicText(
+        query: String,
+        with replacement: String,
+        document: inout MindMapDocument
+    ) -> Int {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return 0 }
+        var changedTopics = 0
+        func replace(in nodes: inout [MindMapNode]) {
+            for index in nodes.indices {
+                let old = nodes[index].text
+                let updated = old.replacingOccurrences(of: needle, with: replacement, options: [.caseInsensitive])
+                if updated != old {
+                    nodes[index].text = updated
+                    changedTopics += 1
+                }
+                replace(in: &nodes[index].children)
+            }
+        }
+        replace(in: &document.roots)
+        replace(in: &document.freeNodes)
+        return changedTopics
+    }
+
+    @discardableResult
+    static func replaceTopicNote(_ note: String, on id: UUID, document: inout MindMapDocument) -> Bool {
+        func replace(in nodes: inout [MindMapNode]) -> Bool {
+            for index in nodes.indices {
+                if nodes[index].id == id {
+                    nodes[index].note = note
+                    return true
+                }
+                if replace(in: &nodes[index].children) { return true }
+            }
+            return false
+        }
+        return replace(in: &document.roots) || replace(in: &document.freeNodes)
+    }
+
+    static func collapse(toLevel level: Int, document: inout MindMapDocument) {
+        guard level > 0 else { return }
+        func apply(to nodes: inout [MindMapNode], depth: Int) {
+            for index in nodes.indices {
+                nodes[index].isCollapsed = depth >= level && !nodes[index].children.isEmpty
+                apply(to: &nodes[index].children, depth: depth + 1)
+            }
+        }
+        apply(to: &document.roots, depth: 1)
+        apply(to: &document.freeNodes, depth: 1)
+    }
+
     static func addCanvas(to document: inout MindMapDocument) -> UUID {
         let index = document.addCanvas()
         return document.isolatedCanvas(at: index).roots[0].id

@@ -17,7 +17,7 @@ final class HomeChromeContractTests: XCTestCase {
         XCTAssertTrue(phone.contains(".buttonStyle(.borderedProminent)"))
         XCTAssertTrue(phone.contains("\"home.templates\""))
         XCTAssertTrue(phone.contains("\"home.open\""))
-        XCTAssertTrue(phone.contains("\"home.settings\""), "设置 is a bar item on the phone")
+        XCTAssertTrue(phone.contains("homeSettingsToolbarItem"), "设置 is a bar item on the phone")
         XCTAssertFalse(phone.contains("ToolbarItemGroup"), "the phone keeps one grouped capsule")
         assertNoCustomChrome(phone)
 
@@ -127,6 +127,30 @@ final class HomeChromeContractTests: XCTestCase {
         XCTAssertFalse(appSettings.contains("case settings"))
         let session = try repoFile("Floretta/Shared/Shell/DocumentSession.swift")
         XCTAssertFalse(session.contains("var tab: ShellTab"))
+    }
+
+    /// ① 2026-11-16: the 设置 gear is the bar item immediately left of ⋯.
+    /// Both are `ToolbarItem(placement: .primaryAction)` values, and toolbar
+    /// order is declaration order, so the gear must be declared before the ⋯
+    /// menu. This is the contract the user asked for: 右上角、⋯ 的左边。
+    func testSettingsGearIsDeclaredLeftOfTheMoreMenu() throws {
+        let source = try repoFile("Floretta/Shared/Shell/LibraryHome.swift")
+        let recent = try slice(source, from: "struct RecentPage", until: "struct NewMapPage")
+        let phone = try slice(recent, from: "private var iphoneHomeToolbar", until: "/// iPad:")
+
+        let gear = try XCTUnwrap(phone.range(of: "homeSettingsToolbarItem")?.lowerBound)
+        let more = try XCTUnwrap(phone.range(of: "Image(systemName: \"ellipsis\")")?.lowerBound)
+        XCTAssertLessThan(gear, more, "设置 must be left of ⋯")
+
+        // Both live in the same placement, or the bar could split them into two
+        // clusters and the gear would not be adjacent to ⋯.
+        let settingsItem = try slice(recent, from: "private var homeSettingsToolbarItem", until: "/// System navigation-bar items")
+        XCTAssertTrue(settingsItem.contains("ToolbarItem(placement: .primaryAction)"))
+        XCTAssertTrue(phone.contains("ToolbarItem(placement: .primaryAction)"))
+
+        // 液态玻璃 comes from the bar, not from a plate drawn here.
+        XCTAssertFalse(settingsItem.contains("appleGlassChrome"))
+        XCTAssertFalse(settingsItem.contains("Material"))
     }
 
     /// 设置 is a system navigation-bar item, not a plate drawn by this file.

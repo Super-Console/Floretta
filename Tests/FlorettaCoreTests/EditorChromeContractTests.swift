@@ -403,7 +403,13 @@ final class EditorChromeContractTests: XCTestCase {
 
         let toggle = try slice(bar, from: "private var viewModeToggle", until: "private var outlineToggle")
         XCTAssertTrue(toggle.contains("Button {"))
-        XCTAssertTrue(toggle.contains("session.viewMode = session.viewMode == .map ? .focus : .map"))
+        XCTAssertTrue(
+            toggle.contains("changeViewMode(session.viewMode == .map ? .focus : .map)"),
+            "one tap flips the mode; the state write stays one line inside the helper"
+        )
+        XCTAssertTrue(toggle.contains("session.viewMode = mode"), "the helper is the only writer")
+        XCTAssertTrue(toggle.contains("withAnimation(.snappy)"), "chrome state changes with the system spring")
+        XCTAssertTrue(toggle.contains("reduceMotion"), "减少动态效果 turns the animation off")
         XCTAssertFalse(toggle.contains("Menu {"), "a menu needs a second click and a ▾")
         XCTAssertFalse(toggle.contains("menuIndicator"))
         XCTAssertTrue(toggle.contains(".buttonStyle(.plain)"))

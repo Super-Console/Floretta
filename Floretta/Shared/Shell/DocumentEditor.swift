@@ -288,6 +288,13 @@ struct DocumentEditor: View {
                         .contentShape(Circle())
                     }
                     ToolbarSpacer(.fixed, placement: .cancellationAction)
+                    // The filename is a bar item of its own, so the bar wraps it
+                    // in its own Liquid Glass capsule — the phone counterpart of
+                    // the macOS `CanvasSheetCapsule` (name in a capsule, one tap
+                    // to rename). `.sharedBackgroundVisibility(.hidden)` used to
+                    // strip that capsule and left the name as two bare glyphs on
+                    // the canvas; it is gone, and nothing is painted here either,
+                    // so the capsule the reader sees is the system's one plate.
                     ToolbarItem(placement: .cancellationAction) {
                         Button(action: beginRename) {
                             Text(verbatim: documentTitle)
@@ -299,7 +306,6 @@ struct DocumentEditor: View {
                         .accessibilityHint(text("为这份导图重新命名"))
                         .accessibilityIdentifier("document.title")
                     }
-                    .sharedBackgroundVisibility(.hidden)
                     #endif
                     #if !os(macOS)
                     ToolbarItemGroup(placement: .principal) {

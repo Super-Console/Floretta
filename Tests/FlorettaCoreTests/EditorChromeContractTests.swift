@@ -50,9 +50,33 @@ final class EditorChromeContractTests: XCTestCase {
         XCTAssertFalse(backItem.contains("HStack"))
         XCTAssertFalse(backItem.contains("ultraThinMaterial"))
         XCTAssertFalse(backItem.contains(".blur("))
-        XCTAssertTrue(ios.contains(".sharedBackgroundVisibility(.hidden)"))
+        XCTAssertFalse(
+            ios.contains(".sharedBackgroundVisibility(.hidden)"),
+            "hiding the shared background is what left the filename as bare text"
+        )
         XCTAssertTrue(ios.contains("\"document.title\""))
         XCTAssertTrue(source.contains("ToolbarItem(id: \"document.navigation\", placement: .navigation)"))
+    }
+
+    /// ④ 2026-11-16: the iPhone filename is wrapped in a capsule.
+    /// It is a system bar item and nothing else: the bar paints the capsule, so
+    /// the name is no longer two bare glyphs over the canvas, and this file adds
+    /// no plate of its own (that would be double glass inside the bar item).
+    func testIPhoneFilenameIsWrappedInOneSystemGlassCapsule() throws {
+        let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let toolbar = try slice(source, from: "private var editorToolbar", until: "private var editorEvents")
+        let ios = try slice(toolbar, from: "#if os(iOS)", until: "#if !os(macOS)")
+        let spacer = try XCTUnwrap(ios.range(of: "ToolbarSpacer(.fixed, placement: .cancellationAction)"))
+        let titleArea = String(ios[spacer.upperBound...])
+
+        XCTAssertTrue(titleArea.contains("ToolbarItem(placement: .cancellationAction)"))
+        XCTAssertTrue(titleArea.contains("Text(verbatim: documentTitle)"))
+        XCTAssertTrue(titleArea.contains("\"document.title\""))
+        XCTAssertTrue(titleArea.contains(".accessibilityLabel(documentTitle)"))
+        XCTAssertFalse(titleArea.contains("sharedBackgroundVisibility"), "the system capsule stays visible")
+        XCTAssertFalse(titleArea.contains(".appleGlassChrome"), "the bar capsule is the only plate")
+        XCTAssertFalse(titleArea.contains("Capsule()"), "no hand-drawn capsule behind the name")
+        XCTAssertFalse(titleArea.contains("Material"), "no hand-rolled material behind the name")
     }
 
     func testDocumentFilenameIsNotDuplicatedInNativeWindowTitle() throws {

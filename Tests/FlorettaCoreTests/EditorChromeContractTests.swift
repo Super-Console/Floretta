@@ -102,7 +102,7 @@ final class EditorChromeContractTests: XCTestCase {
         )
         XCTAssertTrue(bubble.contains("LazyVGrid("))
         XCTAssertTrue(bubble.contains("theme.popover.more"))
-        XCTAssertTrue(bubble.contains("Text(verbatim: text(\"更多主题…\"))"))
+        XCTAssertTrue(bubble.contains("text(\"更多主题…\")"))
         // One tap applies and closes; no 完成 button, no second sheet.
         XCTAssertTrue(bubble.contains("onSelect(entry.id)"))
         XCTAssertTrue(bubble.contains("dismiss()"))
@@ -121,6 +121,59 @@ final class EditorChromeContractTests: XCTestCase {
         let sheet = try XCTUnwrap(source.range(of: ".sheet(isPresented: $showThemes)"))
         let before = String(source[..<sheet.lowerBound].suffix(180))
         XCTAssertTrue(before.contains("#if os(macOS)"), "the sheet is macOS-only now")
+    }
+
+    /// ⑥ 2026-11-16: 大纲 gets its rows on the panel's own grid, real 44pt
+    /// header targets, and system motion.
+    func testOutlinePanelAlignmentTouchTargetsAndMotion() throws {
+        let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let panel = try slice(editor, from: "private var outlinePanel", until: "private var markdownBanner")
+        let stack = try slice(editor, from: "private var canvasStack", until: "private var bottomBarRow")
+        let outline = try repoFile("Floretta/Shared/Outline/OutlineView.swift")
+        let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
+        let inset = try slice(glass, from: "func sidebarSelectionInset()", until: "private struct AppleGlassChromePlate")
+
+        // Header controls: a 44pt square target holding a glyph, and no second
+        // plate — the panel's sidebar glass stays the only surface.
+        XCTAssertTrue(panel.contains(".frame(width: 44, height: 44)"))
+        XCTAssertTrue(panel.contains(".contentShape(Rectangle())"))
+        XCTAssertFalse(panel.contains(".appleGlassChrome"), "a header circle inside the panel is a second plate")
+        XCTAssertTrue(panel.contains("outline.wide"))
+        XCTAssertTrue(panel.contains("outline.close"))
+
+        // Width: a compact phone fills the width instead of leaving a 300pt
+        // column with a sliver of canvas beside it.
+        XCTAssertTrue(stack.contains("outlineFillsWidth"))
+        XCTAssertTrue(editor.contains("horizontalSizeClass == .compact"))
+
+        // Rows: the 12pt leading matches the header padding, and every row is a
+        // 44pt touch target.
+        XCTAssertTrue(inset.contains("EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12)"))
+        XCTAssertTrue(outline.contains(".frame(minHeight: 44, alignment: .leading)"))
+
+        // Motion: the system snappy spring, skipped when reduce motion is on.
+        XCTAssertTrue(stack.contains(".transition(.move(edge: .leading).combined(with: .opacity))"))
+        XCTAssertTrue(stack.contains(".animation(reduceMotion ? nil : .snappy, value: showOutline)"))
+        XCTAssertTrue(editor.contains("@Environment(\\.accessibilityReduceMotion) private var reduceMotion"))
+        XCTAssertTrue(outline.contains("withAnimation(.snappy)"))
+        XCTAssertTrue(outline.contains("reduceMotion"))
+    }
+
+    /// ⑥ 沉浸模式: the only control is one 44pt glass circle, icon only, and it
+    /// fades in and out instead of snapping on.
+    func testImmersiveExitIsOneFortyFourPointGlassCircle() throws {
+        let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let exit = try slice(editor, from: ".overlay(alignment: .topTrailing)", until: ".onChange(of: session.zen.isActive)")
+
+        XCTAssertTrue(exit.contains("Image(systemName: \"xmark\")"))
+        XCTAssertFalse(exit.contains("Label(\"退出全屏沉浸\""), "immersive chrome is icon only, not a text pill")
+        XCTAssertTrue(exit.contains("EditorStatusBarChrome.controlMinHeight"), "44pt on iOS")
+        XCTAssertTrue(exit.contains(".contentShape(Circle())"))
+        XCTAssertTrue(exit.contains(".appleGlassChrome(.canvasFloatingButton)"))
+        XCTAssertTrue(exit.contains(".accessibilityLabel(text(\"退出全屏沉浸\"))"))
+        XCTAssertTrue(exit.contains("zen.exit"))
+        XCTAssertTrue(exit.contains(".transition(.opacity.combined(with: .scale(scale: 0.98)))"))
+        XCTAssertTrue(exit.contains(".animation(reduceMotion ? nil : .snappy, value: isExitAffordanceRevealed)"))
     }
 
     func testDocumentFilenameIsNotDuplicatedInNativeWindowTitle() throws {

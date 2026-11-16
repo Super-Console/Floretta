@@ -291,11 +291,22 @@ extension View {
 
     /// Keep the native sidebar selection inset while leaving selection drawing
     /// to `List(.sidebar)`; a custom row background would layer a second shape.
+    ///
+    /// iOS gets its own numbers: the phone's outline is a full-width panel whose
+    /// header is padded 12pt, so rows line up with that header instead of
+    /// hugging the glass edge, and a 4pt vertical inset keeps every row at or
+    /// above the 44pt touch target.
     func sidebarSelectionInset() -> some View {
+        #if os(iOS)
+        return self
+            .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+            .listRowBackground(Color.clear)
+        #else
         let inset = AppleGlassChromeMetrics.sidebarRowInset
         return self
             .listRowInsets(EdgeInsets(top: 0, leading: inset, bottom: 0, trailing: inset))
             .listRowBackground(Color.clear)
+        #endif
     }
 }
 

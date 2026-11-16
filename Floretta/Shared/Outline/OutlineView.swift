@@ -102,6 +102,7 @@ private struct OutlineLevel: View {
     var tagFilter: TopicTagFilter
     var parentID: UUID?
     var locksCollapse: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let ids = childIDs
@@ -162,7 +163,23 @@ private struct OutlineLevel: View {
     private func expanded(_ id: UUID) -> Binding<Bool> {
         Binding(
             get: { document.node(id)?.isCollapsed == false },
-            set: { keyboard.setCollapsed(!$0, nodeID: id, document: &document) }
+            set: { isExpanded in
+                // A disclosure triangle is chrome: expand/collapse with the
+                // system spring so rows grow and shrink instead of jumping.
+                // 减少动态效果 keeps the instant change, and macOS is unchanged.
+                let change = {
+                    keyboard.setCollapsed(!isExpanded, nodeID: id, document: &document)
+                }
+                #if os(iOS)
+                if reduceMotion {
+                    change()
+                } else {
+                    withAnimation(.snappy) { change() }
+                }
+                #else
+                change()
+                #endif
+            }
         )
     }
 }
@@ -209,6 +226,11 @@ private struct OutlineRow: View {
                 }
             }
             .opacity(rowOpacity)
+            #if os(iOS)
+            // One row is one touch target: 44pt tall even for a one-line title,
+            // so a thumb can hit it and the rows line up with the panel header.
+            .frame(minHeight: 44, alignment: .leading)
+            #endif
         }
     }
 

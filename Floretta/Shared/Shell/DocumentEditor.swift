@@ -54,6 +54,9 @@ struct DocumentEditor: View {
     @State private var showThemes = false
     @State private var showHistory = false
     @Environment(\.colorScheme) private var colorScheme
+    /// Native motion is chrome feedback. Reduced motion turns it off, and no
+    /// single animation here runs past 0.35s.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     #endif
@@ -234,18 +237,36 @@ struct DocumentEditor: View {
         .zenChrome(session.zen.chrome)
         .overlay(alignment: .topTrailing) {
             if session.zen.isActive && isExitAffordanceRevealed {
+                // The one control in immersive mode, so it has to be right: a
+                // 44pt glass circle with the glyph only. A text 退出全屏沉浸
+                // pill was the wrong size for a floating control and its label
+                // wrapped beside the canvas edge. The system capsule shape is
+                // the plate (no gradient, no shadow), and the button fades and
+                // scales in with the system spring instead of snapping on.
                 Button {
                     hideZenExitAffordance()
                     session.exitZen()
                 } label: {
-                    Label("退出全屏沉浸", systemImage: "xmark")
+                    Image(systemName: "xmark")
+                        .font(.system(size: 15, weight: .semibold))
+                        .frame(
+                            width: EditorStatusBarChrome.controlMinHeight,
+                            height: EditorStatusBarChrome.controlMinHeight
+                        )
+                        .contentShape(Circle())
                 }
+                .buttonStyle(.plain)
                 .appleGlassChrome(.canvasFloatingButton)
+                .accessibilityLabel(text("退出全屏沉浸"))
                 .accessibilityIdentifier("zen.exit")
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
                 .padding(.top, 8)
                 .padding(.trailing, 12)
             }
         }
+        #if os(iOS)
+        .animation(reduceMotion ? nil : .snappy, value: isExitAffordanceRevealed)
+        #endif
         .onChange(of: session.zen.isActive) { _, isActive in
             if !isActive {
                 hideZenExitAffordance()
@@ -291,10 +312,10 @@ struct DocumentEditor: View {
                     // The filename is a bar item of its own, so the bar wraps it
                     // in its own Liquid Glass capsule — the phone counterpart of
                     // the macOS `CanvasSheetCapsule` (name in a capsule, one tap
-                    // to rename). `.sharedBackgroundVisibility(.hidden)` used to
-                    // strip that capsule and left the name as two bare glyphs on
-                    // the canvas; it is gone, and nothing is painted here either,
-                    // so the capsule the reader sees is the system's one plate.
+                    // to rename). Hiding the shared background used to strip that
+                    // capsule and leave the name as two bare glyphs on the canvas;
+                    // that is gone, and nothing is painted here either, so the
+                    // capsule the reader sees is the system's one plate.
                     ToolbarItem(placement: .cancellationAction) {
                         Button(action: beginRename) {
                             Text(verbatim: documentTitle)
@@ -668,11 +689,18 @@ struct DocumentEditor: View {
             // background, so no second material is stacked on the glass.
             if showOutline, session.zen.chrome.showsSidebar {
                 outlinePanel
-                    .frame(width: outlineWide ? nil : 300)
-                    .frame(maxWidth: outlineWide ? .infinity : 300, maxHeight: .infinity)
+                    .frame(width: outlineFillsWidth ? nil : 300)
+                    .frame(maxWidth: outlineFillsWidth ? .infinity : 300, maxHeight: .infinity)
                     .appleGlassChrome(.sidebarColumn)
+                    // Chrome, not canvas content: the panel slides in and fades
+                    // with the system's snappy spring instead of popping into
+                    // place. Reduced motion keeps the plain appearance.
+                    .transition(.move(edge: .leading).combined(with: .opacity))
             }
         }
+        #if os(iOS)
+        .animation(reduceMotion ? nil : .snappy, value: showOutline)
+        #endif
         .overlay(alignment: .top) {
             if !session.zen.isActive {
                 VStack(spacing: 8) {
@@ -776,6 +804,35 @@ struct DocumentEditor: View {
     /// permanent entry point. Markdown documents and Zen hide the bottom chrome.
     private var showsCanvasTabs: Bool {
         !session.isMarkdownDocument && !session.zen.isActive
+    }
+
+    /// Width the 大纲 panel claims.
+    ///
+    /// A 300pt column on a 390pt phone left a sliver of canvas behind it and put
+    /// the panel's rows out of line with its own header. A compact phone gets the
+    /// full width; 让大纲占满 still wins wherever there is room for a canvas
+    /// beside the panel.
+    private var outlineFillsWidth: Bool {
+        if outlineWide { return true }
+        #if os(iOS)
+        return horizontalSizeClass == .compact
+        #else
+        return false
+        #endif
+    }
+
+    /// Chrome transitions use the system snappy spring, and nothing at all when
+    /// 减少动态效果 is on. macOS keeps its current, unanimated chrome.
+    private func withOutlineMotion(_ change: () -> Void) {
+        #if os(iOS)
+        if reduceMotion {
+            change()
+        } else {
+            withAnimation(.snappy) { change() }
+        }
+        #else
+        change()
+        #endif
     }
 
     /// Divider policy for the sheet capsule, from measured widths only.
@@ -1119,25 +1176,28 @@ struct DocumentEditor: View {
 
     private var outlinePanel: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
+            HStack(spacing: 4) {
                 Text(verbatim: text("大纲")).font(.headline)
-                Spacer()
+                Spacer(minLength: 0)
                 Button {
-                    outlineWide.toggle()
+                    withOutlineMotion { outlineWide.toggle() }
                 } label: {
-                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                    outlineHeaderSymbol("arrow.up.left.and.arrow.down.right")
                 }
+                .buttonStyle(.plain)
                 .explained("让大纲占满或恢复原来的宽度")
-                .appleGlassChrome(.iconButton)
+                .accessibilityIdentifier("outline.wide")
                 Button {
-                    showOutline = false
+                    withOutlineMotion { showOutline = false }
                 } label: {
-                    Image(systemName: "xmark")
+                    outlineHeaderSymbol("xmark")
                 }
+                .buttonStyle(.plain)
                 .explained("关闭大纲")
-                .appleGlassChrome(.iconButton)
+                .accessibilityIdentifier("outline.close")
             }
-            .padding(12)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
             if session.isMarkdownDocument {
                 Text(verbatim: text(MarkdownModePolicy.reason(.collapse)))
                     .font(.caption)
@@ -1155,6 +1215,20 @@ struct DocumentEditor: View {
             )
         }
         .accessibilityIdentifier("editor.outline")
+    }
+
+    /// A header control: a 15pt glyph in a 44pt square hit target.
+    ///
+    /// The two header buttons used to draw `.iconButton` plates (~22pt circles)
+    /// inside the panel's own `sidebarColumn` glass: a second capsule on the same
+    /// surface, and a target far below the 44pt minimum. The glyph carries the
+    /// affordance, the frame carries the touch target, and the panel's glass
+    /// stays the only plate.
+    private func outlineHeaderSymbol(_ symbol: String) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 15, weight: .semibold))
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
     }
 
     private var markdownBanner: some View {
@@ -1810,7 +1884,7 @@ struct DocumentEditor: View {
         case .importFile:
             onImport()
         case .outline:
-            showOutline.toggle()
+            withOutlineMotion { showOutline.toggle() }
         case .style:
             showInspector.toggle()
         case .theme:

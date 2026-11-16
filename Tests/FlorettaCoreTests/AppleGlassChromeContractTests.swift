@@ -30,7 +30,7 @@ final class AppleGlassChromeContractTests: XCTestCase {
         let sharedToolbar = try slice(
             editor,
             from: "private var editorToolbar",
-            until: ".toolbar(id: \"floretta.editor\")"
+            until: "private var editorEvents"
         )
         let macToolbar = try slice(editor, from: ".toolbar(id: \"floretta.editor\")", until: ".toolbarBackground(.hidden, for: .windowToolbar)")
         let leadingPosition = try XCTUnwrap(macToolbar.range(of: "macToolbarItemsLeading")).lowerBound
@@ -479,7 +479,7 @@ final class AppleGlassChromeContractTests: XCTestCase {
         let primary = try slice(
             editor,
             from: "ToolbarItemGroup(placement: .primaryAction)",
-            until: ".toolbarBackground(.hidden, for: .windowToolbar)"
+            until: ".toolbarBackground(.hidden, for: .navigationBar)"
         )
         XCTAssertTrue(primary.contains(".appleGlassChrome(.toolbarFloatingButton)"))
         XCTAssertTrue(primary.contains("toolbarControl(.insert)"))

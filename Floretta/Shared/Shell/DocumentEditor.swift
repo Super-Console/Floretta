@@ -95,6 +95,102 @@ struct DocumentEditor: View {
     /// cannot afford it.
     @State private var bottomRowWidth: CGFloat = 0
     @State private var statusCapsuleWidth: CGFloat = 0
+    #if os(macOS)
+    @State private var macToolbarSnapshot = MacToolbarSnapshot()
+
+    /// The outer scene observes only toolbar-relevant state. Selection identity
+    /// is deliberately absent: changing from one selected topic to another does
+    /// not rebuild the AppKit toolbar bridge when its enabled state is the same.
+    private struct MacToolbarSnapshot: Equatable {
+        var context = EditorToolbarContext()
+        var documentTitle = ""
+        var showsToolbar = true
+        var language = AppLanguage.system
+    }
+
+    /// Canvas and inspector live in their own SwiftUI graph. Keyboard-driven
+    /// canvas updates therefore do not invalidate the scene graph that owns the
+    /// native SwiftUI toolbar.
+    @MainActor
+    private struct MacEditorContentHost: NSViewRepresentable {
+        var editor: DocumentEditor
+        @Binding var toolbarSnapshot: MacToolbarSnapshot
+        @Environment(\.locale) private var locale
+        @Environment(\.colorScheme) private var colorScheme
+        @Environment(\.displayScale) private var displayScale
+        @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+        @Environment(\.layoutDirection) private var layoutDirection
+        @Environment(\.controlSize) private var controlSize
+        @Environment(\.legibilityWeight) private var legibilityWeight
+
+        func makeNSView(context: Context) -> NSHostingView<AnyView> {
+            let host = NSHostingView(rootView: hostedContent)
+            host.sizingOptions = []
+            return host
+        }
+
+        func updateNSView(_ host: NSHostingView<AnyView>, context: Context) {
+            host.rootView = hostedContent
+        }
+
+        private var hostedContent: AnyView {
+            AnyView(
+                MacEditorContent(editor: editor, toolbarSnapshot: $toolbarSnapshot)
+                    .chromeTypography(language: editor.settings.language)
+                    .environment(\.appearanceProfile, editor.settings.currentProfile)
+                    .environment(\.locale, locale)
+                    .environment(\.colorScheme, colorScheme)
+                    .environment(\.displayScale, displayScale)
+                    .environment(\.dynamicTypeSize, dynamicTypeSize)
+                    .environment(\.layoutDirection, layoutDirection)
+                    .environment(\.controlSize, controlSize)
+                    .environment(\.legibilityWeight, legibilityWeight)
+            )
+        }
+    }
+
+    @MainActor
+    private struct MacEditorContent: View {
+        var editor: DocumentEditor
+        @Binding var toolbarSnapshot: MacToolbarSnapshot
+
+        var body: some View {
+            let liveToolbarSnapshot = editor.currentMacToolbarSnapshot
+            editor.editorPresentations
+                .onChange(of: liveToolbarSnapshot, initial: true) { _, updated in
+                    guard toolbarSnapshot != updated else { return }
+                    toolbarSnapshot = updated
+                }
+                .onAppear { editor.syncShortcutBindings() }
+                .onChange(of: editor.settings.shortcutBindings) { _, _ in
+                    editor.syncShortcutBindings()
+                }
+        }
+    }
+    #endif
+
+    private struct LinkMenuTargets: View {
+        @Bindable var session: EditorSession
+        var language: AppLanguage
+
+        var body: some View {
+            let targets = session.editingDocument.linkTargets(excluding: session.keyboard.selectedNodeID)
+            if targets.isEmpty {
+                Button(FlorettaL10n.string("没有其他节点", language: language)) {}
+                    .disabled(true)
+            }
+            ForEach(targets) { target in
+                Button {
+                    session.linkSelectedTopic(to: target.id)
+                } label: {
+                    Label(
+                        target.text.isEmpty ? FlorettaL10n.string("未命名", language: language) : target.text,
+                        systemImage: "point.topleft.down.to.point.bottomright.curvepath"
+                    )
+                }
+            }
+        }
+    }
 
     #if os(macOS)
     /// The leading navigation capsule: the back control, the document name, and
@@ -103,7 +199,7 @@ struct DocumentEditor: View {
     private var macToolbarItemsLeading: some CustomizableToolbarContent {
         ToolbarItem(id: "document.navigation", placement: .navigation) {
             DocumentTitleCapsule(
-                title: documentTitle,
+                title: macToolbarSnapshot.documentTitle,
                 titleWidthLimit: EditorStatusBarChrome.canvasTitleMaxWidth,
                 backLabel: text("返回"),
                 backHint: text("返回导图列表"),
@@ -293,6 +389,33 @@ struct DocumentEditor: View {
     var body: some View {
         let _ = KeyLatencyProbe.shared.countEditorBody()
         KeyLatencyProbe.shared.timeBuild("editor") {
+            #if os(macOS)
+            MacEditorContentHost(editor: self, toolbarSnapshot: $macToolbarSnapshot)
+                .toolbar {
+                    macToolbarItemsLeading
+                    if macToolbarSnapshot.showsToolbar {
+                        macToolbarItemsPrimary
+                        macToolbarItemsInsert
+                        macToolbarItemsRelations
+                        macToolbarItemsOverflow
+                        macToolbarItemsLowFrequency
+                        macToolbarItemsView
+                    }
+                }
+                .toolbar(id: "floretta.editor") {
+                    // Navigation identity must not follow selection/focus chrome.
+                    macToolbarItemsLeading
+                    if macToolbarSnapshot.showsToolbar {
+                        macToolbarItemsPrimary
+                        macToolbarItemsInsert
+                        macToolbarItemsRelations
+                        macToolbarItemsOverflow
+                        macToolbarItemsLowFrequency
+                        macToolbarItemsView
+                    }
+                }
+                .toolbarBackground(.hidden, for: .windowToolbar)
+            #else
             editorPresentations
                 .chromeTypography(language: settings.language)
                 // 快捷键: the session resolves every key press against these, so
@@ -300,8 +423,20 @@ struct DocumentEditor: View {
                 // node text field without reopening the document.
                 .onAppear { syncShortcutBindings() }
                 .onChange(of: settings.shortcutBindings) { _, _ in syncShortcutBindings() }
+            #endif
         }
     }
+
+    #if os(macOS)
+    private var currentMacToolbarSnapshot: MacToolbarSnapshot {
+        MacToolbarSnapshot(
+            context: liveToolbarContext,
+            documentTitle: documentTitle,
+            showsToolbar: session.zen.chrome.showsToolbar,
+            language: settings.language
+        )
+    }
+    #endif
 
     private func syncShortcutBindings() {
         guard session.keyboard.bindings != settings.shortcutBindings else { return }
@@ -380,6 +515,7 @@ struct DocumentEditor: View {
                 }
             }
             .onAppear(perform: openInspectorForUITest)
+            #if os(iOS)
             .toolbar {
                 if session.zen.chrome.showsToolbar {
                     // A system toolbar item is already Liquid Glass: the bar
@@ -464,23 +600,6 @@ struct DocumentEditor: View {
                     #endif
                 }
             }
-            #if os(macOS)
-            .toolbar(id: "floretta.editor") {
-                // Navigation identity must not follow selection/focus chrome.
-                macToolbarItemsLeading
-                if session.zen.chrome.showsToolbar {
-                    macToolbarItemsPrimary
-                    macToolbarItemsInsert
-                    macToolbarItemsRelations
-                    macToolbarItemsOverflow
-                    macToolbarItemsLowFrequency
-                    macToolbarItemsView
-                }
-            }
-            #endif
-            #if os(macOS)
-            .toolbarBackground(.hidden, for: .windowToolbar)
-            #else
             .toolbarBackground(.hidden, for: .navigationBar)
             #endif
     }
@@ -1415,6 +1534,14 @@ struct DocumentEditor: View {
     }
 
     private var toolbarContext: EditorToolbarContext {
+        #if os(macOS)
+        return macToolbarSnapshot.context
+        #else
+        return liveToolbarContext
+        #endif
+    }
+
+    private var liveToolbarContext: EditorToolbarContext {
         EditorToolbarContext(
             isMarkdownDocument: session.isMarkdownDocument,
             isComposing: session.keyboard.isComposing,
@@ -1522,7 +1649,7 @@ struct DocumentEditor: View {
         if id == .history {
             return snapshotHistoryHelp
         }
-        if session.isMarkdownDocument, let control = markdownBlockedControl(id) {
+        if toolbarContext.isMarkdownDocument, let control = markdownBlockedControl(id) {
             return MarkdownModePolicy.reason(control)
         }
         return EditorToolbarCatalog.command(id).help
@@ -1693,19 +1820,7 @@ struct DocumentEditor: View {
 
     private func linkCommandMenu(surface: EditorCommandSurface) -> some View {
         Menu {
-            let source = session.keyboard.selectedNodeID
-            let targets = session.editingDocument.linkTargets(excluding: source)
-            if targets.isEmpty {
-                Button(text("没有其他节点")) {}
-                    .disabled(true)
-            }
-            ForEach(targets) { target in
-                Button {
-                    session.linkSelectedTopic(to: target.id)
-                } label: {
-                    Label(target.text.isEmpty ? "未命名" : target.text, systemImage: "point.topleft.down.to.point.bottomright.curvepath")
-                }
-            }
+            LinkMenuTargets(session: session, language: settings.language)
         } label: {
             commandLabel(.link, surface: surface)
         }
@@ -1745,11 +1860,11 @@ struct DocumentEditor: View {
     private func shareRow(_ id: EditorToolbarCommandID) -> some View {
         switch id {
         case .upgrade:
-            if session.isMarkdownDocument {
+            if toolbarContext.isMarkdownDocument {
                 commandMenuButton(id) { perform(id) }
             }
         case .saveFloretta:
-            if !session.isMarkdownDocument {
+            if !toolbarContext.isMarkdownDocument {
                 commandMenuButton(id) { perform(id) }
             }
         case .printMap:
@@ -2086,10 +2201,10 @@ struct DocumentEditor: View {
     }
 
     private var snapshotHistoryHelp: String {
-        if session.isMarkdownDocument {
+        if toolbarContext.isMarkdownDocument {
             return "Markdown 文件不保留版本快照。"
         }
-        if !session.canOpenSnapshotHistory {
+        if !toolbarContext.canOpenSnapshotHistory {
             return "先把导图存成文件。"
         }
         return "查看已保存的历史版本，回滚或对比两份内容。"

@@ -1888,7 +1888,13 @@ struct DocumentEditor: View {
         case .style:
             showInspector.toggle()
         case .theme:
-            showThemes = true
+            // The ••• menu dismisses asynchronously, and a popover presented in
+            // the same run loop as that dismissal can be swallowed with it. One
+            // short hop is enough; the bubble still anchors under ⋯.
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(80))
+                showThemes = true
+            }
         case .mapMode:
             session.viewMode = .map
         case .focusMode:

@@ -1593,15 +1593,34 @@ struct DocumentEditor: View {
         .modifier(CommandAccessibilityIdentifier(identifier: identifier))
     }
 
+    /// The bar face of a command: the symbol on its own.
+    ///
+    /// The bar is icon-only — `EditorToolbarCatalog.display(on: .toolbar)` is
+    /// `Label(...).labelStyle(.iconOnly)` — so the title that style hides is a
+    /// `Text` node and a label-style lookup that SwiftUI re-materialises with
+    /// every toolbar item, and the toolbar group is re-materialised on every
+    /// selection change. Drawing the symbol directly keeps the glyph, the
+    /// identifier, and the accessibility label the `Label` carried.
+    private func barFaceIcon(_ id: EditorToolbarCommandID, accessibilityIdentifier: String? = nil) -> some View {
+        Image(systemName: EditorToolbarCatalog.command(id).symbol)
+            .modifier(CommandAccessibilityIdentifier(identifier: accessibilityIdentifier))
+    }
+
+    /// A bar button.
+    ///
+    /// The tooltip is handed over as a `String`: `.help(Text(...))` adds a view
+    /// node around a string the system only reads as text, and the `String`
+    /// overload carries the same tooltip.
     private func commandToolbarButton(_ id: EditorToolbarCommandID, action: @escaping () -> Void) -> some View {
         let helpText = commandHelp(id)
+        let identifier = accessibilityIdentifier(for: id)
         return Button(action: action) {
-            commandLabel(id, surface: .toolbar)
+            barFaceIcon(id, accessibilityIdentifier: identifier)
         }
         .disabled(!EditorToolbarCatalog.isEnabled(id, in: toolbarContext))
-        .help(Text(verbatim: text(helpText)))
+        .help(text(helpText))
         .accessibilityLabel(text(EditorToolbarCatalog.command(id).title))
-        .modifier(CommandAccessibilityIdentifier(identifier: accessibilityIdentifier(for: id)))
+        .modifier(CommandAccessibilityIdentifier(identifier: identifier))
     }
 
     @ViewBuilder
@@ -1655,11 +1674,11 @@ struct DocumentEditor: View {
                 insertRow(id)
             }
         } label: {
-            commandLabel(.insert, surface: .toolbar)
+            barFaceIcon(.insert)
         }
         .accessibilityLabel(text(EditorToolbarCatalog.command(.insert).title))
         .accessibilityIdentifier("editor.insert")
-        .help(Text(verbatim: text(EditorToolbarCatalog.command(.insert).help)))
+        .help(text(EditorToolbarCatalog.command(.insert).help))
         .appleGlassChrome(.toolbarFloatingButton)
     }
 
@@ -1713,11 +1732,11 @@ struct DocumentEditor: View {
                 shareRow(id)
             }
         } label: {
-            commandLabel(.share, surface: .toolbar)
+            barFaceIcon(.share)
         }
         .accessibilityLabel(text(EditorToolbarCatalog.command(.share).title))
         .accessibilityIdentifier("share.menu")
-        .help(Text(verbatim: text(EditorToolbarCatalog.command(.share).help)))
+        .help(text(EditorToolbarCatalog.command(.share).help))
         .appleGlassChrome(.toolbarFloatingButton)
         #endif
     }
@@ -1797,12 +1816,11 @@ struct DocumentEditor: View {
                 moreRow(id)
             }
         } label: {
-            commandLabel(.more, surface: .toolbar)
-                .accessibilityIdentifier("editor.more")
+            barFaceIcon(.more, accessibilityIdentifier: "editor.more")
         }
         .accessibilityLabel(text(EditorToolbarCatalog.command(.more).title))
         .accessibilityIdentifier("editor.more")
-        .help(Text(verbatim: text(EditorToolbarCatalog.command(.more).help)))
+        .help(text(EditorToolbarCatalog.command(.more).help))
         .appleGlassChrome(.toolbarFloatingButton)
         #endif
     }

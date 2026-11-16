@@ -511,11 +511,14 @@ struct DocumentEditor: View {
         .sheet(isPresented: $showShortcutHelp) {
             ShortcutsHelpSheet()
         }
+            #if os(macOS)
+            // macOS keeps the sheet: its 配色 rows are a window-sized list.
             .sheet(isPresented: $showThemes) {
                 BranchThemeSheet(themeID: session.document.themeID, language: settings.language) { id in
                     session.setBranchTheme(id)
                 }
             }
+            #endif
             .fileImporter(
                 isPresented: $showImageImporter,
                 allowedContentTypes: [.image],
@@ -1551,6 +1554,16 @@ struct DocumentEditor: View {
         )
         .help(Text(verbatim: text(EditorToolbarCatalog.command(.more).help)))
         .appleGlassChrome(.toolbarFloatingButton)
+        // ⑤ 配色 is a bubble hanging under this button, not a sheet.
+        // `arrowEdge: .top` puts the tip below ⋯, and the content asks for
+        // `.presentationCompactAdaptation(.popover)` so a compact iPhone does not
+        // degrade it to a full-page sheet. The theme catalogs and the persistence
+        // are unchanged: the bubble only changes where the list is drawn.
+        .popover(isPresented: $showThemes, arrowEdge: .top) {
+            BranchThemePopover(themeID: session.document.themeID, language: settings.language) { id in
+                session.setBranchTheme(id)
+            }
+        }
         #else
         Menu {
             // TD-006: the ••• menu never repeats a command the bar already
@@ -3511,6 +3524,222 @@ struct ExportFile: FileDocument {
         }
         return FileWrapper(regularFileWithContents: data)
     }
+}
+
+/// The iPhone 配色 bubble: a `.popover` anchored under the ••• button, not a
+/// sheet.
+///
+/// Two columns by three rows of colour cards — a swatch block plus the theme's
+/// name — and the remaining schemes behind a 「更多主题…」 row. A tap applies the
+/// theme immediately and closes the bubble, so choosing a scheme is one tap and
+/// no 完成 button. The existing catalogs (`MapColorPresetCatalog`,
+/// `MapThemeCatalog`) and the existing persistence (`setBranchTheme`) are used
+/// unchanged: this view introduces no second theme system and stores nothing.
+///
+/// `.presentationCompactAdaptation(.popover)` is what keeps this a bubble on a
+/// compact iPhone; without it SwiftUI degrades a popover to a full-page sheet.
+private struct BranchThemePopover: View {
+    var themeID: String?
+    var language: AppLanguage
+    var onSelect: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Presets fill the first grid; 「更多主题…」 swaps in the theme list.
+    @State private var showsThemes = false
+
+    /// Width the design asked for: one 320pt bubble.
+    static let popoverWidth: CGFloat = 320
+    /// Exactly three rows of cards are visible; a fourth list scrolls.
+    static let visibleRows = 3
+    static let cardHeight: CGFloat = 64
+    static let cardSpacing: CGFloat = 8
+    static let padding: CGFloat = 14
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            header
+            grid
+            moreRow
+        }
+        .padding(Self.padding)
+        .frame(width: Self.popoverWidth)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("theme.popover")
+        // A compact iPhone would otherwise present a full-page sheet.
+        .presentationCompactAdaptation(.popover)
+    }
+
+    private var header: some View {
+        HStack(spacing: 6) {
+            if showsThemes {
+                Button {
+                    animate { showsThemes = false }
+                } label: {
+                    Image(systemName: "chevron.backward")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(text("配色方案"))
+                .accessibilityIdentifier("theme.popover.back")
+            }
+            Text(verbatim: text(showsThemes ? "主题" : "配色方案"))
+                .font(.subheadline.weight(.semibold))
+            Spacer(minLength: 0)
+        }
+        .frame(minHeight: 28)
+    }
+
+    private var grid: some View {
+        ScrollView {
+            LazyVGrid(
+                columns: [
+                    GridItem(.flexible(), spacing: Self.cardSpacing),
+                    GridItem(.flexible(), spacing: Self.cardSpacing),
+                ],
+                spacing: Self.cardSpacing
+            ) {
+                ForEach(entries) { entry in
+                    card(entry)
+                }
+            }
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(height: CGFloat(Self.visibleRows) * Self.cardHeight + CGFloat(Self.visibleRows - 1) * Self.cardSpacing)
+        .animation(reduceMotion ? nil : .snappy, value: showsThemes)
+    }
+
+    /// One card: colour block, then name. Selection is a system checkmark badge,
+    /// never a hand-painted fill.
+    private func card(_ entry: BranchThemeEntry) -> some View {
+        Button {
+            onSelect(entry.id)
+            dismiss()
+        } label: {
+            VStack(alignment: .leading, spacing: 5) {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(entry.canvas)
+                    .frame(height: 34)
+                    .overlay(alignment: .bottomLeading) {
+                        HStack(spacing: 3) {
+                            ForEach(Array(entry.branches.prefix(4).enumerated()), id: \.offset) { _, swatch in
+                                Circle()
+                                    .fill(swatch)
+                                    .frame(width: 8, height: 8)
+                            }
+                        }
+                        .padding(5)
+                    }
+                    .overlay(alignment: .topTrailing) {
+                        if isSelected(entry.id) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 13, weight: .semibold))
+                                .symbolRenderingMode(.palette)
+                                .foregroundStyle(.white, Color.accentColor)
+                                .padding(4)
+                                .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                        }
+                    }
+                    .accessibilityHidden(true)
+                Text(verbatim: entry.name)
+                    .font(.caption)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .frame(height: Self.cardHeight)
+        .accessibilityLabel(entry.name)
+        .accessibilityAddTraits(isSelected(entry.id) ? .isSelected : AccessibilityTraits())
+        .accessibilityIdentifier("theme.card.\(entry.id)")
+    }
+
+    /// 「更多主题…」 while the six presets are showing, 「配色方案」 on the theme
+    /// list. Both rows sit at the end of the 3×2 grid, so the bubble never grows.
+    @ViewBuilder
+    private var moreRow: some View {
+        if showsThemes {
+            Button {
+                animate { showsThemes = false }
+            } label: {
+                moreRowLabel(text("配色方案"), symbol: "chevron.backward")
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("theme.popover.presets")
+        } else if !MapThemeCatalog.all.isEmpty {
+            Button {
+                animate { showsThemes = true }
+            } label: {
+                moreRowLabel(text("更多主题…"), symbol: "chevron.right")
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("theme.popover.more")
+        }
+    }
+
+    private func moreRowLabel(_ title: String, symbol: String) -> some View {
+        HStack(spacing: 4) {
+            Text(verbatim: title)
+                .font(.footnote)
+            Image(systemName: symbol)
+                .font(.system(size: 10, weight: .semibold))
+            Spacer(minLength: 0)
+        }
+        .frame(height: 22)
+        .contentShape(Rectangle())
+    }
+
+    private var entries: [BranchThemeEntry] {
+        if showsThemes {
+            return MapThemeCatalog.all.map { theme in
+                let appearance = colorScheme == .dark ? theme.dark : theme.light
+                return BranchThemeEntry(
+                    id: theme.id,
+                    name: text(theme.nameKey),
+                    canvas: appearance.canvasBackground.map(ink) ?? Color.gray.opacity(0.25),
+                    branches: appearance.palette.colors.map(ink)
+                )
+            }
+        }
+        return MapColorPresetCatalog.all.map { preset in
+            BranchThemeEntry(
+                id: preset.id,
+                name: text(preset.nameKey),
+                canvas: ink(preset.canvasBackground),
+                branches: preset.branchColors.map(ink)
+            )
+        }
+    }
+
+    private func isSelected(_ id: String) -> Bool { id == themeID }
+
+    /// System animation, and none of it when 减少动态效果 is on.
+    private func animate(_ change: @escaping () -> Void) {
+        if reduceMotion {
+            change()
+        } else {
+            withAnimation(.snappy) { change() }
+        }
+    }
+
+    private func ink(_ color: BranchColor) -> Color {
+        Color(red: color.red, green: color.green, blue: color.blue)
+    }
+
+    private func text(_ key: String) -> String {
+        FlorettaL10n.string(key, language: language)
+    }
+}
+
+/// One card's data: id, name, canvas colour, branch dots.
+private struct BranchThemeEntry: Identifiable {
+    var id: String
+    var name: String
+    var canvas: Color
+    var branches: [Color]
 }
 
 private struct BranchThemeSheet: View {

@@ -110,10 +110,17 @@ final class HomeSmokeTests: XCTestCase {
         let theme = app.buttons["theme.menu"]
         XCTAssertTrue(theme.waitForExistence(timeout: 5), "更多菜单中没有配色入口")
         theme.tap()
-        let themeSheet = app.descendants(matching: .any)["theme.sheet"]
-        XCTAssertTrue(themeSheet.waitForExistence(timeout: 5), "配色入口没有打开面板")
-        XCTAssertTrue(app.buttons["theme.close"].exists, "配色面板缺少关闭入口")
-        app.buttons["theme.close"].tap()
+        // ⑤ 配色 is a bubble under ⋯, not a sheet: six cards in a 3×2 grid plus
+        // the 「更多主题…」 row at the end.
+        let bubble = app.descendants(matching: .any)["theme.popover"]
+        XCTAssertTrue(bubble.waitForExistence(timeout: 5), "配色入口没有打开气泡")
+        XCTAssertFalse(app.descendants(matching: .any)["theme.sheet"].exists, "配色仍然是整页 sheet")
+        let cards = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "theme.card."))
+        XCTAssertGreaterThanOrEqual(cards.count, 6, "气泡里应有 6 个可见色卡")
+        XCTAssertTrue(app.buttons["theme.popover.more"].exists, "气泡末尾缺少「更多主题…」")
+        // Tapping the canvas dismisses the bubble, like any system popover.
+        app.descendants(matching: .any)["editor.canvas"].tap()
+        XCTAssertFalse(bubble.waitForExistence(timeout: 2), "点画布后气泡没有关闭")
 
         more = app.descendants(matching: .any)["editor.more"]
         more.tap()

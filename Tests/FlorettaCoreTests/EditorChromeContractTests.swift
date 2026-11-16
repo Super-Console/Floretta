@@ -79,6 +79,50 @@ final class EditorChromeContractTests: XCTestCase {
         XCTAssertFalse(titleArea.contains("Material"), "no hand-rolled material behind the name")
     }
 
+    /// ② 2026-11-16: 配色 is a compact bubble, not a sheet.
+    /// Two columns by three rows of cards, the remaining schemes behind
+    /// 「更多主题…」, and one tap applies plus closes. The bubble must ask for
+    /// `.presentationCompactAdaptation(.popover)`, or a compact iPhone turns it
+    /// back into a full-page sheet.
+    func testThemePickerIsACompactPopoverBubble() throws {
+        let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let menu = try slice(source, from: "private var moreMenu", until: "/// `menu(.more)` minus")
+        let bubble = try slice(source, from: "private struct BranchThemePopover", until: "private struct BranchThemeEntry")
+        let presets = try slice(source, from: "private var entries: [BranchThemeEntry]", until: "private func isSelected")
+
+        XCTAssertTrue(menu.contains(".popover(isPresented: $showThemes, arrowEdge: .top)"), "the bubble hangs under the ••• button")
+        XCTAssertTrue(menu.contains("BranchThemePopover("))
+        XCTAssertTrue(bubble.contains(".presentationCompactAdaptation(.popover)"), "without this a compact iPhone degrades the popover to a sheet")
+        XCTAssertTrue(bubble.contains("static let popoverWidth: CGFloat = 320"), "the bubble is about 320pt wide")
+        XCTAssertTrue(bubble.contains("static let visibleRows = 3"), "three rows of cards are visible")
+        XCTAssertEqual(
+            bubble.components(separatedBy: "GridItem(.flexible()").count - 1,
+            2,
+            "the card grid is two columns"
+        )
+        XCTAssertTrue(bubble.contains("LazyVGrid("))
+        XCTAssertTrue(bubble.contains("theme.popover.more"))
+        XCTAssertTrue(bubble.contains("Text(verbatim: text(\"更多主题…\"))"))
+        // One tap applies and closes; no 完成 button, no second sheet.
+        XCTAssertTrue(bubble.contains("onSelect(entry.id)"))
+        XCTAssertTrue(bubble.contains("dismiss()"))
+        XCTAssertFalse(bubble.contains("NavigationStack"), "a bubble is not a navigation container")
+
+        // The existing catalogs and persistence are reused unchanged.
+        XCTAssertTrue(presets.contains("MapThemeCatalog.all"))
+        XCTAssertTrue(presets.contains("MapColorPresetCatalog.all"))
+        XCTAssertEqual(
+            source.components(separatedBy: "BranchThemeSheet(themeID:").count - 1,
+            1,
+            "the iOS sheet is replaced by the bubble; only the macOS sheet remains"
+        )
+
+        // iOS has no theme sheet left; macOS keeps it.
+        let sheet = try XCTUnwrap(source.range(of: ".sheet(isPresented: $showThemes)"))
+        let before = String(source[..<sheet.lowerBound].suffix(180))
+        XCTAssertTrue(before.contains("#if os(macOS)"), "the sheet is macOS-only now")
+    }
+
     func testDocumentFilenameIsNotDuplicatedInNativeWindowTitle() throws {
         let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         XCTAssertTrue(source.contains(".navigationTitle(\"\")"))

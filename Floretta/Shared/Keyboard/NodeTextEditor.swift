@@ -1249,7 +1249,14 @@ struct HardwareShortcutHost: UIViewRepresentable {
         view.mode = mode
         view.isComposing = isComposing
         view.coalescer = coalescer
-        view.bindings = bindings
+        // UIKit caches a responder's command list, so a new chord set has to ask
+        // for the list again or the old chords keep answering on iPad.
+        if view.bindings != bindings {
+            view.bindings = bindings
+            if view.isFirstResponder {
+                view.reloadInputViews()
+            }
+        }
         view.onEvent = onEvent
     }
 }

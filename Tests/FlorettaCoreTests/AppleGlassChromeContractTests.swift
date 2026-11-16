@@ -65,7 +65,7 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertEqual(recents.components(separatedBy: "LazyVGrid").count - 1, 1, "the recents grid must have one rendered instance")
         XCTAssertFalse(recents.contains("appleGlassChrome"), "the grid is rendered once as content, never supplied as a chrome background")
         XCTAssertTrue(activeLightBackend.contains("= .light"))
-        XCTAssertTrue(glass.contains(".background(role.lightUnderlayMaterial, in: shape)"))
+        XCTAssertTrue(glass.contains(".background(underlay, in: shape)"))
         XCTAssertTrue(glass.contains(".regular.tint(AppleGlassChromeMetrics.lightTint)"))
         XCTAssertTrue(fallbackPlate.contains("view.blendingMode = role.fallbackBlendingMode"))
         XCTAssertTrue(nativePlate.contains("view.blendingMode = role.nativeBlendingMode"))
@@ -80,6 +80,94 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertFalse(glass.contains("LinearGradient"))
         XCTAssertFalse(glass.contains(".mask {"))
         XCTAssertEqual(editor.components(separatedBy: ".toolbarBackground(.hidden, for: .windowToolbar)").count - 1, 1, "the editor hides the system background once; no second material is installed there")
+    }
+
+    /// The two bottom capsules and the system toolbar draw the same control on
+    /// the same window, so they have to be the same call. They used to wear a
+    /// `Material` underlay plus a tint that a toolbar item never gets, and that
+    /// extra plate is exactly what made them read flat and white beside the
+    /// translucent, specular items above them.
+    ///
+    /// The contract, in the order the user asked for it: same `glassEffect`
+    /// primitive, `.regular` (never `.clear`), no `.interactive()`, nothing
+    /// underneath, `Capsule()` so the radius is half the height by
+    /// construction, and no plate stacked inside a toolbar item.
+    func testBottomCapsulesDrawTheToolbarGlassCallWithNothingUnderneath() throws {
+        let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
+        let core = try repoFile("FlorettaCore/Layout/EditorStatusBar.swift")
+        let plate = try slice(glass, from: "private func systemGlass", until: "/// `.native`: system vibrancy")
+        let underlay = try slice(glass, from: "var lightUnderlayMaterial: Material?", until: "var nativeScene")
+
+        // 1. The capsule branch is the bar item's own call: `.regular` glass in
+        //    the shape, and nothing else on top of it.
+        XCTAssertTrue(
+            plate.contains("view.glassEffect(.regular, in: shape)"),
+            "the capsule path must be the exact call a system toolbar item makes"
+        )
+        XCTAssertFalse(plate.contains(".clear"), "`.clear` has no fill; the bar item does not use it")
+        XCTAssertFalse(plate.contains(".interactive()"), "press optics are the button's, not the plate's")
+        XCTAssertEqual(
+            plate.components(separatedBy: ".glassEffect(").count - 1,
+            2,
+            "one call per branch: the bare toolbar glass, and the underlaid plate"
+        )
+        XCTAssertEqual(
+            plate.components(separatedBy: ".regular.tint(").count - 1,
+            1,
+            "the tint appears once, inside the underlay branch"
+        )
+
+        // 2. The tinted path is unreachable without an underlay, and the tint is
+        //    written once — so no capsule can pick it up.
+        XCTAssertTrue(plate.contains("if let underlay = role.lightUnderlayMaterial {"))
+        XCTAssertEqual(
+            glass.components(separatedBy: ".regular.tint(AppleGlassChromeMetrics.lightTint)").count - 1,
+            1,
+            "the tint belongs to the underlaid plates only"
+        )
+
+        // 3. `bottomBarCapsule` is the one role with no underlay at all.
+        XCTAssertTrue(
+            underlay.contains("case .bottomBarCapsule:\n            return nil"),
+            "the bottom capsules wear the toolbar's bare glass: no white underlay"
+        )
+        XCTAssertEqual(
+            underlay.components(separatedBy: "return nil").count - 1,
+            1,
+            "exactly one role drops the underlay"
+        )
+        XCTAssertEqual(
+            underlay.components(separatedBy: ".thickMaterial").count - 1,
+            1,
+            "only the banners and the audio bar keep the thick underlay"
+        )
+
+        // 4. Radius = height / 2, from the shape rather than a literal.
+        XCTAssertTrue(
+            glass.contains("case .bottomBarCapsule, .toolbarFloatingButton, .canvasFloatingButton:\n            plated(inked(view), shape: Capsule())"),
+            "a capsule's arc is half its height by construction"
+        )
+        let radiusAnchor = "static let capsuleCornerRadius: CGFloat = "
+        let radiusTail = try XCTUnwrap(glass.components(separatedBy: radiusAnchor).last)
+        let fallbackRadius = Int(String(radiusTail.prefix { $0.isNumber })) ?? 0
+        // Core Animation clamps a radius to half the layer height; it never
+        // enlarges one. The status capsule is 34 pt tall (28 pt icons plus
+        // 2×3 pt padding), so the fallback literal has to be at least 17 pt to
+        // render the same capsule `Capsule()` draws.
+        XCTAssertGreaterThanOrEqual(fallbackRadius, 17, "a smaller literal turns the fallback into a rounded rectangle")
+
+        // 5. The toolbar items keep drawing nothing: two plates in one item is
+        //    the double-glass bug, so the capsule role must never reach them.
+        XCTAssertTrue(
+            glass.contains("case .toolbarFloatingButton:\n            return false"),
+            "a toolbar item is already glass; nothing is plated inside it"
+        )
+
+        // 6. Metrics still line up with a system capsule: 28 pt plate, 10 pt
+        //    horizontal padding, 3 pt vertical. The change was glass only.
+        XCTAssertTrue(core.contains("public static let controlMinHeight: CGFloat = 28"))
+        XCTAssertTrue(core.contains("public static let capsuleHorizontalPadding: CGFloat = 10"))
+        XCTAssertTrue(core.contains("public static let capsuleVerticalPadding: CGFloat = 3"))
     }
 
     func testSettingsUsesSystemNavigationAndFormWithoutGlassHeaderBand() throws {
@@ -132,8 +220,9 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertFalse(glass.contains("ultraThinMaterial"))
         // The system material underlay is chosen once, in the role table
         // (`lightUnderlayMaterial`): thin for in-bar controls, regular for a
-        // text column over the canvas, thick for a one-line capsule. A second
-        // inline material would be a hand-rolled wash.
+        // text column over the canvas, thick for the banners and audio bar, and
+        // none at all for the bottom capsules, which wear the toolbar's own
+        // glass. A second inline material would be a hand-rolled wash.
         XCTAssertEqual(glass.components(separatedBy: "return .regularMaterial").count - 1, 1)
         XCTAssertFalse(glass.contains(".shadow("))
         XCTAssertFalse(glass.contains("colorScheme"))

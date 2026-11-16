@@ -17,11 +17,16 @@ import UIKit
 ///
 /// Two official implementations are kept side by side and selected by
 /// `GlassChromeConfiguration.renderingStyle` (default `.light`):
-/// - `.light` is the shipped "frosted" Liquid Glass: `GlassEffectContainer`
-///   + `glassEffect(.regular.tint(_:), in:)`, with a system `Material`
-///   underlay that diffuses the background into color blocks. The plate's edge
-///   is the shape's own edge: nothing here paints a fade, a wash, or a shadow
-///   on top of Apple's glass.
+/// - `.light` is the shipped Liquid Glass, in the two forms Apple ships it. A
+///   *toolbar-aligned* plate (`bottomBarCapsule`) is the toolbar item's own
+///   call and nothing else: `GlassEffectContainer` +
+///   `glassEffect(.regular, in: Capsule())`, no `Material` underlay, no tint,
+///   no `.clear` variant, nothing layered underneath. Every other plate takes
+///   `glassEffect(.regular.tint(_:), in:)` with a system `Material` underlay
+///   that diffuses the background into colour blocks, because a panel that
+///   covers a large area of canvas needs more opacity than a 28 pt control.
+///   Both forms end on the shape's own edge: nothing here paints a fade, a
+///   wash, or a shadow on top of Apple's glass.
 /// - `.native` is the system vibrancy material: `NSVisualEffectView`
 ///   (macOS) / `UIVisualEffectView` (iOS) with a scene-specific material
 ///   (`.sidebar` / `.headerView` / `.hudWindow`) and a matching
@@ -93,6 +98,14 @@ enum AppleGlassChromeRole: String, Equatable {
     /// Icon buttons, including the inspector empty-state brush.
     case iconButton
     /// Capsule bars, including the bottom sheet capsules.
+    ///
+    /// These are the plates the user compares against the toolbar, so they are
+    /// drawn with exactly the toolbar item's call: `.regular` glass in a
+    /// `Capsule`, no `Material` underlay, no tint, no `.clear`, no
+    /// `.interactive()`. `Capsule()` makes the corner radius half the height by
+    /// construction, which is the shape a system bar item wears; the AppKit
+    /// fallback derives the same arc from `capsuleCornerRadius`. Nothing here
+    /// hand-draws a highlight: the specular edge is the glass's own.
     case bottomBarCapsule
     /// Toolbar buttons that float over the canvas. Not the back button.
     /// Draws no plate on either platform: a system toolbar item already paints
@@ -188,10 +201,22 @@ enum GlassNativeScene {
 enum AppleGlassChromeMetrics {
     static let panelCornerRadius: CGFloat = 16
     static let sidebarCornerRadius: CGFloat = 24
-    /// Thin tint for the `.light` glass, applied through `Glass.tint(_:)`.
-    /// It lowers the contrast of content behind the glass so dark text and
+    /// Corner radius for the capsule plates, used **only** by the AppKit
+    /// fallback, which can set nothing but a `CALayer.cornerRadius`.
+    ///
+    /// A capsule's arc is exactly half its height, and the `.light` SwiftUI path
+    /// gets that from `Capsule()` — the same shape a system toolbar item wears.
+    /// The fallback carries a radius at least half the tallest chrome capsule
+    /// (the status capsule is 34 pt: 28 pt icons plus 2×3 pt padding; the canvas
+    /// capsule is 28 pt) so Core Animation clamps it to exactly half the layer
+    /// height. A literal below that half-height is what turns a capsule into a
+    /// rounded rectangle, so this number is not a style choice.
+    static let capsuleCornerRadius: CGFloat = 20
+    /// Thin tint for the `.light` glass, applied through `Glass.tint(_:)`. It
+    /// lowers the contrast of content behind the glass so dark text and
     /// borders no longer read as a "reflection". This is an official glass
-    /// tint, not a hand-filled semi-transparent overlay.
+    /// tint, not a hand-filled semi-transparent overlay — and it is not applied
+    /// to `bottomBarCapsule`, which wears the toolbar's untinted glass.
     static let lightTint = Color.primary.opacity(0.12)
     /// Horizontal inset that keeps the sidebar's selected-row capsule clear
     /// of the column's rounded edge, so the two arcs never collide.
@@ -246,15 +271,28 @@ extension AppleGlassChromeRole {
         }
     }
 
-    /// Underlay material for the `.light` path. It follows what the plate
-    /// covers: a small plate with one label takes the thick material, a tall
-    /// text column takes `.regularMaterial` — SwiftUI's counterpart of the
-    /// `.sidebar` vibrancy the native path uses, so rows stay legible over a
-    /// busy canvas without turning the plate into a solid slab — and the
-    /// in-bar controls keep the thin one they sit on.
-    var lightUnderlayMaterial: Material {
+    /// Underlay material for the `.light` path, or `nil` where nothing may sit
+    /// under Apple's glass at all.
+    ///
+    /// It follows what the plate covers: a tall text column takes
+    /// `.regularMaterial` — SwiftUI's counterpart of the `.sidebar` vibrancy the
+    /// native path uses, so rows stay legible over a busy canvas without turning
+    /// the plate into a solid slab — the banners and the audio bar take the thick
+    /// one, and the in-bar controls keep the thin one they sit on.
+    ///
+    /// `bottomBarCapsule` is the exception, and the reason is the whole bug this
+    /// table used to hide: those two plates share a window and a canvas with the
+    /// system toolbar's own glass buttons, and the system toolbar stacks nothing
+    /// under its `.regular` glass. The `.thickMaterial` this role used to take
+    /// raised the fill to an almost opaque white, which is exactly what the user
+    /// saw: the bottom capsules flat and white next to the toolbar's translucent,
+    /// specular ones. With no underlay and no tint, the plate is the same call
+    /// Apple makes, so it renders the same refraction and the same edge highlight.
+    var lightUnderlayMaterial: Material? {
         switch self {
-        case .bottomBarCapsule, .floatingPanel, .canvasFloatingButton:
+        case .bottomBarCapsule:
+            return nil
+        case .floatingPanel, .canvasFloatingButton:
             return .thickMaterial
         case .sidebarColumn, .inspectorPanel:
             return .regularMaterial
@@ -390,9 +428,12 @@ private struct AppleGlassChromePlate<Content: View>: View {
     ///   background turns into colour blocks and shapes are unrecognisable.
     ///   `lightUnderlayMaterial` follows the same sample-source rule as the
     ///   AppKit plates: a text column over the canvas takes `.regularMaterial`,
-    ///   a one-line capsule takes `.thickMaterial`.
+    ///   the banners and audio bar take `.thickMaterial`, and the two bottom
+    ///   capsules take **none** — see `systemGlass`.
     /// - `Glass.tint(_:)` is the thin tint layer that lowers background
-    ///   contrast, stopping dark text / borders reading as a reflection.
+    ///   contrast, stopping dark text / borders reading as a reflection. It is
+    ///   only used together with an underlay: a plate with neither is the
+    ///   toolbar's own glass, and is left exactly as Apple renders it.
     @ViewBuilder
     private func lightPlated<V: View, S: Shape>(_ view: V, shape: S) -> some View {
         switch AppleGlassChromeBackend.resolved {
@@ -400,12 +441,7 @@ private struct AppleGlassChromePlate<Content: View>: View {
             #if compiler(>=6.2)
             if #available(iOS 26.0, macOS 26.0, *) {
                 GlassEffectContainer(spacing: CGFloat(0)) {
-                    view
-                        .background(role.lightUnderlayMaterial, in: shape)
-                        .glassEffect(
-                            .regular.tint(AppleGlassChromeMetrics.lightTint),
-                            in: shape
-                        )
+                    systemGlass(view, shape: shape)
                 }
             } else {
                 degraded(view, shape: shape)
@@ -422,6 +458,42 @@ private struct AppleGlassChromePlate<Content: View>: View {
             #endif
         case .nsVisualEffectView, .unpainted:
             degraded(view, shape: shape)
+        }
+    }
+
+    /// The `.light` plate on a Liquid Glass system, and the one place the
+    /// toolbar parity is decided.
+    ///
+    /// The two bottom capsules are drawn by the **same call** the system makes
+    /// for a `ToolbarItem`'s own glass: `.regular`, in a `Capsule`, with
+    /// nothing underneath and no tint. That is not an approximation of the
+    /// toolbar's look — it is the same primitive and the same specular pass
+    /// SwiftUI runs for a bar item, which is why the two now share the
+    /// refraction, the rim light, and the shadowed bottom lip instead of one
+    /// being a flat white plate.
+    ///
+    /// What must not come back: the `.thickMaterial` underlay that used to sit
+    /// here (an almost opaque white that flattened the glass and hid the
+    /// canvas behind it), the `Color.primary` tint that greyed the fill, and
+    /// the `.clear` variant — `.clear` has no fill and reads as a bare
+    /// outline. `.interactive()` is not applied either: it adds press optics
+    /// the bar item does not have.
+    ///
+    /// A `Material` underlay plus the thin tint is kept for the plates that
+    /// cover large areas of canvas — the outline column, the banners, the audio
+    /// bar — where a 28 pt control's opacity is not enough to keep text legible.
+    @ViewBuilder
+    private func systemGlass<V: View, S: Shape>(_ view: V, shape: S) -> some View {
+        if let underlay = role.lightUnderlayMaterial {
+            view
+                .background(underlay, in: shape)
+                .glassEffect(
+                    .regular.tint(AppleGlassChromeMetrics.lightTint),
+                    in: shape
+                )
+        } else {
+            // `bottomBarCapsule`: the toolbar item's own glass, unaltered.
+            view.glassEffect(.regular, in: shape)
         }
     }
 
@@ -502,7 +574,7 @@ extension AppleGlassChromeRole {
         case .iconButton:
             22
         case .bottomBarCapsule, .toolbarFloatingButton, .canvasFloatingButton:
-            20
+            AppleGlassChromeMetrics.capsuleCornerRadius
         }
     }
 }

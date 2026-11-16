@@ -17,8 +17,20 @@ final class HomeChromeContractTests: XCTestCase {
         XCTAssertTrue(phone.contains(".buttonStyle(.borderedProminent)"))
         XCTAssertTrue(phone.contains("\"home.templates\""))
         XCTAssertTrue(phone.contains("\"home.open\""))
+        XCTAssertTrue(phone.contains("homeSettingsToolbarItem"), "设置 is a bar item on the phone")
         XCTAssertFalse(phone.contains("ToolbarItemGroup"), "the phone keeps one grouped capsule")
         assertNoCustomChrome(phone)
+
+        // 设置 is declared in the bar before the ⋯ menu, so the gear lands
+        // immediately left of ⋯ — the slot the user asked for.
+        let settings = try XCTUnwrap(phone.range(of: "homeSettingsToolbarItem")?.lowerBound)
+        let more = try XCTUnwrap(phone.range(of: "\"home.toolbarMenu\"")?.lowerBound)
+        XCTAssertLessThan(settings, more, "设置 must sit left of the ⋯ menu")
+
+        // The old standalone strip above the search field left an empty band
+        // under the large title; it is gone, not merely hidden.
+        XCTAssertFalse(recent.contains(".safeAreaInset(edge: .top"), "设置 no longer reserves a strip above the search field")
+        XCTAssertFalse(recent.contains("private var settingsButton"), "the floating settings button is replaced by the bar item")
 
         let search = try slice(recent, from: "#if os(iOS)", until: "#else")
         XCTAssertTrue(search.contains(".searchable("))
@@ -117,27 +129,53 @@ final class HomeChromeContractTests: XCTestCase {
         XCTAssertFalse(session.contains("var tab: ShellTab"))
     }
 
-    func testHomeSettingsIsACircularGlassButtonInTheTopRightCorner() throws {
+    /// ① 2026-11-16: the 设置 gear is the bar item immediately left of ⋯.
+    /// Both are `ToolbarItem(placement: .primaryAction)` values, and toolbar
+    /// order is declaration order, so the gear must be declared before the ⋯
+    /// menu. This is the contract the user asked for: 右上角、⋯ 的左边。
+    func testSettingsGearIsDeclaredLeftOfTheMoreMenu() throws {
         let source = try repoFile("Floretta/Shared/Shell/LibraryHome.swift")
         let recent = try slice(source, from: "struct RecentPage", until: "struct NewMapPage")
-        let button = try slice(recent, from: "private var settingsButton", until: "/// System navigation-bar items")
-        let ios = try slice(recent, from: "#if os(iOS)", until: "#else")
+        let phone = try slice(recent, from: "private var iphoneHomeToolbar", until: "/// iPad:")
 
-        XCTAssertTrue(button.contains("Image(systemName: \"gearshape\")"), "the entry is the gearshape glyph")
-        XCTAssertTrue(button.contains(".appleGlassChrome(.iconButton)"), "the button owns one circular Apple glass plate")
-        XCTAssertTrue(button.contains(".frame(width: 44, height: 44)"), "the plate is a 44pt circle")
-        XCTAssertTrue(button.contains(".contentShape(Circle())"))
-        XCTAssertTrue(button.contains(".accessibilityIdentifier(\"home.settings\")"))
-        XCTAssertTrue(button.contains(".accessibilityLabel(text(\"设置\"))"))
-        XCTAssertTrue(button.contains(".help("))
-        XCTAssertFalse(button.contains("ToolbarItem"), "a toolbar item is already glass; a plate inside it is the double-glass bug")
-        XCTAssertFalse(button.contains("Capsule("), "a capsule would not be a round button")
+        let gear = try XCTUnwrap(phone.range(of: "homeSettingsToolbarItem")?.lowerBound)
+        let more = try XCTUnwrap(phone.range(of: "Image(systemName: \"ellipsis\")")?.lowerBound)
+        XCTAssertLessThan(gear, more, "设置 must be left of ⋯")
 
-        // Top-right of the page, and its own strip so no card is covered.
-        XCTAssertTrue(ios.contains(".safeAreaInset(edge: .top"), "the button sits at the top of the page")
-        XCTAssertTrue(ios.contains("Spacer(minLength: 0)"))
-        XCTAssertTrue(ios.contains("settingsButton"))
-        XCTAssertFalse(ios.contains("TabView"))
+        // Both live in the same placement, or the bar could split them into two
+        // clusters and the gear would not be adjacent to ⋯.
+        let settingsItem = try slice(recent, from: "private var homeSettingsToolbarItem", until: "/// System navigation-bar items")
+        XCTAssertTrue(settingsItem.contains("ToolbarItem(placement: .primaryAction)"))
+        XCTAssertTrue(phone.contains("ToolbarItem(placement: .primaryAction)"))
+
+        // 液态玻璃 comes from the bar, not from a plate drawn here.
+        XCTAssertFalse(settingsItem.contains("appleGlassChrome"))
+        XCTAssertFalse(settingsItem.contains("Material"))
+    }
+
+    /// 设置 is a system navigation-bar item, not a plate drawn by this file.
+    /// The bar owns the Liquid Glass capsule (the look the user asked to keep),
+    /// and the item is declared before the ⋯ menu so it lands left of it.
+    func testHomeSettingsIsABarItemLeftOfTheMoreMenu() throws {
+        let source = try repoFile("Floretta/Shared/Shell/LibraryHome.swift")
+        let recent = try slice(source, from: "struct RecentPage", until: "struct NewMapPage")
+        let item = try slice(recent, from: "private var homeSettingsToolbarItem", until: "/// System navigation-bar items")
+
+        XCTAssertTrue(item.contains("ToolbarItem(placement: .primaryAction)"), "设置 is one system bar item")
+        XCTAssertTrue(item.contains("Label(text(\"设置\"), systemImage: \"gearshape\")"), "the entry is the gearshape glyph")
+        XCTAssertTrue(item.contains(".accessibilityIdentifier(\"home.settings\")"))
+        XCTAssertTrue(item.contains(".accessibilityLabel(text(\"设置\"))"))
+        XCTAssertFalse(item.contains(".appleGlassChrome"), "the bar is already glass; a plate inside it is the double-glass bug")
+        XCTAssertFalse(item.contains("Circle()"), "no hand-drawn circular plate is left")
+        XCTAssertFalse(item.contains(".frame(width: 44"), "the bar item's own platter is the hit target")
+
+        // One declaration, used by both iOS toolbars (phone + iPad).
+        XCTAssertEqual(
+            recent.components(separatedBy: "homeSettingsToolbarItem").count - 1,
+            3,
+            "the phone and iPad bars both install the item"
+        )
+        XCTAssertFalse(recent.contains("TabView"))
     }
 
     func testSettingsCardHasNoLargeTitle() throws {

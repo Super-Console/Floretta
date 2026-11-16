@@ -43,13 +43,140 @@ final class EditorChromeContractTests: XCTestCase {
         XCTAssertTrue(backItem.contains("\"basicChain.back\""))
         XCTAssertTrue(backItem.contains(".frame(width: 44, height: 44)"))
         XCTAssertTrue(backItem.contains("contentShape(Circle())"))
-        XCTAssertTrue(backItem.contains(".appleGlassChrome(.iconButton)"))
+        XCTAssertFalse(
+            backItem.contains(".appleGlassChrome"),
+            "a bar item is already glass; a plate inside it is the double-glass bug"
+        )
         XCTAssertFalse(backItem.contains("HStack"))
         XCTAssertFalse(backItem.contains("ultraThinMaterial"))
         XCTAssertFalse(backItem.contains(".blur("))
-        XCTAssertTrue(ios.contains(".sharedBackgroundVisibility(.hidden)"))
+        XCTAssertFalse(
+            ios.contains(".sharedBackgroundVisibility(.hidden)"),
+            "hiding the shared background is what left the filename as bare text"
+        )
         XCTAssertTrue(ios.contains("\"document.title\""))
         XCTAssertTrue(source.contains("ToolbarItem(id: \"document.navigation\", placement: .navigation)"))
+    }
+
+    /// ④ 2026-11-16: the iPhone filename is wrapped in a capsule.
+    /// It is a system bar item and nothing else: the bar paints the capsule, so
+    /// the name is no longer two bare glyphs over the canvas, and this file adds
+    /// no plate of its own (that would be double glass inside the bar item).
+    func testIPhoneFilenameIsWrappedInOneSystemGlassCapsule() throws {
+        let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let toolbar = try slice(source, from: "private var editorToolbar", until: "private var editorEvents")
+        let ios = try slice(toolbar, from: "#if os(iOS)", until: "#if !os(macOS)")
+        let spacer = try XCTUnwrap(ios.range(of: "ToolbarSpacer(.fixed, placement: .cancellationAction)"))
+        let titleArea = String(ios[spacer.upperBound...])
+
+        XCTAssertTrue(titleArea.contains("ToolbarItem(placement: .cancellationAction)"))
+        XCTAssertTrue(titleArea.contains("Text(verbatim: documentTitle)"))
+        XCTAssertTrue(titleArea.contains("\"document.title\""))
+        XCTAssertTrue(titleArea.contains(".accessibilityLabel(documentTitle)"))
+        XCTAssertFalse(titleArea.contains("sharedBackgroundVisibility"), "the system capsule stays visible")
+        XCTAssertFalse(titleArea.contains(".appleGlassChrome"), "the bar capsule is the only plate")
+        XCTAssertFalse(titleArea.contains("Capsule()"), "no hand-drawn capsule behind the name")
+        XCTAssertFalse(titleArea.contains("Material"), "no hand-rolled material behind the name")
+    }
+
+    /// ② 2026-11-16: 配色 is a compact bubble, not a sheet.
+    /// Two columns by three rows of cards, the remaining schemes behind
+    /// 「更多主题…」, and one tap applies plus closes. The bubble must ask for
+    /// `.presentationCompactAdaptation(.popover)`, or a compact iPhone turns it
+    /// back into a full-page sheet.
+    func testThemePickerIsACompactPopoverBubble() throws {
+        let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let menu = try slice(source, from: "private var moreMenu", until: "/// `menu(.more)` minus")
+        let bubble = try slice(source, from: "private struct BranchThemePopover", until: "private struct BranchThemeEntry")
+        let presets = try slice(source, from: "private var entries: [BranchThemeEntry]", until: "private func isSelected")
+
+        XCTAssertTrue(menu.contains(".popover(isPresented: $showThemes, arrowEdge: .top)"), "the bubble hangs under the ••• button")
+        XCTAssertTrue(menu.contains("BranchThemePopover("))
+        XCTAssertTrue(bubble.contains(".presentationCompactAdaptation(.popover)"), "without this a compact iPhone degrades the popover to a sheet")
+        XCTAssertTrue(bubble.contains("static let popoverWidth: CGFloat = 320"), "the bubble is about 320pt wide")
+        XCTAssertTrue(bubble.contains("static let visibleRows = 3"), "three rows of cards are visible")
+        XCTAssertEqual(
+            bubble.components(separatedBy: "GridItem(.flexible()").count - 1,
+            2,
+            "the card grid is two columns"
+        )
+        XCTAssertTrue(bubble.contains("LazyVGrid("))
+        XCTAssertTrue(bubble.contains("theme.popover.more"))
+        XCTAssertTrue(bubble.contains("text(\"更多主题…\")"))
+        // One tap applies and closes; no 完成 button, no second sheet.
+        XCTAssertTrue(bubble.contains("onSelect(entry.id)"))
+        XCTAssertTrue(bubble.contains("dismiss()"))
+        XCTAssertFalse(bubble.contains("NavigationStack"), "a bubble is not a navigation container")
+
+        // The existing catalogs and persistence are reused unchanged.
+        XCTAssertTrue(presets.contains("MapThemeCatalog.all"))
+        XCTAssertTrue(presets.contains("MapColorPresetCatalog.all"))
+        XCTAssertEqual(
+            source.components(separatedBy: "BranchThemeSheet(themeID:").count - 1,
+            1,
+            "the iOS sheet is replaced by the bubble; only the macOS sheet remains"
+        )
+
+        // iOS has no theme sheet left; macOS keeps it.
+        let sheet = try XCTUnwrap(source.range(of: ".sheet(isPresented: $showThemes)"))
+        let before = String(source[..<sheet.lowerBound].suffix(180))
+        XCTAssertTrue(before.contains("#if os(macOS)"), "the sheet is macOS-only now")
+    }
+
+    /// ⑥ 2026-11-16: 大纲 gets its rows on the panel's own grid, real 44pt
+    /// header targets, and system motion.
+    func testOutlinePanelAlignmentTouchTargetsAndMotion() throws {
+        let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let panel = try slice(editor, from: "private var outlinePanel", until: "private var markdownBanner")
+        let stack = try slice(editor, from: "private var canvasStack", until: "private var bottomBarRow")
+        let outline = try repoFile("Floretta/Shared/Outline/OutlineView.swift")
+        let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
+        let inset = try slice(glass, from: "func sidebarSelectionInset()", until: "private struct AppleGlassChromePlate")
+
+        // Header controls: a 44pt square target holding a glyph, and no second
+        // plate — the panel's sidebar glass stays the only surface.
+        XCTAssertTrue(panel.contains(".frame(width: 44, height: 44)"))
+        XCTAssertTrue(panel.contains(".contentShape(Rectangle())"))
+        XCTAssertFalse(panel.contains(".appleGlassChrome"), "a header circle inside the panel is a second plate")
+        XCTAssertTrue(panel.contains("outline.wide"))
+        XCTAssertTrue(panel.contains("outline.close"))
+
+        // Width: a compact phone fills the width instead of leaving a 300pt
+        // column with a sliver of canvas beside it.
+        XCTAssertTrue(stack.contains("outlineFillsWidth"))
+        XCTAssertTrue(editor.contains("horizontalSizeClass == .compact"))
+
+        // Rows: the 12pt leading matches the header padding, and every row is a
+        // 44pt touch target.
+        XCTAssertTrue(inset.contains("EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12)"))
+        XCTAssertTrue(outline.contains(".frame(minHeight: 44, alignment: .leading)"))
+
+        // Motion: the system snappy spring, skipped when reduce motion is on.
+        XCTAssertTrue(stack.contains(".transition(.move(edge: .leading).combined(with: .opacity))"))
+        XCTAssertTrue(
+            stack.contains(".animation(ChromeMotion.resolved(ChromeMotion.panel, reduceMotion: reduceMotion), value: showOutline)"),
+            "the panel uses the system snappy curve through ChromeMotion, which hands back nil for Reduce Motion"
+        )
+        XCTAssertTrue(editor.contains("@Environment(\\.accessibilityReduceMotion) private var reduceMotion"))
+        XCTAssertTrue(outline.contains("withAnimation(.snappy)"))
+        XCTAssertTrue(outline.contains("reduceMotion"))
+    }
+
+    /// ⑥ 沉浸模式: the only control is one 44pt glass circle, icon only, and it
+    /// fades in and out instead of snapping on.
+    func testImmersiveExitIsOneFortyFourPointGlassCircle() throws {
+        let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let exit = try slice(editor, from: ".overlay(alignment: .topTrailing)", until: ".onChange(of: session.zen.isActive)")
+
+        XCTAssertTrue(exit.contains("Image(systemName: \"xmark\")"))
+        XCTAssertFalse(exit.contains("Label(\"退出全屏沉浸\""), "immersive chrome is icon only, not a text pill")
+        XCTAssertTrue(exit.contains("EditorStatusBarChrome.controlMinHeight"), "44pt on iOS")
+        XCTAssertTrue(exit.contains(".contentShape(Circle())"))
+        XCTAssertTrue(exit.contains(".appleGlassChrome(.canvasFloatingButton)"))
+        XCTAssertTrue(exit.contains(".accessibilityLabel(text(\"退出全屏沉浸\"))"))
+        XCTAssertTrue(exit.contains("zen.exit"))
+        XCTAssertTrue(exit.contains(".transition(.opacity.combined(with: .scale(scale: 0.98)))"))
+        XCTAssertTrue(exit.contains(".animation(reduceMotion ? nil : .snappy, value: isExitAffordanceRevealed)"))
     }
 
     func testDocumentFilenameIsNotDuplicatedInNativeWindowTitle() throws {
@@ -279,7 +406,13 @@ final class EditorChromeContractTests: XCTestCase {
 
         let toggle = try slice(bar, from: "private var viewModeToggle", until: "private var outlineToggle")
         XCTAssertTrue(toggle.contains("Button {"))
-        XCTAssertTrue(toggle.contains("session.viewMode = session.viewMode == .map ? .focus : .map"))
+        XCTAssertTrue(
+            toggle.contains("changeViewMode(session.viewMode == .map ? .focus : .map)"),
+            "one tap flips the mode; the state write stays one line inside the helper"
+        )
+        XCTAssertTrue(toggle.contains("session.viewMode = mode"), "the helper is the only writer")
+        XCTAssertTrue(toggle.contains("withAnimation(.snappy)"), "chrome state changes with the system spring")
+        XCTAssertTrue(toggle.contains("reduceMotion"), "减少动态效果 turns the animation off")
         XCTAssertFalse(toggle.contains("Menu {"), "a menu needs a second click and a ▾")
         XCTAssertFalse(toggle.contains("menuIndicator"))
         XCTAssertTrue(toggle.contains(".buttonStyle(.plain)"))

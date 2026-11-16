@@ -54,8 +54,10 @@ struct DocumentEditor: View {
     @State private var showThemes = false
     @State private var showHistory = false
     @Environment(\.colorScheme) private var colorScheme
-    /// Every animation in this view goes through `ChromeMotion.resolved`, so a
-    /// reader with Reduce Motion gets the change with no curve at all.
+    /// Every animation in this view goes through `ChromeMotion.resolved` — or
+    /// the same `reduceMotion ? nil : animation` rule — so a reader with Reduce
+    /// Motion gets the change with no curve at all. No single animation here
+    /// runs past 0.35 s.
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -237,18 +239,36 @@ struct DocumentEditor: View {
         .zenChrome(session.zen.chrome)
         .overlay(alignment: .topTrailing) {
             if session.zen.isActive && isExitAffordanceRevealed {
+                // The one control in immersive mode, so it has to be right: a
+                // 44pt glass circle with the glyph only. A text 退出全屏沉浸
+                // pill was the wrong size for a floating control and its label
+                // wrapped beside the canvas edge. The system capsule shape is
+                // the plate (no gradient, no shadow), and the button fades and
+                // scales in with the system spring instead of snapping on.
                 Button {
                     hideZenExitAffordance()
                     session.exitZen()
                 } label: {
-                    Label("退出全屏沉浸", systemImage: "xmark")
+                    Image(systemName: "xmark")
+                        .font(.system(size: 15, weight: .semibold))
+                        .frame(
+                            width: EditorStatusBarChrome.controlMinHeight,
+                            height: EditorStatusBarChrome.controlMinHeight
+                        )
+                        .contentShape(Circle())
                 }
+                .buttonStyle(.plain)
                 .appleGlassChrome(.canvasFloatingButton)
+                .accessibilityLabel(text("退出全屏沉浸"))
                 .accessibilityIdentifier("zen.exit")
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
                 .padding(.top, 8)
                 .padding(.trailing, 12)
             }
         }
+        #if os(iOS)
+        .animation(reduceMotion ? nil : .snappy, value: isExitAffordanceRevealed)
+        #endif
         .onChange(of: session.zen.isActive) { _, isActive in
             if !isActive {
                 hideZenExitAffordance()
@@ -271,10 +291,14 @@ struct DocumentEditor: View {
             .onAppear(perform: openInspectorForUITest)
             .toolbar {
                 if session.zen.chrome.showsToolbar {
-                    // A chevron nested in the filename stack is custom bar content:
-                    // the glass platter is decoration, and the hit target shrinks to
-                    // the glyph. Its own toolbar button is a system bar item, whose
-                    // platter is a circle of at least 44pt and owns the hit testing.
+                    // A system toolbar item is already Liquid Glass: the bar
+                    // paints the circular platter and owns the hit testing, and
+                    // the 44pt frame keeps the target comfortable. The
+                    // `.appleGlassChrome(.iconButton)` plate that used to sit
+                    // inside this item was a second capsule on top of the bar's
+                    // own — the double-glass bug the user reported on this
+                    // button. Nothing is painted here any more; the system
+                    // capsule is the only plate.
                     #if os(iOS)
                     ToolbarItem(placement: .cancellationAction) {
                         Button(action: onClose) {
@@ -285,9 +309,15 @@ struct DocumentEditor: View {
                         .help(Text(verbatim: text("返回导图列表")))
                         .frame(width: 44, height: 44)
                         .contentShape(Circle())
-                        .appleGlassChrome(.iconButton)
                     }
                     ToolbarSpacer(.fixed, placement: .cancellationAction)
+                    // The filename is a bar item of its own, so the bar wraps it
+                    // in its own Liquid Glass capsule — the phone counterpart of
+                    // the macOS `CanvasSheetCapsule` (name in a capsule, one tap
+                    // to rename). Hiding the shared background used to strip that
+                    // capsule and leave the name as two bare glyphs on the canvas;
+                    // that is gone, and nothing is painted here either, so the
+                    // capsule the reader sees is the system's one plate.
                     ToolbarItem(placement: .cancellationAction) {
                         Button(action: beginRename) {
                             Text(verbatim: documentTitle)
@@ -299,7 +329,6 @@ struct DocumentEditor: View {
                         .accessibilityHint(text("为这份导图重新命名"))
                         .accessibilityIdentifier("document.title")
                     }
-                    .sharedBackgroundVisibility(.hidden)
                     #endif
                     #if !os(macOS)
                     ToolbarItemGroup(placement: .principal) {
@@ -505,11 +534,14 @@ struct DocumentEditor: View {
         .sheet(isPresented: $showShortcutHelp) {
             ShortcutsHelpSheet()
         }
+            #if os(macOS)
+            // macOS keeps the sheet: its 配色 rows are a window-sized list.
             .sheet(isPresented: $showThemes) {
                 BranchThemeSheet(themeID: session.document.themeID, language: settings.language) { id in
                     session.setBranchTheme(id)
                 }
             }
+            #endif
             .fileImporter(
                 isPresented: $showImageImporter,
                 allowedContentTypes: [.image],
@@ -665,9 +697,14 @@ struct DocumentEditor: View {
             // and Reduce Motion drops the curve to nil.
             if showOutline, session.zen.chrome.showsSidebar {
                 outlinePanel
-                    .frame(width: outlineWide ? nil : 300)
-                    .frame(maxWidth: outlineWide ? .infinity : 300, maxHeight: .infinity)
+                    .frame(width: outlineFillsWidth ? nil : 300)
+                    .frame(maxWidth: outlineFillsWidth ? .infinity : 300, maxHeight: .infinity)
                     .appleGlassChrome(.sidebarColumn)
+                    // Chrome, not canvas content: the panel slides in and fades
+                    // with the system's snappy spring instead of popping into
+                    // place. Reduce Motion drops the curve to nil, on both
+                    // platforms: the panel is shared chrome, not an iOS-only
+                    // surface.
                     .transition(.move(edge: .leading).combined(with: .opacity))
             }
         }
@@ -775,6 +812,35 @@ struct DocumentEditor: View {
     /// permanent entry point. Markdown documents and Zen hide the bottom chrome.
     private var showsCanvasTabs: Bool {
         !session.isMarkdownDocument && !session.zen.isActive
+    }
+
+    /// Width the 大纲 panel claims.
+    ///
+    /// A 300pt column on a 390pt phone left a sliver of canvas behind it and put
+    /// the panel's rows out of line with its own header. A compact phone gets the
+    /// full width; 让大纲占满 still wins wherever there is room for a canvas
+    /// beside the panel.
+    private var outlineFillsWidth: Bool {
+        if outlineWide { return true }
+        #if os(iOS)
+        return horizontalSizeClass == .compact
+        #else
+        return false
+        #endif
+    }
+
+    /// Chrome transitions use the system snappy spring, and nothing at all when
+    /// 减少动态效果 is on. macOS keeps its current, unanimated chrome.
+    private func withOutlineMotion(_ change: () -> Void) {
+        #if os(iOS)
+        if reduceMotion {
+            change()
+        } else {
+            withAnimation(.snappy) { change() }
+        }
+        #else
+        change()
+        #endif
     }
 
     /// Divider policy for the sheet capsule, from measured widths only.
@@ -1138,30 +1204,28 @@ struct DocumentEditor: View {
 
     private var outlinePanel: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
+            HStack(spacing: 4) {
                 Text(verbatim: text("大纲")).font(.headline)
-                Spacer()
+                Spacer(minLength: 0)
                 // Apple's glass button, the same surface the window toolbar puts
                 // behind its own icons: the system draws the capsule, the press
                 // feedback and the hover state. No plate of our own is stacked
-                // inside it, and the glyph swaps with the system's replace
-                // transition instead of hard-cutting.
+                // inside it; the glyph keeps a 44pt target and swaps with the
+                // system's replace transition instead of hard-cutting.
                 Button {
-                    outlineWide.toggle()
+                    withOutlineMotion { outlineWide.toggle() }
                 } label: {
-                    Image(systemName: outlineWide ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                    outlineHeaderSymbol(outlineWide ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
                         .contentTransition(.symbolEffect(.replace))
-                        .frame(width: 16, height: 16)
                 }
                 .buttonStyle(.glass)
                 .controlSize(.small)
                 .explained("让大纲占满或恢复原来的宽度")
                 .accessibilityIdentifier("outline.wide")
                 Button {
-                    showOutline = false
+                    withOutlineMotion { showOutline = false }
                 } label: {
-                    Image(systemName: "xmark")
-                        .frame(width: 16, height: 16)
+                    outlineHeaderSymbol("xmark")
                 }
                 .buttonStyle(.glass)
                 .controlSize(.small)
@@ -1169,7 +1233,8 @@ struct DocumentEditor: View {
                 .accessibilityIdentifier("outline.close")
             }
             .animation(ChromeMotion.resolved(ChromeMotion.control, reduceMotion: reduceMotion), value: outlineWide)
-            .padding(12)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
             if session.isMarkdownDocument {
                 Text(verbatim: text(MarkdownModePolicy.reason(.collapse)))
                     .font(.caption)
@@ -1187,6 +1252,21 @@ struct DocumentEditor: View {
             )
         }
         .accessibilityIdentifier("editor.outline")
+    }
+
+    /// A header control: a 15pt glyph in a 44pt square hit target.
+    ///
+    /// The two header buttons used to draw `.iconButton` plates (~22pt circles)
+    /// inside the panel's own `sidebarColumn` glass: a second capsule of our own
+    /// on the same surface, and a target far below the 44pt minimum. Now the
+    /// system's `.glass` button style draws the surface, the press feedback and
+    /// the hover state, so this file adds no plate of its own; the glyph carries
+    /// the affordance and the frame carries the 44pt touch target.
+    private func outlineHeaderSymbol(_ symbol: String) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 15, weight: .semibold))
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
     }
 
     private var markdownBanner: some View {
@@ -1586,6 +1666,16 @@ struct DocumentEditor: View {
         )
         .help(Text(verbatim: text(EditorToolbarCatalog.command(.more).help)))
         .appleGlassChrome(.toolbarFloatingButton)
+        // ⑤ 配色 is a bubble hanging under this button, not a sheet.
+        // `arrowEdge: .top` puts the tip below ⋯, and the content asks for
+        // `.presentationCompactAdaptation(.popover)` so a compact iPhone does not
+        // degrade it to a full-page sheet. The theme catalogs and the persistence
+        // are unchanged: the bubble only changes where the list is drawn.
+        .popover(isPresented: $showThemes, arrowEdge: .top) {
+            BranchThemePopover(themeID: session.document.themeID, language: settings.language) { id in
+                session.setBranchTheme(id)
+            }
+        }
         #else
         Menu {
             // TD-006: the ••• menu never repeats a command the bar already
@@ -1832,11 +1922,17 @@ struct DocumentEditor: View {
         case .importFile:
             onImport()
         case .outline:
-            showOutline.toggle()
+            withOutlineMotion { showOutline.toggle() }
         case .style:
             showInspector.toggle()
         case .theme:
-            showThemes = true
+            // The ••• menu dismisses asynchronously, and a popover presented in
+            // the same run loop as that dismissal can be swallowed with it. One
+            // short hop is enough; the bubble still anchors under ⋯.
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(80))
+                showThemes = true
+            }
         case .mapMode:
             session.viewMode = .map
         case .focusMode:
@@ -3562,6 +3658,224 @@ struct ExportFile: FileDocument {
         }
         return FileWrapper(regularFileWithContents: data)
     }
+}
+
+/// The iPhone 配色 bubble: a `.popover` anchored under the ••• button, not a
+/// sheet.
+///
+/// Two columns by three rows of colour cards — a swatch block plus the theme's
+/// name — and the remaining schemes behind a 「更多主题…」 row. A tap applies the
+/// theme immediately and closes the bubble, so choosing a scheme is one tap and
+/// no 完成 button. The existing catalogs (`MapColorPresetCatalog`,
+/// `MapThemeCatalog`) and the existing persistence (`setBranchTheme`) are used
+/// unchanged: this view introduces no second theme system and stores nothing.
+///
+/// `.presentationCompactAdaptation(.popover)` is what keeps this a bubble on a
+/// compact iPhone; without it SwiftUI degrades a popover to a full-page sheet.
+private struct BranchThemePopover: View {
+    var themeID: String?
+    var language: AppLanguage
+    var onSelect: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Presets fill the first grid; 「更多主题…」 swaps in the theme list.
+    @State private var showsThemes = false
+
+    /// Width the design asked for: one 320pt bubble.
+    static let popoverWidth: CGFloat = 320
+    /// Exactly three rows of cards are visible; a fourth list scrolls.
+    static let visibleRows = 3
+    static let cardHeight: CGFloat = 64
+    static let cardSpacing: CGFloat = 8
+    static let padding: CGFloat = 14
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            header
+            grid
+            moreRow
+        }
+        .padding(Self.padding)
+        .frame(width: Self.popoverWidth)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("theme.popover")
+        // A compact iPhone would otherwise present a full-page sheet.
+        .presentationCompactAdaptation(.popover)
+    }
+
+    private var header: some View {
+        HStack(spacing: 6) {
+            if showsThemes {
+                Button {
+                    animate { showsThemes = false }
+                } label: {
+                    Image(systemName: "chevron.backward")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(text("配色方案"))
+                .accessibilityIdentifier("theme.popover.back")
+            }
+            Text(verbatim: text(showsThemes ? "主题" : "配色方案"))
+                .font(.subheadline.weight(.semibold))
+            Spacer(minLength: 0)
+        }
+        .frame(minHeight: 28)
+    }
+
+    private var grid: some View {
+        ScrollView {
+            LazyVGrid(
+                columns: [
+                    GridItem(.flexible(), spacing: Self.cardSpacing),
+                    GridItem(.flexible(), spacing: Self.cardSpacing),
+                ],
+                spacing: Self.cardSpacing
+            ) {
+                ForEach(entries) { entry in
+                    card(entry)
+                }
+            }
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(height: CGFloat(Self.visibleRows) * Self.cardHeight + CGFloat(Self.visibleRows - 1) * Self.cardSpacing)
+        .animation(reduceMotion ? nil : .snappy, value: showsThemes)
+        // Selection is a checkmark badge that scales in with the system spring.
+        .animation(reduceMotion ? nil : .snappy, value: themeID)
+    }
+
+    /// One card: colour block, then name. Selection is a system checkmark badge,
+    /// never a hand-painted fill.
+    private func card(_ entry: BranchThemeEntry) -> some View {
+        Button {
+            onSelect(entry.id)
+            dismiss()
+        } label: {
+            VStack(alignment: .leading, spacing: 5) {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(entry.canvas)
+                    .frame(height: 34)
+                    .overlay(alignment: .bottomLeading) {
+                        HStack(spacing: 3) {
+                            ForEach(Array(entry.branches.prefix(4).enumerated()), id: \.offset) { _, swatch in
+                                Circle()
+                                    .fill(swatch)
+                                    .frame(width: 8, height: 8)
+                            }
+                        }
+                        .padding(5)
+                    }
+                    .overlay(alignment: .topTrailing) {
+                        if isSelected(entry.id) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 13, weight: .semibold))
+                                .symbolRenderingMode(.palette)
+                                .foregroundStyle(.white, Color.accentColor)
+                                .padding(4)
+                                .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                        }
+                    }
+                    .accessibilityHidden(true)
+                Text(verbatim: entry.name)
+                    .font(.caption)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .frame(height: Self.cardHeight)
+        .accessibilityLabel(entry.name)
+        .accessibilityAddTraits(isSelected(entry.id) ? .isSelected : AccessibilityTraits())
+        .accessibilityIdentifier("theme.card.\(entry.id)")
+    }
+
+    /// 「更多主题…」 while the six presets are showing, 「配色方案」 on the theme
+    /// list. Both rows sit at the end of the 3×2 grid, so the bubble never grows.
+    @ViewBuilder
+    private var moreRow: some View {
+        if showsThemes {
+            Button {
+                animate { showsThemes = false }
+            } label: {
+                moreRowLabel(text("配色方案"), symbol: "chevron.backward")
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("theme.popover.presets")
+        } else if !MapThemeCatalog.all.isEmpty {
+            Button {
+                animate { showsThemes = true }
+            } label: {
+                moreRowLabel(text("更多主题…"), symbol: "chevron.right")
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("theme.popover.more")
+        }
+    }
+
+    private func moreRowLabel(_ title: String, symbol: String) -> some View {
+        HStack(spacing: 4) {
+            Text(verbatim: title)
+                .font(.footnote)
+            Image(systemName: symbol)
+                .font(.system(size: 10, weight: .semibold))
+            Spacer(minLength: 0)
+        }
+        .frame(height: 22)
+        .contentShape(Rectangle())
+    }
+
+    private var entries: [BranchThemeEntry] {
+        if showsThemes {
+            return MapThemeCatalog.all.map { theme in
+                let appearance = colorScheme == .dark ? theme.dark : theme.light
+                return BranchThemeEntry(
+                    id: theme.id,
+                    name: text(theme.nameKey),
+                    canvas: appearance.canvasBackground.map(ink) ?? Color.gray.opacity(0.25),
+                    branches: appearance.palette.colors.map(ink)
+                )
+            }
+        }
+        return MapColorPresetCatalog.all.map { preset in
+            BranchThemeEntry(
+                id: preset.id,
+                name: text(preset.nameKey),
+                canvas: ink(preset.canvasBackground),
+                branches: preset.branchColors.map(ink)
+            )
+        }
+    }
+
+    private func isSelected(_ id: String) -> Bool { id == themeID }
+
+    /// System animation, and none of it when 减少动态效果 is on.
+    private func animate(_ change: @escaping () -> Void) {
+        if reduceMotion {
+            change()
+        } else {
+            withAnimation(.snappy) { change() }
+        }
+    }
+
+    private func ink(_ color: BranchColor) -> Color {
+        Color(red: color.red, green: color.green, blue: color.blue)
+    }
+
+    private func text(_ key: String) -> String {
+        FlorettaL10n.string(key, language: language)
+    }
+}
+
+/// One card's data: id, name, canvas colour, branch dots.
+private struct BranchThemeEntry: Identifiable {
+    var id: String
+    var name: String
+    var canvas: Color
+    var branches: [Color]
 }
 
 private struct BranchThemeSheet: View {

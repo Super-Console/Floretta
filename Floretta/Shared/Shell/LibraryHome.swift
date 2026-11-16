@@ -17,6 +17,11 @@ struct RecentPage: View {
     var openSettings: () -> Void
     @Environment(\.locale) private var locale
     @Environment(\.colorScheme) private var colorScheme
+    /// Tap counter behind the 设置 gear's symbol feedback. The card itself is a
+    /// system sheet, so its slide-up is Apple's animation, not ours.
+    @State private var settingsTapPulse = 0
+    /// Chrome motion only. 减少动态效果 removes the symbol effect.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     #endif
@@ -28,18 +33,11 @@ struct RecentPage: View {
             .background(homeSurface(raised: false))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.large)
-            // 设置 entry: one standalone circular glass button in the page's
-            // top-right corner. It reserves its own strip above the cards, so it
-            // covers no card, and it is not a tab: 设置 opens as a sheet card.
-            .safeAreaInset(edge: .top, spacing: 0) {
-                HStack(spacing: 0) {
-                    Spacer(minLength: 0)
-                    settingsButton
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 6)
-                .padding(.bottom, 2)
-            }
+            // 设置 used to reserve its own strip above the search field, which
+            // left an empty band under the title. It is a system navigation-bar
+            // item now: it sits inside the bar, left of the ⋯ menu, and the bar
+            // draws its Liquid Glass capsule. Nothing here paints a plate of its
+            // own (a plate inside a bar item is the double-glass bug).
             .searchable(
                 text: $searchText,
                 placement: .navigationBarDrawer(displayMode: .always),
@@ -68,22 +66,30 @@ struct RecentPage: View {
         horizontalSizeClass == .compact
     }
 
-    /// The 设置 entry: one standalone circular glass button in the top-right
-    /// corner. It is not a toolbar item (which would already be glass, and a
-    /// second plate inside it is the double-glass bug) and not a tab, so the
-    /// button owns the only plate, and that plate is a circle.
-    private var settingsButton: some View {
-        Button(action: openSettings) {
-            Image(systemName: "gearshape")
-                .font(.system(size: 17, weight: .semibold))
-                .frame(width: 44, height: 44)
-                .contentShape(Circle())
+    /// The 设置 entry, as one system navigation-bar item.
+    ///
+    /// It is declared as a `ToolbarItem` so the bar paints the Liquid Glass
+    /// capsule and the pressed state, exactly like the ⋯ menu beside it. A
+    /// custom plate inside a bar item would be the double-glass bug, so none is
+    /// added here. `ToolbarItem` order is declaration order, and this one is
+    /// declared after 新建 / 从文件应用打开 and before the ⋯ menu, which puts the
+    /// gear immediately left of ⋯.
+    @ToolbarContentBuilder
+    private var homeSettingsToolbarItem: some ToolbarContent {
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                settingsTapPulse += 1
+                openSettings()
+            } label: {
+                Label(text("设置"), systemImage: "gearshape")
+                    // Apple's symbol effect acknowledges the tap before the
+                    // system sheet slides over the page. Reduced motion removes it.
+                    .symbolEffect(.bounce, options: .nonRepeating, value: settingsTapPulse)
+                    .symbolEffectsRemoved(reduceMotion)
+            }
+            .accessibilityLabel(text("设置"))
+            .accessibilityIdentifier("home.settings")
         }
-        .buttonStyle(.plain)
-        .appleGlassChrome(.iconButton)
-        .accessibilityLabel(text("设置"))
-        .accessibilityIdentifier("home.settings")
-        .help(Text(verbatim: text("设置")))
     }
 
     /// System navigation-bar items. One toolbar button and one menu; the system
@@ -105,6 +111,7 @@ struct RecentPage: View {
             }
             .accessibilityIdentifier("home.openFiles")
         }
+        homeSettingsToolbarItem
         ToolbarItem(placement: .primaryAction) {
             Menu {
                 Button {
@@ -133,6 +140,8 @@ struct RecentPage: View {
     }
 
     /// iPad: 新建, 打开▾, search, card wall. The sidebar rows became this one menu.
+    /// 设置 keeps the same bar item the phone uses, so the iPad does not lose the
+    /// entry it used to get from the removed top strip.
     @ToolbarContentBuilder
     private var padHomeToolbar: some ToolbarContent {
         ToolbarItem(placement: .primaryAction) {
@@ -144,6 +153,7 @@ struct RecentPage: View {
             .buttonStyle(.borderedProminent)
             .accessibilityIdentifier("home.newMap")
         }
+        homeSettingsToolbarItem
         ToolbarItem(placement: .primaryAction) {
             openMenu
         }

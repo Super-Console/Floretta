@@ -1,7 +1,6 @@
 import XCTest
 
-/// Smoke coverage for the iPhone home shell: the recent-page title, the circular
-/// 设置 button that opens the settings card, document rows that actually open, and
+/// Smoke coverage for the iPhone home shell: the recent-page title, the 设置 bar item that opens the settings card, document rows that actually open, and
 /// a way back out.
 final class HomeSmokeTests: XCTestCase {
     override func setUpWithError() throws {
@@ -20,7 +19,7 @@ final class HomeSmokeTests: XCTestCase {
 
         XCTAssertFalse(app.tabBars.buttons["设置"].exists, "设置 不再是底栏 Tab")
         let settingsButton = app.buttons["home.settings"]
-        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5), "首页右上角没有圆形设置按钮")
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5), "首页导航栏没有设置按钮")
         settingsButton.tap()
         XCTAssertTrue(app.staticTexts["语言"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.navigationBars["设置"].waitForExistence(timeout: 5))
@@ -111,10 +110,17 @@ final class HomeSmokeTests: XCTestCase {
         let theme = app.buttons["theme.menu"]
         XCTAssertTrue(theme.waitForExistence(timeout: 5), "更多菜单中没有配色入口")
         theme.tap()
-        let themeSheet = app.descendants(matching: .any)["theme.sheet"]
-        XCTAssertTrue(themeSheet.waitForExistence(timeout: 5), "配色入口没有打开面板")
-        XCTAssertTrue(app.buttons["theme.close"].exists, "配色面板缺少关闭入口")
-        app.buttons["theme.close"].tap()
+        // ⑤ 配色 is a bubble under ⋯, not a sheet: six cards in a 3×2 grid plus
+        // the 「更多主题…」 row at the end.
+        let bubble = app.descendants(matching: .any)["theme.popover"]
+        XCTAssertTrue(bubble.waitForExistence(timeout: 5), "配色入口没有打开气泡")
+        XCTAssertFalse(app.descendants(matching: .any)["theme.sheet"].exists, "配色仍然是整页 sheet")
+        let cards = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "theme.card."))
+        XCTAssertGreaterThanOrEqual(cards.count, 6, "气泡里应有 6 个可见色卡")
+        XCTAssertTrue(app.buttons["theme.popover.more"].exists, "气泡末尾缺少「更多主题…」")
+        // Tapping the canvas dismisses the bubble, like any system popover.
+        app.descendants(matching: .any)["editor.canvas"].tap()
+        XCTAssertFalse(bubble.waitForExistence(timeout: 2), "点画布后气泡没有关闭")
 
         more = app.descendants(matching: .any)["editor.more"]
         more.tap()
@@ -216,7 +222,8 @@ final class HomeSmokeTests: XCTestCase {
     }
 
     /// The home chrome is the system toolbar, a toolbar menu, `.searchable`, and
-    /// the one circular 设置 button — no tab bar, no three-icon capsule.
+    /// the one 设置 bar item — no tab bar, no three-icon capsule (the
+    /// bar owns the glass).
     @MainActor
     func testHomeUsesSystemToolbarMenuAndSearchNotACapsule() throws {
         let app = launchHome()
@@ -225,7 +232,7 @@ final class HomeSmokeTests: XCTestCase {
 
         XCTAssertFalse(app.tabBars.buttons["首页"].exists, "首页 不再是 Tab，底栏应当整条消失")
         XCTAssertFalse(app.tabBars.buttons["设置"].exists)
-        XCTAssertTrue(app.buttons["home.settings"].waitForExistence(timeout: 5), "首页缺少圆形设置按钮")
+        XCTAssertTrue(app.buttons["home.settings"].waitForExistence(timeout: 5), "首页缺少设置按钮")
         XCTAssertFalse(app.descendants(matching: .any)["home.actionCapsule"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["home.tabCapsule"].exists)
         XCTAssertFalse(

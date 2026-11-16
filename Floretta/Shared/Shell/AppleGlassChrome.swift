@@ -19,8 +19,9 @@ import UIKit
 /// `GlassChromeConfiguration.renderingStyle` (default `.light`):
 /// - `.light` is the shipped "frosted" Liquid Glass: `GlassEffectContainer`
 ///   + `glassEffect(.regular.tint(_:), in:)`, with a system `Material`
-///   underlay that diffuses the background into color blocks. Every plate
-///   ends on its own shape edge: no mask, no gradient, no fade is drawn here.
+///   underlay that diffuses the background into color blocks. The plate's edge
+///   is the shape's own edge: nothing here paints a fade, a wash, or a shadow
+///   on top of Apple's glass.
 /// - `.native` is the system vibrancy material: `NSVisualEffectView`
 ///   (macOS) / `UIVisualEffectView` (iOS) with a scene-specific material
 ///   (`.sidebar` / `.headerView` / `.hudWindow`) and a matching
@@ -297,11 +298,22 @@ extension View {
 
     /// Keep the native sidebar selection inset while leaving selection drawing
     /// to `List(.sidebar)`; a custom row background would layer a second shape.
+    ///
+    /// iOS gets its own numbers: the phone's outline is a full-width panel whose
+    /// header is padded 12pt, so rows line up with that header instead of
+    /// hugging the glass edge, and a 4pt vertical inset keeps every row at or
+    /// above the 44pt touch target.
     func sidebarSelectionInset() -> some View {
+        #if os(iOS)
+        return self
+            .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+            .listRowBackground(Color.clear)
+        #else
         let inset = AppleGlassChromeMetrics.sidebarRowInset
         return self
             .listRowInsets(EdgeInsets(top: 0, leading: inset, bottom: 0, trailing: inset))
             .listRowBackground(Color.clear)
+        #endif
     }
 }
 
@@ -354,6 +366,11 @@ private struct AppleGlassChromePlate<Content: View>: View {
         }
     }
 
+    /// One plate, whatever the style: the shape's own edge. The soft
+    /// bottom-edge fade that used to be masked over the bottom capsules and
+    /// banners was a hand-painted gradient on top of Apple's glass — the fade
+    /// the user reported on both platforms — so the plate now ends where its
+    /// shape ends and the system glass is the only surface.
     @ViewBuilder
     private func plated<V: View, S: Shape>(_ view: V, shape: S) -> some View {
         switch GlassChromeConfiguration.renderingStyle {

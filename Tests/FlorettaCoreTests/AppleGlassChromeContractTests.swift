@@ -71,10 +71,12 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertTrue(nativePlate.contains("view.blendingMode = role.nativeBlendingMode"))
         XCTAssertTrue(glass.contains("sampleSource == .windowContent ? .withinWindow : .behindWindow"), "the sample layer is decided in one place")
         // No chrome band is masked: a hand-drawn alpha gradient over an
-        // official material is the fade the user asked to remove. The system
+        // official material is the fade the user asked to remove, on both
+        // platforms. The plate ends at its shape's edge and the system
         // controls paint themselves.
-        XCTAssertFalse(glass.contains("fadesBottomEdge"))
         XCTAssertFalse(glass.contains("glassBandBottomFade"))
+        XCTAssertFalse(glass.contains("fadesBottomEdge"))
+        XCTAssertFalse(glass.contains("GlassBandBottomFadeModifier"))
         XCTAssertFalse(glass.contains("LinearGradient"))
         XCTAssertFalse(glass.contains(".mask {"))
         XCTAssertEqual(editor.components(separatedBy: ".toolbarBackground(.hidden, for: .windowToolbar)").count - 1, 1, "the editor hides the system background once; no second material is installed there")
@@ -136,13 +138,16 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertFalse(glass.contains(".shadow("))
         XCTAssertFalse(glass.contains("colorScheme"))
 
-        // No gradient and no mask at all. The alpha-mask band that used to fade
-        // a plate's bottom edge was the one gradient in this file; the system
-        // controls do their own edges, so nothing here paints one.
+        // No gradient and no mask may paint the glass, in any form. The one
+        // exception this file used to carry — the alpha-mask bottom-edge fade —
+        // is gone: the user saw it as a fading bottom bar, and it was a
+        // hand-drawn gradient on top of Apple's glass rather than a system
+        // control.
         XCTAssertFalse(glass.contains("content.mask {"))
         XCTAssertFalse(glass.contains("LinearGradient("))
         XCTAssertFalse(glass.contains("RadialGradient("))
         XCTAssertFalse(glass.contains("AngularGradient("))
+        XCTAssertFalse(glass.contains("Rectangle().fill(Color.black)"))
         XCTAssertFalse(glass.contains(".fill(Color.white"))
         XCTAssertFalse(glass.contains(".fill(Color.black"))
         XCTAssertFalse(glass.contains(".background(Color.white"))
@@ -393,13 +398,14 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertFalse(primary.contains("toolbarControl(.immersive)"), "full screen lives in the status capsule (TD-003)")
         XCTAssertFalse(primary.contains("toolbarControl(.share)"), "import/export is low frequency; it is in ••• (TD-006)")
 
-        // 2026-11-15: the home page's one plate is the circular 设置 button, which
-        // floats in the top-right corner and owns its own glass. The page itself
-        // is still painted by `settings.homeBackground.palette`: no content
-        // surface is supplied as a glass background, and no column or panel
-        // plate is added.
-        XCTAssertEqual(home.components(separatedBy: "appleGlassChrome").count - 1, 1)
-        XCTAssertTrue(home.contains(".appleGlassChrome(.iconButton)"), "the 设置 button is the only plate on the home page")
+        // 2026-11-16: 设置 is a system navigation-bar item (left of ⋯), so the
+        // home page owns no plate at all: the bar draws the glass. The page
+        // itself is still painted by `settings.homeBackground.palette`: no
+        // content surface is supplied as a glass background, and no column or
+        // panel plate is added.
+        XCTAssertEqual(home.components(separatedBy: "appleGlassChrome").count - 1, 0, "the home bar item is system glass; no custom plate is left")
+        XCTAssertFalse(home.contains(".appleGlassChrome(.iconButton)"))
+        XCTAssertTrue(home.contains("\"home.settings\""))
         XCTAssertFalse(home.contains(".appleGlassChrome(.sidebarColumn)"))
         XCTAssertFalse(home.contains(".appleGlassChrome(.floatingPanel)"))
         XCTAssertTrue(home.contains("settings.homeBackground.palette"), "the home page paints the semantic background")
@@ -417,7 +423,10 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertFalse(content.contains(".blur("))
     }
 
-    func testBackButtonAndHomeChromeAreLeftAlone() throws {
+    /// 2026-11-16: the back button carries exactly one plate, and that plate is
+    /// the system bar item's own capsule. The `iconButton` plate that used to be
+    /// stacked inside it is what the user saw as two layers of Liquid Glass.
+    func testBackButtonHasExactlyOnePlatelessSystemCapsule() throws {
         let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         let leading = try slice(
             editor,
@@ -428,7 +437,8 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertTrue(leading.contains("basicChain.back"))
         XCTAssertTrue(leading.contains(".frame(width: 44, height: 44)"))
         XCTAssertTrue(leading.contains("contentShape(Circle())"))
-        XCTAssertTrue(leading.contains(".appleGlassChrome(.iconButton)"))
+        XCTAssertFalse(leading.contains(".appleGlassChrome"), "the system capsule must stay the only plate")
+        XCTAssertFalse(leading.contains("GlassEffectContainer"), "no second glass layer inside the bar item")
         XCTAssertFalse(leading.contains("ultraThinMaterial"))
     }
 

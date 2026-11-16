@@ -233,14 +233,10 @@ private struct FlorettaCommands: Commands {
                 topicButton("收起全部", command: .collapseAll)
                 topicShortcut(.openProperties)
             }
-            // 帮助: the system Help menu, not a second 帮助 beside it.
+            // 帮助: the system Help menu, not a second 帮助 beside it. The chord
+            // is whatever 设置 ▸ 快捷键 holds, so a rebind shows here at once.
             CommandGroup(replacing: .help) {
-                Button {
-                    editorCommands.showShortcutHelp?()
-                } label: {
-                    Label("快捷键一览", systemImage: "keyboard")
-                }
-                .keyboardShortcut("l", modifiers: [.command, .shift])
+                topicButton("快捷键一览", command: .showShortcutHelp)
             }
         }
         // 窗口 > 新建窗口: the menu the system owns for windows.
@@ -273,9 +269,7 @@ private struct FlorettaCommands: Commands {
 
     #if os(macOS)
     private func topicShortcut(_ command: MindMapCommand) -> some View {
-        guard let entry = XMindShortcutCatalog.entries.first(where: {
-            $0.command == command && $0.registersMenuEquivalent
-        }) else {
+        guard let entry = settings.shortcutBindings.menuEntry(for: command) else {
             return AnyView(EmptyView())
         }
         return AnyView(topicButton(entry.title, command: command, entry: entry))
@@ -292,9 +286,9 @@ private struct FlorettaCommands: Commands {
             Label(title, systemImage: "command")
         }
         .disabled(editorCommands?.performShortcut == nil)
-        let resolvedEntry = entry ?? XMindShortcutCatalog.entries.first {
-            $0.command == command
-        }
+        // One source: the chord in force, which is what 设置 ▸ 快捷键 writes.
+        // A bare key never registers here, so typing in a text field keeps it.
+        let resolvedEntry = entry ?? settings.shortcutBindings.menuEntry(for: command)
         if let resolvedEntry, let shortcut = KeyboardShortcut(entry: resolvedEntry) {
             return AnyView(item.keyboardShortcut(shortcut))
         }
@@ -310,7 +304,12 @@ private struct FlorettaCommands: Commands {
             Label(command.title, systemImage: command.symbol)
         }
         .disabled(!actions.enabled.contains(id) || actions.perform[id] == nil)
-        if let shortcut = actions.shortcuts[id] {
+        // 大纲 / 沉浸 / 查找 are bindable too. Their chord comes from the same
+        // table; the static fallbacks cover the zoom family.
+        if let entry = settings.shortcutBindings.menuEntry(forToolbar: id),
+           let shortcut = KeyboardShortcut(entry: entry) {
+            item.keyboardShortcut(shortcut)
+        } else if let shortcut = actions.shortcuts[id] {
             item.keyboardShortcut(shortcut)
         } else {
             item
@@ -650,6 +649,9 @@ final class FlorettaAppDelegate: NSObject, UIApplicationDelegate {
 #if os(macOS)
 extension KeyboardShortcut {
     init?(entry: XMindShortcutCatalog.Entry) {
+        // A bare key (Space, ↩, ⇥, + - * /) never becomes a menu equivalent:
+        // it would swallow that key in every text field of the app.
+        guard !entry.isSingleKey else { return nil }
         let key: KeyEquivalent
         switch entry.key {
         case .enter: key = .return

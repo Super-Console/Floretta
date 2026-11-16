@@ -222,7 +222,17 @@ struct DocumentEditor: View {
         KeyLatencyProbe.shared.timeBuild("editor") {
             editorPresentations
                 .chromeTypography(language: settings.language)
+                // 快捷键: the session resolves every key press against these, so
+                // writing them here reaches the canvas, the outline, and the
+                // node text field without reopening the document.
+                .onAppear { syncShortcutBindings() }
+                .onChange(of: settings.shortcutBindings) { _, _ in syncShortcutBindings() }
         }
+    }
+
+    private func syncShortcutBindings() {
+        guard session.keyboard.bindings != settings.shortcutBindings else { return }
+        session.keyboard.bindings = settings.shortcutBindings
     }
 
     private var editorCore: some View {
@@ -532,7 +542,7 @@ struct DocumentEditor: View {
             AboutSheet()
         }
         .sheet(isPresented: $showShortcutHelp) {
-            ShortcutsHelpSheet()
+            ShortcutsHelpSheet(settings: settings)
         }
             #if os(macOS)
             // macOS keeps the sheet: its 配色 rows are a window-sized list.
@@ -1382,8 +1392,7 @@ struct DocumentEditor: View {
             }
         }
         actions.shortcuts = [
-            .fit: KeyboardShortcut("0", modifiers: .command),
-            .find: KeyboardShortcut("f", modifiers: .command)
+            .fit: KeyboardShortcut("0", modifiers: .command)
         ]
         actions.zoomIn = { camera.stepZoom(1) }
         actions.zoomOut = { camera.stepZoom(-1) }
@@ -1994,6 +2003,14 @@ struct DocumentEditor: View {
             showInspector = true
         case .showShortcutHelp:
             showShortcutHelp = true
+        // The three bindable toolbar commands run the same action as their
+        // menu items and toolbar buttons; the chord only decides when.
+        case .toggleOutline:
+            perform(.outline)
+        case .toggleImmersive:
+            perform(.immersive)
+        case .find:
+            perform(.find)
         default:
             break
         }
@@ -4265,18 +4282,18 @@ private extension View {
 }
 
 private struct ShortcutsHelpSheet: View {
+    @Bindable var settings: AppSettings
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             List {
-                ForEach(Array(XMindShortcutCatalog.entries.enumerated()), id: \.offset) { _, entry in
+                ForEach(Array(settings.shortcutBindings.entries().enumerated()), id: \.offset) { _, entry in
                     LabeledContent(entry.title, value: XMindShortcutCatalog.display(entry.key, entry.modifiers))
                 }
                 LabeledContent("适应窗口", value: "⌘0")
                 LabeledContent("放大 / 缩小", value: "⌘+ / ⌘-")
                 LabeledContent("实际大小", value: "⌘=")
-                LabeledContent("查找", value: "⌘F")
                 LabeledContent("加粗 / 斜体", value: "⌘B / ⌘I")
                 LabeledContent("剪切 / 复制 / 粘贴", value: "⌘X / ⌘C / ⌘V")
                 LabeledContent("新建 / 保存", value: "⌘N / ⌘S")

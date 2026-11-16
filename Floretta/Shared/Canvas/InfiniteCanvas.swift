@@ -250,6 +250,7 @@ struct InfiniteCanvas: View {
                     isComposing: keyboard.isComposing,
                     isEnabled: canvasFocused,
                     coalescer: keyCoalescer,
+                    bindings: keyboard.bindings,
                     onEvent: { handleKey($0) }
                 )
                 .frame(width: 0, height: 0)

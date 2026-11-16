@@ -26,6 +26,10 @@ public struct MindMapKeyboardSession {
 
     public var mode: KeyboardMode = .command
     public var isComposing = false
+    /// The chords in force. `AppSettings` writes this when the user edits 快捷键;
+    /// every surface that resolves a key press goes through `handle`, so one
+    /// write reaches the canvas, the outline, and the node text field.
+    public var bindings: ShortcutBindings = .catalogDefaults
     /// Primary (anchor) topic. Tapping a node, or assigning this to a topic that
     /// is not already in `selectedNodeIDs`, replaces the multi-selection.
     public var selectedNodeID: UUID? {
@@ -147,7 +151,7 @@ public struct MindMapKeyboardSession {
         frames: [NodeFrame],
         surface: KeyboardSurface = .canvas
     ) -> MindMapCommand? {
-        guard let command = KeyboardCommandMapper.map(event) else { return nil }
+        guard let command = KeyboardCommandMapper.map(event, bindings: bindings) else { return nil }
         apply(command, document: &document, frames: frames, surface: surface)
         return command
     }
@@ -203,7 +207,7 @@ public struct MindMapKeyboardSession {
             selectAllChildren(document: document)
         case .jumpToCentralTopic:
             jumpToCentralTopic(document: document)
-        case .openProperties, .showShortcutHelp:
+        case .openProperties, .showShortcutHelp, .toggleOutline, .toggleImmersive, .find:
             break
         }
     }

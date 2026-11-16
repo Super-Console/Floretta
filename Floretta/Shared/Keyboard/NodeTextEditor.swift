@@ -508,18 +508,18 @@ private struct MacNodeTextEditor: NSViewRepresentable {
             guard let event = KeyEvent(macCommand: commandSelector, mode: .edit, isComposing: composing) else {
                 return false
             }
-            // Shift+Enter must land at the caret. The session command only appends
-            // a newline at the end of the buffer and would also swallow this key.
-            if NodeEditLineBreak.textViewInsertsLine(for: event) {
-                return false
-            }
-            if returnInsertsLine, event.key == .enter, !event.modifiers.contains(.command) {
-                return false
-            }
-            if returnInsertsLine, event.key == .enter, event.modifiers.contains(.command) {
+            // A sticky takes Return as another line, so ⌘↩ is its commit key.
+            if returnInsertsLine, event.key == .enter {
+                guard event.modifiers.contains(.command) else { return false }
                 var commit = event
                 commit.modifiers = []
                 return onEvent(commit)
+            }
+            // ⇧↩ and ⌘↩ break the line at the caret. Plain ↩ leaves the edit
+            // through the mapper (`commitEdit`), and the next ↩ on the canvas
+            // makes the sibling: two presses, one new topic.
+            if NodeEditLineBreak.textViewInsertsLine(for: event) {
+                return false
             }
             if onEvent(event) {
                 return true
@@ -1104,18 +1104,20 @@ private final class FlorettaTextView: UITextView {
     override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
         let composing = markedTextRange != nil
         if let key = presses.first?.key, let mapped = KeyEvent(uiKey: key, isComposing: composing) {
-            if NodeEditLineBreak.textViewInsertsLine(for: mapped) {
-                super.pressesBegan(presses, with: event)
-                return
-            }
-            if returnInsertsLine, mapped.key == .enter, !mapped.modifiers.contains(.command) {
-                super.pressesBegan(presses, with: event)
-                return
-            }
-            if returnInsertsLine, mapped.key == .enter, mapped.modifiers.contains(.command) {
+            // A sticky takes Return as another line, so ⌘↩ is its commit key.
+            if returnInsertsLine, mapped.key == .enter {
+                guard mapped.modifiers.contains(.command) else {
+                    super.pressesBegan(presses, with: event)
+                    return
+                }
                 var commit = mapped
                 commit.modifiers = []
                 if onEvent?(commit) == true { return }
+            }
+            // ⇧↩ and ⌘↩ break the line at the caret; plain ↩ leaves the edit.
+            if NodeEditLineBreak.textViewInsertsLine(for: mapped) {
+                super.pressesBegan(presses, with: event)
+                return
             }
             if onEvent?(mapped) == true || mapped.key == .tab {
                 return
@@ -1199,7 +1201,8 @@ enum MindMapKeyDispatch {
         let command = keyboard.handle(event, document: &document, frames: frames, surface: surface)
         guard let command else { return false }
         switch command {
-        case .openProperties, .showShortcutHelp, .jumpToCentralTopic:
+        case .openProperties, .showShortcutHelp, .jumpToCentralTopic,
+             .toggleOutline, .toggleImmersive, .find:
             onChrome(command)
         default:
             break
@@ -1216,6 +1219,8 @@ struct HardwareShortcutHost: UIViewRepresentable {
     var isComposing: Bool
     var isEnabled: Bool
     var coalescer: KeyDeliveryCoalescer
+    /// The chords in force, so a rebind reaches the iPad key-command list.
+    var bindings: ShortcutBindings = .catalogDefaults
     var onEvent: (KeyEvent) -> Bool
 
     func makeCoordinator() -> HardwareShortcutView {
@@ -1244,6 +1249,14 @@ struct HardwareShortcutHost: UIViewRepresentable {
         view.mode = mode
         view.isComposing = isComposing
         view.coalescer = coalescer
+        // UIKit caches a responder's command list, so a new chord set has to ask
+        // for the list again or the old chords keep answering on iPad.
+        if view.bindings != bindings {
+            view.bindings = bindings
+            if view.isFirstResponder {
+                view.reloadInputViews()
+            }
+        }
         view.onEvent = onEvent
     }
 }
@@ -1252,6 +1265,7 @@ final class HardwareShortcutView: UIView {
     var mode: KeyboardMode = .command
     var isComposing = false
     var coalescer: KeyDeliveryCoalescer?
+    var bindings: ShortcutBindings = .catalogDefaults
     var onEvent: ((KeyEvent) -> Bool)?
 
     override var canBecomeFirstResponder: Bool { true }
@@ -1269,7 +1283,7 @@ final class HardwareShortcutView: UIView {
     }
 
     override var keyCommands: [UIKeyCommand]? {
-        HardwareShortcutCatalog.commands(action: #selector(performHardwareShortcut(_:)))
+        HardwareShortcutCatalog.commands(action: #selector(performHardwareShortcut(_:)), bindings: bindings)
     }
 
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
@@ -1282,7 +1296,7 @@ final class HardwareShortcutView: UIView {
         }
         if isComposing { return false }
         if mode == .edit, HardwareShortcutCatalog.isSingleKey(keyCommand) { return false }
-        return KeyboardCommandMapper.map(event) != nil
+        return KeyboardCommandMapper.map(event, bindings: bindings) != nil
     }
 
     @objc func performHardwareShortcut(_ sender: UIKeyCommand) {
@@ -1292,7 +1306,7 @@ final class HardwareShortcutView: UIView {
 
     override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
         if let key = presses.first?.key, let mapped = KeyEvent(uiKey: key, isComposing: isComposing, mode: mode) {
-            if KeyboardCommandMapper.map(mapped) != nil, onEvent?(mapped) == true {
+            if KeyboardCommandMapper.map(mapped, bindings: bindings) != nil, onEvent?(mapped) == true {
                 return
             }
         }
@@ -1300,12 +1314,21 @@ final class HardwareShortcutView: UIView {
     }
 }
 
+/// The iPad key-command list, one command per chord in force. Single keys are
+/// registered too; `canPerformAction` refuses them while a text field is focused
+/// or IME composition is active, so typing keeps them.
 enum HardwareShortcutCatalog {
-    static func commands(action: Selector) -> [UIKeyCommand] {
-        bindings.map { input, flags, title in
-            let command = UIKeyCommand(title: title, action: action, input: input, modifierFlags: flags)
+    static func commands(action: Selector, bindings: ShortcutBindings = .catalogDefaults) -> [UIKeyCommand] {
+        bindings.entries().compactMap { entry in
+            guard let input = input(for: entry.key) else { return nil }
+            let command = UIKeyCommand(
+                title: entry.title,
+                action: action,
+                input: input,
+                modifierFlags: flags(entry.modifiers)
+            )
             command.wantsPriorityOverSystemBehavior = true
-            command.discoverabilityTitle = title
+            command.discoverabilityTitle = entry.title
             return command
         }
     }
@@ -1315,29 +1338,33 @@ enum HardwareShortcutCatalog {
         return flags.isEmpty
     }
 
-    private static var bindings: [(String, UIKeyModifierFlags, String)] {
-        [
-            (" ", [], "编辑主题"),
-            ("\r", [], "新建同级"),
-            ("\t", [], "新建子级"),
-            ("\r", .shift, "新建同级（前）"),
-            ("\r", .command, "新建父级"),
-            ("\r", .alternate, "属性"),
-            ("a", [.command, .shift], "全选同级"),
-            ("a", [.command, .alternate], "全选子级"),
-            ("a", .command, "全选主题"),
-            ("r", .command, "跳到中心主题"),
-            ("y", .command, "重做"),
-            ("l", [.command, .shift], "快捷键一览"),
-            ("+", [], "展开分支"),
-            ("-", [], "收起分支"),
-            ("*", [], "展开全部"),
-            ("/", [], "收起全部"),
-            (UIKeyCommand.inputUpArrow, .alternate, "上移主题"),
-            (UIKeyCommand.inputDownArrow, .alternate, "下移主题"),
-        ]
+    /// `UIKeyCommand` inputs for the keys the catalog binds. Delete, F2 and F5
+    /// have no input string; the text view and `pressesBegan` own those.
+    static func input(for key: KeyToken) -> String? {
+        switch key {
+        case .tab: return "\t"
+        case .enter: return "\r"
+        case .space: return " "
+        case .escape: return UIKeyCommand.inputEscape
+        case .up: return UIKeyCommand.inputUpArrow
+        case .down: return UIKeyCommand.inputDownArrow
+        case .left: return UIKeyCommand.inputLeftArrow
+        case .right: return UIKeyCommand.inputRightArrow
+        case .character(let character): return String(character)
+        case .delete, .backspace, .f2, .f5: return nil
+        }
+    }
+
+    static func flags(_ modifiers: KeyModifiers) -> UIKeyModifierFlags {
+        var flags: UIKeyModifierFlags = []
+        if modifiers.contains(.shift) { flags.insert(.shift) }
+        if modifiers.contains(.command) { flags.insert(.command) }
+        if modifiers.contains(.option) { flags.insert(.alternate) }
+        if modifiers.contains(.control) { flags.insert(.control) }
+        return flags
     }
 }
+
 
 private extension KeyEvent {
     init?(keyCommand: UIKeyCommand, mode: KeyboardMode, isComposing: Bool) {
@@ -1419,9 +1446,14 @@ private extension KeyEvent {
 }
 #endif
 
-/// Enter belongs to the focused system text view so the break lands at the caret.
+/// Which Return chords belong to the focused system text view.
+///
+/// ⇧↩ and ⌘↩ insert a break at the caret. Plain ↩ does not: it maps to
+/// `commitEdit`, so one press leaves the field and the next press on the canvas
+/// makes the sibling.
 enum NodeEditLineBreak {
     static func textViewInsertsLine(for event: KeyEvent) -> Bool {
-        event.key == .enter && !event.modifiers.contains(.command)
+        event.key == .enter
+            && (event.modifiers.contains(.command) || event.modifiers == .shift)
     }
 }

@@ -1,6 +1,6 @@
 import Foundation
 
-public enum KeyboardMode: Equatable, Sendable {
+public enum KeyboardMode: Hashable, Sendable {
     case command
     case edit
 }
@@ -85,37 +85,47 @@ public enum MindMapCommand: Equatable, Sendable {
     case openProperties
     case jumpToCentralTopic
     case showShortcutHelp
+    /// Toolbar commands that can also carry a chord. The canvas does not change
+    /// them; the editor routes them to the same action the menu item runs.
+    case toggleOutline
+    case toggleImmersive
+    case find
 }
 
-/// Pure key → command map. The canvas calls this; it does not look at the tree.
+/// Pure key → command map, resolved against the chords in force.
 ///
-/// Command mode owns structure keys. Edit mode keeps Tab, Space, arrows, Delete, and ⌘Z
-/// from creating or deleting nodes. Enter (with or without Shift) inserts a newline; only
-/// command mode Enter creates a sibling.
+/// Command mode owns structure keys. Edit mode owns the text field: ↩ ends the
+/// edit, ⇧↩ and ⌘↩ put a line break in the topic text, Esc cancels. Because ↩
+/// means "leave the field" in one mode and "new sibling" in the other, the same
+/// key pressed twice yields exactly one new topic.
 ///
 /// Whenever a text field is focused (edit mode) or IME composition is active
-/// (`isComposing`), every single-key shortcut (Space, Enter, Tab, +, -, *, /)
-/// is suppressed, except Enter/Shift+Enter/Escape which belong to the editor.
+/// (`isComposing`), every command-mode shortcut (Space, ⇧↩, Tab, +, -, *, /) is
+/// suppressed, and only the edit-mode rows plus Escape resolve.
 ///
-/// Delete choice: in command mode, Backspace, forward Delete, and ⌘Backspace all delete the
-/// selected node. macOS prints "delete" on the large Backspace key; a full keyboard also has
-/// forward Delete. Mapping both means either keyboard removes the node. Edit mode does not
-/// map those keys, so the text view deletes characters. ⌘Backspace is the taskbook chord.
+/// Delete choice: in command mode, Backspace, forward Delete, and ⌘Backspace all
+/// delete the selected node. macOS prints "delete" on the large Backspace key; a
+/// full keyboard also has forward Delete. Mapping both means either keyboard
+/// removes the node. Edit mode does not map those keys, so the text view deletes
+/// characters. ⌘Backspace is the taskbook chord.
 public enum KeyboardCommandMapper {
-    public static func map(_ event: KeyEvent) -> MindMapCommand? {
+    public static func map(
+        _ event: KeyEvent,
+        bindings: ShortcutBindings = .catalogDefaults
+    ) -> MindMapCommand? {
         if event.isComposing {
             return nil
         }
         switch event.mode {
         case .command:
-            return mapCommand(event)
+            return mapCommand(event, bindings: bindings)
         case .edit:
-            return mapEdit(event)
+            return mapEdit(event, bindings: bindings)
         }
     }
 
-    private static func mapCommand(_ event: KeyEvent) -> MindMapCommand? {
-        if let command = XMindShortcutCatalog.command(for: event) {
+    private static func mapCommand(_ event: KeyEvent, bindings: ShortcutBindings) -> MindMapCommand? {
+        if let command = bindings.command(for: event) {
             return command
         }
         if event.modifiers.isEmpty {
@@ -133,13 +143,12 @@ public enum KeyboardCommandMapper {
         return nil
     }
 
-    private static func mapEdit(_ event: KeyEvent) -> MindMapCommand? {
-        if event.key == .enter, event.modifiers == .shift || event.modifiers.isEmpty {
-            return .insertNewline
-        }
+    /// Escape stays fixed: it is the system's cancel gesture in every text view.
+    /// Everything else comes from the edit-mode rows of the catalog.
+    private static func mapEdit(_ event: KeyEvent, bindings: ShortcutBindings) -> MindMapCommand? {
         if event.key == .escape, event.modifiers.isEmpty {
             return .cancelEdit
         }
-        return nil
+        return bindings.command(for: event)
     }
 }

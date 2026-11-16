@@ -541,6 +541,7 @@ struct SettingsView: View {
             Form {
                 SettingsGeneralPage(settings: settings)
                 SettingsExportPage(settings: settings)
+                ShortcutSettingsPage(settings: settings)
                 SettingsAboutPage(settings: settings)
             }
             .formStyle(.grouped)
@@ -587,6 +588,17 @@ struct MacSettingsScene: View {
                 .formStyle(.grouped)
             } label: {
                 Label(text("导出"), systemImage: "square.and.arrow.up")
+            }
+            // 快捷键: one page, one row per bindable command. The bindings live
+            // in AppSettings; the keyboard session and the menu bar read the
+            // same value, so a pick applies without reopening the document.
+            Tab {
+                Form {
+                    ShortcutSettingsPage(settings: settings)
+                }
+                .formStyle(.grouped)
+            } label: {
+                Label(text("快捷键"), systemImage: "keyboard")
             }
             Tab {
                 Form {

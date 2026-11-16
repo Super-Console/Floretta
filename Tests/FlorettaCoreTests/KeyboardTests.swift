@@ -155,7 +155,7 @@ final class KeyboardTests: XCTestCase {
         XCTAssertTrue(XMindShortcutCatalog.conflicts().isEmpty)
     }
 
-    func testEditModeDisablesCreateAndMapsEnterToNewlineAndCancel() {
+    func testEditModeDisablesCreateAndMapsEnterToCommitAndLineBreak() {
         XCTAssertNil(map(.tab, mode: .edit))
         XCTAssertNil(map(.space, mode: .edit))
         XCTAssertNil(map(.delete, mode: .edit))
@@ -167,17 +167,20 @@ final class KeyboardTests: XCTestCase {
         XCTAssertNil(map(.right, mode: .edit))
         XCTAssertNil(map(.character("z"), .command, mode: .edit))
         XCTAssertNil(map(.character("z"), [.command, .shift], mode: .edit))
-        XCTAssertEqual(map(.enter, mode: .edit), .insertNewline)
+        // ↩ leaves the edit; it never creates a topic while the field is open.
+        XCTAssertEqual(map(.enter, mode: .edit), .commitEdit)
         XCTAssertNotEqual(map(.enter, mode: .edit), .createSibling)
+        // ⇧↩ and ⌘↩ break the line inside the topic text.
         XCTAssertEqual(map(.enter, .shift, mode: .edit), .insertNewline)
         XCTAssertNotEqual(map(.enter, .shift, mode: .edit), .createSiblingBefore)
+        XCTAssertEqual(map(.enter, .command, mode: .edit), .insertNewline)
+        XCTAssertNotEqual(map(.enter, .command, mode: .edit), .createParent)
         XCTAssertEqual(map(.escape, mode: .edit), .cancelEdit)
         XCTAssertNil(map(.f2, mode: .edit))
         XCTAssertNil(map(.character("+"), mode: .edit))
         XCTAssertNil(map(.character("-"), mode: .edit))
         XCTAssertNil(map(.character("*"), mode: .edit))
         XCTAssertNil(map(.character("/"), mode: .edit))
-        XCTAssertNil(map(.enter, .command, mode: .edit))
         XCTAssertNil(map(.enter, .option, mode: .edit))
         XCTAssertNil(map(.character("a"), [.command, .shift], mode: .edit))
     }
@@ -247,7 +250,7 @@ final class KeyboardTests: XCTestCase {
         XCTAssertEqual(session.mode, .edit)
         session.isComposing = false
         session.replaceEditingText("中文", document: &document)
-        XCTAssertEqual(press(.enter, session: &session, document: &document), .insertNewline)
+        XCTAssertEqual(press(.enter, .command, session: &session, document: &document), .insertNewline)
         XCTAssertEqual(document.roots[0].text, "中文\n")
         XCTAssertEqual(session.mode, .edit)
         session.apply(.commitEdit, document: &document, frames: [])
@@ -381,7 +384,7 @@ final class KeyboardTests: XCTestCase {
         XCTAssertFalse(document.roots[0].isCollapsed)
     }
 
-    func testEnterCreatesSiblingInCommandModeAndNewlineWhileEditing() {
+    func testEnterCreatesSiblingInCommandModeAndEndsTheEditWhileEditing() {
         let rootID = UUID()
         let first = UUID()
         let second = UUID()
@@ -399,10 +402,10 @@ final class KeyboardTests: XCTestCase {
         XCTAssertEqual(document.roots[0].children[0].id, first)
         XCTAssertEqual(document.roots[0].children[2].id, second)
         XCTAssertEqual(document.roots[0].children[1].id, session.selectedNodeID)
-        XCTAssertEqual(press(.enter, session: &session, document: &document), .insertNewline)
-        XCTAssertEqual(session.mode, .edit)
+        // The second press leaves the edit and adds nothing.
+        XCTAssertEqual(press(.enter, session: &session, document: &document), .commitEdit)
+        XCTAssertEqual(session.mode, .command)
         XCTAssertEqual(document.roots[0].children.count, 3)
-        XCTAssertTrue(document.node(session.selectedNodeID!)!.text.hasSuffix("\n"))
     }
 
     func testEnterAndShiftEnterInsertNewlinesOnlyInEditMode() {
@@ -417,12 +420,16 @@ final class KeyboardTests: XCTestCase {
         session.selectedNodeID = rootID
         session.mode = .command
         XCTAssertEqual(press(.space, session: &session, document: &document), .beginEdit)
-        XCTAssertEqual(press(.enter, session: &session, document: &document), .insertNewline)
+        // ⌘↩ and ⇧↩ break the line; plain ↩ is the way out.
+        XCTAssertEqual(press(.enter, .command, session: &session, document: &document), .insertNewline)
         XCTAssertEqual(document.roots[0].text, "根\n")
         XCTAssertEqual(session.editingText, "根\n")
         XCTAssertEqual(session.mode, .edit)
         XCTAssertEqual(press(.enter, .shift, session: &session, document: &document), .insertNewline)
         XCTAssertEqual(document.roots[0].text, "根\n\n")
+        XCTAssertEqual(press(.enter, session: &session, document: &document), .commitEdit)
+        XCTAssertEqual(session.mode, .command)
+        XCTAssertEqual(document.roots.count, 1)
     }
 
     func testEscapeRestoresOriginalTextAndUndoCoversCommittedText() {
@@ -445,7 +452,7 @@ final class KeyboardTests: XCTestCase {
 
         press(.space, session: &session, document: &document)
         session.replaceEditingText("改定", document: &document)
-        XCTAssertEqual(press(.enter, session: &session, document: &document), .insertNewline)
+        XCTAssertEqual(press(.enter, .command, session: &session, document: &document), .insertNewline)
         XCTAssertEqual(document.roots[0].text, "改定\n")
         session.apply(.commitEdit, document: &document, frames: [])
         XCTAssertEqual(press(.character("z"), .command, session: &session, document: &document), .undo)
@@ -610,12 +617,13 @@ final class KeyboardTests: XCTestCase {
         session.selectedNodeID = rootID
         XCTAssertEqual(press(.space, session: &session, document: &document), .beginEdit)
         XCTAssertEqual(session.mode, .edit)
-        XCTAssertEqual(press(.enter, session: &session, document: &document), .insertNewline)
-        XCTAssertEqual(document.roots[0].text, "中心\n")
-        session.apply(.commitEdit, document: &document, frames: [])
+        // ↩ ends the edit; the next ↩ is the sibling.
+        XCTAssertEqual(press(.enter, session: &session, document: &document), .commitEdit)
         XCTAssertEqual(session.mode, .command)
+        XCTAssertEqual(document.roots.map(\.text), ["中心"])
         XCTAssertEqual(press(.enter, session: &session, document: &document), .createSibling)
-        XCTAssertEqual(document.roots.map(\.text), ["中心\n", MindMapKeyboardSession.newTopicText])
+        XCTAssertEqual(session.mode, .edit)
+        XCTAssertEqual(document.roots.map(\.text), ["中心", MindMapKeyboardSession.newTopicText])
         session.apply(.commitEdit, document: &document, frames: [])
         session.selectedNodeID = rootID
         XCTAssertEqual(press(.tab, session: &session, document: &document), .createChild)

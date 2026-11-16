@@ -60,7 +60,8 @@ final class MacMenuBarContractTests: XCTestCase {
         XCTAssertTrue(app.contains("CommandGroup(replacing: .help)"))
         let help = try slice(app, from: "CommandGroup(replacing: .help)", until: "// 窗口 > 新建窗口")
         XCTAssertTrue(help.contains("快捷键一览"))
-        XCTAssertTrue(help.contains(".keyboardShortcut(\"l\", modifiers: [.command, .shift])"))
+        // The chord is the one 设置 ▸ 快捷键 holds, so a rebind shows here at once.
+        XCTAssertTrue(help.contains("topicButton(\"快捷键一览\", command: .showShortcutHelp)"))
     }
 
     /// The system menus are never re-declared: a second 文件 / 编辑 / 显示 / 窗口

@@ -117,6 +117,9 @@
 		CA8A00000000000000000001 /* AppearanceSettingsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8A00000000000000000001 /* AppearanceSettingsPanel.swift */; };
 		CA8A00000000000000000002 /* AppearanceSettingsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8A00000000000000000001 /* AppearanceSettingsPanel.swift */; };
 		CA8A00000000000000000003 /* AppearanceSettingsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8A00000000000000000001 /* AppearanceSettingsPanel.swift */; };
+		CA8B00000000000000000001 /* ShortcutSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8B00000000000000000001 /* ShortcutSettingsPage.swift */; };
+		CA8B00000000000000000002 /* ShortcutSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8B00000000000000000001 /* ShortcutSettingsPage.swift */; };
+		CA8B00000000000000000003 /* ShortcutSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8B00000000000000000001 /* ShortcutSettingsPage.swift */; };
 		CA9A00000000000000000001 /* InspectorPanelRowBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA9A00000000000000000001 /* InspectorPanelRowBlock.swift */; };
 		CA9A00000000000000000002 /* InspectorPanelRowBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA9A00000000000000000001 /* InspectorPanelRowBlock.swift */; };
 		CA9A00000000000000000003 /* InspectorPanelRowBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA9A00000000000000000001 /* InspectorPanelRowBlock.swift */; };
@@ -337,6 +340,7 @@
 		F90000000000000000000003 /* OutlineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OutlineTests.swift; path = Tests/FlorettaCoreTests/OutlineTests.swift; sourceTree = SOURCE_ROOT; };
 		FA1100000000000000000001 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		FA8A00000000000000000001 /* AppearanceSettingsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettingsPanel.swift; sourceTree = "<group>"; };
+		FA8B00000000000000000001 /* ShortcutSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutSettingsPage.swift; sourceTree = "<group>"; };
 		FA9A00000000000000000001 /* InspectorPanelRowBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorPanelRowBlock.swift; sourceTree = "<group>"; };
 		F8F10010000000000000000 /* CrimsonPro-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = CrimsonPro-Regular.otf; sourceTree = "<group>"; };
 		F8F10020000000000000000 /* EBGaramond-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = EBGaramond-Regular.otf; sourceTree = "<group>"; };
@@ -644,6 +648,7 @@
 			children = (
 				FA1100000000000000000001 /* AppSettings.swift */,
 				FA8A00000000000000000001 /* AppearanceSettingsPanel.swift */,
+				FA8B00000000000000000001 /* ShortcutSettingsPage.swift */,
 				FA9A00000000000000000001 /* InspectorPanelRowBlock.swift */,
 				F8F1200000000000000000 /* ThemeFontCascade.swift */,
 				F8F4070000000000000000 /* ThemeSettings.swift */,
@@ -1274,6 +1279,7 @@
 				C90000000000000000000002 /* OutlineView.swift in Sources */,
 				CA1100000000000000000001 /* AppSettings.swift in Sources */,
 				CA8A00000000000000000001 /* AppearanceSettingsPanel.swift in Sources */,
+				CA8B00000000000000000001 /* ShortcutSettingsPage.swift in Sources */,
 				CA9A00000000000000000001 /* InspectorPanelRowBlock.swift in Sources */,
 				C8F4010000000000000000 /* ThemeFontCascade.swift in Sources */,
 				C8F4070000000000000000 /* ThemeSettings.swift in Sources */,
@@ -1320,6 +1326,7 @@
 				C90000000000000000000004 /* OutlineView.swift in Sources */,
 				CA1100000000000000000002 /* AppSettings.swift in Sources */,
 				CA8A00000000000000000002 /* AppearanceSettingsPanel.swift in Sources */,
+				CA8B00000000000000000002 /* ShortcutSettingsPage.swift in Sources */,
 				CA9A00000000000000000002 /* InspectorPanelRowBlock.swift in Sources */,
 				C8F4020000000000000000 /* ThemeFontCascade.swift in Sources */,
 				C8F4080000000000000000 /* ThemeSettings.swift in Sources */,
@@ -1407,6 +1414,7 @@
 				C90000000000000000000007 /* OutlineTests.swift in Sources */,
 				CA1100000000000000000003 /* AppSettings.swift in Sources */,
 				CA8A00000000000000000003 /* AppearanceSettingsPanel.swift in Sources */,
+				CA8B00000000000000000003 /* ShortcutSettingsPage.swift in Sources */,
 				CA9A00000000000000000003 /* InspectorPanelRowBlock.swift in Sources */,
 				C8F4030000000000000000 /* ThemeFontCascade.swift in Sources */,
 				C8F4090000000000000000 /* ThemeSettings.swift in Sources */,

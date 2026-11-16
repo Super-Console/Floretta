@@ -293,6 +293,52 @@ final class AppSettings {
         didSet { defaults.set(pointerMode.rawValue, forKey: Key.pointerMode) }
     }
 
+    /// 快捷键. Only rows the user changed are stored, so this value is the
+    /// shipped table until someone edits it, and a later change to a default
+    /// still reaches everyone who never touched that row.
+    var shortcutBindings: ShortcutBindings {
+        didSet { defaults.set(shortcutBindings.storage, forKey: Key.shortcutBindings) }
+    }
+
+    /// Chords held by more than one command in the same mode. The settings page
+    /// shows these; the mapper still resolves the earlier row.
+    var shortcutConflicts: [ShortcutConflict] {
+        shortcutBindings.conflicts()
+    }
+
+    /// Rebinds one command and reports the rows that already answer to `chord`.
+    /// A non-empty result means the chord is now shared, so the settings page
+    /// asks `previewShortcutConflicts(for:bindingTo:)` first and applies only
+    /// after the user has seen the warning.
+    @discardableResult
+    func bindShortcut(_ chord: XMindShortcutCatalog.ShortcutChord?, to id: ShortcutCommandID) -> [ShortcutConflict] {
+        let conflicts = previewShortcutConflicts(for: chord, bindingTo: id)
+        shortcutBindings.bind(chord, to: id)
+        return conflicts
+    }
+
+    /// The warning a pick would show, without changing anything.
+    func previewShortcutConflicts(
+        for chord: XMindShortcutCatalog.ShortcutChord?,
+        bindingTo id: ShortcutCommandID
+    ) -> [ShortcutConflict] {
+        guard let chord else { return [] }
+        let ids = shortcutBindings.conflictingIDs(for: chord, bindingTo: id)
+        guard !ids.isEmpty else { return [] }
+        return [
+            ShortcutConflict(
+                chord: chord,
+                mode: XMindShortcutCatalog.command(id)?.mode ?? .command,
+                ids: ids,
+                titles: ids.map { XMindShortcutCatalog.command($0)?.title ?? $0.rawValue }
+            )
+        ]
+    }
+
+    func resetShortcuts() {
+        shortcutBindings.resetAll()
+    }
+
     init(defaults: UserDefaults) {
         self.defaults = defaults
         // One-time move off classic / modern / custom. Repeated launches are no-ops.
@@ -308,6 +354,7 @@ final class AppSettings {
         pngScale = PNGScalePreference(rawValue: defaults.string(forKey: Key.pngScale) ?? "") ?? .two
         pngBackground = PNGBackgroundPreference(rawValue: defaults.string(forKey: Key.pngBackground) ?? "") ?? .white
         pointerMode = CanvasPointerMode.stored(defaults.string(forKey: Key.pointerMode))
+        shortcutBindings = ShortcutBindings.decode(defaults.dictionary(forKey: Key.shortcutBindings) as? [String: String])
         if defaults.object(forKey: Key.exportIncludesStickies) == nil {
             exportIncludesStickies = true
         } else {
@@ -356,6 +403,7 @@ final class AppSettings {
         static let pngBackground = "floretta.pngBackground"
         static let exportIncludesStickies = "floretta.exportIncludesStickies"
         static let pointerMode = "floretta.pointerMode"
+        static let shortcutBindings = "floretta.shortcutBindings"
         static let homeBackground = AppearanceMigration.homeBackgroundKey
         static let profile = AppearanceMigration.profileKey
     }

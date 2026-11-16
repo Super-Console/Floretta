@@ -1061,7 +1061,14 @@ final class LibraryModel {
 
     var recents: [RecentMapEntry] = []
     /// The one open document. Extra windows read this session; they do not keep a copy.
-    var editor: EditorSession?
+    /// A new session starts from the chords in force, so 设置 ▸ 快捷键 applies to
+    /// a document opened after the change without a relaunch.
+    var editor: EditorSession? {
+        didSet {
+            guard let editor, editor.keyboard.bindings != settings.shortcutBindings else { return }
+            editor.keyboard.bindings = settings.shortcutBindings
+        }
+    }
     /// macOS windows after the primary one. Empty on iOS, and whenever `editor` is nil.
     private(set) var auxiliaryWindowIDs: [UUID] = []
     /// Turns an auxiliary id into a real window. Until a macOS scene installs it,

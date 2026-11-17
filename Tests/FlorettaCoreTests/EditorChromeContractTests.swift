@@ -146,7 +146,7 @@ final class EditorChromeContractTests: XCTestCase {
     func testOutlinePanelAlignmentTouchTargetsAndMotion() throws {
         let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         let panel = try slice(editor, from: "private var outlinePanel", until: "private var markdownBanner")
-        let stack = try slice(editor, from: "private var canvasStack", until: "private var bottomBarRow")
+        let stack = try slice(editor, from: "private struct CanvasStackView", until: "private struct CanvasStageView")
         let outline = try repoFile("Floretta/Shared/Outline/OutlineView.swift")
         let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
         let inset = try slice(glass, from: "func sidebarSelectionInset()", until: "private struct AppleGlassChromePlate")
@@ -172,7 +172,8 @@ final class EditorChromeContractTests: XCTestCase {
         // Motion: the system snappy spring, skipped when reduce motion is on.
         XCTAssertTrue(stack.contains(".transition(.move(edge: .leading).combined(with: .opacity))"))
         XCTAssertTrue(
-            stack.contains(".animation(ChromeMotion.resolved(ChromeMotion.panel, reduceMotion: reduceMotion), value: showOutline)"),
+            stack.contains("ChromeMotion.resolved(ChromeMotion.panel, reduceMotion: editor.reduceMotion)")
+                && stack.contains("value: editor.showOutline"),
             "the panel uses the system snappy curve through ChromeMotion, which hands back nil for Reduce Motion"
         )
         XCTAssertTrue(editor.contains("@Environment(\\.accessibilityReduceMotion) private var reduceMotion"))
@@ -184,17 +185,18 @@ final class EditorChromeContractTests: XCTestCase {
     /// fades in and out instead of snapping on.
     func testImmersiveExitIsOneFortyFourPointGlassCircle() throws {
         let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
-        let exit = try slice(editor, from: ".overlay(alignment: .topTrailing)", until: ".onChange(of: session.zen.isActive)")
+        let exit = try slice(editor, from: "private struct ZenExitOverlayView", until: "private var editorToolbar")
 
         XCTAssertTrue(exit.contains("Image(systemName: \"xmark\")"))
         XCTAssertFalse(exit.contains("Label(\"退出全屏沉浸\""), "immersive chrome is icon only, not a text pill")
         XCTAssertTrue(exit.contains("EditorStatusBarChrome.controlMinHeight"), "44pt on iOS")
         XCTAssertTrue(exit.contains(".contentShape(Circle())"))
         XCTAssertTrue(exit.contains(".appleGlassChrome(.canvasFloatingButton)"))
-        XCTAssertTrue(exit.contains(".accessibilityLabel(text(\"退出全屏沉浸\"))"))
+        XCTAssertTrue(exit.contains(".accessibilityLabel(editor.text(\"退出全屏沉浸\"))"))
         XCTAssertTrue(exit.contains("zen.exit"))
         XCTAssertTrue(exit.contains(".transition(.opacity.combined(with: .scale(scale: 0.98)))"))
-        XCTAssertTrue(exit.contains(".animation(reduceMotion ? nil : .snappy, value: isExitAffordanceRevealed)"))
+        let editorCore = try slice(editor, from: "private struct EditorCoreView", until: "private struct ZenExitOverlayView")
+        XCTAssertTrue(editorCore.contains(".animation(editor.reduceMotion ? nil : .snappy, value: editor.isExitAffordanceRevealed)"))
     }
 
     func testDocumentFilenameIsNotDuplicatedInNativeWindowTitle() throws {

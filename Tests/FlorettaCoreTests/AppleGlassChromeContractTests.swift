@@ -308,12 +308,12 @@ final class AppleGlassChromeContractTests: XCTestCase {
         let outline = try repoFile("Floretta/Shared/Outline/OutlineView.swift")
         let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
 
-        let stack = try slice(editor, from: "private var canvasStack", until: "private var bottomBarRow")
-        let canvasPosition = try XCTUnwrap(stack.range(of: "InfiniteCanvas(")).lowerBound
-        let panelPosition = try XCTUnwrap(stack.range(of: "if showOutline")).lowerBound
+        let stack = try slice(editor, from: "private struct CanvasStackView", until: "private struct CanvasStageView")
+        let canvasPosition = try XCTUnwrap(stack.range(of: "CanvasStageView(editor: editor)")).lowerBound
+        let panelPosition = try XCTUnwrap(stack.range(of: "if editor.showOutline")).lowerBound
         XCTAssertLessThan(canvasPosition, panelPosition, "the outline is drawn above the canvas it covers")
 
-        let panel = try slice(editor, from: "if showOutline, session.zen.chrome.showsSidebar", until: ".overlay(alignment: .top)")
+        let panel = try slice(stack, from: "if editor.showOutline", until: ".animation(")
         XCTAssertTrue(panel.contains(".appleGlassChrome(.sidebarColumn)"))
         XCTAssertEqual(
             panel.components(separatedBy: ".appleGlassChrome(").count - 1,
@@ -380,7 +380,7 @@ final class AppleGlassChromeContractTests: XCTestCase {
 
         // A button over the canvas is not a toolbar item: the Zen exit keeps a
         // plate, and the bottom capsules keep theirs.
-        let zenExit = try slice(editor, from: ".overlay(alignment: .topTrailing)", until: ".onChange(of: regionDraftToken)")
+        let zenExit = try slice(editor, from: "private struct ZenExitOverlayView", until: "private var editorToolbar")
         XCTAssertTrue(zenExit.contains(".appleGlassChrome(.canvasFloatingButton)"))
         XCTAssertFalse(zenExit.contains(".appleGlassChrome(.toolbarFloatingButton)"))
         XCTAssertTrue(try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift").contains(".appleGlassChrome(.bottomBarCapsule)"))
@@ -436,12 +436,8 @@ final class AppleGlassChromeContractTests: XCTestCase {
         // Zen exit is hidden by default and floats out only after a canvas tap;
         // the immersive canvas must not have a persistent chrome button.
         XCTAssertFalse(editor.contains("private var immersiveExit"))
-        let zenExit = try slice(
-            editor,
-            from: ".overlay(alignment: .topTrailing)",
-            until: ".onChange(of: regionDraftToken)"
-        )
-        XCTAssertTrue(zenExit.contains("if session.zen.isActive && isExitAffordanceRevealed"))
+        let zenExit = try slice(editor, from: "private struct ZenExitOverlayView", until: "private var editorToolbar")
+        XCTAssertTrue(zenExit.contains("if editor.session.zen.isActive && editor.isExitAffordanceRevealed"))
         XCTAssertTrue(zenExit.contains("accessibilityIdentifier(\"zen.exit\")"))
         XCTAssertTrue(zenExit.contains(".appleGlassChrome(.canvasFloatingButton)"))
 
@@ -562,10 +558,11 @@ final class AppleGlassChromeContractTests: XCTestCase {
 
         // The outline panel arrives from its own edge and fades, and the value
         // that drives it is the panel flag alone, so the canvas does not animate.
-        let stack = try slice(editor, from: "private var canvasStack", until: "private var bottomBarRow")
+        let stack = try slice(editor, from: "private struct CanvasStackView", until: "private struct CanvasStageView")
         XCTAssertTrue(stack.contains(".transition(.move(edge: .leading).combined(with: .opacity))"))
         XCTAssertTrue(
-            stack.contains(".animation(ChromeMotion.resolved(ChromeMotion.panel, reduceMotion: reduceMotion), value: showOutline)"),
+            stack.contains("ChromeMotion.resolved(ChromeMotion.panel, reduceMotion: editor.reduceMotion)")
+                && stack.contains("value: editor.showOutline"),
             "one value drives the panel transition"
         )
         XCTAssertFalse(stack.contains("withAnimation"), "no animation wraps a canvas redraw")

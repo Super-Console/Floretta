@@ -147,6 +147,7 @@ struct DocumentEditor: View {
         }
 
         func updateNSView(_ host: NSHostingView<AnyView>, context: Context) {
+            KeyLatencyProbe.shared.countEditorHostUpdate(rootWritten: true)
             host.rootView = hostedContent
         }
 
@@ -172,6 +173,7 @@ struct DocumentEditor: View {
         @Binding var toolbarSnapshot: MacToolbarSnapshot
 
         var body: some View {
+            let _ = KeyLatencyProbe.shared.countToolbarSnapshotEvaluation()
             let liveToolbarSnapshot = editor.currentMacToolbarSnapshot
             editor.editorPresentations
                 .onChange(of: liveToolbarSnapshot, initial: true) { _, updated in

@@ -1,6 +1,7 @@
 import Foundation
 import QuartzCore
 import os
+import FlorettaCore
 #if os(macOS)
 import AppKit
 #endif
@@ -15,6 +16,8 @@ import AppKit
 enum KeyLatencyRun {
     static let iterationsArgument = "-FlorettaKeyLatency"
     static let nodesArgument = "-FlorettaKeyLatencyNodes"
+    static let textSamplesArgument = "-FlorettaTextLatencySamples"
+    static let pinyinSamplesArgument = "-FlorettaPinyinLatencySamples"
     static let environmentSwitch = "FLORETTA_KEY_LATENCY"
 
     private static let arguments = ProcessInfo.processInfo.arguments
@@ -36,7 +39,25 @@ enum KeyLatencyRun {
 
     static let drivesItself = requestedIterations != nil
 
+    /// Stops an externally driven text run after this many committed insertions.
+    static let requestedTextSamples: Int? = {
+        guard let index = arguments.firstIndex(of: textSamplesArgument),
+              index + 1 < arguments.count,
+              let value = Int(arguments[index + 1]), value > 0 else { return nil }
+        return value
+    }()
+
+    /// Writes a report once this many valid, committed Pinyin compositions land.
+    static let requestedPinyinSamples: Int? = {
+        guard let index = arguments.firstIndex(of: pinyinSamplesArgument),
+              index + 1 < arguments.count,
+              let value = Int(arguments[index + 1]), value > 0 else { return nil }
+        return value
+    }()
+
     static let isProbeEnabled = drivesItself
+        || requestedTextSamples != nil
+        || requestedPinyinSamples != nil
         || ProcessInfo.processInfo.environment[environmentSwitch] == "1"
 }
 
@@ -58,6 +79,8 @@ enum KeyLatencyStage: String, CaseIterable, Sendable {
     case drawEnded
     /// Core Animation committed the transaction that carries that draw.
     case committed
+    /// NSTextView inserted committed text (not an intermediate marked string).
+    case textSubmitted
 }
 
 // MARK: - Probe
@@ -89,6 +112,14 @@ final class KeyLatencyProbe {
         var editorBuildMs: Double
         var textViewMs: Double
         var editorUpdates: Int
+        var markedTextDurationMs: Double?
+        var maximumMarkedTextLength: Int
+        var editorUpdatesWithoutFirstResponder: Int
+        var editorUpdatesWithMarkedText: Int
+        var editorHostUpdates: Int
+        var editorHostRootWrites: Int
+        var toolbarSnapshotEvaluations: Int
+        var textViewCreations: Int
         var chromeWrites: Int
         var boundsPublishes: Int
         var thumbSyncs: Int
@@ -110,9 +141,17 @@ final class KeyLatencyProbe {
         var bodyOffsets: [Double] = []
         var bodySignatures: [String] = []
         var editorUpdates = 0
+        var editorUpdatesWithoutFirstResponder = 0
+        var editorUpdatesWithMarkedText = 0
+        var editorHostUpdates = 0
+        var editorHostRootWrites = 0
+        var toolbarSnapshotEvaluations = 0
+        var textViewCreations = 0
         var chromeWrites = 0
         var boundsPublishes = 0
         var thumbSyncs = 0
+        var textBeforeInput: String?
+        var markedTextTiming = MarkedTextCompositionTiming()
         var interval: OSSignpostIntervalState?
     }
 
@@ -170,6 +209,90 @@ final class KeyLatencyProbe {
         run.editorUpdates += 1
         self.run = run
     }
+
+    func countEditorUpdate(isFirstResponder: Bool, hasMarkedText: Bool) {
+        guard Self.isEnabled, var run else { return }
+        run.editorUpdates += 1
+        if !isFirstResponder { run.editorUpdatesWithoutFirstResponder += 1 }
+        if hasMarkedText { run.editorUpdatesWithMarkedText += 1 }
+        self.run = run
+    }
+
+    func countEditorHostUpdate(rootWritten: Bool) {
+        guard Self.isEnabled, var run else { return }
+        run.editorHostUpdates += 1
+        if rootWritten { run.editorHostRootWrites += 1 }
+        self.run = run
+    }
+
+    func countToolbarSnapshotEvaluation() {
+        guard Self.isEnabled, var run else { return }
+        run.toolbarSnapshotEvaluations += 1
+        self.run = run
+    }
+
+    func countTextViewCreation() {
+        guard Self.isEnabled, var run else { return }
+        run.textViewCreations += 1
+        self.run = run
+    }
+
+    #if os(macOS)
+    /// Starts at AppKit's real keyDown, before NSTextView forwards the event to
+    /// the active input context. Marked pinyin remains one sample until insertText
+    /// delivers its committed candidate.
+    func noteTextKeyDown(_ event: NSEvent, hasMarkedText: Bool, currentText: String) {
+        guard Self.isEnabled else { return }
+        let ignoredModifiers: NSEvent.ModifierFlags = [.command, .option, .control, .function]
+        guard event.modifierFlags.intersection(ignoredModifiers).isEmpty else { return }
+        let characters = event.charactersIgnoringModifiers ?? ""
+        let isPrintable = characters.unicodeScalars.contains {
+            !CharacterSet.controlCharacters.contains($0)
+        }
+
+        if run == nil {
+            guard isPrintable else { return }
+            let name = characters.count == 1
+                ? "text.char.\(characters.lowercased())"
+                : "text.input"
+            begin(name)
+            if var run {
+                run.textBeforeInput = currentText
+                self.run = run
+            }
+        } else if hasMarkedText, var run, run.name.hasPrefix("text.") {
+            run.name = "text.pinyin"
+            self.run = run
+        }
+
+        guard run?.name.hasPrefix("text.") == true else { return }
+        keyDownCount += 1
+        mark(.keyDown)
+    }
+
+    func noteTextCompositionChanged(markedTextLength: Int) {
+        guard var run, run.name.hasPrefix("text.") else { return }
+        run.markedTextTiming.observe(
+            markedTextLength: markedTextLength,
+            at: CACurrentMediaTime()
+        )
+        if markedTextLength > 0 {
+            run.name = "text.pinyin"
+        }
+        self.run = run
+    }
+
+    /// Called after NSTextView applies an insertion and the text is no longer
+    /// marked. Intermediate composition updates are deliberately not commits.
+    func noteTextSubmitted(currentText: String, hasMarkedText: Bool) {
+        guard !hasMarkedText, var run, run.name.hasPrefix("text."),
+              let original = run.textBeforeInput, currentText != original else { return }
+        run.marks[.textSubmitted] = CACurrentMediaTime()
+        self.run = run
+        emit(.textSubmitted)
+        finish()
+    }
+    #endif
 
     /// One full AppKit chrome write on the node editor.
     func countChromeWrite() {
@@ -232,7 +355,9 @@ final class KeyLatencyProbe {
         run.marks[stage] = CACurrentMediaTime()
         self.run = run
         emit(stage)
-        if stage == .committed { finish() }
+        if stage == .textSubmitted || (stage == .committed && run.name.hasPrefix("text.") == false) {
+            finish()
+        }
     }
 
     /// Counts one `DocumentEditor.body` recompute.
@@ -283,6 +408,7 @@ final class KeyLatencyProbe {
         case .drawStarted: signposter.emitEvent("KeyLatency.draw.started")
         case .drawEnded: signposter.emitEvent("KeyLatency.draw.ended")
         case .committed: signposter.emitEvent("KeyLatency.committed")
+        case .textSubmitted: signposter.emitEvent("KeyLatency.textSubmitted")
         }
     }
 
@@ -290,12 +416,12 @@ final class KeyLatencyProbe {
     /// a mark never arrived, so one broken press cannot stall a whole run.
     @discardableResult
     func finish() -> Sample? {
-        guard var run else { return nil }
+        guard let run else { return nil }
         self.run = nil
         if let interval = run.interval {
             signposter.endInterval("KeyLatency.press", interval)
         }
-        let end = run.marks[.committed] ?? run.marks[.drawEnded]
+        let end = run.marks[.textSubmitted] ?? run.marks[.committed] ?? run.marks[.drawEnded]
         guard let end else {
             abandoned += 1
             return nil
@@ -307,7 +433,7 @@ final class KeyLatencyProbe {
         let sample = Sample(
             name: run.name,
             totalMs: (end - run.start) * 1000,
-            totalEndedAtDraw: run.marks[.committed] == nil,
+            totalEndedAtDraw: run.marks[.committed] == nil && run.marks[.textSubmitted] == nil,
             phases: phases,
             canvasBodyEvaluations: run.canvasBodies,
             editorBodyEvaluations: run.editorBodies,
@@ -319,12 +445,33 @@ final class KeyLatencyProbe {
             editorBuildMs: run.editorBuildCost * 1000,
             textViewMs: run.textViewCost * 1000,
             editorUpdates: run.editorUpdates,
+            markedTextDurationMs: run.markedTextTiming.duration.map { $0 * 1000 },
+            maximumMarkedTextLength: run.markedTextTiming.maximumMarkedTextLength,
+            editorUpdatesWithoutFirstResponder: run.editorUpdatesWithoutFirstResponder,
+            editorUpdatesWithMarkedText: run.editorUpdatesWithMarkedText,
+            editorHostUpdates: run.editorHostUpdates,
+            editorHostRootWrites: run.editorHostRootWrites,
+            toolbarSnapshotEvaluations: run.toolbarSnapshotEvaluations,
+            textViewCreations: run.textViewCreations,
             chromeWrites: run.chromeWrites,
             boundsPublishes: run.boundsPublishes,
             thumbSyncs: run.thumbSyncs,
             censusMs: run.censusCost * 1000
         )
         samples.append(sample)
+        #if os(macOS)
+        let textSampleCount = samples.filter { $0.name.hasPrefix("text.") }.count
+        if let requested = KeyLatencyRun.requestedTextSamples, textSampleCount == requested {
+            KeyLatencyDriver.writeReport()
+        }
+        let validPinyinSampleCount = samples.filter {
+            $0.name == "text.pinyin" && $0.markedTextDurationMs != nil
+        }.count
+        if let requested = KeyLatencyRun.requestedPinyinSamples,
+           validPinyinSampleCount >= requested {
+            KeyLatencyDriver.writeReport()
+        }
+        #endif
         return sample
     }
 
@@ -351,7 +498,7 @@ final class KeyLatencyProbe {
 
     func report() -> [String: Any] {
         var byKey: [String: [[String: Any]]] = [:]
-        for sample in samples {
+        for sample in samples where sample.name != "text.pinyin" || sample.markedTextDurationMs != nil {
             let phases: [String: Double] = sample.phases
             var entry: [String: Any] = [
                 "total": sample.totalMs,
@@ -365,10 +512,20 @@ final class KeyLatencyProbe {
                 "textViewCreate": sample.textViewMs,
                 "census": sample.censusMs,
                 "editorUpdates": Double(sample.editorUpdates),
+                "markedTextMaxLength": Double(sample.maximumMarkedTextLength),
+                "editorUpdatesWithoutFirstResponder": Double(sample.editorUpdatesWithoutFirstResponder),
+                "editorUpdatesWithMarkedText": Double(sample.editorUpdatesWithMarkedText),
+                "editorHostUpdates": Double(sample.editorHostUpdates),
+                "editorHostRootWrites": Double(sample.editorHostRootWrites),
+                "toolbarSnapshotEvaluations": Double(sample.toolbarSnapshotEvaluations),
+                "textViewCreations": Double(sample.textViewCreations),
                 "chromeWrites": Double(sample.chromeWrites),
                 "boundsPublishes": Double(sample.boundsPublishes),
                 "thumbSyncs": Double(sample.thumbSyncs),
             ]
+            if let markedTextDuration = sample.markedTextDurationMs {
+                entry["markedTextDuration"] = markedTextDuration
+            }
             for stage in KeyLatencyStage.allCases {
                 if let value = phases[stage.rawValue] { entry[stage.rawValue] = value }
             }
@@ -390,6 +547,16 @@ final class KeyLatencyProbe {
             metrics["textViewCreate"] = Self.summary(entries.compactMap { $0["textViewCreate"] as? Double })
             metrics["census"] = Self.summary(entries.compactMap { $0["census"] as? Double })
             metrics["editorUpdates"] = Self.summary(entries.compactMap { $0["editorUpdates"] as? Double })
+            metrics["markedTextMaxLength"] = Self.summary(entries.compactMap { $0["markedTextMaxLength"] as? Double })
+            let markedTextDurations = entries.compactMap { $0["markedTextDuration"] as? Double }
+            metrics["markedTextDuration"] = Self.summary(markedTextDurations)
+            metrics["validMarkedTextSamples"] = Double(markedTextDurations.count)
+            metrics["editorUpdatesWithoutFirstResponder"] = Self.summary(entries.compactMap { $0["editorUpdatesWithoutFirstResponder"] as? Double })
+            metrics["editorUpdatesWithMarkedText"] = Self.summary(entries.compactMap { $0["editorUpdatesWithMarkedText"] as? Double })
+            metrics["editorHostUpdates"] = Self.summary(entries.compactMap { $0["editorHostUpdates"] as? Double })
+            metrics["editorHostRootWrites"] = Self.summary(entries.compactMap { $0["editorHostRootWrites"] as? Double })
+            metrics["toolbarSnapshotEvaluations"] = Self.summary(entries.compactMap { $0["toolbarSnapshotEvaluations"] as? Double })
+            metrics["textViewCreations"] = Self.summary(entries.compactMap { $0["textViewCreations"] as? Double })
             metrics["chromeWrites"] = Self.summary(entries.compactMap { $0["chromeWrites"] as? Double })
             metrics["boundsPublishes"] = Self.summary(entries.compactMap { $0["boundsPublishes"] as? Double })
             metrics["thumbSyncs"] = Self.summary(entries.compactMap { $0["thumbSyncs"] as? Double })
@@ -401,11 +568,21 @@ final class KeyLatencyProbe {
             keys[name] = metrics
         }
 
+        let validPinyinSamples = samples.filter {
+            $0.name == "text.pinyin" && $0.markedTextDurationMs != nil
+        }
+        let incompletePinyinSamples = samples.filter {
+            $0.name == "text.pinyin" && $0.markedTextDurationMs == nil
+        }
         var report: [String: Any] = [
             "platform": Self.platformName,
             "mode": KeyLatencyRun.drivesItself ? "driver" : "probe",
             "iterations": Double(KeyLatencyRun.requestedIterations ?? 0),
             "nodeCount": Double(KeyLatencyRun.requestedNodeCount ?? 0),
+            "textSamplesRequested": Double(KeyLatencyRun.requestedTextSamples ?? 0),
+            "pinyinSamplesRequested": Double(KeyLatencyRun.requestedPinyinSamples ?? 0),
+            "validPinyinSamples": Double(validPinyinSamples.count),
+            "incompletePinyinSamples": Double(incompletePinyinSamples.count),
             "samples": Double(samples.count),
             "abandoned": Double(abandoned),
             "keyDowns": Double(keyDownCount),
@@ -413,8 +590,18 @@ final class KeyLatencyProbe {
             "finishedAt": ISO8601DateFormatter().string(from: Date()),
         ]
         report["driver"] = KeyLatencyDriver.diagnostics
-        report["sequences"] = samples.map {
-            ["name": $0.name, "total": $0.totalMs, "bodyOffsets": $0.bodyOffsets, "bodySignatures": $0.bodySignatures]
+        report["sequences"] = samples.map { sample in
+            var sequence: [String: Any] = [
+                "name": sample.name,
+                "total": sample.totalMs,
+                "bodyOffsets": sample.bodyOffsets,
+                "bodySignatures": sample.bodySignatures,
+                "markedTextMaxLength": sample.maximumMarkedTextLength,
+            ]
+            if let markedTextDuration = sample.markedTextDurationMs {
+                sequence["markedTextDuration"] = markedTextDuration
+            }
+            return sequence
         }
         return report
     }
@@ -434,7 +621,8 @@ final class KeyLatencyProbe {
         var lines: [String] = []
         let names = Set(samples.map(\.name)).sorted()
         for name in names {
-            let totals = samples.filter { $0.name == name }.map(\.totalMs)
+            let matching = samples.filter { $0.name == name }
+            let totals = matching.map(\.totalMs)
             let sorted = totals.sorted()
             let stats = Self.summary(sorted)
             let phases = samples.filter { $0.name == name }.flatMap { Array($0.phases.keys) }
@@ -444,6 +632,16 @@ final class KeyLatencyProbe {
                 let values = samples.filter { $0.name == name }.compactMap { $0.phases[phase] }
                 let phaseStats = Self.summary(values)
                 detail.append(String(format: "%@ p50=%.1f p95=%.1f", phase, phaseStats["p50"] ?? 0, phaseStats["p95"] ?? 0))
+            }
+            if name == "text.pinyin" {
+                let markedTextDurations = matching.compactMap(\.markedTextDurationMs).sorted()
+                let markedTextStats = Self.summary(markedTextDurations)
+                detail.append(String(
+                    format: "markedText p50=%.1fms p95=%.1fms n=%.0f",
+                    markedTextStats["p50"] ?? 0,
+                    markedTextStats["p95"] ?? 0,
+                    markedTextStats["n"] ?? 0
+                ))
             }
             lines.append(String(
                 format: "%@ n=%.0f total p50=%.1fms p95=%.1fms mean=%.1f max=%.1f | %@",
@@ -724,7 +922,7 @@ enum KeyLatencyDriver {
         try? await Task.sleep(for: .milliseconds(milliseconds))
     }
 
-    private static func writeReport() {
+    static func writeReport() {
         let report = KeyLatencyProbe.shared.report()
         let jsonText: String
         if let data = try? JSONSerialization.data(withJSONObject: report, options: [.sortedKeys, .prettyPrinted]) {

@@ -741,7 +741,10 @@ enum AppLaunch {
         // A key-latency run keeps its documents, autosave, and defaults in a
         // throwaway root too: it must neither prompt for the user's crash
         // recovery nor write autosave next to the user's maps.
-        guard arguments.contains(uiTestArgument) || KeyLatencyRun.drivesItself else {
+        guard arguments.contains(uiTestArgument)
+                || KeyLatencyRun.drivesItself
+                || KeyLatencyRun.requestedTextSamples != nil
+                || KeyLatencyRun.requestedPinyinSamples != nil else {
             let session = Session(recovery: RecoveryPresenter(), settings: .shared, library: .shared)
             if let language = AppLanguage.fromLaunchArguments(arguments) {
                 session.settings.language = language
@@ -786,7 +789,9 @@ enum AppLaunch {
         // AX tree has no window. ContentView opens these after the first frame.
         if arguments.contains(editChromeArgument) {
             LaunchDocumentQueue.pending = .editChromeSample
-        } else if KeyLatencyRun.drivesItself {
+        } else if KeyLatencyRun.drivesItself
+                    || KeyLatencyRun.requestedTextSamples != nil
+                    || KeyLatencyRun.requestedPinyinSamples != nil {
             LaunchDocumentQueue.pending = .keyLatencyFixture(nodes: KeyLatencyRun.requestedNodeCount ?? 1)
         } else if let nodeCount = CanvasPerfRun.requestedNodeCount {
             LaunchDocumentQueue.pending = .perfFixture(nodeCount: nodeCount)

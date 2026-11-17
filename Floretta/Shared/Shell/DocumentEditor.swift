@@ -2433,22 +2433,23 @@ struct DocumentEditor: View {
     }
 
     private var inspectorBody: some View {
-        // The header is an inset, not a sibling of the page. Switching between
-        // 样式 / 导图 rebuilds pages with different intrinsic heights. If
-        // that height drives the inspector host, AppKit can recenter its shared
-        // toolbar controls over the canvas. Keep the native Picker in a stable,
-        // top-anchored inset; only the page below is flexible and scrollable.
-        inspectorTabPage
-            // 样式 ⇄ 导图 is a page swap, not a slide: the system's short
-            // `.snappy` curve on an opacity cross-fade. Only the page fades —
-            // the header lives in the inset below, so the shared toolbar
-            // controls never move. Reduce Motion resolves the curve to nil.
-            .transition(.opacity)
-            .animation(ChromeMotion.resolved(ChromeMotion.panel, reduceMotion: reduceMotion), value: inspectorTab)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .safeAreaInset(edge: .top, spacing: 12) {
-                inspectorHeader
-            }
+        // Keep the native header and the scrollable page as siblings. A
+        // safeAreaInset looked correct at the top, but the Form's scroll view
+        // kept its old viewport and could move its first row behind the pinned
+        // segmented control (AX confirmed a 19 pt overlap after scrolling).
+        // This fixed header + flexible page preserves the toolbar alignment and
+        // gives the Form a viewport that begins below the header.
+        VStack(spacing: CGFloat(InspectorPanelStyle.headerPageSpacing)) {
+            inspectorHeader
+                .padding(.top, CGFloat(InspectorPanelStyle.headerTopInset))
+            inspectorTabPage
+                // 样式 ⇄ 导图 is a page swap, not a slide: the system's short
+                // `.snappy` curve on an opacity cross-fade. Only the page fades;
+                // the sibling header never moves. Reduce Motion drops the curve.
+                .transition(.opacity)
+                .animation(ChromeMotion.resolved(ChromeMotion.panel, reduceMotion: reduceMotion), value: inspectorTab)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        }
             .appleGlassChrome(.inspectorPanel)
             // Fill the inspector column with the proposed height. A
             // containerRelativeFrame that returns the container length as
@@ -2485,7 +2486,6 @@ struct DocumentEditor: View {
             inspectorTabPicker
                 .padding(.horizontal)
         }
-        .padding(.top, 12)
         .fixedSize(horizontal: false, vertical: true)
         .frame(minHeight: 64)
         .frame(maxWidth: .infinity)

@@ -9,11 +9,18 @@ final class AppleGlassChromeContractTests: XCTestCase {
         let header = try slice(editor, from: "private var inspectorHeader", until: "private var showsSheetDismissHandle")
         let picker = try slice(editor, from: "private var inspectorTabPicker", until: "@ViewBuilder\n    private var inspectorTabPage")
 
-        XCTAssertTrue(body.contains(".safeAreaInset(edge: .top"))
+        XCTAssertTrue(body.contains("VStack(spacing: CGFloat(InspectorPanelStyle.headerPageSpacing))"))
+        XCTAssertLessThan(
+            try XCTUnwrap(body.range(of: "inspectorHeader")).lowerBound,
+            try XCTUnwrap(body.range(of: "inspectorTabPage")).lowerBound,
+            "the stable native picker is a sibling above the scrolling page"
+        )
+        XCTAssertFalse(body.contains(".safeAreaInset(edge: .top"), "the page scroll viewport begins below the pinned header")
         XCTAssertTrue(body.contains(".frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)"))
         XCTAssertTrue(header.contains("inspectorTabPicker"))
         XCTAssertTrue(header.contains(".fixedSize(horizontal: false, vertical: true)"))
         XCTAssertTrue(header.contains(".frame(minHeight: 64)"), "the shared inspector header reserves height even when the selected page is empty")
+        XCTAssertTrue(body.contains(".padding(.top, CGFloat(InspectorPanelStyle.headerTopInset))"))
         XCTAssertTrue(picker.contains("Picker(text(\"检查器\"), selection: $inspectorTab)"))
         XCTAssertTrue(picker.contains(".pickerStyle(.segmented)"))
         XCTAssertFalse(header.contains("GlassEffectContainer"), "mode changes must not replace the native picker with positioned custom content")

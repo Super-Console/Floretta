@@ -213,8 +213,8 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         view.allowsUndo = true
         view.isEditable = true
         view.isSelectable = true
-        view.drawsBackground = true
-        view.backgroundColor = paper.map { NSColor($0) } ?? .textBackgroundColor
+        view.drawsBackground = paper != nil
+        view.backgroundColor = paper.map { NSColor($0) } ?? .clear
         view.textColor = ink.map { NSColor($0) } ?? .labelColor
         view.insertionPointColor = view.textColor ?? .labelColor
         view.font = ThemeFontCascade.platformFont(familyID: fontFamilyID, nodeDesign: "default", size: fontSize)
@@ -256,9 +256,22 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         context.coordinator.dictationToken = dictationToken
         context.coordinator.dictationReplacesPlaceholder = dictationReplacesPlaceholder
         if nodeChrome == nil {
-            if let paper {
-                nsView.drawsBackground = true
-                nsView.backgroundColor = NSColor(paper)
+            if nsView.locksChrome {
+                nsView.locksChrome = false
+                nsView.centersInNode = false
+                nsView.appliedChromeSignature = nil
+                nsView.centeringPass = .idle
+                nsView.layer?.cornerRadius = 0
+                nsView.layer?.masksToBounds = false
+                nsView.layer?.borderWidth = 0
+            }
+            let drawsPaper = paper != nil
+            if nsView.drawsBackground != drawsPaper {
+                nsView.drawsBackground = drawsPaper
+            }
+            let nextBackground = paper.map { NSColor($0) } ?? .clear
+            if !nsView.backgroundColor.isEqual(nextBackground) {
+                nsView.backgroundColor = nextBackground
             }
             if let ink {
                 nsView.textColor = NSColor(ink)
@@ -706,7 +719,8 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
         let view = FlorettaTextView()
         view.delegate = context.coordinator
         view.font = ThemeFontCascade.platformFont(familyID: fontFamilyID, nodeDesign: "default", size: fontSize)
-        view.backgroundColor = paper.map { UIColor($0) } ?? .systemBackground
+        view.backgroundColor = paper.map { UIColor($0) } ?? .clear
+        view.isOpaque = paper != nil
         view.textColor = ink.map { UIColor($0) } ?? .label
         view.tintColor = view.textColor
         view.isScrollEnabled = returnInsertsLine
@@ -757,8 +771,21 @@ private struct IOSNodeTextEditor: UIViewRepresentable {
             return context.coordinator.acceptDictation(phrase, in: uiView)
         }
         if nodeChrome == nil {
-            if let paper {
-                uiView.backgroundColor = UIColor(paper)
+            if uiView.locksChrome {
+                uiView.locksChrome = false
+                uiView.centersInNode = false
+                uiView.centeringPass = .idle
+                uiView.clipsToBounds = false
+                uiView.layer.cornerRadius = 0
+                uiView.layer.borderWidth = 0
+            }
+            let nextBackground = paper.map { UIColor($0) } ?? .clear
+            if uiView.backgroundColor?.isEqual(nextBackground) != true {
+                uiView.backgroundColor = nextBackground
+            }
+            let isOpaque = paper != nil
+            if uiView.isOpaque != isOpaque {
+                uiView.isOpaque = isOpaque
             }
             if let ink {
                 uiView.textColor = UIColor(ink)

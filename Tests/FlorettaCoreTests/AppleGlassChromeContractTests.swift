@@ -39,7 +39,7 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertTrue(leading.contains("ToolbarItem(id: \"document.navigation\", placement: .navigation)"), "back and title share the leading navigation slot")
         XCTAssertTrue(leading.contains("onBack: onClose"))
         XCTAssertTrue(leading.contains("HStack(spacing: Self.gap)"), "the title and back glyph are one system capsule, not separate items")
-        XCTAssertTrue(leading.contains("backSlot"), "the trailing mirror keeps the name on the capsule's centre line")
+        XCTAssertFalse(leading.contains("backSlot"), "the leading capsule must not reserve an invisible trailing button")
         XCTAssertTrue(leading.contains("document.title"))
         XCTAssertFalse(leading.contains(".appleGlassChrome(.floatingPanel)"), "the leading capsule is system glass; the title must not stack a custom plate inside it")
         XCTAssertTrue(sharedToolbar.contains("#if os(iOS)"))

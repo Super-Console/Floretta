@@ -490,6 +490,47 @@ final class KeyboardTests: XCTestCase {
         XCTAssertTrue(document.roots[0].children.contains { $0.id == second })
     }
 
+    func testBackspaceDeletesSelectedSubtreeAndUndoRestoresItAsOneStep() {
+        let selectedID = UUID()
+        let descendantID = UUID()
+        let siblingID = UUID()
+        let selected = MindMapNode(
+            id: selectedID,
+            text: "选中",
+            children: [MindMapNode(id: descendantID, text: "后代")]
+        )
+        let sibling = MindMapNode(id: siblingID, text: "保留")
+        var document = MindMapDocument(
+            title: "Backspace",
+            roots: [MindMapNode(text: "根", children: [selected, sibling])]
+        )
+        var session = MindMapKeyboardSession()
+        session.selectedNodeID = selectedID
+
+        XCTAssertEqual(press(.backspace, session: &session, document: &document), .deleteSelection)
+        XCTAssertNil(document.node(selectedID))
+        XCTAssertNil(document.node(descendantID))
+        XCTAssertEqual(document.roots[0].children, [sibling])
+
+        XCTAssertEqual(press(.character("z"), .command, session: &session, document: &document), .undo)
+        XCTAssertEqual(document.roots[0].children, [selected, sibling])
+        XCTAssertEqual(session.selectedNodeID, selectedID)
+    }
+
+    func testBackspaceRemainsTextEditingDuringEditAndMarkedComposition() {
+        let rootID = UUID()
+        var document = MindMapDocument(title: "输入", roots: [MindMapNode(id: rootID, text: "原文")])
+        var session = MindMapKeyboardSession()
+        session.selectedNodeID = rootID
+        XCTAssertEqual(press(.space, session: &session, document: &document), .beginEdit)
+
+        XCTAssertNil(press(.backspace, session: &session, document: &document))
+        session.isComposing = true
+        XCTAssertNil(press(.backspace, session: &session, document: &document, composing: true))
+        XCTAssertEqual(document.roots[0].text, "原文")
+        XCTAssertEqual(session.mode, .edit)
+    }
+
     func testCollapseToggleIsUndoable() {
         let rootID = UUID()
         let child = UUID()

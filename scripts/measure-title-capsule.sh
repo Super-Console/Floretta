@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Offscreen pixel proof that the macOS leading navigation capsule centres the
-# document name: the text's black-pixel midpoint on the capsule's midpoint.
+# Offscreen proof that the macOS leading navigation capsule hugs short titles
+# and keeps long titles within their width bounds.
 #
 # Usage (repo root):
-#   bash scripts/measure-title-capsule.sh            # shipped layout
-#   bash scripts/measure-title-capsule.sh --baseline # pre-fix [back][name] row
+#   bash scripts/measure-title-capsule.sh            # shipped layout width
+#   bash scripts/measure-title-capsule.sh --narrow   # 280/240 pt width bounds
+#   bash scripts/measure-title-capsule.sh --toolbar  # real NSToolbar plate
 #
 # Nothing is launched, shown, or screenshotted: the probe renders the real
 # `DocumentTitleCapsule` (extracted verbatim from DocumentEditor.swift) in an
@@ -12,11 +13,8 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
-gen="${TMPDIR:-/tmp}/floretta-title-capsule"
+gen="$(mktemp -d "${TMPDIR:-/tmp}/floretta-title-capsule.XXXXXX")"
 bin="${FLORETTA_TITLE_CAPSULE_BIN:-$gen/probe}"
-
-rm -rf "$gen"
-mkdir -p "$gen"
 
 python3 - "$root" "$gen" <<'PY'
 import io
@@ -50,8 +48,6 @@ capped = extract(bar, "struct CappedWidthLayout: Layout {")
 
 if "chevron.backward" not in capsule:
     raise SystemExit("extracted the wrong declaration: no chevron in it")
-if "backSlot" not in capsule:
-    raise SystemExit("the capsule has no trailing mirror slot")
 if not re.search(r"HStack\(spacing: Self\.gap\)", capsule):
     raise SystemExit("the capsule no longer builds an HStack from one gap constant")
 
@@ -69,6 +65,8 @@ io.open(gen + "/CappedWidthLayout.swift", "w", encoding="utf-8").write(
 )
 print("extracted %d + %d chars from the product source" % (len(capsule), len(capped)))
 PY
+
+echo "probe materials: $gen"
 
 swiftc -O -swift-version 5 \
   -o "$bin" \

@@ -39,10 +39,10 @@ final class MacMenuBarContractTests: XCTestCase {
         let app = try repoFile("Floretta/Shared/FlorettaApp.swift")
 
         XCTAssertFalse(app.contains("CommandMenu(\"导出\")"), "导出 is a submenu of 文件")
-        let export = try slice(app, from: "CommandGroup(after: .saveItem) {", until: "// 编辑 > 查找")
+        let export = try slice(app, from: "CommandGroup(after: .saveItem) {", until: "CommandGroup(after: .textEditing)")
         XCTAssertTrue(export.contains("Menu {"), "one 导出 submenu")
-        XCTAssertTrue(export.contains("Label(\"导出\""))
-        for id in ["png", "pdf", "markdownExport", "textBundle", "saveFloretta", "xmind"] {
+        XCTAssertTrue(export.contains("导出为…"))
+        for id in ["png", "pdf", "markdownExport", "textBundle", "saveFloretta", "mm", "opml", "xmind"] {
             XCTAssertTrue(export.contains(".\(id)"), "the \(id) export moved into the submenu")
         }
 
@@ -78,6 +78,57 @@ final class MacMenuBarContractTests: XCTestCase {
         XCTAssertTrue(app.contains("CommandGroup(after: .textEditing)"))
         XCTAssertTrue(app.contains("CommandGroup(before: .windowList)"))
         XCTAssertTrue(app.contains("SidebarCommands()"))
+    }
+
+    func testFileMenuContainsDocumentActionsAndPreservesDisabledSave() throws {
+        let app = try repoFile("Floretta/Shared/FlorettaApp.swift")
+        let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let session = try repoFile("Floretta/Shared/Shell/DocumentSession.swift")
+        let content = try repoFile("Floretta/Shared/ContentView.swift")
+        let fileCommands = try slice(app, from: "// 文件", until: "// 显示:")
+
+        XCTAssertTrue(fileCommands.contains("最近打开"))
+        XCTAssertTrue(fileCommands.contains("library.recents"))
+        XCTAssertTrue(fileCommands.contains("library.openRecent(entry)"))
+        XCTAssertTrue(fileCommands.contains("library.closeEditor()"))
+        XCTAssertTrue(fileCommands.contains(".keyboardShortcut(\"w\", modifiers: .command)"))
+        XCTAssertTrue(fileCommands.contains("复制副本"))
+        XCTAssertTrue(fileCommands.contains("另存为"))
+        XCTAssertTrue(fileCommands.contains(".keyboardShortcut(\"s\", modifiers: [.command, .shift])"))
+        XCTAssertTrue(fileCommands.contains("导入"))
+        XCTAssertTrue(fileCommands.contains(".importFile"))
+        XCTAssertTrue(fileCommands.contains(".printMap"))
+        XCTAssertTrue(fileCommands.contains("共享"))
+
+        let save = try slice(app, from: "CommandGroup(replacing: .saveItem)", until: "// 显示:")
+        XCTAssertTrue(save.contains("library.saveActiveFile()"))
+        XCTAssertTrue(save.contains(".disabled(!library.canSaveActiveFile)"))
+        XCTAssertTrue(save.contains(".keyboardShortcut(\"s\", modifiers: .command)"))
+        XCTAssertFalse(save.hasPrefix("if let editorCommands"), "save stays present when no editor focus value exists")
+
+        let actions = try slice(editor, from: "private var editorMenuActions", until: "private var toolbarWidthClass")
+        XCTAssertTrue(actions.contains(".importFile"), "the File import item must call the existing importer")
+        XCTAssertTrue(actions.contains(".printMap"), "the File print item must call the existing print operation")
+        XCTAssertTrue(actions.contains("duplicateDocument"))
+        XCTAssertTrue(actions.contains("saveAsDocument"))
+
+        let exportCompletion = try slice(editor, from: "private func finishFlorettaExport", until: "private func exportFlorettaCopy")
+        XCTAssertTrue(exportCompletion.contains("case .duplicate:") && exportCompletion.contains("onDuplicatedCopy(url)"))
+        XCTAssertTrue(exportCompletion.contains("case .saveAs:") && exportCompletion.contains("onSavedAs(url)"))
+        XCTAssertTrue(content.contains("onDuplicatedCopy: { library.noteDuplicatedCopy($0) }"))
+        XCTAssertTrue(content.contains("onSavedAs: { library.noteSavedAsCopy($0) }"))
+
+        let duplicate = try slice(session, from: "func noteDuplicatedCopy", until: "func noteSavedAsCopy")
+        XCTAssertFalse(duplicate.contains("editor.url = url"), "a duplicate does not redirect the current document")
+        let saveAs = try slice(session, from: "func noteSavedAsCopy", until: "/// ⌘S.")
+        XCTAssertTrue(saveAs.contains("editor.url = url"), "Save As adopts its new document URL")
+        XCTAssertTrue(saveAs.contains("editor.sourceExtension = \"floretta\""))
+    }
+
+    func testFileMenuDoesNotClaimUnsupportedSVGExport() throws {
+        let app = try repoFile("Floretta/Shared/FlorettaApp.swift")
+        let fileCommands = try slice(app, from: "// 文件", until: "// 显示:")
+        XCTAssertFalse(fileCommands.localizedCaseInsensitiveContains("svg"), "do not advertise an exporter that does not exist")
     }
 
     private func commandMenuTitles(in source: String) -> [String] {

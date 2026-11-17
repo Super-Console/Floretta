@@ -21,7 +21,14 @@ public enum MacMenuShortcutCatalog {
         Chord("l", ["command", "shift"]),
         Chord("uparrow", ["option"]),
         Chord("downarrow", ["option"]),
-        Chord("0"), Chord("+"), Chord("-"), Chord("="), Chord("b"), Chord("i")
+        Chord("0", ["command", "option"]), // Fit to window
+        Chord("0"), // Actual size
+        Chord("g"),
+        Chord("f", ["command", "option"]), // Replace
+        Chord("a"), // Select all topics
+        Chord("f", ["command", "control"]), // Full screen
+        Chord("i", ["command", "option"]), // Inspector
+        Chord("+"), Chord("-"), Chord("="), Chord("b"), Chord("i")
     ]
 
     public static let reserved: Set<Chord> = [

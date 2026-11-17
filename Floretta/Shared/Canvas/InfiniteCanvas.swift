@@ -674,6 +674,9 @@ struct InfiniteCanvas: View {
             }
             keyboard.selectedNodeID = id
             interaction.selectedNodeID = id
+            if id != nil, keyboard.mode == .command {
+                canvasFocused = true
+            }
         case .beginEdit(let id):
             beginEditing(id)
         case .commitAndSelect(let id):
@@ -893,7 +896,6 @@ struct InfiniteCanvas: View {
                 ),
                 fontMetrics: fontMetrics,
                 onEvent: { handleKey($0) },
-                paper: colorScheme == .dark ? Color(white: 0.16) : Color.white,
                 ink: colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16),
                 dictationToken: dictationToken,
                 dictationReplacesPlaceholder: dictationReplacesPlaceholder
@@ -921,7 +923,6 @@ struct InfiniteCanvas: View {
                 ),
                 fontMetrics: fontMetrics,
                 onEvent: { handleKey($0) },
-                paper: colorScheme == .dark ? Color(white: 0.16) : Color.white,
                 ink: colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16),
                 dictationToken: dictationToken,
                 dictationReplacesPlaceholder: dictationReplacesPlaceholder
@@ -949,7 +950,6 @@ struct InfiniteCanvas: View {
                 ),
                 fontMetrics: fontMetrics,
                 onEvent: { handleKey($0) },
-                paper: colorScheme == .dark ? Color(white: 0.16) : Color.white,
                 ink: colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16),
                 dictationToken: dictationToken,
                 dictationReplacesPlaceholder: dictationReplacesPlaceholder
@@ -1036,7 +1036,6 @@ struct InfiniteCanvas: View {
                 fontSize: CanvasTextScale.onScreenPointSize(fontSize: 14, scale: camera.viewport.scale),
                 fontMetrics: fontMetrics,
                 onEvent: { handleKey($0) },
-                paper: colorScheme == .dark ? Color(white: 0.16) : Color.white,
                 ink: colorScheme == .dark ? Color.white : Color(red: 0.12, green: 0.14, blue: 0.16),
                 dictationToken: dictationToken,
                 dictationReplacesPlaceholder: dictationReplacesPlaceholder
@@ -1809,8 +1808,9 @@ struct InfiniteCanvas: View {
             }
         }
         let viewport = camera.viewport.canvasRect(in: size).insetBy(dx: -48, dy: -48)
-        var visible = CanvasPlacement.frames(placed, intersectingCanvas: viewport)
-        let linkIDs = CanvasPlacement.nodeIDsWithVisibleLinks(placed, viewport: viewport)
+        let drawSelection = CanvasViewportDrawSelection.select(frames: placed, in: viewport)
+        var visible = drawSelection.visibleNodes
+        let linkIDs = drawSelection.visibleLinkNodeIDs
         let ghosts: [PetalGhost]
         if blooming {
             let visibleIDs = Set(visible.map(\.id))
@@ -2212,7 +2212,15 @@ struct InfiniteCanvas: View {
                 layer.fill(path, with: .color(color(node.fill)))
             }
         }
-        if !editing, detail != .far, selected {
+        if detail == .far, detail.drawsOutline {
+            let outlineColor = selected ? interaction.selectionBorder : node.border
+            let outlineWidth = selected ? interaction.selectionBorderWidth : node.borderWidth
+            layer.stroke(
+                path,
+                with: .color(color(outlineColor)),
+                lineWidth: max(outlineWidth, 0.75)
+            )
+        } else if !editing, selected {
             layer.stroke(
                 path,
                 with: .color(color(interaction.selectionBorder)),
@@ -2268,7 +2276,8 @@ struct InfiniteCanvas: View {
         let pointSize = CanvasTextScale.onScreenPointSize(fontSize: node.fontSize, scale: scale)
         textRect = excludingChildBadge(textRect, node: node, scale: scale)
         let showTitle = (pose?.showsText ?? true) && !editing
-        if showTitle, CanvasTextLOD.level(onScreenPointSize: pointSize).drawsTitle, textRect.height > 1, textRect.width > 1 {
+        if showTitle, CanvasTextLOD.level(onScreenPointSize: pointSize).drawsTitle,
+           textRect.height > 0, textRect.width > 0 {
             let shown = NodeAttachmentDrawing.canvasText(
                 title: node.text,
                 caption: node.caption,

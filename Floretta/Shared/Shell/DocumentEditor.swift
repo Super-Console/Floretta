@@ -16,6 +16,12 @@ private enum RegionMetric: Hashable {
     case stroke
 }
 
+private enum FlorettaExportPurpose {
+    case standard
+    case duplicate
+    case saveAs
+}
+
 struct DocumentEditor: View {
     @Bindable var session: EditorSession
     @Bindable var settings: AppSettings
@@ -26,11 +32,14 @@ struct DocumentEditor: View {
     var onEdit: (MindMapDocument) -> Void
     var onImport: () -> Void
     var onSavedCopy: (URL) -> Void = { _ in }
+    var onDuplicatedCopy: (URL) -> Void = { _ in }
+    var onSavedAs: (URL) -> Void = { _ in }
     var onMarkdownUpgrade: (URL, MarkdownUpgradeChoice) -> Void = { _, _ in }
     var thumbnailCache: ThumbnailFileCache? = nil
 
     @State private var showExport = false
     @State private var exportKind = ""
+    @State private var florettaExportPurpose = FlorettaExportPurpose.standard
     @State private var exportFile = ExportFile(data: Data())
     @State private var exportType: UTType = .png
     @State private var exportName = "Floretta"
@@ -47,10 +56,18 @@ struct DocumentEditor: View {
     @State private var canvasRenameIndex = 0
     @State private var showFind = false
     @State private var findQuery = ""
+    @State private var showReplace = false
+    @State private var replaceQuery = ""
+    @State private var replacementText = ""
+    @State private var replaceStatus = ""
+    @State private var showNodeNoteEditor = false
+    @State private var nodeNoteDraft = ""
+    @State private var noteEditingNodeID: UUID?
     @State private var showTagFilter = false
     @State private var inspectorTab = InspectorTab.style
     @State private var showAbout = false
     @State private var showShortcutHelp = false
+    @State private var showUserGuide = false
     @State private var showThemes = false
     @State private var showHistory = false
     @Environment(\.colorScheme) private var colorScheme
@@ -210,30 +227,11 @@ struct DocumentEditor: View {
         }
     }
 
-    /// The one leading system capsule: 返回, the document name, and the name's
-    /// counterpart on the trailing side.
-    ///
-    /// The bar draws one symmetric plate around this item, so the name reads as
-    /// centred exactly when its own slot is centred in this `HStack`. A plain
-    /// `[返回][名]` row is not centred: the back control takes its width on the
-    /// leading side only, so the name's midpoint sits right of the plate's
-    /// midpoint by that control plus the gap — the "标题偏右" report that has
-    /// come back three times. Padding the name on the trailing side with the
-    /// *same control*, stripped of ink, hit testing, and accessibility, gives
-    ///
-    ///     返回 + 8 + 名 + 8 + 返回(空)
-    ///
-    /// so the name's slot — and the text in it — keeps the plate's centre. The
-    /// mirror is the control itself, not a guessed 28 pt box, so it stays exact
-    /// if the bar's button metrics change. The plate grows by exactly that one
-    /// control and its gap: with the arrow inside the same plate, symmetric
-    /// whitespace *is* the fix, and the trailing side has to hold as much room
-    /// as the leading side holds. The height, the back control's hit area, and
-    /// every other toolbar item are untouched.
-    ///
-    /// The name is capped at `canvasTitleMaxWidth` and truncates in the middle,
-    /// so a 60-character name keeps the `.floretta` extension and can neither
-    /// widen the plate nor crowd the trailing items.
+    /// The leading navigation capsule hugs its two controls. A former invisible
+    /// copy of the back button balanced the title, but also added a full button
+    /// and gap to every capsule — especially visible beside a short filename.
+    /// The title stays capped and middle-truncated so long filenames cannot
+    /// grow the item without bound or lose the `.floretta` extension.
     private struct DocumentTitleCapsule: View {
         var title: String
         var titleWidthLimit: CGFloat
@@ -262,7 +260,6 @@ struct DocumentEditor: View {
                 .accessibilityLabel(Text(verbatim: title))
                 .accessibilityHint(Text(verbatim: renameHint))
                 .accessibilityIdentifier("document.title")
-                backSlot
             }
         }
 
@@ -275,18 +272,6 @@ struct DocumentEditor: View {
             .accessibilityLabel(Text(verbatim: backLabel))
             .accessibilityIdentifier("basicChain.back")
             .help(Text(verbatim: backHint))
-        }
-
-        /// The same control with no ink: width only. Nothing to click, nothing
-        /// for VoiceOver or XCUITest to find. It exists so the name's slot is
-        /// symmetric in the plate.
-        private var backSlot: some View {
-            Button(action: {}) {
-                Image(systemName: "chevron.backward")
-            }
-            .opacity(0)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
         }
     }
 
@@ -680,11 +665,10 @@ struct DocumentEditor: View {
             ) { result in
                 switch result {
                 case .success(let url):
-                    if exportKind == "floretta" {
-                        onSavedCopy(url)
-                    }
+                    finishFlorettaExport(at: url)
                 case .failure(let error):
                     exportError = error.localizedDescription
+                    florettaExportPurpose = .standard
                 }
             }
             .fileExporter(
@@ -743,6 +727,22 @@ struct DocumentEditor: View {
         }
         .sheet(isPresented: $showShortcutHelp) {
             ShortcutsHelpSheet(settings: settings)
+        }
+        .sheet(isPresented: $showUserGuide) {
+            UserGuideSheet()
+        }
+        .sheet(isPresented: $showNodeNoteEditor) {
+            NodeNoteEditorSheet(note: $nodeNoteDraft, onSave: saveNodeNote)
+        }
+        .sheet(isPresented: $showReplace) {
+            TopicReplaceSheet(
+                query: $replaceQuery,
+                replacement: $replacementText,
+                status: $replaceStatus,
+                onFindNext: { selectNextMatch(query: replaceQuery) },
+                onReplaceNext: replaceSelectedMatch,
+                onReplaceAll: replaceAllMatches
+            )
         }
             #if os(macOS)
             // macOS keeps the sheet: its 配色 rows are a window-sized list.
@@ -1533,6 +1533,17 @@ struct DocumentEditor: View {
         showRename = true
     }
 
+    private var availableFoldLevels: [Int] {
+        let document = session.editingDocument
+        func deepestLevel(in nodes: [MindMapNode], at level: Int) -> Int {
+            nodes.reduce(0) { deepest, node in
+                max(deepest, max(level, deepestLevel(in: node.children, at: level + 1)))
+            }
+        }
+        let deepest = max(deepestLevel(in: document.roots, at: 1), deepestLevel(in: document.freeNodes, at: 1))
+        return deepest > 1 ? Array(1..<deepest) : []
+    }
+
     private var toolbarContext: EditorToolbarContext {
         #if os(macOS)
         return macToolbarSnapshot.context
@@ -1559,17 +1570,40 @@ struct DocumentEditor: View {
         let selectedID = session.keyboard.selectedNodeID
         let hasSelection = selectedID != nil
         let ids: [EditorToolbarCommandID] = [
-            .child, .sibling, .freeNode, .sticky, .image, .attachment,
+            .delete, .child, .sibling, .freeNode, .sticky, .image, .attachment,
             .summary, .boundary, .region, .outline, .fit, .mapMode, .focusMode,
-            .immersive, .style, .theme, .about, .find, .png, .pdf, .markdownExport, .textBundle, .saveFloretta, .xmind
+            .immersive, .style, .theme, .about, .find, .tagFilter, .png, .pdf, .markdownExport, .textBundle,
+            .saveFloretta, .upgrade, .mm, .opml, .xmind, .importFile, .printMap
         ]
         var actions = FlorettaEditorMenuActions(
             perform: Dictionary(uniqueKeysWithValues: ids.map { id in (id, { perform(id) }) }),
             enabled: eligible
         )
+        actions.isMarkdownDocument = session.isMarkdownDocument
+        actions.duplicateDocument = { export("floretta", purpose: .duplicate) }
+        actions.saveAsDocument = { export("floretta", purpose: .saveAs) }
         actions.hasSelectedTopic = hasSelection
         actions.hasEditableSelection = hasSelection && !session.isMarkdownDocument
+        actions.isEditingText = session.keyboard.mode == .edit
         actions.showShortcutHelp = { showShortcutHelp = true }
+        actions.showUserGuide = { showUserGuide = true }
+        actions.showNodeNote = { beginNodeNoteEditing() }
+        actions.showReplace = {
+            replaceQuery = findQuery
+            replacementText = ""
+            replaceStatus = ""
+            showReplace = true
+        }
+        actions.findNext = { selectNextMatch(query: findQuery) }
+        actions.selectAll = { session.selectCurrent() }
+        actions.foldLevels = availableFoldLevels
+        actions.collapseToLevel = { level in
+            guard !session.isMarkdownDocument else { return }
+            session.finishEditingIfNeeded()
+            session.editActive { document in
+                CanvasEditCommands.collapse(toLevel: level, document: &document)
+            }
+        }
         actions.performShortcut = { command in
             handleChromeCommand(command)
             session.performShortcut(command)
@@ -1599,8 +1633,36 @@ struct DocumentEditor: View {
                 _ = InspectorStyle.apply(.flag(flag, !current), nodeID: selectedID, document: &document, allowsAppearanceWrites: allowsAppearanceWrites)
             }
         }
+        actions.setTextAlignment = { alignment in
+            guard let selectedID, allowsAppearanceWrites else { return }
+            session.finishEditingIfNeeded()
+            session.editActive { document in
+                _ = document.setTextAlignment(alignment, on: selectedID)
+            }
+        }
+        actions.setNodeShape = { shape in
+            guard let selectedID, allowsAppearanceWrites else { return }
+            session.finishEditingIfNeeded()
+            session.editActive { document in
+                _ = InspectorStyle.apply(.shape(shape), nodeID: selectedID, document: &document, allowsAppearanceWrites: allowsAppearanceWrites)
+            }
+        }
+        actions.setBranchLine = { line in
+            guard allowsAppearanceWrites else { return }
+            session.finishEditingIfNeeded()
+            session.editActive { document in
+                _ = InspectorStyle.applyDocument(.branchLine(line), document: &document, allowsAppearanceWrites: allowsAppearanceWrites)
+            }
+        }
+        actions.setBorderStyle = { border in
+            guard let selectedID, allowsAppearanceWrites else { return }
+            session.finishEditingIfNeeded()
+            session.editActive { document in
+                _ = InspectorStyle.apply(.borderStyle(border), nodeID: selectedID, document: &document, allowsAppearanceWrites: allowsAppearanceWrites)
+            }
+        }
         actions.shortcuts = [
-            .fit: KeyboardShortcut("0", modifiers: .command)
+            .fit: KeyboardShortcut("0", modifiers: [.command, .option])
         ]
         actions.zoomIn = { camera.stepZoom(1) }
         actions.zoomOut = { camera.stepZoom(-1) }
@@ -2111,6 +2173,70 @@ struct DocumentEditor: View {
         return action
     }
     #endif
+
+    private func selectNextMatch(query: String) {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty,
+              let id = CanvasEditCommands.findNextTopicText(
+                in: session.editingDocument,
+                query: needle,
+                after: session.keyboard.selectedNodeID
+              ) else {
+            replaceStatus = "没有匹配的节点文字。"
+            return
+        }
+        findQuery = needle
+        session.keyboard.selectedNodeID = id
+    }
+
+    private func beginNodeNoteEditing() {
+        guard let id = session.keyboard.selectedNodeID,
+              let node = session.editingDocument.node(id) else { return }
+        noteEditingNodeID = id
+        nodeNoteDraft = node.note
+        showNodeNoteEditor = true
+    }
+
+    private func saveNodeNote() {
+        guard let id = noteEditingNodeID else { return }
+        session.editActive { document in
+            _ = CanvasEditCommands.replaceTopicNote(nodeNoteDraft, on: id, document: &document)
+        }
+        noteEditingNodeID = nil
+    }
+
+    private func replaceSelectedMatch() {
+        let needle = replaceQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return }
+        guard let id = session.keyboard.selectedNodeID,
+              session.editingDocument.node(id)?.text.localizedCaseInsensitiveContains(needle) == true else {
+            selectNextMatch(query: needle)
+            replaceStatus = "已定位到匹配主题；再次点“替换当前节点”以替换其文字。"
+            return
+        }
+        session.finishEditingIfNeeded()
+        let changed = session.editActive { document in
+            CanvasEditCommands.replaceTopicText(
+                query: needle,
+                with: replacementText,
+                on: id,
+                document: &document
+            )
+        }
+        findQuery = needle
+        replaceStatus = changed ? "已替换当前主题文字。" : "当前主题没有匹配文字。"
+    }
+
+    private func replaceAllMatches() {
+        let needle = replaceQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return }
+        session.finishEditingIfNeeded()
+        let count = session.editActive { document in
+            CanvasEditCommands.replaceTopicText(query: needle, with: replacementText, document: &document)
+        }
+        findQuery = needle
+        replaceStatus = count == 0 ? "没有匹配的节点文字。" : "已替换 \(count) 个主题的文字。"
+    }
 
     private func perform(_ id: EditorToolbarCommandID) {
         switch id {
@@ -3163,9 +3289,7 @@ struct DocumentEditor: View {
                 } else {
                     try exportFile.data.write(to: destination, options: .atomic)
                 }
-                if exportKind == "floretta" {
-                    onSavedCopy(destination)
-                }
+                finishFlorettaExport(at: destination)
             } catch {
                 exportError = error.localizedDescription
             }
@@ -3173,6 +3297,22 @@ struct DocumentEditor: View {
         }
         showExport = true
         return false
+    }
+
+    private func finishFlorettaExport(at url: URL) {
+        guard exportKind == "floretta" else {
+            florettaExportPurpose = .standard
+            return
+        }
+        switch florettaExportPurpose {
+        case .standard:
+            onSavedCopy(url)
+        case .duplicate:
+            onDuplicatedCopy(url)
+        case .saveAs:
+            onSavedAs(url)
+        }
+        florettaExportPurpose = .standard
     }
 
     private func exportFlorettaCopy() throws {
@@ -3217,7 +3357,8 @@ struct DocumentEditor: View {
         return options
     }
 
-    private func export(_ kind: String) {
+    private func export(_ kind: String, purpose: FlorettaExportPurpose = .standard) {
+        florettaExportPurpose = kind == "floretta" ? purpose : .standard
         session.prepareToSave()
         let title = session.document.title.isEmpty ? "Floretta" : session.document.title
         let type = FlorettaFileTypes.contentType(forExport: kind)
@@ -4505,12 +4646,17 @@ private struct ShortcutsHelpSheet: View {
                 ForEach(Array(settings.shortcutBindings.entries().enumerated()), id: \.offset) { _, entry in
                     LabeledContent(entry.title, value: XMindShortcutCatalog.display(entry.key, entry.modifiers))
                 }
-                LabeledContent("适应窗口", value: "⌘0")
-                LabeledContent("放大 / 缩小", value: "⌘+ / ⌘-")
-                LabeledContent("实际大小", value: "⌘=")
+                LabeledContent("适应窗口", value: "⌥⌘0")
+                LabeledContent("放大 / 缩小", value: "⌘+ / ⌘−")
+                LabeledContent("实际大小", value: "⌘0")
                 LabeledContent("加粗 / 斜体", value: "⌘B / ⌘I")
                 LabeledContent("剪切 / 复制 / 粘贴", value: "⌘X / ⌘C / ⌘V")
-                LabeledContent("新建 / 保存", value: "⌘N / ⌘S")
+                LabeledContent("查找 / 查找下一个 / 替换", value: "⌘F / ⌘G / ⌥⌘F")
+                LabeledContent("全选主题", value: "⌘A")
+                LabeledContent("全屏 / 检查器", value: "⌃⌘F / ⌥⌘I")
+                LabeledContent("新建 / 打开 / 保存 / 关闭", value: "⌘N / ⌘O / ⌘S / ⌘W")
+                LabeledContent("另存为 / 打印", value: "⇧⌘S / ⌘P")
+                LabeledContent("方向键", value: "↑ ↓ ← →")
             }
             .navigationTitle("快捷键一览")
             .accessibilityIdentifier("shortcuts.help")
@@ -4521,6 +4667,118 @@ private struct ShortcutsHelpSheet: View {
             }
         }
         .frame(minWidth: 360, minHeight: 420)
+    }
+}
+
+private struct UserGuideSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("建立结构") {
+                    LabeledContent("新建同级主题", value: "Enter")
+                    LabeledContent("新建子主题", value: "Tab")
+                    LabeledContent("新建父主题", value: "⌘Enter")
+                    LabeledContent("编辑主题文字", value: "空格")
+                }
+                Section("编辑与查找") {
+                    LabeledContent("结束编辑", value: "Enter")
+                    LabeledContent("在主题内换行", value: "⇧Enter 或 ⌘Enter")
+                    LabeledContent("删除选中主题", value: "Backspace")
+                    LabeledContent("在主题间移动", value: "方向键")
+                    Text("使用“编辑”菜单查找、替换主题文字，或选择全部主题。")
+                }
+                Section("组织与格式") {
+                    Text("使用“插入”菜单添加浮动主题、便签、图片、关系线、标记、标签和备注。")
+                    Text("使用“格式”菜单调整文字对齐、节点形状、连线样式和边框。")
+                    Text("“显示”菜单可调整缩放、切换大纲、显示检查器或进入全屏。")
+                }
+                Section("保存与分享") {
+                    Text("⌘S 保存当前文件；“文件”菜单提供另存为、复制副本、导入、导出、打印和共享。")
+                }
+            }
+            .navigationTitle("Floretta 使用手册")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") { dismiss() }
+                }
+            }
+        }
+        .frame(minWidth: 420, minHeight: 440)
+    }
+}
+
+private struct NodeNoteEditorSheet: View {
+    @Binding var note: String
+    var onSave: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            TextEditor(text: $note)
+                .padding(12)
+                .accessibilityIdentifier("nodeNote.editor")
+                .navigationTitle("主题备注")
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("取消") { dismiss() }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("保存") {
+                            onSave()
+                            dismiss()
+                        }
+                        .accessibilityIdentifier("nodeNote.save")
+                    }
+                }
+        }
+        .frame(minWidth: 420, minHeight: 300)
+    }
+}
+
+private struct TopicReplaceSheet: View {
+    @Binding var query: String
+    @Binding var replacement: String
+    @Binding var status: String
+    var onFindNext: () -> Void
+    var onReplaceNext: () -> Void
+    var onReplaceAll: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("查找节点文字", text: $query)
+                    .accessibilityIdentifier("topicReplace.query")
+                TextField("替换为", text: $replacement)
+                    .accessibilityIdentifier("topicReplace.replacement")
+                if !status.isEmpty {
+                    Text(verbatim: status)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("topicReplace.status")
+                }
+            }
+            .formStyle(.grouped)
+            .navigationTitle("查找与替换")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("完成") { dismiss() }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button("查找下一个", action: onFindNext)
+                        .disabled(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Menu("替换") {
+                        Button("替换当前节点", action: onReplaceNext)
+                        Button("全部替换", action: onReplaceAll)
+                    }
+                    .disabled(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+        .frame(minWidth: 420, minHeight: 220)
     }
 }
 

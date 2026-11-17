@@ -81,7 +81,7 @@ private struct FlorettaCommands: Commands {
     /// 打开 / 保存 and carries the whole export list in a 导出 ▸ submenu; 显示 is
     /// the system View menu, and our view commands join it through
     /// `CommandGroup(after: .sidebar)` instead of a second top-level menu; 帮助 is
-    /// the system Help menu, and 快捷键一览 is its one item. 插入 / 格式 / 主题 stay
+    /// the system Help menu, with the native menu search and app guide actions. 插入 / 格式 / 主题 stay
     /// top-level because that is where XMind and every other Mac outliner put
     /// them, and each owns its own commands only.
     var body: some Commands {
@@ -115,6 +115,27 @@ private struct FlorettaCommands: Commands {
                 Label(FlorettaL10n.string(HomeOpenCommand.local.titleKey, language: settings.language), systemImage: "internaldrive")
             }
             .disabled(library.editor != nil)
+
+            Menu {
+                if library.recents.isEmpty {
+                    Button(menuText("没有最近打开的文件"), action: {})
+                        .disabled(true)
+                } else {
+                    ForEach(library.recents) { entry in
+                        Button(entry.filename) { library.openRecent(entry) }
+                    }
+                }
+            } label: {
+                Label(menuText("最近打开"), systemImage: "clock")
+            }
+
+            Button {
+                _ = library.closeEditor()
+            } label: {
+                Label(menuText("关闭"), systemImage: "xmark")
+            }
+            .keyboardShortcut("w", modifiers: .command)
+            .disabled(library.editor == nil)
         }
         CommandGroup(replacing: .saveItem) {
             Button {
@@ -125,24 +146,117 @@ private struct FlorettaCommands: Commands {
             .keyboardShortcut("s", modifiers: .command)
             .disabled(!library.canSaveActiveFile)
         }
-        if let editorCommands {
-            // 文件 > 导出 ▸
-            //
-            // The exports used to be their own top-level 导出 menu, which is not
-            // where a Mac app puts them: a file operation belongs to 文件. One
-            // submenu, the same six commands, the same shortcuts.
-            CommandGroup(after: .saveItem) {
-                Menu {
-                    ForEach([EditorToolbarCommandID.png, .pdf, .markdownExport, .textBundle, .saveFloretta, .xmind], id: \.self) { id in
+        CommandGroup(after: .saveItem) {
+            Button {
+                editorCommands?.duplicateDocument?()
+            } label: {
+                Label(menuText("复制副本"), systemImage: "plus.square.on.square")
+            }
+            .disabled(editorCommands?.duplicateDocument == nil)
+
+            Button {
+                editorCommands?.saveAsDocument?()
+            } label: {
+                Label(menuText("另存为…"), systemImage: "square.and.arrow.down")
+            }
+            .keyboardShortcut("s", modifiers: [.command, .shift])
+            .disabled(editorCommands?.saveAsDocument == nil)
+
+            Divider()
+            Menu {
+                if let editorCommands {
+                    ForEach([EditorToolbarCommandID.png, .pdf, .markdownExport, .textBundle, .mm, .opml, .xmind], id: \.self) { id in
                         editorCommand(id, actions: editorCommands)
                     }
-                } label: {
-                    Label("导出", systemImage: "square.and.arrow.up")
+                    editorCommand(editorCommands.isMarkdownDocument ? .upgrade : .saveFloretta, actions: editorCommands)
                 }
+            } label: {
+                Label(menuText("导出为…"), systemImage: "square.and.arrow.up")
             }
+            .disabled(editorCommands == nil)
+
+            Button {
+                editorCommands?.perform[.importFile]?()
+            } label: {
+                Label(menuText("导入…"), systemImage: "square.and.arrow.down.on.square")
+            }
+            .disabled(editorCommands?.perform[.importFile] == nil)
+
+            Divider()
+            Button {
+                editorCommands?.perform[.printMap]?()
+            } label: {
+                Label(menuText("打印…"), systemImage: "printer")
+            }
+            .keyboardShortcut("p", modifiers: .command)
+            .disabled(editorCommands?.perform[.printMap] == nil)
+
+            Menu {
+                if let editorCommands {
+                    ForEach(EditorToolbarCommandID.allCases.filter { EditorToolbarCatalog.command($0).menu == .share }, id: \.self) { id in
+                        editorCommand(id, actions: editorCommands)
+                    }
+                }
+            } label: {
+                Label(menuText("共享…"), systemImage: "square.and.arrow.up.on.square")
+            }
+            .disabled(editorCommands == nil)
+        }
+        if let editorCommands {
             // 编辑 > 查找
             CommandGroup(after: .textEditing) {
                 editorCommand(.find, actions: editorCommands)
+                Button {
+                    editorCommands.findNext?()
+                } label: {
+                    Label("查找下一个", systemImage: "arrow.down.circle")
+                }
+                .keyboardShortcut("g", modifiers: .command)
+                .disabled(editorCommands.findNext == nil)
+
+                Button {
+                    editorCommands.showReplace?()
+                } label: {
+                    Label("替换…", systemImage: "text.badge.xmark")
+                }
+                .keyboardShortcut("f", modifiers: [.command, .option])
+                .disabled(editorCommands.showReplace == nil)
+
+                Divider()
+                Button {
+                    editorCommands.selectAll?()
+                } label: {
+                    Label("全选主题", systemImage: "selection.pin.in.out")
+                }
+                .keyboardShortcut("a", modifiers: .command)
+                .disabled(editorCommands.selectAll == nil || editorCommands.isEditingText)
+
+                Button {
+                    editorCommands.perform[.delete]?()
+                } label: {
+                    Label("删除", systemImage: "trash")
+                }
+                .disabled(!editorCommands.hasSelectedTopic || editorCommands.perform[.delete] == nil)
+
+                Divider()
+                Button {
+                    editorCommands.performShortcut?(.toggleOutline)
+                } label: {
+                    Label("大纲 ⇄ 导图", systemImage: "list.bullet")
+                }
+                .disabled(editorCommands.performShortcut == nil)
+                topicButton("展开全部", command: .expandAll)
+                topicButton("收起全部", command: .collapseAll)
+                Menu {
+                    ForEach(editorCommands.foldLevels, id: \.self) { level in
+                        Button("第 \(level) 层") {
+                            editorCommands.collapseToLevel?(level)
+                        }
+                    }
+                } label: {
+                    Label("折叠到第 N 层", systemImage: "square.stack.3d.down.right")
+                }
+                .disabled(editorCommands.foldLevels.isEmpty || editorCommands.collapseToLevel == nil)
             }
         }
         // 显示: the system View menu already exists (sidebar + toolbar), so the
@@ -174,8 +288,71 @@ private struct FlorettaCommands: Commands {
                     Label("关系线", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
                 }
                 .disabled(!editorCommands.hasSelectedTopic)
+
+                Button {
+                    editorCommands.perform[.tagFilter]?()
+                } label: {
+                    Label("标记与标签…", systemImage: "tag")
+                }
+                .disabled(!editorCommands.enabled.contains(.tagFilter) || editorCommands.perform[.tagFilter] == nil)
+
+                Button {
+                    editorCommands.showNodeNote?()
+                } label: {
+                    Label("备注…", systemImage: "note.text")
+                }
+                .disabled(!editorCommands.hasSelectedTopic || editorCommands.showNodeNote == nil)
             }
             CommandMenu("格式") {
+                Menu {
+                    ForEach(MindMapTextAlignment.allCases, id: \.self) { alignment in
+                        Button {
+                            editorCommands.setTextAlignment?(alignment)
+                        } label: {
+                            Label(textAlignmentTitle(alignment), systemImage: alignmentSymbol(alignment))
+                        }
+                        .disabled(!editorCommands.hasEditableSelection || editorCommands.setTextAlignment == nil)
+                    }
+                } label: {
+                    Label("文字对齐", systemImage: "text.alignleft")
+                }
+                Menu {
+                    ForEach(InspectorTopicShape.allCases) { shape in
+                        Button {
+                            editorCommands.setNodeShape?(shape)
+                        } label: {
+                            Text(verbatim: FlorettaL10n.string(shape.titleKey, language: settings.language))
+                        }
+                        .disabled(!editorCommands.hasEditableSelection || editorCommands.setNodeShape == nil)
+                    }
+                } label: {
+                    Label("节点形状", systemImage: "square.on.circle")
+                }
+                Menu {
+                    ForEach(BranchLineStyle.allCases) { line in
+                        Button {
+                            editorCommands.setBranchLine?(line)
+                        } label: {
+                            Text(verbatim: FlorettaL10n.string(line.titleKey, language: settings.language))
+                        }
+                        .disabled(editorCommands.setBranchLine == nil)
+                    }
+                } label: {
+                    Label("连线样式", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                }
+                Menu {
+                    ForEach(InspectorBorderStyle.allCases) { border in
+                        Button {
+                            editorCommands.setBorderStyle?(border)
+                        } label: {
+                            Text(verbatim: FlorettaL10n.string(border.titleKey, language: settings.language))
+                        }
+                        .disabled(!editorCommands.hasEditableSelection || editorCommands.setBorderStyle == nil)
+                    }
+                } label: {
+                    Label("边框", systemImage: "rectangle.dashed")
+                }
+                Divider()
                 editorCommand(.theme, actions: editorCommands)
                 Menu {
                     ForEach(InspectorFontDesign.allCases) { font in
@@ -229,14 +406,23 @@ private struct FlorettaCommands: Commands {
                 Divider()
                 topicButton("展开分支", command: .expandBranch)
                 topicButton("收起分支", command: .collapseBranch)
-                topicButton("展开全部", command: .expandAll)
-                topicButton("收起全部", command: .collapseAll)
                 topicShortcut(.openProperties)
             }
             // 帮助: the system Help menu, not a second 帮助 beside it. The chord
             // is whatever 设置 ▸ 快捷键 holds, so a rebind shows here at once.
             CommandGroup(replacing: .help) {
                 topicButton("快捷键一览", command: .showShortcutHelp)
+                Button {
+                    editorCommands.showUserGuide?()
+                } label: {
+                    Label("使用手册", systemImage: "book")
+                }
+                .disabled(editorCommands.showUserGuide == nil)
+                Button {
+                    openFeedback()
+                } label: {
+                    Label("反馈问题…", systemImage: "bubble.left.and.bubble.right")
+                }
             }
         }
         // 窗口 > 新建窗口: the menu the system owns for windows.
@@ -245,13 +431,28 @@ private struct FlorettaCommands: Commands {
         }
     }
 
-    /// 显示: 适应窗口, 大纲, 模式, 沉浸, 样式, then the zoom family. One group in
+    /// 显示: 适应窗口, 大纲, 模式, 沉浸, 检查器, 全屏, then the zoom family. One group in
     /// the system View menu, so 显示 is the only view menu in the bar.
     @ViewBuilder
     private func viewCommands(_ editorCommands: FlorettaEditorMenuActions) -> some View {
-        ForEach([EditorToolbarCommandID.fit, .outline, .mapMode, .focusMode, .immersive, .style], id: \.self) { id in
+        ForEach([EditorToolbarCommandID.fit, .outline, .mapMode, .focusMode, .immersive], id: \.self) { id in
             editorCommand(id, actions: editorCommands)
         }
+        Button {
+            editorCommands.perform[EditorToolbarCommandID.style]?()
+        } label: {
+            Label("显示或隐藏检查器", systemImage: "sidebar.trailing")
+        }
+        .keyboardShortcut("i", modifiers: [.command, .option])
+        .disabled(!editorCommands.enabled.contains(.style) || editorCommands.perform[.style] == nil)
+        Button {
+            NSApp.keyWindow?.toggleFullScreen(nil)
+        } label: {
+            let isFullScreen = NSApp.keyWindow?.styleMask.contains(.fullScreen) == true
+            Label(isFullScreen ? "退出全屏" : "全屏", systemImage: "arrow.up.left.and.arrow.down.right")
+        }
+        .keyboardShortcut("f", modifiers: [.control, .command])
+        .disabled(NSApp.keyWindow == nil)
         if editorCommands.isZenActive {
             Button { editorCommands.exitZen?() } label: {
                 Label("退出全屏沉浸", systemImage: "rectangle.compress.diagonal")
@@ -264,7 +465,7 @@ private struct FlorettaCommands: Commands {
         Button { editorCommands.zoomOut?() } label: { Label("缩小", systemImage: "minus.magnifyingglass") }
             .keyboardShortcut("-", modifiers: .command).disabled(editorCommands.zoomOut == nil)
         Button { editorCommands.zoomActual?() } label: { Label("实际大小", systemImage: "viewfinder") }
-            .keyboardShortcut("=", modifiers: .command).disabled(editorCommands.zoomActual == nil)
+            .keyboardShortcut("0", modifiers: .command).disabled(editorCommands.zoomActual == nil)
     }
 
     #if os(macOS)
@@ -273,6 +474,31 @@ private struct FlorettaCommands: Commands {
             return AnyView(EmptyView())
         }
         return AnyView(topicButton(entry.title, command: command, entry: entry))
+    }
+
+    private func menuText(_ key: String) -> String {
+        FlorettaL10n.string(key, language: settings.language)
+    }
+
+    private func textAlignmentTitle(_ alignment: MindMapTextAlignment) -> String {
+        switch alignment {
+        case .leading: "靠左"
+        case .center: "居中"
+        case .trailing: "靠右"
+        }
+    }
+
+    private func alignmentSymbol(_ alignment: MindMapTextAlignment) -> String {
+        switch alignment {
+        case .leading: "text.alignleft"
+        case .center: "text.aligncenter"
+        case .trailing: "text.alignright"
+        }
+    }
+
+    private func openFeedback() {
+        guard let url = URL(string: "https://github.com/Super-Console/Floretta/issues/new") else { return }
+        NSWorkspace.shared.open(url)
     }
 
     private func topicButton(
@@ -333,12 +559,27 @@ struct FlorettaEditorMenuActions {
     var setFontSize: ((Double) -> Void)?
     var toggleTextFlag: ((InspectorTextFlag) -> Void)?
     var showShortcutHelp: (() -> Void)?
+    var showUserGuide: (() -> Void)?
+    var showNodeNote: (() -> Void)?
+    var showReplace: (() -> Void)?
+    var findNext: (() -> Void)?
+    var selectAll: (() -> Void)?
+    var foldLevels: [Int] = []
+    var collapseToLevel: ((Int) -> Void)?
+    var setTextAlignment: ((MindMapTextAlignment) -> Void)?
+    var setNodeShape: ((InspectorTopicShape) -> Void)?
+    var setBranchLine: ((BranchLineStyle) -> Void)?
+    var setBorderStyle: ((InspectorBorderStyle) -> Void)?
     var performShortcut: ((MindMapCommand) -> Void)?
     var zoomIn: (() -> Void)?
     var zoomOut: (() -> Void)?
     var zoomActual: (() -> Void)?
     var isZenActive = false
     var exitZen: (() -> Void)?
+    var duplicateDocument: (() -> Void)?
+    var saveAsDocument: (() -> Void)?
+    var isEditingText = false
+    var isMarkdownDocument = false
 }
 
 private struct FlorettaEditorMenuActionsKey: FocusedValueKey {

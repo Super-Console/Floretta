@@ -250,8 +250,7 @@ enum CanvasTextLOD: Equatable, Sendable {
     var drawsTitle: Bool { self != .blocks }
 
     static func level(onScreenPointSize: CGFloat) -> CanvasTextLOD {
-        guard onScreenPointSize.isFinite else { return .blocks }
-        if onScreenPointSize < 5 { return .blocks }
+        guard onScreenPointSize.isFinite, onScreenPointSize > 0 else { return .blocks }
         if onScreenPointSize < 14 { return .title }
         return .full
     }
@@ -259,7 +258,7 @@ enum CanvasTextLOD: Equatable, Sendable {
 
 /// How much of a node's style to paint. Driven by zoom and the node's on-screen size.
 enum CanvasDetail: Equatable, Sendable {
-    /// Color blocks and links only.
+    /// Low-detail nodes keep a thin contour and links; secondary decorations are omitted.
     case far
     /// Text on. Shadows and hairline borders stay off.
     case mid
@@ -267,6 +266,7 @@ enum CanvasDetail: Equatable, Sendable {
     case near
 
     var drawsText: Bool { self != .far }
+    var drawsOutline: Bool { true }
     var drawsShadow: Bool { self == .near }
     var drawsFineBorder: Bool { self == .near }
     var drawsSelectionHandles: Bool { self == .near }

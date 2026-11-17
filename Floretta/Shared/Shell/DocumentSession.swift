@@ -881,7 +881,7 @@ final class EditorSession {
 
     /// Toolbar actions arrive while a new node is still in the text view.
     /// Commit that edit first so create / delete / undo see command mode.
-    private func finishEditingIfNeeded() {
+    internal func finishEditingIfNeeded() {
         guard !keyboard.isComposing, keyboard.mode == .edit else { return }
         editActive { document in
             keyboard.apply(.commitEdit, document: &document, frames: [])
@@ -1496,6 +1496,48 @@ final class LibraryModel {
         dismissOpenError()
     }
 
+    /// A duplicate is a new recent file, but the current editor must keep its URL.
+    func noteDuplicatedCopy(_ url: URL) {
+        let access = SecurityScopedURL(url: url)
+        defer { access.end() }
+        do {
+            try store.remember(url, clock: ports.clock)
+        } catch {
+            inventoryError = nil
+            alertTitle = "无法保存"
+            openError = saveFailureMessage(error)
+            return
+        }
+        reload()
+        dismissOpenError()
+    }
+
+    /// Save As adopts the newly written Floretta package, including when the
+    /// current editor was already backed by another `.floretta` URL.
+    func noteSavedAsCopy(_ url: URL) {
+        let access = SecurityScopedURL(url: url)
+        do {
+            try store.remember(url, clock: ports.clock)
+        } catch {
+            access.end()
+            inventoryError = nil
+            alertTitle = "无法保存"
+            openError = saveFailureMessage(error)
+            return
+        }
+        reload()
+        guard let editor else {
+            access.end()
+            return
+        }
+        scope?.end()
+        scope = access
+        editor.url = url
+        editor.sourceExtension = "floretta"
+        editor.leaveMarkdownMode()
+        dismissOpenError()
+    }
+
     /// ⌘S. A Markdown document is written back to its own URL. A `.floretta` uses the existing package write.
     func saveActiveFile() {
         guard let current = editor, canSaveActiveFile else { return }
@@ -2055,6 +2097,110 @@ enum CanvasEditCommands {
 
     static func find(in document: MindMapDocument, query: String) -> UUID? {
         document.topics(matching: query).first
+    }
+
+    static func findNext(in document: MindMapDocument, query: String, after selectedID: UUID?) -> UUID? {
+        let matches = document.topics(matching: query)
+        return nextMatch(in: matches, after: selectedID)
+    }
+
+    static func findNextTopicText(in document: MindMapDocument, query: String, after selectedID: UUID?) -> UUID? {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return nil }
+        var matches: [UUID] = []
+        document.walkTopics { node in
+            if node.text.localizedCaseInsensitiveContains(needle) {
+                matches.append(node.id)
+            }
+        }
+        return nextMatch(in: matches, after: selectedID)
+    }
+
+    private static func nextMatch(in matches: [UUID], after selectedID: UUID?) -> UUID? {
+        guard !matches.isEmpty else { return nil }
+        guard let selectedID, let current = matches.firstIndex(of: selectedID) else {
+            return matches[0]
+        }
+        return matches[(current + 1) % matches.count]
+    }
+
+    @discardableResult
+    static func replaceTopicText(
+        query: String,
+        with replacement: String,
+        on id: UUID,
+        document: inout MindMapDocument
+    ) -> Bool {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return false }
+        func replace(in nodes: inout [MindMapNode]) -> Bool {
+            for index in nodes.indices {
+                if nodes[index].id == id {
+                    let old = nodes[index].text
+                    let updated = old.replacingOccurrences(of: needle, with: replacement, options: [.caseInsensitive])
+                    guard updated != old else { return false }
+                    nodes[index].text = updated
+                    return true
+                }
+                if replace(in: &nodes[index].children) { return true }
+            }
+            return false
+        }
+        return replace(in: &document.roots) || replace(in: &document.freeNodes)
+    }
+
+    /// Replaces text only; labels and notes are intentionally outside the search scope.
+    /// The return value is the number of topics whose text changed.
+    @discardableResult
+    static func replaceTopicText(
+        query: String,
+        with replacement: String,
+        document: inout MindMapDocument
+    ) -> Int {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return 0 }
+        var changedTopics = 0
+        func replace(in nodes: inout [MindMapNode]) {
+            for index in nodes.indices {
+                let old = nodes[index].text
+                let updated = old.replacingOccurrences(of: needle, with: replacement, options: [.caseInsensitive])
+                if updated != old {
+                    nodes[index].text = updated
+                    changedTopics += 1
+                }
+                replace(in: &nodes[index].children)
+            }
+        }
+        replace(in: &document.roots)
+        replace(in: &document.freeNodes)
+        return changedTopics
+    }
+
+    @discardableResult
+    static func replaceTopicNote(_ note: String, on id: UUID, document: inout MindMapDocument) -> Bool {
+        func replace(in nodes: inout [MindMapNode]) -> Bool {
+            for index in nodes.indices {
+                if nodes[index].id == id {
+                    nodes[index].note = note
+                    return true
+                }
+                if replace(in: &nodes[index].children) { return true }
+            }
+            return false
+        }
+        return replace(in: &document.roots) || replace(in: &document.freeNodes)
+    }
+
+    static func collapse(toLevel level: Int, document: inout MindMapDocument) {
+        guard level > 0 else { return }
+        func apply(to nodes: inout [MindMapNode], depth: Int) {
+            for index in nodes.indices {
+                nodes[index].isCollapsed = depth >= level && !nodes[index].children.isEmpty
+                apply(to: &nodes[index].children, depth: depth + 1)
+            }
+        }
+        apply(to: &document.roots, depth: 1)
+        apply(to: &document.freeNodes, depth: 1)
     }
 
     static func addCanvas(to document: inout MindMapDocument) -> UUID {

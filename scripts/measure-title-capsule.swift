@@ -1,31 +1,25 @@
 import AppKit
 import SwiftUI
 
-// Offscreen pixel probe for the macOS leading navigation capsule.
+// Offscreen size/pixel probe for the macOS leading navigation capsule.
 //
 // It renders the *shipped* `DocumentTitleCapsule` (extracted verbatim from
 // Floretta/Shared/Shell/DocumentEditor.swift by
-// scripts/measure-title-capsule.sh) and reports, for each title, the horizontal
-// midpoint of the text's black-pixel bounding box against the capsule's
-// geometric midpoint.
+// scripts/measure-title-capsule.sh), measures its natural width, and checks the
+// actual NSToolbar plate against the offscreen window's bounds.
 //
 // Two measurements:
-//   default    the capsule content rendered alone; the text's ink centre against
-//              the content's own centre. The bar draws one symmetric plate
-//              around this content, so this is the plate's centre line.
-//   --toolbar  the same capsule installed as a real NSToolbar item in an
-//              offscreen window; the item viewer's frame (what the plate is
-//              drawn around) against the content frame. This is what proves the
-//              system's plate padding is symmetric, i.e. that centring the
-//              content really centres the text in the plate.
+//   default    the capsule content rendered alone; its full layout width and
+//              the title's ink width expose space not accounted for by content.
+//   --toolbar  the same capsule installed as a real NSToolbar item in a wide
+//              offscreen window; the plate must remain within the actual window.
 //
 // Nothing is launched, shown, or screenshotted: no window is ever ordered
 // front, and the process runs with the activation policy `.prohibited`.
 //
-// Usage: measure-title-capsule [--baseline | --toolbar] [--verbose]
-//   --baseline renders the pre-fix row shape `[返回][名]` for comparison; that
-//   shape is no longer in the product, and exists here so the probe can be
-//   shown to detect the offset it is supposed to detect.
+// Usage: measure-title-capsule [--baseline | --toolbar | --narrow] [--verbose]
+//   --baseline renders the earlier `[返回][名]` row for width comparison; that
+//   shape is no longer in the product.
 
 // MARK: - Titles under test
 
@@ -52,20 +46,26 @@ let verbose = CommandLine.arguments.contains("--verbose")
 // MARK: - Drawing and scanning
 
 @MainActor
-func makeHost<V: View>(_ view: V) -> NSHostingView<V> {
+func makeHost<V: View>(_ view: V, constrainedWidth: CGFloat? = nil) -> NSHostingView<V> {
     let host = NSHostingView(rootView: view)
     host.appearance = NSAppearance(named: .aqua)
     host.frame = NSRect(x: 0, y: 0, width: 400, height: 40)
     // A window gives the hosting view a real layout/display context; it is
     // never ordered front, so nothing appears on any display.
     let window = NSWindow(
-        contentRect: NSRect(x: 0, y: 0, width: 400, height: 40),
+        contentRect: NSRect(x: 0, y: 0, width: max(400, constrainedWidth ?? 0), height: 40),
         styleMask: .borderless,
         backing: .buffered,
         defer: true
     )
     window.contentView = host
     host.layoutSubtreeIfNeeded()
+    if let constrainedWidth {
+        host.frame = NSRect(x: 0, y: 0, width: constrainedWidth, height: 40)
+        host.layoutSubtreeIfNeeded()
+        host.displayIfNeeded()
+        return host
+    }
     let fit = host.fittingSize
     let size = NSSize(width: max(1, ceil(fit.width)), height: max(1, ceil(fit.height)))
     host.frame = NSRect(origin: .zero, size: size)
@@ -115,15 +115,12 @@ struct Reading {
     var titleMaxX: CGFloat
     var runs: [(min: CGFloat, max: CGFloat)]
 
-    var titleCenter: CGFloat { (titleMinX + titleMaxX) / 2 }
-    var capsuleCenter: CGFloat { width / 2 }
-    var deviation: CGFloat { titleCenter - capsuleCenter }
     var titleWidth: CGFloat { titleMaxX - titleMinX }
 }
 
 @MainActor
-func measure<V: View>(_ view: V) -> Reading? {
-    let host = makeHost(view)
+func measure<V: View>(_ view: V, constrainedWidth: CGFloat? = nil) -> Reading? {
+    let host = makeHost(view, constrainedWidth: constrainedWidth)
     guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { return nil }
     host.cacheDisplay(in: host.bounds, to: rep)
     let scale = CGFloat(rep.pixelsWide) / max(1, host.bounds.width)
@@ -168,19 +165,18 @@ func typeName(_ view: NSView) -> String { String(describing: type(of: view)) }
 struct ToolbarReading {
     var itemWidth: CGFloat
     var itemMinX: CGFloat
+    var windowWidth: CGFloat
     var contentMinX: CGFloat
     var contentWidth: CGFloat
     var viewerClass: String
 
-    var itemCenter: CGFloat { itemMinX + itemWidth / 2 }
-    var contentCenter: CGFloat { contentMinX + contentWidth / 2 }
-    var deviation: CGFloat { contentCenter - itemCenter }
+    var itemMaxX: CGFloat { itemMinX + itemWidth }
 }
 
 @MainActor
-func measureInToolbar(_ title: String) -> (reading: ToolbarReading?, note: String) {
+func measureInToolbar(_ title: String, windowWidth: CGFloat) -> (reading: ToolbarReading?, note: String) {
     let window = NSWindow(
-        contentRect: NSRect(x: 0, y: 0, width: 900, height: 600),
+        contentRect: NSRect(x: 0, y: 0, width: windowWidth, height: 600),
         styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
         backing: .buffered,
         defer: true
@@ -242,6 +238,7 @@ func measureInToolbar(_ title: String) -> (reading: ToolbarReading?, note: Strin
         ToolbarReading(
             itemWidth: plateFrame.width,
             itemMinX: plateFrame.minX,
+            windowWidth: frameView.bounds.width,
             contentMinX: contentFrame.minX,
             contentWidth: contentFrame.width,
             viewerClass: typeName(plateView)
@@ -254,6 +251,7 @@ func measureInToolbar(_ title: String) -> (reading: ToolbarReading?, note: Strin
 
 let baseline = CommandLine.arguments.contains("--baseline")
 let toolbarMode = CommandLine.arguments.contains("--toolbar")
+let narrowMode = CommandLine.arguments.contains("--narrow")
 
 func titleText(_ title: String) -> some View {
     CappedWidthLayout(maxWidth: limit) {
@@ -272,7 +270,7 @@ func backControl() -> some View {
 @MainActor
 func runContent() {
     print("mode: \(baseline ? "baseline ([back][title], pre-fix)" : "shipped DocumentTitleCapsule")")
-    print("title                         contentW   textW   inkCenter contentCenter  deviation")
+    print("title                         contentW titleInk  extraW")
     var failures: [String] = []
     for item in cases {
         let view: AnyView
@@ -304,14 +302,11 @@ func runContent() {
         }
         let name = item.label.padding(toLength: 30, withPad: " ", startingAt: 0)
         print(String(
-            format: "%@ %8.2f %7.2f %10.2f %13.2f  %+7.2fpt",
-            name, r.width, r.titleWidth, r.titleCenter, r.capsuleCenter, r.deviation
+            format: "%@ %8.2f %8.2f %7.2f",
+            name, r.width, r.titleWidth, r.width - r.titleWidth
         ))
         if verbose {
             print("    runs: " + r.runs.map { String(format: "[%.1f,%.1f]", $0.min, $0.max) }.joined(separator: " "))
-        }
-        if abs(r.deviation) > 1.0 {
-            failures.append("\(item.label): deviation \(r.deviation) pt > 1 pt")
         }
         if r.titleMinX < 1 || r.titleMaxX > r.width - 1 {
             failures.append("\(item.label): text leaves the capsule")
@@ -319,35 +314,82 @@ func runContent() {
         if r.titleWidth > limit + 0.5 {
             failures.append("\(item.label): text wider than the cap")
         }
+        if item.title.count <= 3 && r.width - r.titleWidth > 72 {
+            failures.append("\(item.label): short-title chrome adds \(r.width - r.titleWidth) pt beyond the visible title")
+        }
+        if item.title.count > 3 && r.width > limit + 80 {
+            failures.append("\(item.label): capsule width \(r.width) exceeds title cap plus controls")
+        }
     }
-    report(failures, pass: "every title is centred within 1 pt and stays inside the capsule")
+    report(failures, pass: "short titles hug their controls and long titles stay within the width cap")
 }
 
 @MainActor
 func runToolbar() {
-    print("mode: real NSToolbar item (offscreen window, never ordered front)")
-    print("title                         itemW  contentW  contentCenter  itemCenter  deviation")
+    print("mode: real NSToolbar item (wide offscreen window, never ordered front)")
+    print("title                         requestW actualW  plateX  plateW  plateR  titleW")
     var failures: [String] = []
     var note = ""
-    for item in cases {
-        let (reading, message) = measureInToolbar(item.title)
-        note = message
-        guard let r = reading else {
-            print("\(item.label): \(message)")
-            failures.append("\(item.label): \(message)")
-            continue
-        }
-        let name = item.label.padding(toLength: 30, withPad: " ", startingAt: 0)
-        print(String(
-            format: "%@ %7.2f %9.2f %13.2f %11.2f  %+7.2fpt",
-            name, r.itemWidth, r.contentWidth, r.contentCenter, r.itemCenter, r.deviation
-        ))
-        if abs(r.deviation) > 1.0 {
-            failures.append("\(item.label): content off the plate centre by \(r.deviation) pt")
+    for requestedWidth in [900.0] as [CGFloat] {
+        for item in cases {
+            let (reading, message) = measureInToolbar(item.title, windowWidth: requestedWidth)
+            note = message
+            guard let r = reading else {
+                print("\(item.label) @ \(requestedWidth): \(message)")
+                failures.append("\(item.label) @ \(requestedWidth): \(message)")
+                continue
+            }
+            let name = item.label.padding(toLength: 30, withPad: " ", startingAt: 0)
+            print(String(
+                format: "%@ %8.0f %7.2f %7.2f %7.2f %7.2f %7.2f",
+                name, requestedWidth, r.windowWidth, r.itemMinX, r.itemWidth, r.itemMaxX, r.contentWidth
+            ))
+            if r.itemMinX < -0.5 || r.itemMaxX > r.windowWidth + 0.5 {
+                failures.append("\(item.label) @ \(requestedWidth): toolbar plate [\(r.itemMinX), \(r.itemMaxX)] exceeds window width \(r.windowWidth)")
+            }
+            if item.title.count > 3 && r.contentWidth > limit + 80 {
+                failures.append("\(item.label) @ \(requestedWidth): title capsule content \(r.contentWidth) exceeds the width cap plus controls")
+            }
         }
     }
     if verbose { print("    \(note)") }
-    report(failures, pass: "the plate padding is symmetric: content centre = plate centre")
+    report(failures, pass: "every title capsule remains inside its actual toolbar window")
+}
+
+@MainActor
+func runNarrow() {
+    print("mode: constrained offscreen title capsule (no ordered-front window)")
+    print("title                         hostW titleMin titleMax titleW")
+    var failures: [String] = []
+    for width in [280.0, 240.0] as [CGFloat] {
+        for item in cases.dropFirst() {
+            let view = DocumentTitleCapsule(
+                title: item.title,
+                titleWidthLimit: limit,
+                backLabel: "返回",
+                backHint: "返回导图列表",
+                renameHint: "为这份导图重新命名",
+                onBack: {},
+                onRename: {}
+            )
+            guard let reading = measure(view, constrainedWidth: width) else {
+                failures.append("\(item.label) @ \(width): no rendered title ink")
+                continue
+            }
+            let name = item.label.padding(toLength: 30, withPad: " ", startingAt: 0)
+            print(String(
+                format: "%@ %5.0f %8.2f %8.2f %7.2f",
+                name, width, reading.titleMinX, reading.titleMaxX, reading.titleWidth
+            ))
+            if reading.titleMinX < 0.5 || reading.titleMaxX > width - 0.5 {
+                failures.append("\(item.label) @ \(width): title ink exceeds the available window width")
+            }
+            if reading.titleWidth > min(limit, width) + 0.5 {
+                failures.append("\(item.label) @ \(width): title ink exceeds its width cap")
+            }
+        }
+    }
+    report(failures, pass: "long titles stay visible within narrow available widths")
 }
 
 func report(_ failures: [String], pass: String) {
@@ -365,7 +407,13 @@ struct Probe {
     static func main() {
         NSApplication.shared.setActivationPolicy(.prohibited)
         MainActor.assumeIsolated {
-            if toolbarMode { runToolbar() } else { runContent() }
+            if toolbarMode {
+                runToolbar()
+            } else if narrowMode {
+                runNarrow()
+            } else {
+                runContent()
+            }
         }
     }
 }

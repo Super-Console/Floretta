@@ -338,6 +338,7 @@ final class CanvasPointerModeTests: XCTestCase {
     func testTheStatusCapsuleCarriesTheMacPointerToggle() throws {
         let bar = try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift")
         let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
+        let canvasStage = try slice(editor, from: "private struct CanvasStageView", until: "private struct CanvasNoticesView")
         XCTAssertTrue(bar.contains("@Binding var pointerMode: CanvasPointerMode"))
         XCTAssertTrue(bar.contains("#if os(macOS)"))
         XCTAssertTrue(bar.contains("accessibilityIdentifier(\"statusBar.pointer\")"))
@@ -346,7 +347,7 @@ final class CanvasPointerModeTests: XCTestCase {
         XCTAssertTrue(bar.contains(".help(Text(verbatim: pointerModeActionLabel))"))
         XCTAssertTrue(bar.contains(".accessibilityLabel(Text(verbatim: pointerModeActionLabel))"))
         XCTAssertTrue(editor.contains("pointerMode: $settings.pointerMode"))
-        XCTAssertTrue(editor.contains("pointerMode: settings.pointerMode"))
+        XCTAssertTrue(canvasStage.contains("pointerMode: editor.settings.pointerMode"))
     }
 
     // MARK: - fixtures

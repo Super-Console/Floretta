@@ -1,41 +1,47 @@
 import FlorettaCore
 import XCTest
 
-/// Locks editor chrome alongside the UI test: the back glyph and the editable
-/// filename share one leading Mac navigation capsule (system glass only, no
-/// custom plate stacked inside it), the name does not reserve an invisible
-/// balancing control, and the iOS control is a stock toolbar item. The hit area
-/// itself is `EditorBackButtonHitAreaTests`.
+/// Locks editor chrome alongside the UI test: the Mac back button and editable
+/// filename are separate leading toolbar items (each gets its own system glass
+/// platter), the title hugs its content, and the iOS control is a stock toolbar
+/// item. The hit area itself is `EditorBackButtonHitAreaTests`.
 final class EditorChromeContractTests: XCTestCase {
-    /// Short titles hug the back control, name, and their one gap. Long titles
-    /// stay middle-truncated within the width cap. The offscreen AppKit probe
-    /// checks the rendered width and the actual NSToolbar item's window bounds.
-    func testMacTitleCapsuleHugsShortTitlesAndCapsLongTitles() throws {
+    /// Short titles hug their own capsule; long titles stay middle-truncated
+    /// within the width cap. The offscreen AppKit probe measures the rendered
+    /// title and the actual NSToolbar platter.
+    func testMacBackAndTitleAreSeparateHuggingToolbarItems() throws {
         let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         let leading = try slice(
             source,
             from: "private var macToolbarItemsLeading",
-            until: "private struct DocumentTitleCapsule"
+            until: "private var macToolbarItemsPrimary"
         )
         let capsule = try slice(
             source,
             from: "private struct DocumentTitleCapsule",
             until: "private var macToolbarItemsPrimary"
         )
-        XCTAssertTrue(leading.contains("ToolbarItem(id: \"document.navigation\", placement: .navigation)"), "back and title share the leading navigation slot")
-        XCTAssertTrue(leading.contains("DocumentTitleCapsule("), "the one item draws the capsule type")
+        XCTAssertTrue(leading.contains("ToolbarItem(id: \"document.back\", placement: .navigation)"))
+        XCTAssertTrue(leading.contains("ToolbarItem(id: \"document.title\", placement: .navigation)"))
+        XCTAssertLessThan(
+            try XCTUnwrap(leading.range(of: "document.back")).lowerBound,
+            try XCTUnwrap(leading.range(of: "document.title")).lowerBound,
+            "the independent title platter follows the back button"
+        )
+        XCTAssertTrue(leading.contains("DocumentTitleCapsule("), "the title item draws the capsule type")
         XCTAssertTrue(leading.contains("title: macToolbarSnapshot.documentTitle"))
-        XCTAssertTrue(leading.contains("onBack: onClose"))
-        XCTAssertFalse(leading.contains("HStack"), "the row lives in the capsule type: one item, one plate")
+        XCTAssertTrue(leading.contains("Button(action: onClose)"), "the back button remains independently actionable")
+        XCTAssertFalse(leading.contains("HStack"), "the two controls are separate toolbar items, not one grouped platter")
 
-        XCTAssertTrue(capsule.contains("chevron.backward"))
-        XCTAssertTrue(capsule.contains("\"basicChain.back\""))
+        XCTAssertFalse(capsule.contains("chevron.backward"), "the title capsule contains no back control")
         XCTAssertTrue(capsule.contains("\"document.title\""), "the rename control keeps its accessibility identifier")
-        XCTAssertTrue(capsule.contains("HStack(spacing: Self.gap)"), "the control gap comes from the one constant")
-        XCTAssertFalse(capsule.contains("backSlot"), "an invisible mirror made short-title capsules unnecessarily wide")
         XCTAssertTrue(capsule.contains("CappedWidthLayout(maxWidth: titleWidthLimit)"), "the title respects the available width and the cap")
         XCTAssertTrue(capsule.contains(".truncationMode(.middle)"), "the .floretta extension survives")
         XCTAssertTrue(capsule.contains(".lineLimit(1)"), "a long title stays on one line")
+        XCTAssertTrue(capsule.contains(".fixedSize(horizontal: true, vertical: false)"), "the platter hugs short title content")
+        XCTAssertFalse(capsule.contains(".onHover("), "hover must not change title layout")
+        XCTAssertFalse(capsule.contains("isPressed"), "press feedback must not change title layout")
+        XCTAssertTrue(source.contains("session.document.title.isEmpty ? \"未命名\" : session.document.title"), "an empty document title displays the centered placeholder")
         XCTAssertFalse(capsule.contains(".frame(width:"), "no fixed-width placeholder may stretch the capsule")
         XCTAssertFalse(leading.contains(".appleGlassChrome(.floatingPanel)"), "no custom glass plate may be nested inside the system navigation capsule")
         XCTAssertTrue(source.contains(".modifier(MacEditorWindowTitle(title: \"\"))"))
@@ -73,7 +79,8 @@ final class EditorChromeContractTests: XCTestCase {
             "hiding the shared background is what left the filename as bare text"
         )
         XCTAssertTrue(ios.contains("\"document.title\""))
-        XCTAssertTrue(source.contains("ToolbarItem(id: \"document.navigation\", placement: .navigation)"))
+        XCTAssertTrue(source.contains("ToolbarItem(id: \"document.back\", placement: .navigation)"))
+        XCTAssertTrue(source.contains("ToolbarItem(id: \"document.title\", placement: .navigation)"))
     }
 
     /// ④ 2026-11-16: the iPhone filename is wrapped in a capsule.
@@ -146,7 +153,7 @@ final class EditorChromeContractTests: XCTestCase {
     func testOutlinePanelAlignmentTouchTargetsAndMotion() throws {
         let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         let panel = try slice(editor, from: "private var outlinePanel", until: "private var markdownBanner")
-        let stack = try slice(editor, from: "private var canvasStack", until: "private var bottomBarRow")
+        let stack = try slice(editor, from: "private struct CanvasStackView", until: "private struct CanvasStageView")
         let outline = try repoFile("Floretta/Shared/Outline/OutlineView.swift")
         let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
         let inset = try slice(glass, from: "func sidebarSelectionInset()", until: "private struct AppleGlassChromePlate")
@@ -172,7 +179,8 @@ final class EditorChromeContractTests: XCTestCase {
         // Motion: the system snappy spring, skipped when reduce motion is on.
         XCTAssertTrue(stack.contains(".transition(.move(edge: .leading).combined(with: .opacity))"))
         XCTAssertTrue(
-            stack.contains(".animation(ChromeMotion.resolved(ChromeMotion.panel, reduceMotion: reduceMotion), value: showOutline)"),
+            stack.contains("ChromeMotion.resolved(ChromeMotion.panel, reduceMotion: editor.reduceMotion)")
+                && stack.contains("value: editor.showOutline"),
             "the panel uses the system snappy curve through ChromeMotion, which hands back nil for Reduce Motion"
         )
         XCTAssertTrue(editor.contains("@Environment(\\.accessibilityReduceMotion) private var reduceMotion"))
@@ -184,17 +192,18 @@ final class EditorChromeContractTests: XCTestCase {
     /// fades in and out instead of snapping on.
     func testImmersiveExitIsOneFortyFourPointGlassCircle() throws {
         let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
-        let exit = try slice(editor, from: ".overlay(alignment: .topTrailing)", until: ".onChange(of: session.zen.isActive)")
+        let exit = try slice(editor, from: "private struct ZenExitOverlayView", until: "private var editorToolbar")
 
         XCTAssertTrue(exit.contains("Image(systemName: \"xmark\")"))
         XCTAssertFalse(exit.contains("Label(\"退出全屏沉浸\""), "immersive chrome is icon only, not a text pill")
         XCTAssertTrue(exit.contains("EditorStatusBarChrome.controlMinHeight"), "44pt on iOS")
         XCTAssertTrue(exit.contains(".contentShape(Circle())"))
         XCTAssertTrue(exit.contains(".appleGlassChrome(.canvasFloatingButton)"))
-        XCTAssertTrue(exit.contains(".accessibilityLabel(text(\"退出全屏沉浸\"))"))
+        XCTAssertTrue(exit.contains(".accessibilityLabel(editor.text(\"退出全屏沉浸\"))"))
         XCTAssertTrue(exit.contains("zen.exit"))
         XCTAssertTrue(exit.contains(".transition(.opacity.combined(with: .scale(scale: 0.98)))"))
-        XCTAssertTrue(exit.contains(".animation(reduceMotion ? nil : .snappy, value: isExitAffordanceRevealed)"))
+        let editorCore = try slice(editor, from: "private struct EditorCoreView", until: "private struct ZenExitOverlayView")
+        XCTAssertTrue(editorCore.contains(".animation(editor.reduceMotion ? nil : .snappy, value: editor.isExitAffordanceRevealed)"))
     }
 
     func testDocumentFilenameIsNotDuplicatedInNativeWindowTitle() throws {

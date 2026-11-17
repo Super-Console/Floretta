@@ -206,6 +206,7 @@ private struct MacNodeTextEditor: NSViewRepresentable {
     }
 
     private func makeEditingTextView(context: Context) -> EditingTextView {
+        KeyLatencyProbe.shared.countTextViewCreation()
         let view = EditingTextView()
         view.delegate = context.coordinator
         view.isRichText = false
@@ -237,7 +238,6 @@ private struct MacNodeTextEditor: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: EditingTextView, context: Context) {
-        KeyLatencyProbe.shared.countEditorUpdate()
         context.coordinator.text = $text
         context.coordinator.isComposing = $isComposing
         context.coordinator.minimumWidth = $minimumWidth
@@ -247,6 +247,10 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         context.coordinator.paper = paper
         context.coordinator.ink = ink
         let ownsKeys = nsView.window?.firstResponder === nsView
+        KeyLatencyProbe.shared.countEditorUpdate(
+            isFirstResponder: ownsKeys,
+            hasMarkedText: nsView.hasMarkedText()
+        )
         if let nodeChrome {
             applyNodeChrome(nodeChrome, to: nsView, ownsKeys: ownsKeys)
         }
@@ -497,6 +501,11 @@ private struct MacNodeTextEditor: NSViewRepresentable {
 
         func compositionChanged(_ view: NSTextView) {
             let composing = view.hasMarkedText()
+            let markedRange = view.markedRange()
+            let markedTextLength = composing && markedRange.location != NSNotFound
+                ? markedRange.length
+                : 0
+            KeyLatencyProbe.shared.noteTextCompositionChanged(markedTextLength: markedTextLength)
             isComposing.wrappedValue = composing
             if view.string != text.wrappedValue {
                 text.wrappedValue = view.string
@@ -513,6 +522,10 @@ private struct MacNodeTextEditor: NSViewRepresentable {
         func textDidChange(_ notification: Notification) {
             guard let view = notification.object as? NSTextView else { return }
             compositionChanged(view)
+            KeyLatencyProbe.shared.noteTextSubmitted(
+                currentText: view.string,
+                hasMarkedText: view.hasMarkedText()
+            )
         }
 
         func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
@@ -558,6 +571,15 @@ private final class EditingTextView: NSTextView {
     var appliedChromeSignature: NodeEditChromeSignature?
     var centeringPass = TextCenteringPass.idle
     private var applyingChrome = false
+
+    override func keyDown(with event: NSEvent) {
+        KeyLatencyProbe.shared.noteTextKeyDown(
+            event,
+            hasMarkedText: hasMarkedText(),
+            currentText: string
+        )
+        super.keyDown(with: event)
+    }
 
     override var backgroundColor: NSColor {
         get { super.backgroundColor }

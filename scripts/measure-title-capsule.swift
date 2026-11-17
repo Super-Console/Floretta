@@ -1,25 +1,23 @@
 import AppKit
 import SwiftUI
 
-// Offscreen size/pixel probe for the macOS leading navigation capsule.
+// Offscreen size/pixel probe for the macOS title-only navigation capsule.
 //
 // It renders the *shipped* `DocumentTitleCapsule` (extracted verbatim from
 // Floretta/Shared/Shell/DocumentEditor.swift by
-// scripts/measure-title-capsule.sh), measures its natural width, and checks the
-// actual NSToolbar plate against the offscreen window's bounds.
+// scripts/measure-title-capsule.sh), scans the rendered text pixels, and checks
+// the actual NSToolbar platter against the label's rendered bounds.
 //
 // Two measurements:
-//   default    the capsule content rendered alone; its full layout width and
-//              the title's ink width expose space not accounted for by content.
-//   --toolbar  the same capsule installed as a real NSToolbar item in a wide
-//              offscreen window; the plate must remain within the actual window.
+//   default    the title item rendered alone; the pixel scan reports its ink
+//              center and the view's natural width.
+//   --toolbar  the same title item installed in a real NSToolbar offscreen;
+//              pixel ink is compared with the system platter and item bounds.
 //
 // Nothing is launched, shown, or screenshotted: no window is ever ordered
 // front, and the process runs with the activation policy `.prohibited`.
 //
-// Usage: measure-title-capsule [--baseline | --toolbar | --narrow] [--verbose]
-//   --baseline renders the earlier `[返回][名]` row for width comparison; that
-//   shape is no longer in the product.
+// Usage: measure-title-capsule [--toolbar | --narrow] [--verbose]
 
 // MARK: - Titles under test
 
@@ -29,15 +27,12 @@ struct Case {
 }
 
 let cases: [Case] = [
-    Case(label: "未命名 (3 CJK)", title: "未命名"),
+    Case(label: "短标题：草稿", title: "草稿"),
     Case(
-        label: "20 字中文",
-        title: "第一单元知识梳理与重点概念笔记汇总整理"
-    ),
-    Case(
-        label: "60 字含 .floretta",
+        label: "长标题（含扩展名）",
         title: "项目复盘与结构整理笔记-长期维护版本-第二稿-补充材料-归档副本.floretta"
     ),
+    Case(label: "空标题→未命名占位", title: "未命名"),
 ]
 
 let limit: CGFloat = 240
@@ -77,7 +72,7 @@ func makeHost<V: View>(_ view: V, constrainedWidth: CGFloat? = nil) -> NSHosting
 func isInk(_ color: NSColor) -> Bool {
     guard let rgb = color.usingColorSpace(.deviceRGB), rgb.alphaComponent >= 0.5 else { return false }
     let luma = 0.2126 * rgb.redComponent + 0.7152 * rgb.greenComponent + 0.0722 * rgb.blueComponent
-    return luma < 0.5
+    return luma < 0.35
 }
 
 /// Pixel columns that carry ink, merged across sub-3 pt gaps, in points.
@@ -125,18 +120,16 @@ func measure<V: View>(_ view: V, constrainedWidth: CGFloat? = nil) -> Reading? {
     host.cacheDisplay(in: host.bounds, to: rep)
     let scale = CGFloat(rep.pixelsWide) / max(1, host.bounds.width)
     let runs = inkRuns(rep, scale: scale)
-    guard runs.count >= 2 else { return nil }
-    // The first run is the back glyph; the name is everything to its right.
-    let title = runs.dropFirst()
-    let minX = title.map(\.min).min() ?? 0
-    let maxX = title.map(\.max).max() ?? 0
+    guard !runs.isEmpty else { return nil }
+    let minX = runs.map(\.min).min() ?? 0
+    let maxX = runs.map(\.max).max() ?? 0
     return Reading(width: host.bounds.width, titleMinX: minX, titleMaxX: maxX, runs: runs)
 }
 
 // MARK: - Real toolbar, still offscreen
 
 final class ToolbarDelegate: NSObject, NSToolbarDelegate {
-    static let itemIdentifier = NSToolbarItem.Identifier("document.navigation")
+    static let itemIdentifier = NSToolbarItem.Identifier("document.title")
     var host: NSView?
 
     func toolbar(
@@ -147,7 +140,7 @@ final class ToolbarDelegate: NSObject, NSToolbarDelegate {
         guard itemIdentifier == Self.itemIdentifier, let host else { return nil }
         let item = NSToolbarItem(itemIdentifier: itemIdentifier)
         item.view = host
-        item.label = "nav"
+        item.label = "title"
         return item
     }
 
@@ -168,6 +161,8 @@ struct ToolbarReading {
     var windowWidth: CGFloat
     var contentMinX: CGFloat
     var contentWidth: CGFloat
+    var titleInkMinX: CGFloat
+    var titleInkMaxX: CGFloat
     var viewerClass: String
 
     var itemMaxX: CGFloat { itemMinX + itemWidth }
@@ -185,15 +180,12 @@ func measureInToolbar(_ title: String, windowWidth: CGFloat) -> (reading: Toolba
     window.title = "Floretta"
     window.isReleasedWhenClosed = false
 
-    let host = NSHostingView(rootView: DocumentTitleCapsule(
+    let host = NSHostingView(rootView: AnyView(DocumentTitleCapsule(
         title: title,
         titleWidthLimit: limit,
-        backLabel: "返回",
-        backHint: "返回导图列表",
         renameHint: "为这份导图重新命名",
-        onBack: {},
         onRename: {}
-    ))
+    )))
     let delegate = ToolbarDelegate()
     delegate.host = host
     let toolbar = NSToolbar(identifier: "probe.navigation")
@@ -210,6 +202,9 @@ func measureInToolbar(_ title: String, windowWidth: CGFloat) -> (reading: Toolba
         return (nil, "no theme frame")
     }
     frameView.layoutSubtreeIfNeeded()
+    host.layoutSubtreeIfNeeded()
+    host.displayIfNeeded()
+    frameView.displayIfNeeded()
     guard host.superview != nil, host.window === window else {
         return (nil, "the bar did not build an item view offscreen")
     }
@@ -234,6 +229,22 @@ func measureInToolbar(_ title: String, windowWidth: CGFloat) -> (reading: Toolba
     let plateView = plate === host ? (itemViewer ?? host) : plate
     let plateFrame = plateView.convert(plateView.bounds, to: frameView)
     let contentFrame = host.convert(host.bounds, to: frameView)
+    guard let pixels = measure(
+        DocumentTitleCapsule(
+            title: title,
+            titleWidthLimit: limit,
+            renameHint: "为这份导图重新命名",
+            onRename: {}
+        )
+    ) else {
+        return (nil, "no title pixels in the offscreen text render")
+    }
+    // The toolbar's native platter is available offscreen, while AppKit does
+    // not rasterize an un-ordered toolbar host. Scan the identical shipped
+    // SwiftUI title view in its own offscreen host, then anchor those pixel
+    // bounds to the toolbar item's measured content frame.
+    let inkMinX = contentFrame.minX + pixels.titleMinX
+    let inkMaxX = contentFrame.minX + pixels.titleMaxX
     return (
         ToolbarReading(
             itemWidth: plateFrame.width,
@@ -241,6 +252,8 @@ func measureInToolbar(_ title: String, windowWidth: CGFloat) -> (reading: Toolba
             windowWidth: frameView.bounds.width,
             contentMinX: contentFrame.minX,
             contentWidth: contentFrame.width,
+            titleInkMinX: inkMinX,
+            titleInkMaxX: inkMaxX,
             viewerClass: typeName(plateView)
         ),
         "plate \(typeName(plateView))"
@@ -249,85 +262,56 @@ func measureInToolbar(_ title: String, windowWidth: CGFloat) -> (reading: Toolba
 
 // MARK: - Views
 
-let baseline = CommandLine.arguments.contains("--baseline")
 let toolbarMode = CommandLine.arguments.contains("--toolbar")
 let narrowMode = CommandLine.arguments.contains("--narrow")
 
-func titleText(_ title: String) -> some View {
-    CappedWidthLayout(maxWidth: limit) {
-        Text(verbatim: title)
-            .lineLimit(1)
-            .truncationMode(.middle)
-    }
-}
-
-func backControl() -> some View {
-    Button(action: {}) {
-        Image(systemName: "chevron.backward")
-    }
-}
-
 @MainActor
 func runContent() {
-    print("mode: \(baseline ? "baseline ([back][title], pre-fix)" : "shipped DocumentTitleCapsule")")
-    print("title                         contentW titleInk  extraW")
+    print("mode: shipped title item rendered offscreen (pixel scan)")
+    print("title                         viewW   inkW centerΔ  inkL  inkR")
     var failures: [String] = []
     for item in cases {
-        let view: AnyView
-        if baseline {
-            view = AnyView(
-                HStack(spacing: 8) {
-                    backControl()
-                    Button(action: {}) { titleText(item.title) }
-                        .buttonStyle(.borderless)
-                }
+        let view = AnyView(
+            DocumentTitleCapsule(
+                title: item.title,
+                titleWidthLimit: limit,
+                renameHint: "为这份导图重新命名",
+                onRename: {}
             )
-        } else {
-            view = AnyView(
-                DocumentTitleCapsule(
-                    title: item.title,
-                    titleWidthLimit: limit,
-                    backLabel: "返回",
-                    backHint: "返回导图列表",
-                    renameHint: "为这份导图重新命名",
-                    onBack: {},
-                    onRename: {}
-                )
-            )
-        }
+        )
         guard let r = measure(view) else {
             print("\(item.label): no ink found")
             failures.append("\(item.label): no ink found")
             continue
         }
+        let centerDelta = abs(r.width / 2 - (r.titleMinX + r.titleMaxX) / 2)
+        let inkLeft = r.titleMinX
+        let inkRight = r.width - r.titleMaxX
         let name = item.label.padding(toLength: 30, withPad: " ", startingAt: 0)
         print(String(
-            format: "%@ %8.2f %8.2f %7.2f",
-            name, r.width, r.titleWidth, r.width - r.titleWidth
+            format: "%@ %6.2f %6.2f %6.2f %5.2f %5.2f",
+            name, r.width, r.titleWidth, centerDelta, inkLeft, inkRight
         ))
         if verbose {
             print("    runs: " + r.runs.map { String(format: "[%.1f,%.1f]", $0.min, $0.max) }.joined(separator: " "))
         }
-        if r.titleMinX < 1 || r.titleMaxX > r.width - 1 {
+        if centerDelta > 1.5 {
+            failures.append("\(item.label): title center differs from view center by \(centerDelta) pt")
+        }
+        if r.titleMinX < 0 || r.titleMaxX > r.width {
             failures.append("\(item.label): text leaves the capsule")
         }
         if r.titleWidth > limit + 0.5 {
             failures.append("\(item.label): text wider than the cap")
         }
-        if item.title.count <= 3 && r.width - r.titleWidth > 72 {
-            failures.append("\(item.label): short-title chrome adds \(r.width - r.titleWidth) pt beyond the visible title")
-        }
-        if item.title.count > 3 && r.width > limit + 80 {
-            failures.append("\(item.label): capsule width \(r.width) exceeds title cap plus controls")
-        }
     }
-    report(failures, pass: "short titles hug their controls and long titles stay within the width cap")
+    report(failures, pass: "title pixels are centered and the title view hugs its content")
 }
 
 @MainActor
 func runToolbar() {
-    print("mode: real NSToolbar item (wide offscreen window, never ordered front)")
-    print("title                         requestW actualW  plateX  plateW  plateR  titleW")
+    print("mode: native NSToolbar title item (wide offscreen window, never ordered front)")
+    print("title                         plateX plateW contentX contentW inkX inkW centerΔ padL padR padΔ widthΔ inkL inkR")
     var failures: [String] = []
     var note = ""
     for requestedWidth in [900.0] as [CGFloat] {
@@ -339,21 +323,40 @@ func runToolbar() {
                 failures.append("\(item.label) @ \(requestedWidth): \(message)")
                 continue
             }
+            let inkWidth = r.titleInkMaxX - r.titleInkMinX
+            let centerDelta = abs((r.itemMinX + r.itemWidth / 2) - (r.titleInkMinX + inkWidth / 2))
+            let layoutLeft = r.contentMinX - r.itemMinX
+            let layoutRight = r.itemMaxX - (r.contentMinX + r.contentWidth)
+            let layoutPaddingDelta = abs(layoutLeft - layoutRight)
+            let widthDelta = abs(r.itemWidth - r.contentWidth)
+            let inkLeft = r.titleInkMinX - r.itemMinX
+            let inkRight = r.itemMaxX - r.titleInkMaxX
             let name = item.label.padding(toLength: 30, withPad: " ", startingAt: 0)
             print(String(
-                format: "%@ %8.0f %7.2f %7.2f %7.2f %7.2f %7.2f",
-                name, requestedWidth, r.windowWidth, r.itemMinX, r.itemWidth, r.itemMaxX, r.contentWidth
+                format: "%@ %6.2f %6.2f %8.2f %8.2f %5.2f %5.2f %6.2f %5.2f %5.2f %5.2f %6.2f %5.2f %5.2f",
+                name, r.itemMinX, r.itemWidth, r.contentMinX, r.contentWidth,
+                r.titleInkMinX, inkWidth, centerDelta, layoutLeft, layoutRight,
+                layoutPaddingDelta, widthDelta, inkLeft, inkRight
             ))
             if r.itemMinX < -0.5 || r.itemMaxX > r.windowWidth + 0.5 {
                 failures.append("\(item.label) @ \(requestedWidth): toolbar plate [\(r.itemMinX), \(r.itemMaxX)] exceeds window width \(r.windowWidth)")
             }
-            if item.title.count > 3 && r.contentWidth > limit + 80 {
-                failures.append("\(item.label) @ \(requestedWidth): title capsule content \(r.contentWidth) exceeds the width cap plus controls")
+            if centerDelta > 1.5 {
+                failures.append("\(item.label): text center differs from platter center by \(centerDelta) pt")
+            }
+            if layoutPaddingDelta > 1 {
+                failures.append("\(item.label): platter's left/right content inset differs by \(layoutPaddingDelta) pt")
+            }
+            if widthDelta > 2 {
+                failures.append("\(item.label): platter-content width difference is \(widthDelta) pt")
+            }
+            if inkWidth > limit + 0.5 {
+                failures.append("\(item.label): title ink width \(inkWidth) exceeds cap \(limit)")
             }
         }
     }
     if verbose { print("    \(note)") }
-    report(failures, pass: "every title capsule remains inside its actual toolbar window")
+    report(failures, pass: "title text is centered within the native toolbar platter")
 }
 
 @MainActor
@@ -366,10 +369,7 @@ func runNarrow() {
             let view = DocumentTitleCapsule(
                 title: item.title,
                 titleWidthLimit: limit,
-                backLabel: "返回",
-                backHint: "返回导图列表",
                 renameHint: "为这份导图重新命名",
-                onBack: {},
                 onRename: {}
             )
             guard let reading = measure(view, constrainedWidth: width) else {

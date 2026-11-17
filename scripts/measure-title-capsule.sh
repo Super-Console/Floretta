@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
-# Offscreen proof that the macOS leading navigation capsule hugs short titles
-# and keeps long titles within their width bounds.
+# Offscreen pixel proof that the macOS title-only toolbar capsule hugs short
+# titles, centers its text, and keeps long titles within their width bound.
 #
 # Usage (repo root):
 #   bash scripts/measure-title-capsule.sh            # shipped layout width
 #   bash scripts/measure-title-capsule.sh --narrow   # 280/240 pt width bounds
 #   bash scripts/measure-title-capsule.sh --toolbar  # real NSToolbar plate
 #
-# Nothing is launched, shown, or screenshotted: the probe renders the real
-# `DocumentTitleCapsule` (extracted verbatim from DocumentEditor.swift) in an
-# offscreen NSHostingView, never in an ordered-front window.
+# Nothing is launched or shown: the probe renders the real `DocumentTitleCapsule`
+# (extracted verbatim from DocumentEditor.swift) in an offscreen NSHostingView.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -46,10 +45,12 @@ bar = io.open(root + "/Floretta/Shared/Shell/EditorStatusBar.swift", encoding="u
 capsule = extract(editor, "private struct DocumentTitleCapsule: View {")
 capped = extract(bar, "struct CappedWidthLayout: Layout {")
 
-if "chevron.backward" not in capsule:
-    raise SystemExit("extracted the wrong declaration: no chevron in it")
-if not re.search(r"HStack\(spacing: Self\.gap\)", capsule):
-    raise SystemExit("the capsule no longer builds an HStack from one gap constant")
+if "chevron.backward" in capsule:
+    raise SystemExit("the title capsule must not contain the independent back button")
+if "CappedWidthLayout(maxWidth: titleWidthLimit)" not in capsule:
+    raise SystemExit("the title capsule no longer uses the product width cap")
+if ".fixedSize(horizontal: true, vertical: false)" not in capsule:
+    raise SystemExit("the title capsule no longer hugs its content")
 
 # The declaration is `private` inside DocumentEditor.swift; at file scope the
 # probe needs it without the access keyword. That is the only edit applied to

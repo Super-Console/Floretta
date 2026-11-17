@@ -30,6 +30,12 @@ public enum InspectorPanelStyle {
     public static let panelBackdropLightHex = "#F2F2F7"
     public static let panelBackdropDarkHex = "#1C1C1E"
 
+    /// The fixed header and the selected page are siblings. These values keep
+    /// the native segmented control below the window toolbar while ensuring the
+    /// Form's scroll viewport starts after it instead of scrolling behind it.
+    public static let headerTopInset: Double = 12
+    public static let headerPageSpacing: Double = 12
+
     public static let rowBlockCornerRadius: Double = 8
     public static let rowBlockHorizontalInset: Double = 10
     public static let rowBlockVerticalPadding: Double = 5

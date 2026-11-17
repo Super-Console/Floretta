@@ -9,22 +9,34 @@ final class AppleGlassChromeContractTests: XCTestCase {
         let header = try slice(editor, from: "private var inspectorHeader", until: "private var showsSheetDismissHandle")
         let picker = try slice(editor, from: "private var inspectorTabPicker", until: "@ViewBuilder\n    private var inspectorTabPage")
 
-        XCTAssertTrue(body.contains(".safeAreaInset(edge: .top"))
+        XCTAssertTrue(body.contains("VStack(spacing: CGFloat(InspectorPanelStyle.headerPageSpacing))"))
+        XCTAssertLessThan(
+            try XCTUnwrap(body.range(of: "inspectorHeader")).lowerBound,
+            try XCTUnwrap(body.range(of: "inspectorTabPage")).lowerBound,
+            "the stable native picker is a sibling above the scrolling page"
+        )
+        XCTAssertFalse(body.contains(".safeAreaInset(edge: .top"), "the page scroll viewport begins below the pinned header")
         XCTAssertTrue(body.contains(".frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)"))
         XCTAssertTrue(header.contains("inspectorTabPicker"))
         XCTAssertTrue(header.contains(".fixedSize(horizontal: false, vertical: true)"))
         XCTAssertTrue(header.contains(".frame(minHeight: 64)"), "the shared inspector header reserves height even when the selected page is empty")
+        XCTAssertTrue(body.contains(".padding(.top, CGFloat(InspectorPanelStyle.headerTopInset))"))
         XCTAssertTrue(picker.contains("Picker(text(\"检查器\"), selection: $inspectorTab)"))
         XCTAssertTrue(picker.contains(".pickerStyle(.segmented)"))
         XCTAssertFalse(header.contains("GlassEffectContainer"), "mode changes must not replace the native picker with positioned custom content")
         XCTAssertFalse(body.contains("overlay"), "selected mode is not redrawn as an overlay on the canvas")
     }
 
-    func testMacDocumentTitleAndBackButtonOccupyLeadingNavigationRegion() throws {
+    func testMacDocumentTitleAndBackButtonAreIndependentLeadingGlassItems() throws {
         let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         let leading = try slice(
             editor,
             from: "private var macToolbarItemsLeading",
+            until: "private var macToolbarItemsPrimary"
+        )
+        let title = try slice(
+            editor,
+            from: "private struct DocumentTitleCapsule",
             until: "private var macToolbarItemsPrimary"
         )
         let sharedToolbar = try slice(
@@ -36,12 +48,15 @@ final class AppleGlassChromeContractTests: XCTestCase {
         let leadingPosition = try XCTUnwrap(macToolbar.range(of: "macToolbarItemsLeading")).lowerBound
         let actionsPosition = try XCTUnwrap(macToolbar.range(of: "macToolbarItemsPrimary")).lowerBound
 
-        XCTAssertTrue(leading.contains("ToolbarItem(id: \"document.navigation\", placement: .navigation)"), "back and title share the leading navigation slot")
-        XCTAssertTrue(leading.contains("onBack: onClose"))
-        XCTAssertTrue(leading.contains("HStack(spacing: Self.gap)"), "the title and back glyph are one system capsule, not separate items")
-        XCTAssertFalse(leading.contains("backSlot"), "the leading capsule must not reserve an invisible trailing button")
-        XCTAssertTrue(leading.contains("document.title"))
-        XCTAssertFalse(leading.contains(".appleGlassChrome(.floatingPanel)"), "the leading capsule is system glass; the title must not stack a custom plate inside it")
+        XCTAssertTrue(leading.contains("ToolbarItem(id: \"document.back\", placement: .navigation)"))
+        XCTAssertTrue(leading.contains("ToolbarItem(id: \"document.title\", placement: .navigation)"))
+        XCTAssertTrue(leading.contains("Button(action: onClose)"))
+        XCTAssertTrue(leading.contains("DocumentTitleCapsule("))
+        XCTAssertFalse(leading.contains("HStack"), "the system draws two independent glass platters")
+        XCTAssertTrue(title.contains(".fixedSize(horizontal: true, vertical: false)"))
+        XCTAssertTrue(title.contains("CappedWidthLayout(maxWidth: titleWidthLimit)"))
+        XCTAssertTrue(title.contains(".accessibilityIdentifier(\"document.title\")"))
+        XCTAssertFalse(leading.contains(".appleGlassChrome(.floatingPanel)"), "toolbar items use system glass without a nested custom plate")
         XCTAssertTrue(sharedToolbar.contains("#if os(iOS)"))
         XCTAssertFalse(sharedToolbar.contains("leadingDocumentChrome"), "the old cancellationAction title/back capsule must not also be installed on macOS")
         XCTAssertLessThan(leadingPosition, actionsPosition)
@@ -301,12 +316,12 @@ final class AppleGlassChromeContractTests: XCTestCase {
         let outline = try repoFile("Floretta/Shared/Outline/OutlineView.swift")
         let glass = try repoFile("Floretta/Shared/Shell/AppleGlassChrome.swift")
 
-        let stack = try slice(editor, from: "private var canvasStack", until: "private var bottomBarRow")
-        let canvasPosition = try XCTUnwrap(stack.range(of: "InfiniteCanvas(")).lowerBound
-        let panelPosition = try XCTUnwrap(stack.range(of: "if showOutline")).lowerBound
+        let stack = try slice(editor, from: "private struct CanvasStackView", until: "private struct CanvasStageView")
+        let canvasPosition = try XCTUnwrap(stack.range(of: "CanvasStageView(editor: editor)")).lowerBound
+        let panelPosition = try XCTUnwrap(stack.range(of: "if editor.showOutline")).lowerBound
         XCTAssertLessThan(canvasPosition, panelPosition, "the outline is drawn above the canvas it covers")
 
-        let panel = try slice(editor, from: "if showOutline, session.zen.chrome.showsSidebar", until: ".overlay(alignment: .top)")
+        let panel = try slice(stack, from: "if editor.showOutline", until: ".animation(")
         XCTAssertTrue(panel.contains(".appleGlassChrome(.sidebarColumn)"))
         XCTAssertEqual(
             panel.components(separatedBy: ".appleGlassChrome(").count - 1,
@@ -373,7 +388,7 @@ final class AppleGlassChromeContractTests: XCTestCase {
 
         // A button over the canvas is not a toolbar item: the Zen exit keeps a
         // plate, and the bottom capsules keep theirs.
-        let zenExit = try slice(editor, from: ".overlay(alignment: .topTrailing)", until: ".onChange(of: regionDraftToken)")
+        let zenExit = try slice(editor, from: "private struct ZenExitOverlayView", until: "private var editorToolbar")
         XCTAssertTrue(zenExit.contains(".appleGlassChrome(.canvasFloatingButton)"))
         XCTAssertFalse(zenExit.contains(".appleGlassChrome(.toolbarFloatingButton)"))
         XCTAssertTrue(try repoFile("Floretta/Shared/Shell/EditorStatusBar.swift").contains(".appleGlassChrome(.bottomBarCapsule)"))
@@ -429,12 +444,8 @@ final class AppleGlassChromeContractTests: XCTestCase {
         // Zen exit is hidden by default and floats out only after a canvas tap;
         // the immersive canvas must not have a persistent chrome button.
         XCTAssertFalse(editor.contains("private var immersiveExit"))
-        let zenExit = try slice(
-            editor,
-            from: ".overlay(alignment: .topTrailing)",
-            until: ".onChange(of: regionDraftToken)"
-        )
-        XCTAssertTrue(zenExit.contains("if session.zen.isActive && isExitAffordanceRevealed"))
+        let zenExit = try slice(editor, from: "private struct ZenExitOverlayView", until: "private var editorToolbar")
+        XCTAssertTrue(zenExit.contains("if editor.session.zen.isActive && editor.isExitAffordanceRevealed"))
         XCTAssertTrue(zenExit.contains("accessibilityIdentifier(\"zen.exit\")"))
         XCTAssertTrue(zenExit.contains(".appleGlassChrome(.canvasFloatingButton)"))
 
@@ -555,10 +566,11 @@ final class AppleGlassChromeContractTests: XCTestCase {
 
         // The outline panel arrives from its own edge and fades, and the value
         // that drives it is the panel flag alone, so the canvas does not animate.
-        let stack = try slice(editor, from: "private var canvasStack", until: "private var bottomBarRow")
+        let stack = try slice(editor, from: "private struct CanvasStackView", until: "private struct CanvasStageView")
         XCTAssertTrue(stack.contains(".transition(.move(edge: .leading).combined(with: .opacity))"))
         XCTAssertTrue(
-            stack.contains(".animation(ChromeMotion.resolved(ChromeMotion.panel, reduceMotion: reduceMotion), value: showOutline)"),
+            stack.contains("ChromeMotion.resolved(ChromeMotion.panel, reduceMotion: editor.reduceMotion)")
+                && stack.contains("value: editor.showOutline"),
             "one value drives the panel transition"
         )
         XCTAssertFalse(stack.contains("withAnimation"), "no animation wraps a canvas redraw")

@@ -98,3 +98,59 @@
 - 修复后 macOS Release：`xcodebuild -scheme Floretta-macOS -configuration Release -destination 'generic/platform=macOS' ... CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY= build`，`BUILD SUCCEEDED`。第一次并行编译尝试出现 SwiftCompile 子命令报 exit code 0 但无输出；使用 `-jobs 1` 对同一 DerivedData 重跑成功。
 - 修复后 iOS Release：`xcodebuild -scheme Floretta-iOS -configuration Release -destination 'generic/platform=iOS' ... CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY= build`，`BUILD SUCCEEDED`。
 - 本段记录尚未完成 typing GUI 采样；base/current 英文与 Apple Pinyin 的 p50/p95 与每键样本数仍待取得。
+
+## 2026-11-17 阶段记录：英文字符采样完成，Apple Pinyin 受前台授权阻塞
+
+### 英文字符样本
+
+- 在 `Floretta Base Typing Probe.app`（base）与 `Floretta Current Typing Probe.app`（current）分别启动 12 节点 fixture，探针请求 `-FlorettaTextLatencySamples 60`。两个窗口均在副屏 x=2800；测试过程中通过窗口定向后台按键输入，逐键回读 AX 文本值。
+- 两份报告均为 60 个文本样本（`a/b/c` 各 20 个）及 1 个额外的 Enter 画布样本；`keyDowns=61`、`abandoned=0`。以下为 `keyDown`→`textSubmitted` 总时长，单位 ms：
+
+| 版本 | 字符 | n | p50 | p95 |
+|---|---:|---:|---:|---:|
+| base | a | 20 | 1.364 | 7.908 |
+| base | b | 20 | 1.404 | 2.130 |
+| base | c | 20 | 1.379 | 1.993 |
+| current | a | 20 | 1.442 | 8.835 |
+| current | b | 20 | 1.389 | 2.661 |
+| current | c | 20 | 1.425 | 2.151 |
+
+- 另有一个 n=1 的 `a` 链路冒烟样本，`keyDown`→`textSubmitted=10.410ms`；只证明探针链路有效，不纳入以上统计或作为性能结论。
+
+### Apple Pinyin 阻塞与资源状态
+
+- 在先前确认 Apple Pinyin 为选中输入源的情况下，对旧 smoke 窗口后台发送 `n`、`i`、Space，AX 回读结果为字母串 `ani`，没有 marked-text 组合或候选提交。因此这不是有效 Pinyin 样本，不能用于估算输入法延迟。
+- 为继续测 Pinyin 需要短暂将精确测试窗口置于前台。已尝试通过交互问询取得授权，但当前非交互会话拒绝了问询；没有前台输入授权，故未发送前台按键、未生成任何 Pinyin p50/p95，也未开始 BRIEF2。
+- 本轮 CUA 读取均使用 `include_screenshot:false`；未截图。三个测试进程均通过应用 Quit 菜单协作退出；随后 `ps` 无残留 PID，CUA 窗口列表为空，Chrome（PID 58150）仍为前台应用。GUI 操作只在副屏完成，主屏未被操作。
+- 两份测试副本暂留在 `~/Applications/Floretta Base Typing Probe.app` 与 `~/Applications/Floretta Current Typing Probe.app`，供获准后续测；未清理 DerivedData，未改源码，未新增提交、push 或 merge。探针代码改动仍未提交。
+
+## 2026-11-17 阶段记录：拼音候选 AX 核验受阻
+
+- 回读两份测试副本的 `Info.plist`：base/current bundle ID 分别为 `net.timhuang.floretta.base-typing-probe` 与 `net.timhuang.floretta.current-typing-probe`，版本 `1.0`、build `27`；两个可执行文件均含本轮 Pinyin 参数与 marked-text 报告字段。当前输入源只读回读为 `com.apple.keylayout.PinyinKeyboard`。
+- 以 base 副本及 `-FlorettaPinyinLatencySamples 30` 后台启动；CUA 抑制了自激活，窗口位于副屏 `x=2800`。AX 树只显示 `主题 0`，没有可聚焦文本编辑器或候选状态，因此本次无法形成 `ni` 组合来验证候选可见性。没有发送键盘输入、没有记录样本；所有窗口树读取均为 `include_screenshot:false`，未截图。
+- 通过原生应用菜单退出该实例；之后 `ps -p 98465` 无结果且 CUA 窗口列表为空。Chrome 仍是前台应用。
+- 发现默认输出 `/var/folders/p1/3pqx3j392m381v0g293m9rgc0000gn/T/floretta-key-latency.json` 已存在，包含 2026-11-16 的 61 个样本（含现有英文数据）。本轮没有写入或覆盖该文件；后续采样必须使用独立输出路径，不能复用此默认路径。
+- 需先获准对副屏测试窗口做一次真实 `ni` 输入及不保存截图的短暂视觉核验；若继续完整测量，还需在同一副屏测试流程中完成 base/current 各至少 30 个有效拼音样本。当前未新增提交或开始 BRIEF2。
+- 通过交互问询请求上述授权时，运行环境返回 `This non-interactive run cannot ask the user questions`；没有取得授权，故立即暂停前台输入、视觉核验与 Pinyin 采样，并发送授权受阻通知。未启动新的测试实例。
+- 本次探针启动额外生成隔离目录 `/var/folders/p1/3pqxj392m381v0g293m9rgc0000gn/T/FlorettaUITest-35377F7C-BBF4-4F8F-87F5-02F9F021DC4A`（约 24 KB，仅含测试用 `.floretta` 文档及导入 fixture）。已核对其内容与生成时间，未删除，等待清理授权。
+
+
+## 2026-11-17 阶段记录：Inspector 复核与原生窗口拖动 trace
+
+### Inspector 复核
+
+- 在副屏检查本地 Release 测试副本：Inspector 顶部切换区与页面内容分离；滚动后切换区保持固定，“内容外观 / 文字色”进入视口，无重叠或 toolbar 遮挡。此处记录的是前一阶段的实机观察；本续接阶段的 AX 状态读取使用 `include_screenshot:false`，没有新保存截图。
+
+### 原生窗口拖动帧数据
+
+- 有效 trace：`/private/var/folders/p1/3pqx3j392m381v0g293m9rgc0000gn/T/opencode/floretta-native-window-drag-attempt3-20261117.trace`，目标进程 PID `80635`，记录时长 `15.864s`（Animation Hitches 记录到 time limit 后结束）。窗口当时位于副屏，bounds 为 `x=2971, y=510, 960×680`；目标 surface 为 `Display 2 / surface 66`。
+- 以 trace 相对时间 `9.15–13.90s` 的目标 surface 帧作为活动段样本（覆盖该段全部 17 个 hitch，首末约 `9.213–13.854s`）：Frame Lifetime（事件到显示的整段生命周期）`n=105`，p50 `7.798ms`、p95 `27.540ms`、最大 `36.631ms`；相邻帧开始间隔 `n=104`，p50 `38.018ms`、p95 `108.339ms`、最大 `123.130ms`。p95 使用 nearest-rank。
+- 同一段记录到 17 个 hitch（16 个 app update、1 个 render），每个 hitch duration 为 `8.333ms`。`hitches-updates` 的 8 个非 sentinel app-update 样本 p50 `12.837ms`、p95/最大 `18.241ms`；最大样本起点约为 trace `9.742s`。
+- Main Thread 的 `runloop-events` 中，去除 `waiting_for_events` 的 `individual_iteration` 活跃时长 `n=549`，p50 `0.020ms`、p95 `0.103ms`、最大 `5.079ms`。Trace 没有直接导出“main-thread frame duration”字段；因此将 `5.079ms` 记作可直接归属主线程的最长非等待迭代，不把缺少线程 ID 的 `18.241ms` app-update 时长冒充主线程帧。
+- 导出表没有 CUA 鼠标按下/释放的精确时间戳；`9.15–13.90s` 是依据目标 surface 活动与该段 hitch 选取的窗口，不是逐次拖动的精确边界。以上数据可用于描述本次拖动 trace 活动段，不能据此断言覆盖了整段手势或基线/修复前后差异。
+
+### 拼音与资源收尾
+
+- 本续接阶段没有触发 Apple Pinyin 组合，也没有新增 Pinyin 或英文输入延迟样本；不能报告本轮输入延迟。可引用的英文基线仍是前文记录的 base/current 各 `a/b/c n=20` 数据。
+- 测试副本 PID `80635` 通过 CUA 后台执行 Quit；随后 `list_windows` 返回空、`list_apps` 回读 `running=false`。退出前窗口位于副屏。未启动模拟器或 `xcodebuild`，本阶段未改源码、未提交、未推送、未合并。
+- 新增测试副本与 trace/临时材料均保留，未清理；等待用户决定是否清理。

@@ -429,28 +429,56 @@ struct DocumentEditor: View {
     }
 
     private var editorCore: some View {
-        canvasStack
-        .scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
-        .navigationTitle("")
-        #if os(macOS)
-        .focusedSceneValue(\.florettaEditorCommands, editorMenuActions)
-        #endif
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
-        .modifier(MacEditorWindowTitle(title: ""))
-        .zenChrome(session.zen.chrome)
-        .overlay(alignment: .topTrailing) {
-            if session.zen.isActive && isExitAffordanceRevealed {
-                // The one control in immersive mode, so it has to be right: a
-                // 44pt glass circle with the glyph only. A text 退出全屏沉浸
-                // pill was the wrong size for a floating control and its label
-                // wrapped beside the canvas edge. The system capsule shape is
-                // the plate (no gradient, no shadow), and the button fades and
-                // scales in with the system spring instead of snapping on.
+        EditorCoreView(editor: self)
+    }
+
+    /// A named concrete boundary keeps the shell modifiers out of the canvas's
+    /// opaque result type. Release iOS used to encode this entire modifier chain
+    /// together with `canvasStack`, and the runtime crashed while demangling it.
+    private struct EditorCoreView: View {
+        var editor: DocumentEditor
+
+        var body: some View {
+            editor.canvasStack
+                .scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
+                .navigationTitle("")
+                #if os(macOS)
+                .focusedSceneValue(\.florettaEditorCommands, editor.editorMenuActions)
+                #endif
+                #if os(iOS)
+                .navigationBarTitleDisplayMode(.inline)
+                #endif
+                .modifier(MacEditorWindowTitle(title: ""))
+                .zenChrome(editor.session.zen.chrome)
+                .overlay(alignment: .topTrailing) {
+                    ZenExitOverlayView(editor: editor)
+                }
+                #if os(iOS)
+                .animation(editor.reduceMotion ? nil : .snappy, value: editor.isExitAffordanceRevealed)
+                #endif
+                .onChange(of: editor.session.zen.isActive) { _, isActive in
+                    if !isActive {
+                        editor.hideZenExitAffordance()
+                    }
+                }
+                .onChange(of: editor.regionDraftToken) { _, _ in
+                    editor.syncRegionDrafts()
+                }
+                .onChange(of: editor.regionMetric) { previous, _ in
+                    if let previous { editor.commitRegionMetric(previous) }
+                }
+        }
+    }
+
+    private struct ZenExitOverlayView: View {
+        var editor: DocumentEditor
+
+        var body: some View {
+            if editor.session.zen.isActive && editor.isExitAffordanceRevealed {
+                // One compact control is the only chrome in immersive mode.
                 Button {
-                    hideZenExitAffordance()
-                    session.exitZen()
+                    editor.hideZenExitAffordance()
+                    editor.session.exitZen()
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 15, weight: .semibold))
@@ -462,26 +490,12 @@ struct DocumentEditor: View {
                 }
                 .buttonStyle(.plain)
                 .appleGlassChrome(.canvasFloatingButton)
-                .accessibilityLabel(text("退出全屏沉浸"))
+                .accessibilityLabel(editor.text("退出全屏沉浸"))
                 .accessibilityIdentifier("zen.exit")
                 .transition(.opacity.combined(with: .scale(scale: 0.98)))
                 .padding(.top, 8)
                 .padding(.trailing, 12)
             }
-        }
-        #if os(iOS)
-        .animation(reduceMotion ? nil : .snappy, value: isExitAffordanceRevealed)
-        #endif
-        .onChange(of: session.zen.isActive) { _, isActive in
-            if !isActive {
-                hideZenExitAffordance()
-            }
-        }
-        .onChange(of: regionDraftToken) { _, _ in
-            syncRegionDrafts()
-        }
-        .onChange(of: regionMetric) { previous, _ in
-            if let previous { commitRegionMetric(previous) }
         }
     }
 
@@ -854,95 +868,108 @@ struct DocumentEditor: View {
     }
 
     private var canvasStack: some View {
-        ZStack(alignment: .leading) {
+        CanvasStackView(editor: self)
+    }
+
+    /// Concrete boundaries keep SwiftUI's canvas, outline, and notice generic
+    /// trees out of the `DocumentEditor.canvasStack` return type. The old
+    /// Release symbol was 746 bytes and crashed while the runtime demangled it.
+    private struct CanvasStackView: View {
+        var editor: DocumentEditor
+
+        var body: some View {
+            ZStack(alignment: .leading) {
+                CanvasStageView(editor: editor)
+                if editor.showOutline && editor.session.zen.chrome.showsSidebar {
+                    editor.outlinePanel
+                        .frame(width: editor.outlineFillsWidth ? nil : 300)
+                        .frame(maxWidth: editor.outlineFillsWidth ? .infinity : 300, maxHeight: .infinity)
+                        .appleGlassChrome(.sidebarColumn)
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                }
+            }
+            .animation(
+                ChromeMotion.resolved(ChromeMotion.panel, reduceMotion: editor.reduceMotion),
+                value: editor.showOutline
+            )
+            .overlay(alignment: .top) {
+                CanvasNoticesView(editor: editor)
+            }
+            .overlay(alignment: .bottom) {
+                editor.bottomBarRow
+            }
+        }
+    }
+
+    private struct CanvasStageView: View {
+        var editor: DocumentEditor
+
+        var body: some View {
             InfiniteCanvas(
-                document: session.activeCanvasDocument,
-                keyboard: $session.keyboard,
-                camera: camera,
-                clock: clock,
-                fontMetrics: fontMetrics,
-                focusNodeID: session.viewMode == .focus ? session.focusNodeID : nil,
-                zenActive: session.zen.isActive,
-                pointerMode: settings.pointerMode,
-                onEscape: { session.handleEscape() },
-                onConsumeBlankDoubleTap: { session.consumeBlankDoubleTap() },
-                thumbnails: thumbnails,
-                thumbnailCache: thumbnailCache,
-                attachmentArchive: session.url,
-                spillDirectory: thumbnailCache?.directory
+                document: editor.session.activeCanvasDocument,
+                keyboard: editor.$session.keyboard,
+                camera: editor.camera,
+                clock: editor.clock,
+                fontMetrics: editor.fontMetrics,
+                focusNodeID: editor.session.viewMode == .focus ? editor.session.focusNodeID : nil,
+                zenActive: editor.session.zen.isActive,
+                pointerMode: editor.settings.pointerMode,
+                onEscape: { editor.session.handleEscape() },
+                onConsumeBlankDoubleTap: { editor.session.consumeBlankDoubleTap() },
+                thumbnails: editor.thumbnails,
+                thumbnailCache: editor.thumbnailCache,
+                attachmentArchive: editor.session.url,
+                spillDirectory: editor.thumbnailCache?.directory
                     .deletingLastPathComponent()
                     .appendingPathComponent("spill", isDirectory: true),
-                attachmentEntries: session.attachmentCatalog.attachments,
+                attachmentEntries: editor.session.attachmentCatalog.attachments,
                 onPreviewFile: { nodeID, badge in
-                    previewFile(nodeID: nodeID, badge: badge)
+                    editor.previewFile(nodeID: nodeID, badge: badge)
                 },
-                audioPlayer: mediaPlayerKind == .audio ? mediaPlayer : nil,
-                audioNodeID: audioNodeID,
-                onDismissAudio: closeMediaPlayer,
-                tagFilter: session.tagFilter,
-                persistsPlacement: !session.isMarkdownDocument,
-                dictationToken: session.dictationToken,
-                dictationReplacesPlaceholder: session.dictationReplacesPlaceholder,
-                onChromeCommand: handleChromeCommand
+                audioPlayer: editor.mediaPlayerKind == .audio ? editor.mediaPlayer : nil,
+                audioNodeID: editor.audioNodeID,
+                onDismissAudio: editor.closeMediaPlayer,
+                tagFilter: editor.session.tagFilter,
+                persistsPlacement: !editor.session.isMarkdownDocument,
+                dictationToken: editor.session.dictationToken,
+                dictationReplacesPlaceholder: editor.session.dictationReplacesPlaceholder,
+                onChromeCommand: editor.handleChromeCommand
             )
             .ignoresSafeArea(edges: .all)
             .simultaneousGesture(
                 TapGesture().onEnded {
-                    guard session.zen.isActive else { return }
-                    revealZenExitAffordance()
+                    guard editor.session.zen.isActive else { return }
+                    editor.revealZenExitAffordance()
                 }
             )
-            // The outline is a panel, not a column of the window: it sits in
-            // this ZStack above `InfiniteCanvas`, so what it covers is canvas
-            // pixels. `sidebarColumn` samples window content (`.withinWindow`)
-            // for exactly that reason; sampling the window backdrop here is
-            // what made it read as a solid grey plate. One plate only: this
-            // modifier, plus `OutlineView` hiding its list's scroll
-            // background, so no second material is stacked on the glass.
-            //
-            // It arrives and leaves with the system's own motion: a short
-            // `.snappy` move from the leading edge plus a fade. The animation is
-            // attached to `showOutline` alone, so nothing in the canvas
-            // animates when the panel opens (the canvas frame does not change),
-            // and Reduce Motion drops the curve to nil.
-            if showOutline, session.zen.chrome.showsSidebar {
-                outlinePanel
-                    .frame(width: outlineFillsWidth ? nil : 300)
-                    .frame(maxWidth: outlineFillsWidth ? .infinity : 300, maxHeight: .infinity)
-                    .appleGlassChrome(.sidebarColumn)
-                    // Chrome, not canvas content: the panel slides in and fades
-                    // with the system's snappy spring instead of popping into
-                    // place. Reduce Motion drops the curve to nil, on both
-                    // platforms: the panel is shared chrome, not an iOS-only
-                    // surface.
-                    .transition(.move(edge: .leading).combined(with: .opacity))
-            }
         }
-        .animation(ChromeMotion.resolved(ChromeMotion.panel, reduceMotion: reduceMotion), value: showOutline)
-        .overlay(alignment: .top) {
-            if !session.zen.isActive {
+    }
+
+    private struct CanvasNoticesView: View {
+        var editor: DocumentEditor
+
+        @ViewBuilder
+        var body: some View {
+            if !editor.session.zen.isActive {
                 VStack(spacing: 8) {
-                    if session.markdownBannerVisible {
-                        markdownBanner
+                    if editor.session.markdownBannerVisible {
+                        editor.markdownBanner
                     }
-                    if let warning = session.visibleMarkdownWarning {
-                        markdownNotice(warning, identifier: "markdown.warning") {
-                            session.dismissMarkdownWarning()
+                    if let warning = editor.session.visibleMarkdownWarning {
+                        editor.markdownNotice(warning, identifier: "markdown.warning") {
+                            editor.session.dismissMarkdownWarning()
                         }
                     }
-                    if let blocked = session.blockedNotice {
-                        markdownNotice(blocked, identifier: "markdown.blocked") {
-                            session.dismissBlockedNotice()
+                    if let blocked = editor.session.blockedNotice {
+                        editor.markdownNotice(blocked, identifier: "markdown.blocked") {
+                            editor.session.dismissBlockedNotice()
                         }
                     }
-                    if session.tagFilter.isActive {
-                        tagFilterBanner
+                    if editor.session.tagFilter.isActive {
+                        editor.tagFilterBanner
                     }
                 }
             }
-        }
-        .overlay(alignment: .bottom) {
-            bottomBarRow
         }
     }
 
@@ -1413,55 +1440,84 @@ struct DocumentEditor: View {
     }
 
     private var outlinePanel: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 4) {
-                Text(verbatim: text("大纲")).font(.headline)
-                Spacer(minLength: 0)
-                // Apple's glass button, the same surface the window toolbar puts
-                // behind its own icons: the system draws the capsule, the press
-                // feedback and the hover state. No plate of our own is stacked
-                // inside it; the glyph keeps a 44pt target and swaps with the
-                // system's replace transition instead of hard-cutting.
-                Button {
-                    withOutlineMotion { outlineWide.toggle() }
-                } label: {
-                    outlineHeaderSymbol(outlineWide ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
-                        .contentTransition(.symbolEffect(.replace))
+        OutlinePanelView(editor: self)
+    }
+
+    private struct OutlinePanelView: View {
+        var editor: DocumentEditor
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: 0) {
+                OutlinePanelHeaderView(editor: editor)
+                if editor.session.isMarkdownDocument {
+                    Text(verbatim: editor.text(MarkdownModePolicy.reason(.collapse)))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 8)
+                        .accessibilityHint(editor.text(MarkdownModePolicy.reason(.collapse)))
                 }
-                .buttonStyle(.glass)
-                .controlSize(.small)
-                .explained("让大纲占满或恢复原来的宽度")
-                .accessibilityIdentifier("outline.wide")
-                Button {
-                    withOutlineMotion { showOutline = false }
-                } label: {
-                    outlineHeaderSymbol("xmark")
-                }
-                .buttonStyle(.glass)
-                .controlSize(.small)
-                .explained("关闭大纲")
-                .accessibilityIdentifier("outline.close")
+                OutlineView(
+                    document: editor.session.activeCanvasDocument,
+                    keyboard: editor.$session.keyboard,
+                    tagFilter: editor.session.tagFilter,
+                    locksCollapse: editor.session.isMarkdownDocument,
+                    onChromeCommand: editor.handleChromeCommand
+                )
             }
-            .animation(ChromeMotion.resolved(ChromeMotion.control, reduceMotion: reduceMotion), value: outlineWide)
+            .accessibilityIdentifier("editor.outline")
+        }
+    }
+
+    private struct OutlinePanelHeaderView: View {
+        var editor: DocumentEditor
+
+        var body: some View {
+            HStack(spacing: 4) {
+                Text(verbatim: editor.text("大纲")).font(.headline)
+                Spacer(minLength: 0)
+                OutlineWideButtonView(editor: editor)
+                OutlineCloseButtonView(editor: editor)
+            }
+            .animation(ChromeMotion.resolved(ChromeMotion.control, reduceMotion: editor.reduceMotion), value: editor.outlineWide)
             .padding(.horizontal, 12)
             .padding(.vertical, 4)
-            if session.isMarkdownDocument {
-                Text(verbatim: text(MarkdownModePolicy.reason(.collapse)))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 8)
-                    .accessibilityHint(text(MarkdownModePolicy.reason(.collapse)))
-            }
-            OutlineView(
-                document: session.activeCanvasDocument,
-                keyboard: $session.keyboard,
-                tagFilter: session.tagFilter,
-                locksCollapse: session.isMarkdownDocument,
-                onChromeCommand: handleChromeCommand
-            )
         }
-        .accessibilityIdentifier("editor.outline")
+    }
+
+    /// Apple's glass style owns the capsule, press feedback, and hover state;
+    /// the glyph only supplies its 44pt hit target and replace transition.
+    private struct OutlineWideButtonView: View {
+        var editor: DocumentEditor
+
+        var body: some View {
+            Button {
+                editor.withOutlineMotion { editor.outlineWide.toggle() }
+            } label: {
+                editor.outlineHeaderSymbol(editor.outlineWide ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.glass)
+            .controlSize(.small)
+            .explained("让大纲占满或恢复原来的宽度")
+            .accessibilityIdentifier("outline.wide")
+        }
+    }
+
+    private struct OutlineCloseButtonView: View {
+        var editor: DocumentEditor
+
+        var body: some View {
+            Button {
+                editor.withOutlineMotion { editor.showOutline = false }
+            } label: {
+                editor.outlineHeaderSymbol("xmark")
+            }
+            .buttonStyle(.glass)
+            .controlSize(.small)
+            .explained("关闭大纲")
+            .accessibilityIdentifier("outline.close")
+        }
     }
 
     /// A header control: a 15pt glyph in a 44pt square hit target.

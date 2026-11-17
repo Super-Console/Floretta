@@ -27,11 +27,16 @@ final class AppleGlassChromeContractTests: XCTestCase {
         XCTAssertFalse(body.contains("overlay"), "selected mode is not redrawn as an overlay on the canvas")
     }
 
-    func testMacDocumentTitleAndBackButtonOccupyLeadingNavigationRegion() throws {
+    func testMacDocumentTitleAndBackButtonAreIndependentLeadingGlassItems() throws {
         let editor = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         let leading = try slice(
             editor,
             from: "private var macToolbarItemsLeading",
+            until: "private var macToolbarItemsPrimary"
+        )
+        let title = try slice(
+            editor,
+            from: "private struct DocumentTitleCapsule",
             until: "private var macToolbarItemsPrimary"
         )
         let sharedToolbar = try slice(
@@ -43,12 +48,15 @@ final class AppleGlassChromeContractTests: XCTestCase {
         let leadingPosition = try XCTUnwrap(macToolbar.range(of: "macToolbarItemsLeading")).lowerBound
         let actionsPosition = try XCTUnwrap(macToolbar.range(of: "macToolbarItemsPrimary")).lowerBound
 
-        XCTAssertTrue(leading.contains("ToolbarItem(id: \"document.navigation\", placement: .navigation)"), "back and title share the leading navigation slot")
-        XCTAssertTrue(leading.contains("onBack: onClose"))
-        XCTAssertTrue(leading.contains("HStack(spacing: Self.gap)"), "the title and back glyph are one system capsule, not separate items")
-        XCTAssertFalse(leading.contains("backSlot"), "the leading capsule must not reserve an invisible trailing button")
-        XCTAssertTrue(leading.contains("document.title"))
-        XCTAssertFalse(leading.contains(".appleGlassChrome(.floatingPanel)"), "the leading capsule is system glass; the title must not stack a custom plate inside it")
+        XCTAssertTrue(leading.contains("ToolbarItem(id: \"document.back\", placement: .navigation)"))
+        XCTAssertTrue(leading.contains("ToolbarItem(id: \"document.title\", placement: .navigation)"))
+        XCTAssertTrue(leading.contains("Button(action: onClose)"))
+        XCTAssertTrue(leading.contains("DocumentTitleCapsule("))
+        XCTAssertFalse(leading.contains("HStack"), "the system draws two independent glass platters")
+        XCTAssertTrue(title.contains(".fixedSize(horizontal: true, vertical: false)"))
+        XCTAssertTrue(title.contains("CappedWidthLayout(maxWidth: titleWidthLimit)"))
+        XCTAssertTrue(title.contains(".accessibilityIdentifier(\"document.title\")"))
+        XCTAssertFalse(leading.contains(".appleGlassChrome(.floatingPanel)"), "toolbar items use system glass without a nested custom plate")
         XCTAssertTrue(sharedToolbar.contains("#if os(iOS)"))
         XCTAssertFalse(sharedToolbar.contains("leadingDocumentChrome"), "the old cancellationAction title/back capsule must not also be installed on macOS")
         XCTAssertLessThan(leadingPosition, actionsPosition)

@@ -212,68 +212,51 @@ struct DocumentEditor: View {
     }
 
     #if os(macOS)
-    /// The leading navigation capsule: the back control, the document name, and
-    /// an inert mirror of the back control. See `DocumentTitleCapsule`.
+    /// Two native navigation items: the back button and the independently
+    /// sized, editable document-title capsule.
     @ToolbarContentBuilder
     private var macToolbarItemsLeading: some CustomizableToolbarContent {
-        ToolbarItem(id: "document.navigation", placement: .navigation) {
+        ToolbarItem(id: "document.back", placement: .navigation) {
+            Button(action: onClose) {
+                Image(systemName: "chevron.backward")
+            }
+            .accessibilityLabel(Text(verbatim: text("返回")))
+            .accessibilityIdentifier("basicChain.back")
+            .help(Text(verbatim: text("返回导图列表")))
+        }
+        ToolbarItem(id: "document.title", placement: .navigation) {
             DocumentTitleCapsule(
                 title: macToolbarSnapshot.documentTitle,
                 titleWidthLimit: EditorStatusBarChrome.canvasTitleMaxWidth,
-                backLabel: text("返回"),
-                backHint: text("返回导图列表"),
                 renameHint: text("为这份导图重新命名"),
-                onBack: onClose,
                 onRename: beginRename
             )
         }
     }
 
-    /// The leading navigation capsule hugs its two controls. A former invisible
-    /// copy of the back button balanced the title, but also added a full button
-    /// and gap to every capsule — especially visible beside a short filename.
-    /// The title stays capped and middle-truncated so long filenames cannot
-    /// grow the item without bound or lose the `.floretta` extension.
+    /// The title is its own native toolbar item, so macOS supplies a separate
+    /// Liquid Glass platter beside the back button. The label hugs short names,
+    /// caps long names, and keeps middle truncation for the `.floretta` suffix.
     private struct DocumentTitleCapsule: View {
         var title: String
         var titleWidthLimit: CGFloat
-        var backLabel: String
-        var backHint: String
         var renameHint: String
-        var onBack: () -> Void
         var onRename: () -> Void
 
-        /// Gap between the three slots. Both gaps come from this one number, so
-        /// the name cannot end up off centre by a stray literal.
-        private static let gap: CGFloat = 8
-
         var body: some View {
-            HStack(spacing: Self.gap) {
-                backControl
-                Button(action: onRename) {
-                    CappedWidthLayout(maxWidth: titleWidthLimit) {
-                        Text(verbatim: title)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                    }
+            Button(action: onRename) {
+                CappedWidthLayout(maxWidth: titleWidthLimit) {
+                    Text(verbatim: title)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
                 }
-                .buttonStyle(.borderless)
-                .help(Text(verbatim: renameHint))
-                .accessibilityLabel(Text(verbatim: title))
-                .accessibilityHint(Text(verbatim: renameHint))
-                .accessibilityIdentifier("document.title")
             }
-        }
-
-        /// The back control. Its identifier and its 28 pt toolbar hit area are
-        /// the ones the UI tests already use; nothing here resizes it.
-        private var backControl: some View {
-            Button(action: onBack) {
-                Image(systemName: "chevron.backward")
-            }
-            .accessibilityLabel(Text(verbatim: backLabel))
-            .accessibilityIdentifier("basicChain.back")
-            .help(Text(verbatim: backHint))
+            .buttonStyle(.borderless)
+            .fixedSize(horizontal: true, vertical: false)
+            .help(Text(verbatim: renameHint))
+            .accessibilityLabel(Text(verbatim: title))
+            .accessibilityHint(Text(verbatim: renameHint))
+            .accessibilityIdentifier("document.title")
         }
     }
 

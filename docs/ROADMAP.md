@@ -4,9 +4,9 @@
 
 ## 本轮
 
-- 本轮进度：`perf/typing-lag` 完成 C（`dc5be98`）与 D（`bc61d6d`）；E/F/I/J 的既有契约测试通过 32/32。全量 `swift test` 为 606 tests / 1 skipped / 0 failures；unsigned macOS arm64 build 成功。详见 `logs/2026-11/zoom-queued.md`。未 push、未 merge。
-- 下一步：G/H 的检查器展开与窗口缩放 GUI 帧率测量，须等 Timmy 确认 Mac 已解锁并通知负责 GUI 验收的 Hermes；随后仅在副屏进行。按批准范围处理两份 probe app 和 fixture 的清理。
-- 阻塞：当前续作没有 Mac 已解锁确认，故未进行 CUA、G/H 仍未测；Apple Pinyin 继续标记 `BLOCKED/UNMEASURED`。两份 probe app 与 fixture 尚未清理，等待用户确认清理清单。
+- 本轮进度：`perf/typing-lag` 工作区已将 macOS 返回与标题拆为两个独立 `.navigation` 工具栏项，并更新标题布局契约；全量 `swift test` 为 609 tests / 1 skipped / 0 failures。离屏 `NSToolbar` 测量通过布局门槛，原始数值见 `logs/2026-11/fix-mac-titlebar.md`。未提交或推送。
+- 下一步：取得可用的正常签名构建后，在副屏验收短标题、长标题、空标题及 hover/pressed 宽度稳定性；不使用旧 DerivedData App。
+- 阻塞：`Floretta-macOS` 依赖 Share 与两个 Quick Look 扩展；此前签名在 Share 扩展报 `errSecInternalComponent`（exit 65）。不禁用签名，当前源码的 GUI 像素验收尚未完成；8 个离屏探针临时目录等待用户决定是否清理。
 
 状态词只用：✅ 已交付 / 🚧 进行中(PR#) / ❌ 缺失 / ⛔ 不做(原因)。证据列只写已存在的 PR、提交、路径或已核验的时间。不得用 ✅ 掩盖未收口项。
 

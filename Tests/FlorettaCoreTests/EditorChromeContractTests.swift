@@ -1,41 +1,47 @@
 import FlorettaCore
 import XCTest
 
-/// Locks editor chrome alongside the UI test: the back glyph and the editable
-/// filename share one leading Mac navigation capsule (system glass only, no
-/// custom plate stacked inside it), the name does not reserve an invisible
-/// balancing control, and the iOS control is a stock toolbar item. The hit area
-/// itself is `EditorBackButtonHitAreaTests`.
+/// Locks editor chrome alongside the UI test: the Mac back button and editable
+/// filename are separate leading toolbar items (each gets its own system glass
+/// platter), the title hugs its content, and the iOS control is a stock toolbar
+/// item. The hit area itself is `EditorBackButtonHitAreaTests`.
 final class EditorChromeContractTests: XCTestCase {
-    /// Short titles hug the back control, name, and their one gap. Long titles
-    /// stay middle-truncated within the width cap. The offscreen AppKit probe
-    /// checks the rendered width and the actual NSToolbar item's window bounds.
-    func testMacTitleCapsuleHugsShortTitlesAndCapsLongTitles() throws {
+    /// Short titles hug their own capsule; long titles stay middle-truncated
+    /// within the width cap. The offscreen AppKit probe measures the rendered
+    /// title and the actual NSToolbar platter.
+    func testMacBackAndTitleAreSeparateHuggingToolbarItems() throws {
         let source = try repoFile("Floretta/Shared/Shell/DocumentEditor.swift")
         let leading = try slice(
             source,
             from: "private var macToolbarItemsLeading",
-            until: "private struct DocumentTitleCapsule"
+            until: "private var macToolbarItemsPrimary"
         )
         let capsule = try slice(
             source,
             from: "private struct DocumentTitleCapsule",
             until: "private var macToolbarItemsPrimary"
         )
-        XCTAssertTrue(leading.contains("ToolbarItem(id: \"document.navigation\", placement: .navigation)"), "back and title share the leading navigation slot")
-        XCTAssertTrue(leading.contains("DocumentTitleCapsule("), "the one item draws the capsule type")
+        XCTAssertTrue(leading.contains("ToolbarItem(id: \"document.back\", placement: .navigation)"))
+        XCTAssertTrue(leading.contains("ToolbarItem(id: \"document.title\", placement: .navigation)"))
+        XCTAssertLessThan(
+            try XCTUnwrap(leading.range(of: "document.back")).lowerBound,
+            try XCTUnwrap(leading.range(of: "document.title")).lowerBound,
+            "the independent title platter follows the back button"
+        )
+        XCTAssertTrue(leading.contains("DocumentTitleCapsule("), "the title item draws the capsule type")
         XCTAssertTrue(leading.contains("title: macToolbarSnapshot.documentTitle"))
-        XCTAssertTrue(leading.contains("onBack: onClose"))
-        XCTAssertFalse(leading.contains("HStack"), "the row lives in the capsule type: one item, one plate")
+        XCTAssertTrue(leading.contains("Button(action: onClose)"), "the back button remains independently actionable")
+        XCTAssertFalse(leading.contains("HStack"), "the two controls are separate toolbar items, not one grouped platter")
 
-        XCTAssertTrue(capsule.contains("chevron.backward"))
-        XCTAssertTrue(capsule.contains("\"basicChain.back\""))
+        XCTAssertFalse(capsule.contains("chevron.backward"), "the title capsule contains no back control")
         XCTAssertTrue(capsule.contains("\"document.title\""), "the rename control keeps its accessibility identifier")
-        XCTAssertTrue(capsule.contains("HStack(spacing: Self.gap)"), "the control gap comes from the one constant")
-        XCTAssertFalse(capsule.contains("backSlot"), "an invisible mirror made short-title capsules unnecessarily wide")
         XCTAssertTrue(capsule.contains("CappedWidthLayout(maxWidth: titleWidthLimit)"), "the title respects the available width and the cap")
         XCTAssertTrue(capsule.contains(".truncationMode(.middle)"), "the .floretta extension survives")
         XCTAssertTrue(capsule.contains(".lineLimit(1)"), "a long title stays on one line")
+        XCTAssertTrue(capsule.contains(".fixedSize(horizontal: true, vertical: false)"), "the platter hugs short title content")
+        XCTAssertFalse(capsule.contains(".onHover("), "hover must not change title layout")
+        XCTAssertFalse(capsule.contains("isPressed"), "press feedback must not change title layout")
+        XCTAssertTrue(source.contains("session.document.title.isEmpty ? \"未命名\" : session.document.title"), "an empty document title displays the centered placeholder")
         XCTAssertFalse(capsule.contains(".frame(width:"), "no fixed-width placeholder may stretch the capsule")
         XCTAssertFalse(leading.contains(".appleGlassChrome(.floatingPanel)"), "no custom glass plate may be nested inside the system navigation capsule")
         XCTAssertTrue(source.contains(".modifier(MacEditorWindowTitle(title: \"\"))"))
@@ -73,7 +79,8 @@ final class EditorChromeContractTests: XCTestCase {
             "hiding the shared background is what left the filename as bare text"
         )
         XCTAssertTrue(ios.contains("\"document.title\""))
-        XCTAssertTrue(source.contains("ToolbarItem(id: \"document.navigation\", placement: .navigation)"))
+        XCTAssertTrue(source.contains("ToolbarItem(id: \"document.back\", placement: .navigation)"))
+        XCTAssertTrue(source.contains("ToolbarItem(id: \"document.title\", placement: .navigation)"))
     }
 
     /// ④ 2026-11-16: the iPhone filename is wrapped in a capsule.

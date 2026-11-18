@@ -7,6 +7,71 @@ import AppKit
 
 @MainActor
 final class CanvasTests: XCTestCase {
+    func testPerfMeasure500NodeSingleLayoutAndHitTest() throws {
+        let fixture = try perfFixtureData()
+        let package = try ZipContainer().read(data: fixture)
+        let document = package.document
+        XCTAssertEqual(document.topicCount, 500)
+        let point = CGPoint.zero
+        let clock = ContinuousClock()
+        let iterations = 20
+        var elapsed = Duration.zero
+        var frameCount = 0
+        for _ in 0..<iterations {
+            let start = clock.now
+            let frames = LayoutEngine().layout(document)
+            _ = CanvasPlacement.nodeID(at: point, in: document)
+            elapsed += start.duration(to: clock.now)
+            frameCount = frames.count
+        }
+        let average = elapsed / iterations
+        let seconds = Double(average.components.seconds) + Double(average.components.attoseconds) / 1e18
+        print("PERF_500_SINGLE_LAYOUT_HITTEST iterations=\(iterations) nodes=\(frameCount) average_seconds=\(seconds) converted_cpu_fps=\(1 / seconds)")
+        XCTAssertEqual(frameCount, 500)
+    }
+
+    func testPerfMeasure1000NodeDecodeAndLayoutPreparation() throws {
+        let fixture = try perfFixtureData()
+        let base = try ZipContainer().read(data: fixture).document
+        XCTAssertEqual(base.topicCount, 500)
+        let duplicate = base.roots.map(Self.cloneWithFreshIDs)
+        var thousand = base
+        thousand.roots.append(contentsOf: duplicate)
+        thousand.freeNodes.append(contentsOf: base.freeNodes.map(Self.cloneWithFreshIDs))
+        XCTAssertEqual(thousand.topicCount, 1_000)
+        let encoded = try FlorettaCodec.encode(thousand)
+        let clock = ContinuousClock()
+        let iterations = 5
+        var elapsed = Duration.zero
+        var topicCount = 0
+        var frameCount = 0
+        for _ in 0..<iterations {
+            let start = clock.now
+            let decoded = try FlorettaCodec.decode(encoded)
+            topicCount = decoded.topicCount
+            frameCount = LayoutEngine().layout(decoded).count
+            elapsed += start.duration(to: clock.now)
+        }
+        let average = elapsed / iterations
+        let seconds = Double(average.components.seconds) + Double(average.components.attoseconds) / 1e18
+        print("PERF_1000_DECODE_LAYOUT_PREP iterations=\(iterations) document_nodes=\(topicCount) layout_frames=\(frameCount) average_seconds=\(seconds)")
+        XCTAssertEqual(topicCount, 1_000)
+    }
+
+    private func perfFixtureData() throws -> Data {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        return try Data(contentsOf: root.appendingPathComponent("docs/reviews/perf-fixtures/canvas-perf-500.floretta"))
+    }
+
+    private static func cloneWithFreshIDs(_ node: MindMapNode) -> MindMapNode {
+        var copy = node
+        copy.id = UUID()
+        copy.children = node.children.map(cloneWithFreshIDs)
+        return copy
+    }
+
     func testPanAndZoomKeepThePointerAnchor() {
         var viewport = CanvasViewport()
         viewport.pan(by: CGSize(width: 10, height: -4))
